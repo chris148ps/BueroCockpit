@@ -306,6 +306,20 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
     }
 
+    public void UpdateAttachmentThumbnail(string attachmentId, string thumbnailPath)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE Attachments
+            SET ThumbnailPath = $thumbnailPath
+            WHERE Id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", attachmentId);
+        command.Parameters.AddWithValue("$thumbnailPath", thumbnailPath);
+        command.ExecuteNonQuery();
+    }
+
     private SqliteConnection OpenConnection()
     {
         var connection = new SqliteConnection(_connectionString);

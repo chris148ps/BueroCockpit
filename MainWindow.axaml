@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:BueroCockpit.Converters"
         x:Class="BueroCockpit.MainWindow"
         x:CompileBindings="False"
         Width="1280"
@@ -8,6 +9,10 @@
         MinHeight="680"
         Background="#F5F5F7"
         Title="BueroCockpit">
+  <Window.Resources>
+    <converters:ThumbnailImageConverter x:Key="ThumbnailImageConverter" />
+  </Window.Resources>
+
   <Window.Styles>
     <Style Selector="TextBlock">
       <Setter Property="Foreground" Value="#1D1D1F" />
@@ -211,16 +216,25 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Border Classes="Card" Margin="0,0,0,8" Padding="12">
-                  <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="10">
-                    <Border Width="48" Height="48" CornerRadius="10" Background="#F2F3F5">
-                      <TextBlock Text="{Binding FileTypeBadge}"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="SemiBold"
-                                 Foreground="#6E6E73" />
+                  <Grid ColumnDefinitions="170,*,Auto" ColumnSpacing="12">
+                    <Border Width="160" Height="110" CornerRadius="10" Background="#F2F3F5" ClipToBounds="True">
+                      <Grid>
+                        <Image IsVisible="{Binding HasThumbnail}"
+                               Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                        <TextBlock IsVisible="{Binding HasNoThumbnail}"
+                                   Text="{Binding FileTypeBadge}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Foreground="#6E6E73" />
+                      </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                       <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding FileTypeBadge}" Foreground="#6E6E73" FontSize="12" Margin="0,4,0,0" />
                       <TextBlock Text="{Binding StoredPath}" Foreground="#86868B" FontSize="11" TextWrapping="Wrap" />
                     </StackPanel>
                     <Button Grid.Column="2" Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />

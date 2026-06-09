@@ -6,12 +6,14 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using BueroCockpit.Data;
 using BueroCockpit.Models;
+using BueroCockpit.Services;
 
 namespace BueroCockpit;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly BueroRepository _repository = new();
+    private readonly ThumbnailService _thumbnailService = new();
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
     private CategoryItem? _selectedTaskCategory;
@@ -206,6 +208,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var item in _repository.GetAttachments(SelectedTask.Id))
             {
+                EnsureAttachmentThumbnail(item);
                 Attachments.Add(item);
             }
         }
@@ -365,6 +368,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AddedAt = DateTime.Now
         };
 
+        EnsureAttachmentThumbnail(attachment);
         _repository.SaveAttachment(attachment);
         Attachments.Insert(0, attachment);
     }
@@ -401,6 +405,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _repository.SaveMaterial(item);
         }
+    }
+
+    private void EnsureAttachmentThumbnail(AttachmentItem attachment)
+    {
+        var thumbnailPath = _thumbnailService.EnsureThumbnail(attachment);
+        if (string.IsNullOrWhiteSpace(thumbnailPath) || thumbnailPath == attachment.ThumbnailPath)
+        {
+            return;
+        }
+
+        attachment.ThumbnailPath = thumbnailPath;
+        _repository.UpdateAttachmentThumbnail(attachment.Id, thumbnailPath);
     }
 
     private static string CreateStoredFileName(string originalName)
