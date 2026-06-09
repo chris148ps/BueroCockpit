@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using BueroCockpit.Models;
+using PDFtoImage;
 
 namespace BueroCockpit.Services;
 
@@ -10,6 +11,7 @@ public sealed class ThumbnailService
 {
     private const int ThumbnailWidth = 160;
     private const int ThumbnailHeight = 110;
+    private const int PdfPreviewWidth = 420;
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
@@ -73,9 +75,26 @@ public sealed class ThumbnailService
 
     private static string? EnsurePdfThumbnail(AttachmentItem attachment)
     {
-        // Kept separate so a robust cross-platform PDF renderer can be added without touching image thumbnails.
-        Debug.WriteLine($"PDF thumbnail rendering is not implemented yet for '{attachment.StoredPath}'.");
-        return IsCurrent(attachment.StoredPath, attachment.ThumbnailPath) ? attachment.ThumbnailPath : null;
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
+        {
+            return IsCurrent(attachment.StoredPath, attachment.ThumbnailPath) ? attachment.ThumbnailPath : null;
+        }
+
+        var thumbnailPath = GetThumbnailPath(attachment);
+        if (IsCurrent(attachment.StoredPath, thumbnailPath))
+        {
+            return thumbnailPath;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(thumbnailPath)!);
+        Conversion.SavePng(
+            thumbnailPath,
+            File.ReadAllBytes(attachment.StoredPath),
+            new Index(0),
+            password: null,
+            options: new PDFtoImage.RenderOptions { Width = PdfPreviewWidth, WithAspectRatio = true });
+        File.SetLastWriteTimeUtc(thumbnailPath, File.GetLastWriteTimeUtc(attachment.StoredPath));
+        return thumbnailPath;
     }
 
     private static bool IsCurrent(string sourcePath, string? thumbnailPath)

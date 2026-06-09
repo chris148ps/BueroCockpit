@@ -17,6 +17,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
     private CategoryItem? _selectedTaskCategory;
+    private AttachmentItem? _selectedAttachment;
     private string _taskListCaption = "0 Aufgaben";
     private bool _isLoadingSelection;
 
@@ -120,6 +121,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool HasSelectedTask => SelectedTask is not null;
 
+    public AttachmentItem? SelectedAttachment
+    {
+        get => _selectedAttachment;
+        set
+        {
+            if (_selectedAttachment == value)
+            {
+                return;
+            }
+
+            if (_selectedAttachment is not null)
+            {
+                _selectedAttachment.IsSelected = false;
+            }
+
+            _selectedAttachment = value;
+            if (_selectedAttachment is not null)
+            {
+                EnsureAttachmentThumbnail(_selectedAttachment);
+                _selectedAttachment.IsSelected = true;
+            }
+
+            OnPropertyChanged(nameof(SelectedAttachment));
+            OnPropertyChanged(nameof(HasSelectedAttachment));
+            OnPropertyChanged(nameof(PreviewImagePath));
+            OnPropertyChanged(nameof(HasPreviewImage));
+            OnPropertyChanged(nameof(HasPreviewPlaceholder));
+        }
+    }
+
+    public bool HasSelectedAttachment => SelectedAttachment is not null;
+    public string PreviewImagePath => SelectedAttachment?.ThumbnailPath ?? string.Empty;
+    public bool HasPreviewImage => !string.IsNullOrWhiteSpace(PreviewImagePath) && File.Exists(PreviewImagePath);
+    public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
+
     public string TaskListCaption
     {
         get => _taskListCaption;
@@ -196,6 +232,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isLoadingSelection = true;
         Materials.Clear();
         Attachments.Clear();
+        SelectedAttachment = null;
 
         if (SelectedTask is not null)
         {
@@ -371,11 +408,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         EnsureAttachmentThumbnail(attachment);
         _repository.SaveAttachment(attachment);
         Attachments.Insert(0, attachment);
+        SelectAttachment(attachment);
     }
 
     private void OpenAttachment_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: AttachmentItem item } || !File.Exists(item.StoredPath))
+        if (sender is not Button { Tag: AttachmentItem item })
+        {
+            return;
+        }
+
+        SelectAttachment(item);
+        OpenAttachmentExternal(item);
+    }
+
+    private void OpenSelectedAttachmentExternal_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedAttachment is not null)
+        {
+            OpenAttachmentExternal(SelectedAttachment);
+        }
+    }
+
+    private void AttachmentCard_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (sender is Avalonia.StyledElement { DataContext: AttachmentItem item })
+        {
+            SelectAttachment(item);
+        }
+    }
+
+    private void SelectAttachment(AttachmentItem item)
+    {
+        SelectedAttachment = item;
+    }
+
+    private static void OpenAttachmentExternal(AttachmentItem item)
+    {
+        if (!File.Exists(item.StoredPath))
         {
             return;
         }
