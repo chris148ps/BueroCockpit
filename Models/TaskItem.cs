@@ -12,6 +12,7 @@ public sealed class TaskItem : ObservableObject
     private DateTime? _followUpDate;
     private string _assignedTo = string.Empty;
     private DateTime? _completedAt;
+    private bool _isSelected;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get => _title; set => SetProperty(ref _title, value); }
@@ -26,7 +27,21 @@ public sealed class TaskItem : ObservableObject
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetProperty(ref _isSelected, value))
+            {
+                OnPropertyChanged(nameof(CardBackground));
+                OnPropertyChanged(nameof(CardBorderBrush));
+            }
+        }
+    }
 
     public string DueDateText => DueDate?.ToString("dd.MM.yyyy") ?? "-";
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
+    public string CardBackground => IsSelected ? "#EEF5FF" : "#FFFFFF";
+    public string CardBorderBrush => IsSelected ? "#7CB7FF" : "#E0E0E5";
 }

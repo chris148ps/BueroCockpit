@@ -43,7 +43,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
+            if (_selectedCategory is not null)
+            {
+                _selectedCategory.IsSelected = false;
+            }
+
             _selectedCategory = value;
+            if (_selectedCategory is not null)
+            {
+                _selectedCategory.IsSelected = true;
+            }
+
             OnPropertyChanged(nameof(SelectedCategory));
             RefreshVisibleTasks();
         }
@@ -60,7 +70,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             SaveCurrentMaterials();
+            if (_selectedTask is not null)
+            {
+                _selectedTask.IsSelected = false;
+            }
+
             _selectedTask = value;
+            if (_selectedTask is not null)
+            {
+                _selectedTask.IsSelected = true;
+            }
+
             OnPropertyChanged(nameof(SelectedTask));
             OnPropertyChanged(nameof(HasSelectedTask));
             LoadTaskDetails();
@@ -428,6 +448,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             OpenAttachmentExternal(SelectedAttachment);
         }
+    }
+
+    private void ClosePreview_OnClick(object? sender, RoutedEventArgs e)
+    {
+        SelectedAttachment = null;
     }
 
     private void AttachmentCard_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
