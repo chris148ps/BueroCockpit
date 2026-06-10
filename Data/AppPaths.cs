@@ -7,6 +7,8 @@ public static class AppPaths
         "BueroCockpit");
 
     public static string DatabasePath => Path.Combine(AppDataDirectory, "buerocockpit.db");
+    public static string TasksDirectory => Path.Combine(AppDataDirectory, "Tasks");
+    public static string BackupDirectory => Path.Combine(AppDataDirectory, "Backups");
 
     public static string GetAttachmentDirectory(string taskId)
     {
@@ -16,5 +18,7 @@ public static class AppPaths
     public static void EnsureBaseDirectories()
     {
         Directory.CreateDirectory(AppDataDirectory);
+        Directory.CreateDirectory(TasksDirectory);
+        Directory.CreateDirectory(BackupDirectory);
     }
 }

@@ -12,8 +12,12 @@ namespace BueroCockpit;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
+    private const string OverviewCategoryName = "Übersicht";
+    private const string SettingsCategoryId = "__settings";
+    private const string SettingsCategoryName = "Einstellungen";
     private readonly BueroRepository _repository = new();
     private readonly ThumbnailService _thumbnailService = new();
+    private readonly BackupService _backupService = new();
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
     private CategoryItem? _selectedTaskCategory;
@@ -22,11 +26,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _searchText = string.Empty;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
+    private string _backupStatus = "Noch kein Backup erstellt.";
+    private string _lastBackupPath = string.Empty;
+    private string _lastBackupTime = string.Empty;
     private bool _isLoadingSelection;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<CategoryItem> Categories { get; } = new();
+    public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
     public ObservableCollection<TaskItem> VisibleTasks { get; } = new();
     public ObservableCollection<MaterialItem> Materials { get; } = new();
@@ -60,12 +68,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             OnPropertyChanged(nameof(SelectedCategory));
             OnPropertyChanged(nameof(IsOverviewSelected));
+            OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
             CategoryMessage = string.Empty;
             if (IsOverviewSelected)
             {
                 ShowOverview();
+            }
+            else if (IsSettingsSelected)
+            {
+                ShowSettings();
             }
             else
             {
@@ -155,9 +168,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasSelectedTask => SelectedTask is not null;
-    public bool IsOverviewSelected => SelectedCategory?.Name == "Übersicht";
-    public bool IsTaskAreaVisible => !IsOverviewSelected;
+    public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
+    public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
+    public bool IsTaskAreaVisible => !IsOverviewSelected && !IsSettingsSelected;
     public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
+    public string AppDataDirectory => AppPaths.AppDataDirectory;
+    public string DatabasePath => AppPaths.DatabasePath;
+    public string TasksDirectory => AppPaths.TasksDirectory;
+    public string BackupDirectory => AppPaths.BackupDirectory;
 
     public AttachmentItem? SelectedAttachment
     {
@@ -239,6 +257,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasCategoryMessage => !string.IsNullOrWhiteSpace(CategoryMessage);
+    public string BackupStatus
+    {
+        get => _backupStatus;
+        set
+        {
+            if (_backupStatus != value)
+            {
+                _backupStatus = value;
+                OnPropertyChanged(nameof(BackupStatus));
+            }
+        }
+    }
+
+    public string LastBackupPath
+    {
+        get => _lastBackupPath;
+        set
+        {
+            if (_lastBackupPath != value)
+            {
+                _lastBackupPath = value;
+                OnPropertyChanged(nameof(LastBackupPath));
+                OnPropertyChanged(nameof(HasLastBackup));
+            }
+        }
+    }
+
+    public string LastBackupTime
+    {
+        get => _lastBackupTime;
+        set
+        {
+            if (_lastBackupTime != value)
+            {
+                _lastBackupTime = value;
+                OnPropertyChanged(nameof(LastBackupTime));
+                OnPropertyChanged(nameof(HasLastBackup));
+            }
+        }
+    }
+
+    public bool HasLastBackup => !string.IsNullOrWhiteSpace(LastBackupPath);
 
     public string TaskListCaption
     {
@@ -269,6 +329,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Categories.Add(category);
         }
+        Categories.Add(CreateSettingsCategory());
+        RefreshTaskCategories();
 
         AllTasks.Clear();
         foreach (var task in _repository.GetTasks())
@@ -277,7 +339,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         UpdateCategoryCounts();
-        SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Übersicht") ?? Categories.FirstOrDefault();
+        SelectedCategory = Categories.FirstOrDefault(c => c.Name == OverviewCategoryName) ?? Categories.FirstOrDefault();
     }
 
     private void RefreshVisibleTasks()
@@ -320,6 +382,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TaskListCaption = "Tagesübersicht";
         SearchText = string.Empty;
         RefreshDashboard();
+    }
+
+    private void ShowSettings()
+    {
+        ClearSelectedTask();
+        VisibleTasks.Clear();
+        TaskListCaption = "Einstellungen";
+        SearchText = string.Empty;
     }
 
     private void ClearSelectedTask()
@@ -386,6 +456,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             category.TaskCount = category.Name == "Übersicht"
                 ? AllTasks.Count
+                : category.Id == SettingsCategoryId
+                    ? 0
                 : AllTasks.Count(t => t.CategoryId == category.Id);
         }
     }
@@ -426,7 +498,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void NewTask_OnClick(object? sender, RoutedEventArgs e)
     {
-        var category = SelectedCategory?.Name == "Übersicht" ? Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") : SelectedCategory;
+        var category = IsOverviewSelected || IsSettingsSelected ? Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") : SelectedCategory;
         category ??= Categories.FirstOrDefault();
         if (category is null)
         {
@@ -648,7 +720,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         _repository.SaveCategory(category);
-        Categories.Add(category);
+        InsertBeforeSettings(category);
+        RefreshTaskCategories();
         SelectedCategory = category;
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie angelegt.";
@@ -656,7 +729,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RenameCategory_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedCategory is null || SelectedCategory.Name == "Übersicht")
+        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
         {
             CategoryMessage = "Diese Kategorie kann nicht umbenannt werden.";
             return;
@@ -671,13 +744,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SelectedCategory.Name = name;
         _repository.SaveCategory(SelectedCategory);
+        RefreshTaskCategories();
         OnPropertyChanged(nameof(SelectedCategory));
         CategoryMessage = "Kategorie umbenannt.";
     }
 
     private void HideCategory_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedCategory is null || SelectedCategory.Name == "Übersicht")
+        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
         {
             CategoryMessage = "Diese Kategorie kann nicht ausgeblendet werden.";
             return;
@@ -692,6 +766,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var category = SelectedCategory;
         _repository.HideCategory(category.Id);
         Categories.Remove(category);
+        RefreshTaskCategories();
         SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") ?? Categories.FirstOrDefault();
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie ausgeblendet.";
@@ -800,6 +875,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void OpenDataFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        OpenFolder(AppPaths.AppDataDirectory);
+    }
+
+    private void OpenBackupFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        OpenFolder(AppPaths.BackupDirectory);
+    }
+
+    private void CreateBackup_OnClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = _backupService.CreateBackup();
+            LastBackupPath = result.BackupPath;
+            LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+            BackupStatus = result.SkippedFiles == 0
+                ? "Backup wurde erstellt."
+                : $"Backup wurde erstellt. {result.SkippedFiles} Datei(en) konnten nicht gelesen werden.";
+        }
+        catch (Exception ex)
+        {
+            BackupStatus = "Backup konnte nicht erstellt werden.";
+            Debug.WriteLine($"Backup failed: {ex}");
+        }
+    }
+
     private static void OpenAttachmentExternal(AttachmentItem item)
     {
         if (!File.Exists(item.StoredPath))
@@ -880,6 +983,66 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool Contains(string? value, string query)
     {
         return value?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private void RefreshTaskCategories()
+    {
+        TaskCategories.Clear();
+        foreach (var category in Categories.Where(category => !IsSpecialCategory(category)))
+        {
+            TaskCategories.Add(category);
+        }
+    }
+
+    private static CategoryItem CreateSettingsCategory()
+    {
+        return new CategoryItem
+        {
+            Id = SettingsCategoryId,
+            Name = SettingsCategoryName,
+            SortOrder = int.MaxValue,
+            Color = "#F2F3F5",
+            IsVisible = true
+        };
+    }
+
+    private void InsertBeforeSettings(CategoryItem category)
+    {
+        var settingsIndex = Categories.ToList().FindIndex(item => item.Id == SettingsCategoryId);
+        if (settingsIndex >= 0)
+        {
+            Categories.Insert(settingsIndex, category);
+        }
+        else
+        {
+            Categories.Add(category);
+        }
+    }
+
+    private static bool IsSpecialCategory(CategoryItem category)
+    {
+        return category.Id == SettingsCategoryId || category.Name == OverviewCategoryName;
+    }
+
+    private void OpenFolder(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            };
+            process.Start();
+            BackupStatus = $"Ordner geöffnet: {path}";
+        }
+        catch (Exception ex)
+        {
+            BackupStatus = $"Ordner konnte nicht geöffnet werden: {path}";
+            Debug.WriteLine($"Could not open folder '{path}': {ex}");
+        }
     }
 
     private void ApplySelectedTaskStatusRules()

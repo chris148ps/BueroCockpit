@@ -272,6 +272,56 @@
       </ScrollViewer>
     </Border>
 
+    <Border Grid.Column="1"
+            Grid.ColumnSpan="2"
+            Padding="26"
+            Background="#F5F5F7"
+            IsVisible="{Binding IsSettingsSelected}">
+      <ScrollViewer>
+        <StackPanel Spacing="18">
+          <StackPanel>
+            <TextBlock Text="Einstellungen" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="Datenspeicher und lokale Sicherungen" Foreground="#6E6E73" Margin="0,5,0,0" />
+          </StackPanel>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Datenordner" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Text="App-Datenordner" Foreground="#86868B" FontSize="12" />
+              <TextBlock Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
+              <TextBlock Text="Datenbank" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="{Binding DatabasePath}" TextWrapping="Wrap" />
+              <TextBlock Text="Aufgaben-/Anhangsordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="{Binding TasksDirectory}" TextWrapping="Wrap" />
+              <TextBlock Text="Backup-Ordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="{Binding BackupDirectory}" TextWrapping="Wrap" />
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
+                <Button Content="Datenordner öffnen" Click="OpenDataFolder_OnClick" />
+                <Button Grid.Column="1" Content="Backup-Ordner öffnen" Click="OpenBackupFolder_OnClick" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Backup" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Backup erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
+              </Grid>
+              <TextBlock Text="{Binding BackupStatus}" Foreground="#38383D" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}"
+                         IsVisible="{Binding HasLastBackup}"
+                         Foreground="#6E6E73" />
+              <TextBlock Text="{Binding LastBackupPath}"
+                         IsVisible="{Binding HasLastBackup}"
+                         Foreground="#6E6E73"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
     <Border Grid.Column="1" Padding="20" Background="#F5F5F7" IsVisible="{Binding IsTaskAreaVisible}">
       <DockPanel LastChildFill="True">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
@@ -347,7 +397,7 @@
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Kategorie" />
             <TextBlock Grid.Row="0" Grid.Column="1" Text="Status" />
             <ComboBox Grid.Row="1" Grid.Column="0"
-                      ItemsSource="{Binding Categories}"
+                      ItemsSource="{Binding TaskCategories}"
                       SelectedItem="{Binding SelectedTaskCategory}">
               <ComboBox.ItemTemplate>
                 <DataTemplate>

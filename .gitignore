@@ -480,3 +480,13 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# BueroCockpit local app data
+*.db
+*.db-shm
+*.db-wal
+Backups/
+Tasks/
+AppData/
+Daten/
+Testdaten/
