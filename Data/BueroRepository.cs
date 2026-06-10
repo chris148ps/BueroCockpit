@@ -71,6 +71,21 @@ public sealed class BueroRepository
             );
             """);
 
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS AttachmentEditSessions (
+                Id TEXT PRIMARY KEY,
+                AttachmentId TEXT NOT NULL,
+                TaskId TEXT NOT NULL,
+                ExportPath TEXT NOT NULL,
+                BackupPath TEXT NULL,
+                ExportedAt TEXT NOT NULL,
+                OriginalHashAtExport TEXT NOT NULL,
+                ExportedFileHashAtExport TEXT NOT NULL,
+                Status TEXT NOT NULL,
+                ImportedAt TEXT NULL
+            );
+            """);
+
         SeedDefaultCategories(connection);
     }
 
@@ -376,6 +391,59 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
     }
 
+    public AttachmentEditSession? GetLatestEditSessionForAttachment(string attachmentId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Id, AttachmentId, TaskId, ExportPath, BackupPath, ExportedAt,
+                   OriginalHashAtExport, ExportedFileHashAtExport, Status, ImportedAt
+            FROM AttachmentEditSessions
+            WHERE AttachmentId = $attachmentId
+            ORDER BY ExportedAt DESC
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$attachmentId", attachmentId);
+
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadAttachmentEditSession(reader) : null;
+    }
+
+    public void SaveAttachmentEditSession(AttachmentEditSession session)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO AttachmentEditSessions (
+                Id, AttachmentId, TaskId, ExportPath, BackupPath, ExportedAt,
+                OriginalHashAtExport, ExportedFileHashAtExport, Status, ImportedAt)
+            VALUES (
+                $id, $attachmentId, $taskId, $exportPath, $backupPath, $exportedAt,
+                $originalHashAtExport, $exportedFileHashAtExport, $status, $importedAt)
+            ON CONFLICT(Id) DO UPDATE SET
+                AttachmentId = excluded.AttachmentId,
+                TaskId = excluded.TaskId,
+                ExportPath = excluded.ExportPath,
+                BackupPath = excluded.BackupPath,
+                ExportedAt = excluded.ExportedAt,
+                OriginalHashAtExport = excluded.OriginalHashAtExport,
+                ExportedFileHashAtExport = excluded.ExportedFileHashAtExport,
+                Status = excluded.Status,
+                ImportedAt = excluded.ImportedAt;
+            """;
+        command.Parameters.AddWithValue("$id", session.Id);
+        command.Parameters.AddWithValue("$attachmentId", session.AttachmentId);
+        command.Parameters.AddWithValue("$taskId", session.TaskId);
+        command.Parameters.AddWithValue("$exportPath", session.ExportPath);
+        command.Parameters.AddWithValue("$backupPath", (object?)session.BackupPath ?? DBNull.Value);
+        command.Parameters.AddWithValue("$exportedAt", ToDb(session.ExportedAt));
+        command.Parameters.AddWithValue("$originalHashAtExport", session.OriginalHashAtExport);
+        command.Parameters.AddWithValue("$exportedFileHashAtExport", session.ExportedFileHashAtExport);
+        command.Parameters.AddWithValue("$status", session.Status);
+        command.Parameters.AddWithValue("$importedAt", ToDb(session.ImportedAt));
+        command.ExecuteNonQuery();
+    }
+
     private SqliteConnection OpenConnection()
     {
         var connection = new SqliteConnection(_connectionString);
@@ -460,5 +528,22 @@ public sealed class BueroRepository
     private static DateTime ReadDate(string value)
     {
         return DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
+    }
+
+    private static AttachmentEditSession ReadAttachmentEditSession(SqliteDataReader reader)
+    {
+        return new AttachmentEditSession
+        {
+            Id = reader.GetString(0),
+            AttachmentId = reader.GetString(1),
+            TaskId = reader.GetString(2),
+            ExportPath = reader.GetString(3),
+            BackupPath = reader.IsDBNull(4) ? null : reader.GetString(4),
+            ExportedAt = ReadDate(reader.GetString(5)),
+            OriginalHashAtExport = reader.GetString(6),
+            ExportedFileHashAtExport = reader.GetString(7),
+            Status = reader.GetString(8),
+            ImportedAt = ReadNullableDate(reader, 9)
+        };
     }
 }

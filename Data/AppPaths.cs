@@ -7,12 +7,18 @@ public static class AppPaths
         "BueroCockpit");
 
     public static string DatabasePath => Path.Combine(AppDataDirectory, "buerocockpit.db");
+    public static string SettingsPath => Path.Combine(AppDataDirectory, "settings.json");
     public static string TasksDirectory => Path.Combine(AppDataDirectory, "Tasks");
     public static string BackupDirectory => Path.Combine(AppDataDirectory, "Backups");
 
     public static string GetAttachmentDirectory(string taskId)
     {
         return Path.Combine(AppDataDirectory, "Tasks", taskId, "Attachments");
+    }
+
+    public static string GetAttachmentBackupDirectory(string taskId)
+    {
+        return Path.Combine(AppDataDirectory, "Tasks", taskId, "AttachmentBackups");
     }
 
     public static void EnsureBaseDirectories()

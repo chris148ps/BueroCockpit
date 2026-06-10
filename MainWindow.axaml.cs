@@ -18,10 +18,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly BueroRepository _repository = new();
     private readonly ThumbnailService _thumbnailService = new();
     private readonly BackupService _backupService = new();
+    private readonly AppSettingsService _settingsService = new();
+    private readonly FileHashService _hashService = new();
+    private AppSettings _appSettings = new();
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
     private CategoryItem? _selectedTaskCategory;
     private AttachmentItem? _selectedAttachment;
+    private AttachmentEditSession? _selectedAttachmentEditSession;
     private string _taskListCaption = "0 Aufgaben";
     private string _searchText = string.Empty;
     private string _categoryEditorName = string.Empty;
@@ -29,6 +33,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _backupStatus = "Noch kein Backup erstellt.";
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
+    private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
@@ -199,6 +204,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _selectedAttachment.IsSelected = true;
             }
 
+            LoadSelectedAttachmentEditSession();
             OnPropertyChanged(nameof(SelectedAttachment));
             OnPropertyChanged(nameof(HasSelectedAttachment));
             OnPropertyChanged(nameof(PreviewImagePath));
@@ -212,6 +218,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasPreviewImage => !string.IsNullOrWhiteSpace(PreviewImagePath) && File.Exists(PreviewImagePath);
     public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
     public bool HasNoMaterials => Materials.Count == 0;
+    public string OneDriveEditDirectory => _appSettings.OneDriveEditDirectory;
+    public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
+    public bool HasNoOneDriveEditDirectory => !HasOneDriveEditDirectory;
+    public string AttachmentEditStatus
+    {
+        get => _attachmentEditStatus;
+        set
+        {
+            if (_attachmentEditStatus != value)
+            {
+                _attachmentEditStatus = value;
+                OnPropertyChanged(nameof(AttachmentEditStatus));
+                OnPropertyChanged(nameof(HasAttachmentEditStatus));
+            }
+        }
+    }
+
+    public bool HasAttachmentEditStatus => !string.IsNullOrWhiteSpace(AttachmentEditStatus);
+    public bool CanImportAttachmentEdit =>
+        _selectedAttachmentEditSession?.Status is "Changed" or "Conflict" &&
+        SelectedAttachment is not null;
 
     public string SearchText
     {
@@ -316,6 +343,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow()
     {
         InitializeComponent();
+        _appSettings = _settingsService.Load();
         DataContext = this;
 
         _repository.Initialize();
@@ -885,6 +913,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OpenFolder(AppPaths.BackupDirectory);
     }
 
+    private async void SelectOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            BackupStatus = "Ordnerauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "OneDrive-Bearbeitungsordner auswählen",
+            AllowMultiple = false
+        });
+
+        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return;
+        }
+
+        _appSettings.OneDriveEditDirectory = folderPath;
+        _settingsService.Save(_appSettings);
+        OnPropertyChanged(nameof(OneDriveEditDirectory));
+        OnPropertyChanged(nameof(HasOneDriveEditDirectory));
+        OnPropertyChanged(nameof(HasNoOneDriveEditDirectory));
+        BackupStatus = $"OneDrive-Bearbeitungsordner gesetzt: {folderPath}";
+    }
+
+    private void OpenOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!HasOneDriveEditDirectory)
+        {
+            BackupStatus = "Noch kein OneDrive-Bearbeitungsordner gewählt.";
+            return;
+        }
+
+        OpenFolder(OneDriveEditDirectory);
+    }
+
     private void CreateBackup_OnClick(object? sender, RoutedEventArgs e)
     {
         try
@@ -900,6 +968,185 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             BackupStatus = "Backup konnte nicht erstellt werden.";
             Debug.WriteLine($"Backup failed: {ex}");
+        }
+    }
+
+    private void ExportAttachmentForIpad_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedAttachment is null)
+        {
+            return;
+        }
+
+        if (!HasOneDriveEditDirectory)
+        {
+            AttachmentEditStatus = "Noch kein OneDrive-Bearbeitungsordner gewählt.";
+            return;
+        }
+
+        if (!File.Exists(SelectedAttachment.StoredPath))
+        {
+            AttachmentEditStatus = "Die gespeicherte Anhangdatei wurde nicht gefunden.";
+            return;
+        }
+
+        var originalHash = _hashService.ComputeSha256(SelectedAttachment.StoredPath);
+        if (string.IsNullOrWhiteSpace(originalHash))
+        {
+            AttachmentEditStatus = "Die Anhangdatei konnte nicht gelesen werden.";
+            return;
+        }
+
+        try
+        {
+            var task = SelectedTask ?? AllTasks.FirstOrDefault(item => item.Id == SelectedAttachment.TaskId);
+            var folderName = SanitizeFileName($"{task?.CustomerName}_{task?.Title}_{SelectedAttachment.TaskId}");
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                folderName = SelectedAttachment.TaskId;
+            }
+
+            var exportDirectory = Path.Combine(OneDriveEditDirectory, folderName);
+            Directory.CreateDirectory(exportDirectory);
+            var exportPath = CreateUniquePath(exportDirectory, SelectedAttachment.FileName);
+            File.Copy(SelectedAttachment.StoredPath, exportPath, overwrite: false);
+
+            var exportedHash = _hashService.ComputeSha256(exportPath);
+            if (string.IsNullOrWhiteSpace(exportedHash))
+            {
+                AttachmentEditStatus = "Die bereitgestellte Datei konnte nicht geprüft werden.";
+                TryDeleteFile(exportPath);
+                return;
+            }
+
+            var session = new AttachmentEditSession
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                AttachmentId = SelectedAttachment.Id,
+                TaskId = SelectedAttachment.TaskId,
+                ExportPath = exportPath,
+                ExportedAt = DateTime.Now,
+                OriginalHashAtExport = originalHash,
+                ExportedFileHashAtExport = exportedHash,
+                Status = "Exported"
+            };
+            _repository.SaveAttachmentEditSession(session);
+            SetSelectedAttachmentEditSession(session, $"Für iPad bereitgestellt: {exportPath}");
+        }
+        catch (Exception ex)
+        {
+            AttachmentEditStatus = "Anhang konnte nicht für iPad bereitgestellt werden.";
+            Debug.WriteLine($"Attachment export failed: {ex}");
+        }
+    }
+
+    private void CheckIpadChanges_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedAttachment is null)
+        {
+            return;
+        }
+
+        var session = _selectedAttachmentEditSession ?? _repository.GetLatestEditSessionForAttachment(SelectedAttachment.Id);
+        if (session is null)
+        {
+            AttachmentEditStatus = "Noch nicht für iPad bereitgestellt.";
+            UpdateImportAvailability();
+            return;
+        }
+
+        if (!File.Exists(session.ExportPath))
+        {
+            session.Status = "Missing";
+            _repository.SaveAttachmentEditSession(session);
+            SetSelectedAttachmentEditSession(session, "Die bereitgestellte iPad-Datei wurde nicht gefunden.");
+            return;
+        }
+
+        var exportedHash = _hashService.ComputeSha256(session.ExportPath);
+        if (string.IsNullOrWhiteSpace(exportedHash))
+        {
+            AttachmentEditStatus = "Die iPad-Datei konnte nicht gelesen werden.";
+            UpdateImportAvailability();
+            return;
+        }
+
+        if (exportedHash == session.ExportedFileHashAtExport)
+        {
+            session.Status = "Exported";
+            _repository.SaveAttachmentEditSession(session);
+            SetSelectedAttachmentEditSession(session, "Keine Änderung gefunden.");
+            return;
+        }
+
+        var currentOriginalHash = _hashService.ComputeSha256(SelectedAttachment.StoredPath);
+        var hasConflict = !string.IsNullOrWhiteSpace(currentOriginalHash) &&
+                          currentOriginalHash != session.OriginalHashAtExport;
+        session.Status = hasConflict ? "Conflict" : "Changed";
+        _repository.SaveAttachmentEditSession(session);
+
+        var message = hasConflict
+            ? "Original und iPad-Datei wurden beide geändert. Beim Übernehmen wird die aktuelle Originaldatei vorher gesichert."
+            : "Änderung gefunden. Die Bearbeitung kann übernommen werden.";
+        SetSelectedAttachmentEditSession(session, message);
+    }
+
+    private void ImportIpadChanges_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedAttachment is null || _selectedAttachmentEditSession is null)
+        {
+            return;
+        }
+
+        var session = _selectedAttachmentEditSession;
+        if (session.Status is not ("Changed" or "Conflict"))
+        {
+            AttachmentEditStatus = "Keine geänderte iPad-Datei zum Übernehmen vorhanden.";
+            UpdateImportAvailability();
+            return;
+        }
+
+        if (!File.Exists(session.ExportPath))
+        {
+            session.Status = "Missing";
+            _repository.SaveAttachmentEditSession(session);
+            SetSelectedAttachmentEditSession(session, "Die bereitgestellte iPad-Datei wurde nicht gefunden.");
+            return;
+        }
+
+        try
+        {
+            var backupDirectory = AppPaths.GetAttachmentBackupDirectory(SelectedAttachment.TaskId);
+            Directory.CreateDirectory(backupDirectory);
+            var backupPath = CreateBackupPath(backupDirectory, SelectedAttachment.FileName);
+
+            if (File.Exists(SelectedAttachment.StoredPath))
+            {
+                File.Copy(SelectedAttachment.StoredPath, backupPath, overwrite: false);
+                session.BackupPath = backupPath;
+            }
+
+            File.Copy(session.ExportPath, SelectedAttachment.StoredPath, overwrite: true);
+            TryDeleteFile(SelectedAttachment.ThumbnailPath);
+            SelectedAttachment.ThumbnailPath = string.Empty;
+            OnPropertyChanged(nameof(PreviewImagePath));
+            OnPropertyChanged(nameof(HasPreviewImage));
+            OnPropertyChanged(nameof(HasPreviewPlaceholder));
+
+            EnsureAttachmentThumbnail(SelectedAttachment);
+            session.Status = "Imported";
+            session.ImportedAt = DateTime.Now;
+            _repository.SaveAttachmentEditSession(session);
+            SetSelectedAttachmentEditSession(session, "iPad-Bearbeitung übernommen. Alte Version wurde gesichert.");
+            OnPropertyChanged(nameof(PreviewImagePath));
+            OnPropertyChanged(nameof(HasPreviewImage));
+            OnPropertyChanged(nameof(HasPreviewPlaceholder));
+        }
+        catch (Exception ex)
+        {
+            AttachmentEditStatus = "iPad-Bearbeitung konnte nicht übernommen werden.";
+            Debug.WriteLine($"Attachment import failed: {ex}");
+            UpdateImportAvailability();
         }
     }
 
@@ -1022,6 +1269,100 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool IsSpecialCategory(CategoryItem category)
     {
         return category.Id == SettingsCategoryId || category.Name == OverviewCategoryName;
+    }
+
+    private void LoadSelectedAttachmentEditSession()
+    {
+        _selectedAttachmentEditSession = SelectedAttachment is null
+            ? null
+            : _repository.GetLatestEditSessionForAttachment(SelectedAttachment.Id);
+
+        AttachmentEditStatus = _selectedAttachmentEditSession is null
+            ? string.Empty
+            : GetAttachmentEditSessionStatusText(_selectedAttachmentEditSession);
+        UpdateImportAvailability();
+    }
+
+    private void SetSelectedAttachmentEditSession(AttachmentEditSession session, string status)
+    {
+        _selectedAttachmentEditSession = session;
+        AttachmentEditStatus = status;
+        UpdateImportAvailability();
+    }
+
+    private void UpdateImportAvailability()
+    {
+        OnPropertyChanged(nameof(CanImportAttachmentEdit));
+    }
+
+    private static string GetAttachmentEditSessionStatusText(AttachmentEditSession session)
+    {
+        return session.Status switch
+        {
+            "Exported" => $"Für iPad bereitgestellt: {session.ExportPath}",
+            "Changed" => "Änderung gefunden. Die Bearbeitung kann übernommen werden.",
+            "Imported" => session.ImportedAt is null
+                ? "iPad-Bearbeitung wurde übernommen."
+                : $"iPad-Bearbeitung übernommen am {session.ImportedAt:dd.MM.yyyy HH:mm}.",
+            "Missing" => "Die bereitgestellte iPad-Datei wurde nicht gefunden.",
+            "Conflict" => "Original und iPad-Datei wurden beide geändert. Beim Übernehmen wird die aktuelle Originaldatei vorher gesichert.",
+            _ => string.Empty
+        };
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var cleaned = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        foreach (var invalidChar in Path.GetInvalidFileNameChars())
+        {
+            cleaned = cleaned.Replace(invalidChar, '_');
+        }
+
+        cleaned = cleaned.Replace(Path.DirectorySeparatorChar, '_')
+            .Replace(Path.AltDirectorySeparatorChar, '_');
+
+        return cleaned.Length <= 90 ? cleaned : cleaned[..90];
+    }
+
+    private static string CreateUniquePath(string directory, string fileName)
+    {
+        var safeFileName = SanitizeFileName(fileName);
+        if (string.IsNullOrWhiteSpace(safeFileName))
+        {
+            safeFileName = $"Anhang_{Guid.NewGuid():N}";
+        }
+
+        var candidate = Path.Combine(directory, safeFileName);
+        if (!File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        var extension = Path.GetExtension(safeFileName);
+        var stem = Path.GetFileNameWithoutExtension(safeFileName);
+        for (var i = 1; i < 1000; i++)
+        {
+            candidate = Path.Combine(directory, $"{stem}_{i}{extension}");
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return Path.Combine(directory, $"{stem}_{Guid.NewGuid():N}{extension}");
+    }
+
+    private static string CreateBackupPath(string directory, string fileName)
+    {
+        var extension = Path.GetExtension(fileName);
+        var stem = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
+        if (string.IsNullOrWhiteSpace(stem))
+        {
+            stem = "Anhang";
+        }
+
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        return CreateUniquePath(directory, $"{stem}_vor_iPad_{timestamp}{extension}");
     }
 
     private void OpenFolder(string path)
