@@ -50,6 +50,8 @@ Das Skript prüft die Version, verlangt einen sauberen Git-Arbeitsbaum, setzt di
 
 Es erstellt bewusst keine Git-Tags, pusht nichts und veröffentlicht keinen GitHub Release. Releases sollen nur aus getesteten Ständen erstellt werden.
 
+Wichtig: `release.sh` ändert die Versionsfelder in `BueroCockpit.csproj`. Diese Änderung ist nach erfolgreicher Prüfung commitfähig, wird aber nicht automatisch committed.
+
 ## Auto-Update vorbereiten
 
 Die Auto-Update-Grundlage ist mit Velopack vorbereitet. Die App initialisiert Velopack beim Start und zeigt unter `Einstellungen` den Update-Status an.
@@ -77,6 +79,60 @@ Diese Dateien sind lokale Release-Artefakte und werden nicht ins Git eingecheckt
 Auto-Update über GitHub Releases funktioniert ohne Zusatzlogik nur sauber, wenn die Release-Dateien für die App erreichbar sind. Für private Repositories braucht man später eine sichere Zugriffslösung oder einen anderen Download-Ort.
 
 Echtdaten liegen im AppData-Ordner und werden durch Updates nicht überschrieben.
+
+## Release mit Auto-Update-Artefakten vorbereiten
+
+Der GitHub-Release-Kanal wird manuell vorbereitet. Es wird kein Release automatisch erstellt und es werden keine Artefakte automatisch hochgeladen.
+
+Empfohlener Ablauf:
+
+```bash
+./scripts/release.sh 0.2.0
+```
+
+Das Skript setzt die Projektversion, baut Windows x64 und Windows ARM64, erstellt ZIP-Pakete und erzeugt die lokalen Velopack-Artefakte.
+
+Falls der Inno-Setup-Installer ebenfalls Teil des Releases sein soll, diesen anschließend auf Windows bauen:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-installer-windows.ps1
+```
+
+Release-Artefakte prüfen:
+
+```bash
+./scripts/check-release-artifacts.sh
+```
+
+Für einen späteren GitHub Release werden diese Artefakte benötigt:
+
+```text
+publish/installer/BueroCockpitSetup.exe
+publish/velopack/win-x64/*
+publish/velopack/win-arm64/*
+```
+
+Optional können zusätzlich die ZIP-Pakete angehängt werden:
+
+```text
+publish/BueroCockpit-windows-x64.zip
+publish/BueroCockpit-windows-arm64.zip
+```
+
+Der GitHub Release wird später bewusst manuell erstellt. Beispiel, nicht automatisch ausführen:
+
+```bash
+gh release create v0.2.0 \
+  --title "BüroCockpit 0.2.0" \
+  --notes "Neue Version von BüroCockpit." \
+  publish/BueroCockpit-windows-x64.zip \
+  publish/BueroCockpit-windows-arm64.zip \
+  publish/installer/BueroCockpitSetup.exe \
+  publish/velopack/win-x64/* \
+  publish/velopack/win-arm64/*
+```
+
+Die App kann Updates erst finden, wenn der Updatekanal in den Einstellungen auf den veröffentlichten Release-/Feed-Ort zeigt. Es gibt keine fest verdrahtete GitHub-URL und keine Tokens im Code.
 
 ## Lokaler Auto-Update-Test
 

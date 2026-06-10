@@ -45,9 +45,24 @@ update_or_insert_property "FileVersion" "$ASSEMBLY_VERSION"
 dotnet build
 ./scripts/publish-windows.sh
 ./scripts/package-windows.sh
+./scripts/package-velopack-windows.sh
 
 echo
 echo "Release vorbereitet für Version $VERSION"
+echo
+echo "Erzeugte/relevante Artefakte:"
+echo "- ZIP-Pakete:"
+echo "  publish/BueroCockpit-windows-x64.zip"
+echo "  publish/BueroCockpit-windows-arm64.zip"
+echo "- Inno-Installer, falls auf Windows gebaut:"
+echo "  publish/installer/BueroCockpitSetup.exe"
+echo "- Velopack x64:"
+echo "  publish/velopack/win-x64/"
+echo "- Velopack ARM64:"
+echo "  publish/velopack/win-arm64/"
+echo
+echo "Artefakte prüfen:"
+echo "./scripts/check-release-artifacts.sh"
 echo
 echo "Nächste manuelle Schritte:"
 echo "git status"
@@ -56,8 +71,14 @@ echo "git commit -m \"Release $VERSION vorbereiten\""
 echo "git tag v$VERSION"
 echo "git push origin main"
 echo "git push origin v$VERSION"
-echo "# Nach dem Publish Velopack-Pakete erzeugen:"
-echo "./scripts/package-velopack-windows.sh"
-echo "# Die erzeugten Artefakte aus publish/velopack/win-x64 und publish/velopack/win-arm64"
-echo "# müssen später an den GitHub Release angehängt werden."
-echo "gh release create v$VERSION --title \"BüroCockpit $VERSION\" --notes \"Neue Version von BüroCockpit.\" publish/BueroCockpit-windows-x64.zip publish/BueroCockpit-windows-arm64.zip"
+echo
+echo "GitHub Release manuell erstellen und Artefakte anhängen."
+echo "Nicht automatisch ausgeführt:"
+echo "gh release create v$VERSION --title \"BüroCockpit $VERSION\" --notes \"Neue Version von BüroCockpit.\" \\"
+echo "  publish/BueroCockpit-windows-x64.zip \\"
+echo "  publish/BueroCockpit-windows-arm64.zip \\"
+echo "  publish/installer/BueroCockpitSetup.exe \\"
+echo "  publish/velopack/win-x64/* \\"
+echo "  publish/velopack/win-arm64/*"
+echo
+echo "Hinweis: publish/installer/BueroCockpitSetup.exe entsteht auf Windows mit Inno Setup."
