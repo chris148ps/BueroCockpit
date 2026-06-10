@@ -27,7 +27,7 @@ done
 mkdir -p "$VELOPACK_OUTPUT"
 
 echo "Velopack CLI gefunden:"
-vpk --version
+vpk --help
 echo
 echo "Velopack-Paketierung ist vorbereitet."
 echo "Nächster Schritt: finale vpk pack Parameter für App-ID, Version, Runtime und Ausgabeordner festlegen."
