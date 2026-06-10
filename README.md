@@ -50,13 +50,43 @@ Es erstellt bewusst keine Git-Tags, pusht nichts und veröffentlicht keinen GitH
 
 Ein Auto-Update ist aktuell nicht enthalten. Das wird später erst mit einem Update-Framework wie Velopack ergänzt.
 
-## Installation auf Windows
+## Windows-Installer erstellen
+
+Zuerst die Windows-Publish-Dateien erzeugen:
+
+```bash
+./scripts/publish-windows.sh
+```
+
+Danach auf einem Windows-Rechner Inno Setup 6 installieren und im Projektordner ausführen:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-installer-windows.ps1
+```
+
+Das Ergebnis liegt unter:
+
+```text
+publish/installer/BueroCockpitSetup.exe
+```
+
+Der Installer enthält Programmdateien für x64 und ARM64 und installiert automatisch die passende Variante. Echtdaten, Datenbank, Anhänge, Backups und lokale Einstellungen liegen im AppData-Ordner und werden nicht in den Installer gepackt.
+
+Auto-Update ist im Installer noch nicht enthalten. Später kann Velopack oder ein anderes Update-System ergänzt werden.
+
+## Installation auf Windows per ZIP
 
 1. ZIP-Datei auf den Windows-Rechner kopieren.
 2. ZIP-Datei in einen lokalen Programmordner entpacken.
 3. `BueroCockpit.exe` starten.
 
-Ein klassischer Installer ist in diesem Schritt noch nicht enthalten.
+## Installation auf Windows per Installer
+
+1. `BueroCockpitSetup.exe` auf den Windows-Rechner kopieren.
+2. Setup starten.
+3. Optional die Desktop-Verknüpfung auswählen.
+
+Der Installer legt eine Startmenü-Verknüpfung und einen Deinstaller an.
 
 ## Daten und Backups
 
