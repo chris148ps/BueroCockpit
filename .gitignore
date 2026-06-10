@@ -482,6 +482,7 @@ $RECYCLE.BIN/
 *.swp
 
 # BueroCockpit local app data
+publish/
 *.db
 *.db-shm
 *.db-wal
