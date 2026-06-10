@@ -34,7 +34,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _backupStatus = "Noch kein Backup erstellt.";
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
-    private string _updateStatus = "Auto-Update ist vorbereitet, aber noch nicht mit einem Release-Kanal verbunden.";
+    private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
+    private string _updateFeedUrl = string.Empty;
     private bool _isUpdateAvailable;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
@@ -186,6 +187,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string BackupDirectory => AppPaths.BackupDirectory;
     public string CurrentAppVersion => _updateService.GetCurrentVersion();
     public string UpdateSource => _updateService.UpdateSource;
+    public string UpdateFeedUrl
+    {
+        get => _updateFeedUrl;
+        set
+        {
+            if (_updateFeedUrl != value)
+            {
+                _updateFeedUrl = value;
+                OnPropertyChanged(nameof(UpdateFeedUrl));
+            }
+        }
+    }
 
     public AttachmentItem? SelectedAttachment
     {
@@ -374,6 +387,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         InitializeComponent();
         _appSettings = _settingsService.Load();
+        UpdateFeedUrl = _appSettings.UpdateFeedUrl;
+        _updateService.UpdateFeedUrl = UpdateFeedUrl;
+        UpdateStatus = _updateService.GetUpdateStatusText();
         DataContext = this;
 
         _repository.Initialize();
@@ -941,6 +957,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OpenBackupFolder_OnClick(object? sender, RoutedEventArgs e)
     {
         OpenFolder(AppPaths.BackupDirectory);
+    }
+
+    private void UpdateFeed_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            UpdateFeedUrl = textBox.Text ?? string.Empty;
+        }
+    }
+
+    private void SaveUpdateFeed_OnClick(object? sender, RoutedEventArgs e)
+    {
+        _appSettings.UpdateFeedUrl = UpdateFeedUrl.Trim();
+        _settingsService.Save(_appSettings);
+        _updateService.UpdateFeedUrl = _appSettings.UpdateFeedUrl;
+        OnPropertyChanged(nameof(UpdateSource));
+        IsUpdateAvailable = false;
+        UpdateStatus = string.IsNullOrWhiteSpace(_appSettings.UpdateFeedUrl)
+            ? "Noch kein Update-Kanal eingerichtet."
+            : "Update-Kanal gespeichert.";
     }
 
     private async void SelectOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)

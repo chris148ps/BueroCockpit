@@ -7,13 +7,29 @@ namespace BueroCockpit.Services;
 
 public sealed class UpdateService
 {
-    private const string UpdateSourceText = "GitHub Releases";
-    private const string GitHubRepositoryUrl = "https://github.com/chris148ps/BueroCockpit";
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
-    private string _statusText = "Auto-Update ist vorbereitet, aber noch nicht mit einem Release-Kanal verbunden.";
+    private string _updateFeedUrl = string.Empty;
+    private string _statusText = "Noch kein Update-Kanal eingerichtet.";
 
-    public string UpdateSource => UpdateSourceText;
+    public string UpdateFeedUrl
+    {
+        get => _updateFeedUrl;
+        set
+        {
+            var normalized = (value ?? string.Empty).Trim();
+            if (_updateFeedUrl == normalized)
+            {
+                return;
+            }
+
+            _updateFeedUrl = normalized;
+            _updateManager = null;
+            _pendingUpdate = null;
+        }
+    }
+
+    public string UpdateSource => string.IsNullOrWhiteSpace(UpdateFeedUrl) ? "Noch nicht eingerichtet" : UpdateFeedUrl;
     public bool HasPendingUpdate => _pendingUpdate is not null;
 
     public string GetCurrentVersion()
@@ -33,6 +49,11 @@ public sealed class UpdateService
         try
         {
             _updateManager ??= CreateUpdateManager();
+            if (_updateManager is null)
+            {
+                return false;
+            }
+
             return _updateManager.IsInstalled;
         }
         catch (Exception ex)
@@ -47,10 +68,17 @@ public sealed class UpdateService
         try
         {
             _updateManager ??= CreateUpdateManager();
+            if (_updateManager is null)
+            {
+                _pendingUpdate = null;
+                _statusText = "Noch kein Update-Kanal eingerichtet.";
+                return false;
+            }
+
             if (!_updateManager.IsInstalled)
             {
                 _pendingUpdate = null;
-                _statusText = "Auto-Update wird mit einem Velopack-Release aktiviert.";
+                _statusText = "Auto-Update wird mit einer Velopack-Installation aktiviert.";
                 return false;
             }
 
@@ -97,9 +125,16 @@ public sealed class UpdateService
         return _statusText;
     }
 
-    private static UpdateManager CreateUpdateManager()
+    private UpdateManager? CreateUpdateManager()
     {
-        var source = new GithubSource(GitHubRepositoryUrl, accessToken: null, prerelease: false);
+        if (string.IsNullOrWhiteSpace(UpdateFeedUrl))
+        {
+            return null;
+        }
+
+        IUpdateSource source = Directory.Exists(UpdateFeedUrl)
+            ? new SimpleFileSource(new DirectoryInfo(UpdateFeedUrl))
+            : new SimpleWebSource(UpdateFeedUrl);
         return new UpdateManager(source);
     }
 }

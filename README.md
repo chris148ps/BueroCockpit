@@ -78,6 +78,48 @@ Auto-Update über GitHub Releases funktioniert ohne Zusatzlogik nur sauber, wenn
 
 Echtdaten liegen im AppData-Ordner und werden durch Updates nicht überschrieben.
 
+## Lokaler Auto-Update-Test
+
+Der lokale Update-Test ist ein reiner Testablauf. Es wird kein GitHub Release erstellt, es werden keine Tags gesetzt und es wird nichts veröffentlicht.
+
+Ziel: Eine installierte Version `0.1.0` lokal gegen eine vorbereitete Version `0.2.0` testen.
+
+Testbereich vorbereiten:
+
+```bash
+./scripts/prepare-local-update-test.sh
+```
+
+Das Skript legt an:
+
+```text
+publish/local-update-test/initial
+publish/local-update-test/update
+publish/local-update-test/feed
+```
+
+Grundablauf:
+
+1. Version `0.1.0` bauen:
+   ```bash
+   ./scripts/publish-windows.sh
+   ./scripts/package-velopack-windows.sh
+   ```
+2. Die erzeugten Velopack-Artefakte aus `publish/velopack/win-x64` nach `publish/local-update-test/initial` kopieren und diese Version installieren/starten.
+3. Testweise in `BueroCockpit.csproj` die Version auf `0.2.0` setzen.
+4. Erneut bauen:
+   ```bash
+   ./scripts/publish-windows.sh
+   ./scripts/package-velopack-windows.sh
+   ```
+5. Die neuen Velopack-Artefakte aus `publish/velopack/win-x64` nach `publish/local-update-test/feed` kopieren.
+6. In BüroCockpit unter `Einstellungen` den lokalen Update-Kanal auf den Feed-Ordner setzen, z. B. `publish/local-update-test/feed`.
+7. `Nach Updates suchen` ausführen und das gefundene Update testen.
+8. Prüfen, dass AppData, Datenbank, Anhänge und Backups erhalten bleiben.
+9. Nach dem Test die Projektversion wieder auf den echten Stand zurücksetzen.
+
+Dieser Ablauf ist nicht für produktive Updateverteilung gedacht.
+
 ## Windows-Installer erstellen
 
 Zuerst die Windows-Publish-Dateien erzeugen:

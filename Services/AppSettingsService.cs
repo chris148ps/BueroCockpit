@@ -7,6 +7,7 @@ namespace BueroCockpit.Services;
 public sealed class AppSettings
 {
     public string OneDriveEditDirectory { get; set; } = string.Empty;
+    public string UpdateFeedUrl { get; set; } = string.Empty;
 }
 
 public sealed class AppSettingsService
