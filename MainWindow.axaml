@@ -165,10 +165,10 @@
                      TextChanged="CategoryEditor_OnTextChanged"
                      PlaceholderText="Name" />
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-              <Button Content="+ Kategorie" Click="AddCategory_OnClick" />
-              <Button Grid.Column="1" Content="Umbenennen" Click="RenameCategory_OnClick" />
+              <Button Content="+ Neu" Click="AddCategory_OnClick" />
+              <Button Grid.Column="1" Content="Ändern" Click="RenameCategory_OnClick" />
             </Grid>
-            <Button Content="Ausblenden" Click="HideCategory_OnClick" />
+            <Button Content="Löschen" Click="HideCategory_OnClick" />
             <TextBlock Text="{Binding CategoryMessage}"
                        IsVisible="{Binding HasCategoryMessage}"
                        Foreground="#6E6E73"
