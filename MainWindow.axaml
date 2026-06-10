@@ -201,7 +201,78 @@
       </DockPanel>
     </Border>
 
-    <Border Grid.Column="1" Padding="20" Background="#F5F5F7">
+    <Border Grid.Column="1"
+            Grid.ColumnSpan="2"
+            Padding="26"
+            Background="#F5F5F7"
+            IsVisible="{Binding IsOverviewSelected}">
+      <ScrollViewer>
+        <StackPanel Spacing="18">
+          <StackPanel>
+            <TextBlock Text="Übersicht" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding DashboardDateText}" Foreground="#6E6E73" Margin="0,5,0,0" />
+          </StackPanel>
+
+          <ItemsControl ItemsSource="{Binding DashboardSections}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Classes="Card"
+                        Width="330"
+                        MinHeight="210"
+                        Margin="0,0,14,14">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
+                      <Border Grid.Column="1" Background="#F2F3F5" CornerRadius="10" Padding="9,3">
+                        <TextBlock Text="{Binding Count}" FontWeight="SemiBold" Foreground="#525257" />
+                      </Border>
+                    </Grid>
+
+                    <TextBlock Text="Keine Aufgaben."
+                               IsVisible="{Binding HasNoTasks}"
+                               Foreground="#86868B"
+                               Margin="0,10,0,0" />
+
+                    <ItemsControl ItemsSource="{Binding Tasks}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#F7F8FA"
+                                  BorderBrush="#E5E5EA"
+                                  BorderThickness="1"
+                                  CornerRadius="10"
+                                  Padding="10"
+                                  Margin="0,0,0,8"
+                                  PointerPressed="DashboardTask_OnPointerPressed">
+                            <StackPanel Spacing="4">
+                              <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                              <TextBlock Text="{Binding Title}" Foreground="#38383D" TextWrapping="Wrap" />
+                              <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Status}" Foreground="#6E6E73" FontSize="12" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
+                                           Foreground="#6E6E73"
+                                           FontSize="12" />
+                              </Grid>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Border Grid.Column="1" Padding="20" Background="#F5F5F7" IsVisible="{Binding IsTaskAreaVisible}">
       <DockPanel LastChildFill="True">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
           <StackPanel>
@@ -252,7 +323,8 @@
     <Border Grid.Column="2"
             Background="#FFFFFF"
             BorderBrush="#E0E0E5"
-            BorderThickness="1,0,0,0">
+            BorderThickness="1,0,0,0"
+            IsVisible="{Binding IsTaskAreaVisible}">
       <ScrollViewer>
         <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasSelectedTask}">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">

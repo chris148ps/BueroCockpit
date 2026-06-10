@@ -31,6 +31,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<TaskItem> VisibleTasks { get; } = new();
     public ObservableCollection<MaterialItem> Materials { get; } = new();
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
+    public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
 
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
@@ -58,9 +59,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             OnPropertyChanged(nameof(SelectedCategory));
+            OnPropertyChanged(nameof(IsOverviewSelected));
+            OnPropertyChanged(nameof(IsTaskAreaVisible));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
             CategoryMessage = string.Empty;
-            RefreshVisibleTasks();
+            if (IsOverviewSelected)
+            {
+                ShowOverview();
+            }
+            else
+            {
+                RefreshVisibleTasks();
+            }
         }
     }
 
@@ -145,6 +155,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasSelectedTask => SelectedTask is not null;
+    public bool IsOverviewSelected => SelectedCategory?.Name == "Übersicht";
+    public bool IsTaskAreaVisible => !IsOverviewSelected;
+    public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
 
     public AttachmentItem? SelectedAttachment
     {
@@ -264,15 +277,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         UpdateCategoryCounts();
-        SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") ?? Categories.FirstOrDefault();
+        SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Übersicht") ?? Categories.FirstOrDefault();
     }
 
     private void RefreshVisibleTasks()
     {
+        if (IsOverviewSelected)
+        {
+            ShowOverview();
+            return;
+        }
+
         VisibleTasks.Clear();
 
         var selected = SelectedCategory;
-        IEnumerable<TaskItem> tasks = selected?.Name == "Übersicht" || selected is null
+        IEnumerable<TaskItem> tasks = selected is null
             ? AllTasks
             : AllTasks.Where(t => t.CategoryId == selected.Id);
 
@@ -292,6 +311,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             SelectedTask = VisibleTasks.FirstOrDefault();
         }
+    }
+
+    private void ShowOverview()
+    {
+        ClearSelectedTask();
+        VisibleTasks.Clear();
+        TaskListCaption = "Tagesübersicht";
+        SearchText = string.Empty;
+        RefreshDashboard();
+    }
+
+    private void ClearSelectedTask()
+    {
+        SaveCurrentMaterials();
+        if (_selectedTask is not null)
+        {
+            _selectedTask.IsSelected = false;
+        }
+
+        _selectedTask = null;
+        SelectedAttachment = null;
+        SelectedTaskCategory = null;
+        Materials.Clear();
+        Attachments.Clear();
+        OnPropertyChanged(nameof(SelectedTask));
+        OnPropertyChanged(nameof(HasSelectedTask));
+        OnPropertyChanged(nameof(HasNoMaterials));
+        OnPropertyChanged(nameof(SelectedDueDate));
+        OnPropertyChanged(nameof(SelectedFollowUpDate));
+    }
+
+    private void RefreshDashboard()
+    {
+        DashboardSections.Clear();
+        var today = DateTime.Today;
+        var activeTasks = AllTasks.Where(task => !IsDoneOrArchived(task)).ToList();
+
+        DashboardSections.Add(CreateDashboardSection(
+            "Heute fällig",
+            AllTasks.Where(task => task.DueDate?.Date == today)));
+
+        DashboardSections.Add(CreateDashboardSection(
+            "Überfällig",
+            activeTasks.Where(task => task.DueDate?.Date < today)));
+
+        DashboardSections.Add(CreateDashboardSection(
+            "Wiedervorlage heute",
+            AllTasks.Where(task => task.FollowUpDate?.Date == today)));
+
+        DashboardSections.Add(CreateDashboardSection(
+            "Material offen",
+            activeTasks.Where(HasOpenMaterial)));
+
+        DashboardSections.Add(CreateDashboardSection(
+            "Angebote / offene Büroaufgaben",
+            AllTasks.Where(IsOfficeTask)));
+    }
+
+    private static DashboardSection CreateDashboardSection(string title, IEnumerable<TaskItem> tasks)
+    {
+        var ordered = tasks
+            .OrderBy(task => task.DueDate ?? task.FollowUpDate ?? DateTime.MaxValue)
+            .ThenBy(task => task.CustomerName)
+            .ThenBy(task => task.Title)
+            .ToList();
+
+        return new DashboardSection(title, ordered.Count, ordered.Take(5));
     }
 
     private void UpdateCategoryCounts()
@@ -679,6 +765,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
+    private void DashboardTask_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (sender is not Avalonia.StyledElement { DataContext: TaskItem task })
+        {
+            return;
+        }
+
+        var category = Categories.FirstOrDefault(c => c.Id == task.CategoryId)
+            ?? Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben")
+            ?? Categories.FirstOrDefault(c => c.Name != "Übersicht");
+        if (category is null)
+        {
+            return;
+        }
+
+        SelectedCategory = category;
+        SelectedTask = task;
+    }
+
     private void SearchBox_OnTextChanged(object? sender, TextChangedEventArgs e)
     {
         if (sender is TextBox textBox)
@@ -740,6 +845,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return _repository.GetMaterials(task.Id).Any(material => Contains(material.Name, query));
+    }
+
+    private bool HasOpenMaterial(TaskItem task)
+    {
+        return _repository.GetMaterials(task.Id).Any(material =>
+            material.Status.Equals("benötigt", StringComparison.OrdinalIgnoreCase) ||
+            material.Status.Equals("bestellt", StringComparison.OrdinalIgnoreCase) ||
+            material.Status.Equals("retour", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool IsOfficeTask(TaskItem task)
+    {
+        if (IsDoneOrArchived(task))
+        {
+            return false;
+        }
+
+        var categoryName = Categories.FirstOrDefault(c => c.Id == task.CategoryId)?.Name ?? string.Empty;
+        return Contains(categoryName, "Angebote erstellen") ||
+               Contains(categoryName, "Wartet auf Kunde") ||
+               Contains(categoryName, "Material bestellen") ||
+               task.Status.Equals("Wartet auf Kunde", StringComparison.OrdinalIgnoreCase) ||
+               task.Status.Equals("Material offen", StringComparison.OrdinalIgnoreCase) ||
+               !IsDoneOrArchived(task);
+    }
+
+    private static bool IsDoneOrArchived(TaskItem task)
+    {
+        return task.Status.Equals("Erledigt", StringComparison.OrdinalIgnoreCase) ||
+               task.Status.Equals("Archiv", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool Contains(string? value, string query)
@@ -818,4 +953,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+}
+
+public sealed class DashboardSection
+{
+    public DashboardSection(string title, int count, IEnumerable<TaskItem> tasks)
+    {
+        Title = title;
+        Count = count;
+        Tasks = new ObservableCollection<TaskItem>(tasks);
+    }
+
+    public string Title { get; }
+    public int Count { get; }
+    public ObservableCollection<TaskItem> Tasks { get; }
+    public bool HasTasks => Tasks.Count > 0;
+    public bool HasNoTasks => !HasTasks;
 }
