@@ -18,6 +18,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly BueroRepository _repository = new();
     private readonly ThumbnailService _thumbnailService = new();
     private readonly BackupService _backupService = new();
+    private readonly UpdateService _updateService = new();
     private readonly AppSettingsService _settingsService = new();
     private readonly FileHashService _hashService = new();
     private AppSettings _appSettings = new();
@@ -33,6 +34,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _backupStatus = "Noch kein Backup erstellt.";
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
+    private string _updateStatus = "Auto-Update ist vorbereitet, aber noch nicht mit einem Release-Kanal verbunden.";
+    private bool _isUpdateAvailable;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
 
@@ -181,6 +184,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string DatabasePath => AppPaths.DatabasePath;
     public string TasksDirectory => AppPaths.TasksDirectory;
     public string BackupDirectory => AppPaths.BackupDirectory;
+    public string CurrentAppVersion => _updateService.GetCurrentVersion();
+    public string UpdateSource => _updateService.UpdateSource;
 
     public AttachmentItem? SelectedAttachment
     {
@@ -326,6 +331,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasLastBackup => !string.IsNullOrWhiteSpace(LastBackupPath);
+    public string UpdateStatus
+    {
+        get => _updateStatus;
+        set
+        {
+            if (_updateStatus != value)
+            {
+                _updateStatus = value;
+                OnPropertyChanged(nameof(UpdateStatus));
+            }
+        }
+    }
+
+    public bool IsUpdateAvailable
+    {
+        get => _isUpdateAvailable;
+        set
+        {
+            if (_isUpdateAvailable != value)
+            {
+                _isUpdateAvailable = value;
+                OnPropertyChanged(nameof(IsUpdateAvailable));
+            }
+        }
+    }
 
     public string TaskListCaption
     {
@@ -969,6 +999,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             BackupStatus = "Backup konnte nicht erstellt werden.";
             Debug.WriteLine($"Backup failed: {ex}");
         }
+    }
+
+    private async void CheckUpdates_OnClick(object? sender, RoutedEventArgs e)
+    {
+        UpdateStatus = "Updateprüfung läuft...";
+        IsUpdateAvailable = await _updateService.CheckForUpdatesAsync();
+        UpdateStatus = _updateService.GetUpdateStatusText();
+    }
+
+    private async void InstallUpdate_OnClick(object? sender, RoutedEventArgs e)
+    {
+        UpdateStatus = "Update wird vorbereitet...";
+        var started = await _updateService.DownloadAndApplyUpdateAsync();
+        UpdateStatus = _updateService.GetUpdateStatusText();
+        IsUpdateAvailable = started && _updateService.HasPendingUpdate;
     }
 
     private void ExportAttachmentForIpad_OnClick(object? sender, RoutedEventArgs e)

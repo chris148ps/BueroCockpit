@@ -337,6 +337,27 @@
                          TextWrapping="Wrap" />
             </StackPanel>
           </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" />
+              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="6">
+                <TextBlock Text="Aktuelle Version" Foreground="#86868B" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="{Binding CurrentAppVersion}" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="1" Text="Update-Kanal" Foreground="#86868B" FontSize="12" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UpdateSource}" TextWrapping="Wrap" />
+              </Grid>
+              <TextBlock Text="{Binding UpdateStatus}" Foreground="#38383D" TextWrapping="Wrap" />
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
+                <Button Content="Nach Updates suchen" Click="CheckUpdates_OnClick" />
+                <Button Grid.Column="1"
+                        Content="Update installieren"
+                        Classes="Primary"
+                        IsEnabled="{Binding IsUpdateAvailable}"
+                        Click="InstallUpdate_OnClick" />
+              </Grid>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </ScrollViewer>
     </Border>

@@ -50,7 +50,24 @@ Das Skript prüft die Version, verlangt einen sauberen Git-Arbeitsbaum, setzt di
 
 Es erstellt bewusst keine Git-Tags, pusht nichts und veröffentlicht keinen GitHub Release. Releases sollen nur aus getesteten Ständen erstellt werden.
 
-Ein Auto-Update ist aktuell nicht enthalten. Das wird später erst mit einem Update-Framework wie Velopack ergänzt.
+## Auto-Update vorbereiten
+
+Die Auto-Update-Grundlage ist mit Velopack vorbereitet. Die App initialisiert Velopack beim Start und zeigt unter `Einstellungen` den Update-Status an.
+
+Der bestehende Inno-Setup-Installer bleibt vorerst für manuelle Installationen erhalten, bis Velopack vollständig getestet ist.
+
+Geplanter späterer Release-Ablauf:
+
+```bash
+./scripts/release.sh 0.2.0
+./scripts/package-velopack-windows.sh
+```
+
+Danach werden GitHub Releases erstellt und die Velopack-Pakete als Release-Dateien angehängt. Das Skript `package-velopack-windows.sh` prüft aktuell nur, ob die Velopack CLI `vpk` verfügbar ist, und bricht verständlich ab, wenn sie fehlt.
+
+Auto-Update über GitHub Releases funktioniert ohne Zusatzlogik nur sauber, wenn die Release-Dateien für die App erreichbar sind. Für private Repositories braucht man später eine sichere Zugriffslösung oder einen anderen Download-Ort.
+
+Echtdaten liegen im AppData-Ordner und werden durch Updates nicht überschrieben.
 
 ## Windows-Installer erstellen
 
