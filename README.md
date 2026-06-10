@@ -60,10 +60,19 @@ Geplanter späterer Release-Ablauf:
 
 ```bash
 ./scripts/release.sh 0.2.0
+dotnet tool install -g vpk
+./scripts/publish-windows.sh
 ./scripts/package-velopack-windows.sh
 ```
 
-Danach werden GitHub Releases erstellt und die Velopack-Pakete als Release-Dateien angehängt. Das Skript `package-velopack-windows.sh` prüft aktuell nur, ob die Velopack CLI `vpk` verfügbar ist, und bricht verständlich ab, wenn sie fehlt.
+Das Velopack-Skript erzeugt lokale Windows-Update-Artefakte unter:
+
+```text
+publish/velopack/win-x64
+publish/velopack/win-arm64
+```
+
+Diese Dateien sind lokale Release-Artefakte und werden nicht ins Git eingecheckt. Auto-Update wird erst aktiv, wenn diese Artefakte an einen GitHub Release oder einen anderen Update-Ort veröffentlicht werden.
 
 Auto-Update über GitHub Releases funktioniert ohne Zusatzlogik nur sauber, wenn die Release-Dateien für die App erreichbar sind. Für private Repositories braucht man später eine sichere Zugriffslösung oder einen anderen Download-Ort.
 
