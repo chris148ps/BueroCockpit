@@ -8,7 +8,8 @@
         MinWidth="1080"
         MinHeight="680"
         Background="#F5F5F7"
-        Title="BueroCockpit">
+        Icon="/Assets/BueroCockpit.ico"
+        Title="BüroCockpit">
   <Window.Resources>
     <converters:ThumbnailImageConverter x:Key="ThumbnailImageConverter" />
   </Window.Resources>
@@ -148,7 +149,7 @@
             Padding="18">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-          <TextBlock Text="BueroCockpit" FontSize="24" FontWeight="SemiBold" />
+          <TextBlock Text="BüroCockpit" FontSize="24" FontWeight="SemiBold" />
           <TextBlock Text="Lokale Aufgaben" Foreground="#6E6E73" Margin="1,3,0,0" />
         </StackPanel>
 

@@ -1,6 +1,8 @@
-# BueroCockpit
+# BüroCockpit
 
-BueroCockpit ist eine lokale Büro-Aufgabenverwaltung mit Avalonia/.NET. Die App verwaltet Aufgaben, Kategorien, Material, Anhänge, Vorschau, Dashboard, lokale Backups und eine vorbereitete OneDrive-Ordner-Bearbeitung für Anhänge.
+BüroCockpit ist eine lokale Büro-Aufgabenverwaltung mit Avalonia/.NET. Die App verwaltet Aufgaben, Kategorien, Material, Anhänge, Vorschau, Dashboard, lokale Backups und eine vorbereitete OneDrive-Ordner-Bearbeitung für Anhänge.
+
+Der sichtbare App-Name ist `BüroCockpit`. Technische Namen wie Projektordner, Repository, Namespace und EXE bleiben `BueroCockpit`.
 
 ## Entwicklung auf macOS
 
@@ -73,6 +75,8 @@ publish/installer/BueroCockpitSetup.exe
 Der Installer enthält Programmdateien für x64 und ARM64 und installiert automatisch die passende Variante. Echtdaten, Datenbank, Anhänge, Backups und lokale Einstellungen liegen im AppData-Ordner und werden nicht in den Installer gepackt.
 
 Auto-Update ist im Installer noch nicht enthalten. Später kann Velopack oder ein anderes Update-System ergänzt werden.
+
+Das App-Icon liegt unter `Assets/BueroCockpit.ico` und wird für die Windows-EXE sowie den Inno-Setup-Installer verwendet.
 
 ## Installation auf Windows per ZIP
 

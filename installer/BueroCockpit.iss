@@ -2,7 +2,7 @@
 ; Build on Windows with Inno Setup 6:
 ;   ISCC.exe installer\BueroCockpit.iss
 
-#define MyAppName "BueroCockpit"
+#define MyAppName "BüroCockpit"
 #define MyAppVersion "0.1.0"
 #define MyAppPublisher "Christian Stange"
 #define MyAppExeName "BueroCockpit.exe"
@@ -11,12 +11,14 @@
 AppId={{6CB5DD15-9370-4C67-B24F-CB9814E8158F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\publish\installer
 OutputBaseFilename=BueroCockpitSetup
+SetupIconFile=..\Assets\BueroCockpit.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -50,5 +52,5 @@ end;
 
 function IsX64Install: Boolean;
 begin
-  Result := IsX64 and not IsARM64;
+  Result := IsX64Compatible and not IsARM64;
 end;
