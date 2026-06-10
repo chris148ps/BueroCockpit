@@ -3,23 +3,35 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PUBLISH_DIR="$PROJECT_ROOT/publish/windows-x64"
-ZIP_PATH="$PROJECT_ROOT/publish/BueroCockpit-windows-x64.zip"
+PUBLISH_ROOT="$PROJECT_ROOT/publish"
 
-if [ ! -d "$PUBLISH_DIR" ]; then
-  echo "Publish-Ordner nicht gefunden: $PUBLISH_DIR"
-  echo "Bitte zuerst ausführen: ./scripts/publish-windows.sh"
-  exit 1
-fi
+package_runtime() {
+  local arch="$1"
+  local publish_dir="$PUBLISH_ROOT/windows-$arch"
+  local zip_path="$PUBLISH_ROOT/BueroCockpit-windows-$arch.zip"
 
-mkdir -p "$PROJECT_ROOT/publish"
-rm -f "$ZIP_PATH"
+  if [ ! -d "$publish_dir" ]; then
+    echo "Publish-Ordner nicht gefunden: $publish_dir"
+    echo "Bitte zuerst ausführen: ./scripts/publish-windows.sh"
+    exit 1
+  fi
 
-cd "$PUBLISH_DIR"
-zip -r "$ZIP_PATH" . \
-  -x "*.db" "*.db-shm" "*.db-wal" \
-  -x "Backups/*" "Tasks/*" "AppData/*" "Daten/*" "Testdaten/*"
+  mkdir -p "$PUBLISH_ROOT"
+  rm -f "$zip_path"
 
-echo
-echo "Windows-ZIP erstellt:"
-echo "$ZIP_PATH"
+  echo "Erstelle ZIP für Windows-$arch..."
+  cd "$publish_dir"
+  zip -r "$zip_path" . \
+    -x "*.db" "*.db-shm" "*.db-wal" \
+    -x "Backups/*" "Tasks/*" "AppData/*" "Daten/*" "Testdaten/*"
+
+  echo "Windows-ZIP erstellt: $zip_path"
+  echo
+}
+
+package_runtime "x64"
+package_runtime "arm64"
+
+echo "Alle Windows-ZIP-Pakete wurden erstellt:"
+echo "$PUBLISH_ROOT/BueroCockpit-windows-x64.zip"
+echo "$PUBLISH_ROOT/BueroCockpit-windows-arm64.zip"

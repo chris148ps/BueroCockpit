@@ -22,17 +22,33 @@ Vom Projektroot aus:
 ./scripts/package-windows.sh
 ```
 
-Das Publish-Skript erzeugt einen self-contained Windows-x64-Release unter:
+Das Publish-Skript erzeugt self-contained Windows-Releases für x64 und ARM64:
 
 ```text
 publish/windows-x64/
+publish/windows-arm64/
 ```
 
-Das Package-Skript erzeugt:
+Das Package-Skript erzeugt die passenden ZIP-Dateien:
 
 ```text
 publish/BueroCockpit-windows-x64.zip
+publish/BueroCockpit-windows-arm64.zip
 ```
+
+## Release vorbereiten
+
+Ein Release kann vorbereitet werden mit:
+
+```bash
+./scripts/release.sh 0.2.0
+```
+
+Das Skript prüft die Version, verlangt einen sauberen Git-Arbeitsbaum, setzt die Projektversion, baut die App, erstellt Windows-x64- und Windows-ARM64-Pakete und gibt die manuellen GitHub-Release-Befehle aus.
+
+Es erstellt bewusst keine Git-Tags, pusht nichts und veröffentlicht keinen GitHub Release. Releases sollen nur aus getesteten Ständen erstellt werden.
+
+Ein Auto-Update ist aktuell nicht enthalten. Das wird später erst mit einem Update-Framework wie Velopack ergänzt.
 
 ## Installation auf Windows
 
