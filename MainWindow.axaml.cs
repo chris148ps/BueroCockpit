@@ -19,6 +19,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? _selectedTaskCategory;
     private AttachmentItem? _selectedAttachment;
     private string _taskListCaption = "0 Aufgaben";
+    private string _searchText = string.Empty;
+    private string _categoryEditorName = string.Empty;
+    private string _categoryMessage = string.Empty;
     private bool _isLoadingSelection;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
@@ -29,9 +32,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<MaterialItem> Materials { get; } = new();
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
 
-    public string[] StatusOptions { get; } = ["Offen", "In Arbeit", "Wartet", "Erledigt", "Archiv"];
+    public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
-    public string[] MaterialStatusOptions { get; } = ["Offen", "Anfragen", "Bestellt", "Geliefert", "Nicht noetig"];
+    public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
 
     public CategoryItem? SelectedCategory
     {
@@ -55,6 +58,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             OnPropertyChanged(nameof(SelectedCategory));
+            CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
+            CategoryMessage = string.Empty;
             RefreshVisibleTasks();
         }
     }
@@ -175,6 +180,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string PreviewImagePath => SelectedAttachment?.ThumbnailPath ?? string.Empty;
     public bool HasPreviewImage => !string.IsNullOrWhiteSpace(PreviewImagePath) && File.Exists(PreviewImagePath);
     public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
+    public bool HasNoMaterials => Materials.Count == 0;
+
+    public string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            if (_searchText == value)
+            {
+                return;
+            }
+
+            _searchText = value;
+            OnPropertyChanged(nameof(SearchText));
+            RefreshVisibleTasks();
+        }
+    }
+
+    public string CategoryEditorName
+    {
+        get => _categoryEditorName;
+        set
+        {
+            if (_categoryEditorName != value)
+            {
+                _categoryEditorName = value;
+                OnPropertyChanged(nameof(CategoryEditorName));
+            }
+        }
+    }
+
+    public string CategoryMessage
+    {
+        get => _categoryMessage;
+        set
+        {
+            if (_categoryMessage != value)
+            {
+                _categoryMessage = value;
+                OnPropertyChanged(nameof(CategoryMessage));
+                OnPropertyChanged(nameof(HasCategoryMessage));
+            }
+        }
+    }
+
+    public bool HasCategoryMessage => !string.IsNullOrWhiteSpace(CategoryMessage);
 
     public string TaskListCaption
     {
@@ -221,9 +272,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         VisibleTasks.Clear();
 
         var selected = SelectedCategory;
-        var tasks = selected?.Name == "Übersicht" || selected is null
+        IEnumerable<TaskItem> tasks = selected?.Name == "Übersicht" || selected is null
             ? AllTasks
-            : new ObservableCollection<TaskItem>(AllTasks.Where(t => t.CategoryId == selected.Id));
+            : AllTasks.Where(t => t.CategoryId == selected.Id);
+
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            var query = SearchText.Trim();
+            tasks = tasks.Where(task => TaskMatchesSearch(task, query));
+        }
 
         foreach (var task in tasks)
         {
@@ -253,6 +310,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Materials.Clear();
         Attachments.Clear();
         SelectedAttachment = null;
+        OnPropertyChanged(nameof(HasNoMaterials));
 
         if (SelectedTask is not null)
         {
@@ -262,6 +320,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 Materials.Add(item);
             }
+            OnPropertyChanged(nameof(HasNoMaterials));
 
             foreach (var item in _repository.GetAttachments(SelectedTask.Id))
             {
@@ -316,15 +375,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SelectedTask.CategoryId = SelectedTaskCategory?.Id ?? SelectedTask.CategoryId;
-        if (SelectedTask.Status == "Erledigt" && SelectedTask.CompletedAt is null)
-        {
-            SelectedTask.CompletedAt = DateTime.Now;
-        }
-        else if (SelectedTask.Status != "Erledigt")
-        {
-            SelectedTask.CompletedAt = null;
-        }
+        ApplySelectedTaskStatusRules();
 
         _repository.SaveTask(SelectedTask);
         SaveCurrentMaterials();
@@ -342,7 +393,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var task = SelectedTask;
         _repository.DeleteTask(task.Id);
         AllTasks.Remove(task);
+        Materials.Clear();
+        Attachments.Clear();
+        SelectedAttachment = null;
         SelectedTask = null;
+        OnPropertyChanged(nameof(HasNoMaterials));
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -361,10 +416,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Name = "Neues Material",
             Quantity = 1,
             Unit = "Stk.",
-            Status = "Offen"
+            Status = "benötigt"
         };
 
         Materials.Add(item);
+        OnPropertyChanged(nameof(HasNoMaterials));
         _repository.SaveMaterial(item);
     }
 
@@ -377,6 +433,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _repository.DeleteMaterial(item.Id);
         Materials.Remove(item);
+        OnPropertyChanged(nameof(HasNoMaterials));
     }
 
     private async void AddAttachment_OnClick(object? sender, RoutedEventArgs e)
@@ -442,6 +499,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OpenAttachmentExternal(item);
     }
 
+    private void DeleteAttachment_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: AttachmentItem item })
+        {
+            return;
+        }
+
+        if (SelectedAttachment == item)
+        {
+            SelectedAttachment = null;
+        }
+
+        _repository.DeleteAttachment(item.Id);
+        TryDeleteFile(item.ThumbnailPath);
+        TryDeleteFile(item.StoredPath);
+        Attachments.Remove(item);
+    }
+
     private void OpenSelectedAttachmentExternal_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedAttachment is not null)
@@ -466,6 +541,158 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SelectAttachment(AttachmentItem item)
     {
         SelectedAttachment = item;
+    }
+
+    private void AddCategory_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var name = CategoryEditorName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            CategoryMessage = "Bitte einen Kategorienamen eingeben.";
+            return;
+        }
+
+        var category = new CategoryItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = name,
+            SortOrder = _repository.GetNextCategorySortOrder(),
+            Color = "#F2F3F5",
+            IsVisible = true
+        };
+
+        _repository.SaveCategory(category);
+        Categories.Add(category);
+        SelectedCategory = category;
+        UpdateCategoryCounts();
+        CategoryMessage = "Kategorie angelegt.";
+    }
+
+    private void RenameCategory_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedCategory is null || SelectedCategory.Name == "Übersicht")
+        {
+            CategoryMessage = "Diese Kategorie kann nicht umbenannt werden.";
+            return;
+        }
+
+        var name = CategoryEditorName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            CategoryMessage = "Bitte einen Kategorienamen eingeben.";
+            return;
+        }
+
+        SelectedCategory.Name = name;
+        _repository.SaveCategory(SelectedCategory);
+        OnPropertyChanged(nameof(SelectedCategory));
+        CategoryMessage = "Kategorie umbenannt.";
+    }
+
+    private void HideCategory_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedCategory is null || SelectedCategory.Name == "Übersicht")
+        {
+            CategoryMessage = "Diese Kategorie kann nicht ausgeblendet werden.";
+            return;
+        }
+
+        if (_repository.GetTaskCountForCategory(SelectedCategory.Id) > 0)
+        {
+            CategoryMessage = "Kategorie enthält Aufgaben und wurde nicht ausgeblendet.";
+            return;
+        }
+
+        var category = SelectedCategory;
+        _repository.HideCategory(category.Id);
+        Categories.Remove(category);
+        SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") ?? Categories.FirstOrDefault();
+        UpdateCategoryCounts();
+        CategoryMessage = "Kategorie ausgeblendet.";
+    }
+
+    private void DuplicateTask_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        SaveCurrentMaterials();
+        var source = SelectedTask;
+        var now = DateTime.Now;
+        var copy = new TaskItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            CustomerName = source.CustomerName,
+            Title = source.Title.StartsWith("Kopie - ", StringComparison.OrdinalIgnoreCase) ? source.Title : $"Kopie - {source.Title}",
+            Description = source.Description,
+            CategoryId = source.CategoryId,
+            Status = source.Status,
+            Priority = source.Priority,
+            DueDate = source.DueDate,
+            FollowUpDate = source.FollowUpDate,
+            AssignedTo = source.AssignedTo,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CompletedAt = source.Status == "Erledigt" ? now : null
+        };
+
+        _repository.SaveTask(copy);
+        foreach (var material in _repository.GetMaterials(source.Id))
+        {
+            _repository.SaveMaterial(new MaterialItem
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                TaskId = copy.Id,
+                Quantity = material.Quantity,
+                Unit = material.Unit,
+                Name = material.Name,
+                Status = material.Status,
+                Supplier = material.Supplier,
+                OrderedAt = material.OrderedAt,
+                Note = material.Note
+            });
+        }
+
+        AllTasks.Insert(0, copy);
+        RefreshVisibleTasks();
+        SelectedTask = copy;
+        UpdateCategoryCounts();
+    }
+
+    private void StatusCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSelection || SelectedTask is null)
+        {
+            return;
+        }
+
+        if (sender is ComboBox { SelectedItem: string status })
+        {
+            SelectedTask.Status = status;
+        }
+
+        ApplySelectedTaskStatusRules();
+        _repository.SaveTask(SelectedTask);
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+    }
+
+    private void SearchBox_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            SearchText = textBox.Text ?? string.Empty;
+        }
+    }
+
+    private void CategoryEditor_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            CategoryEditorName = textBox.Text ?? string.Empty;
+        }
     }
 
     private static void OpenAttachmentExternal(AttachmentItem item)
@@ -499,6 +726,67 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)))
         {
             _repository.SaveMaterial(item);
+        }
+    }
+
+    private bool TaskMatchesSearch(TaskItem task, string query)
+    {
+        if (Contains(task.CustomerName, query) ||
+            Contains(task.Title, query) ||
+            Contains(task.Description, query) ||
+            Contains(task.AssignedTo, query))
+        {
+            return true;
+        }
+
+        return _repository.GetMaterials(task.Id).Any(material => Contains(material.Name, query));
+    }
+
+    private static bool Contains(string? value, string query)
+    {
+        return value?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private void ApplySelectedTaskStatusRules()
+    {
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        SelectedTask.CategoryId = SelectedTaskCategory?.Id ?? SelectedTask.CategoryId;
+        if (SelectedTask.Status == "Erledigt" && SelectedTask.CompletedAt is null)
+        {
+            SelectedTask.CompletedAt = DateTime.Now;
+        }
+        else if (SelectedTask.Status != "Erledigt")
+        {
+            SelectedTask.CompletedAt = null;
+        }
+
+        if (SelectedTask.Status == "Archiv")
+        {
+            var archive = Categories.FirstOrDefault(c => c.Name == "Archiv");
+            if (archive is not null)
+            {
+                SelectedTask.CategoryId = archive.Id;
+                SelectedTaskCategory = archive;
+            }
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not delete file '{path}': {ex}");
         }
     }
 

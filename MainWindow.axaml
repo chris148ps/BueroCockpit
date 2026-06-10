@@ -152,6 +152,31 @@
           <TextBlock Text="Lokale Aufgaben" Foreground="#6E6E73" Margin="1,3,0,0" />
         </StackPanel>
 
+        <Border DockPanel.Dock="Bottom"
+                Background="#F7F7F9"
+                BorderBrush="#D8D8DD"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="10"
+                Margin="0,16,0,0">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Kategorie" FontWeight="SemiBold" Foreground="#6E6E73" FontSize="12" />
+            <TextBox Text="{Binding CategoryEditorName}"
+                     TextChanged="CategoryEditor_OnTextChanged"
+                     PlaceholderText="Name" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+              <Button Content="+ Kategorie" Click="AddCategory_OnClick" />
+              <Button Grid.Column="1" Content="Umbenennen" Click="RenameCategory_OnClick" />
+            </Grid>
+            <Button Content="Ausblenden" Click="HideCategory_OnClick" />
+            <TextBlock Text="{Binding CategoryMessage}"
+                       IsVisible="{Binding HasCategoryMessage}"
+                       Foreground="#6E6E73"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
         <ListBox x:Name="CategoryList"
                  ItemsSource="{Binding Categories}"
                  SelectedItem="{Binding SelectedCategory}"
@@ -182,6 +207,10 @@
           <StackPanel>
             <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding TaskListCaption}" Foreground="#6E6E73" Margin="0,4,0,0" />
+            <TextBox Text="{Binding SearchText}"
+                     TextChanged="SearchBox_OnTextChanged"
+                     PlaceholderText="Suchen nach Kunde, Titel, Notiz, Zuständigem, Material"
+                     Margin="0,12,0,0" />
           </StackPanel>
           <Button Grid.Column="1" Classes="Primary" Content="Neue Aufgabe" Click="NewTask_OnClick" />
         </Grid>
@@ -226,10 +255,11 @@
             BorderThickness="1,0,0,0">
       <ScrollViewer>
         <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasSelectedTask}">
-          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
-            <Button Grid.Column="1" Content="Speichern" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" />
+            <Button Grid.Column="1" Content="Duplizieren" Click="DuplicateTask_OnClick" Margin="0,0,8,0" />
+            <Button Grid.Column="2" Content="Speichern" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
+            <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" />
           </Grid>
 
           <TextBlock Classes="SectionTitle" Text="Aufgabe" />
@@ -253,7 +283,10 @@
                 </DataTemplate>
               </ComboBox.ItemTemplate>
             </ComboBox>
-            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedTask.Status}" />
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding StatusOptions}"
+                      SelectedItem="{Binding SelectedTask.Status}"
+                      SelectionChanged="StatusCombo_OnSelectionChanged" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Priorität" Margin="0,8,0,0" />
             <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur / Zuständig" Margin="0,8,0,0" />
@@ -270,21 +303,34 @@
 
           <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
             <TextBlock Classes="SectionTitle" Text="Material" Margin="0" />
-            <Button Grid.Column="1" Content="Hinzufügen" Click="AddMaterial_OnClick" />
+            <Button Grid.Column="1" Content="+ Material" Click="AddMaterial_OnClick" />
           </Grid>
+
+          <Border Classes="Card"
+                  IsVisible="{Binding HasNoMaterials}"
+                  Padding="12"
+                  Margin="0,0,0,8">
+            <TextBlock Text="Noch kein Material erfasst." Foreground="#6E6E73" />
+          </Border>
 
           <ItemsControl ItemsSource="{Binding Materials}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Border Classes="Card" Margin="0,0,0,8" Padding="12">
-                  <Grid ColumnDefinitions="80,80,*,120,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                    <NumericUpDown Value="{Binding Quantity}" Minimum="0" Increment="1" />
-                    <TextBox Grid.Column="1" Text="{Binding Unit}" />
-                    <TextBox Grid.Column="2" Text="{Binding Name}" PlaceholderText="Material" />
-                    <ComboBox Grid.Column="3" ItemsSource="{Binding $parent[Window].DataContext.MaterialStatusOptions}" SelectedItem="{Binding Status}" />
-                    <Button Grid.Column="4" Content="Entfernen" Click="DeleteMaterial_OnClick" Tag="{Binding}" />
-                    <TextBox Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Supplier}" PlaceholderText="Lieferant" />
-                    <TextBox Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="3" Text="{Binding Note}" PlaceholderText="Notiz" />
+                  <Grid ColumnDefinitions="78,78,*,132,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                    <TextBlock Text="Menge" Foreground="#86868B" FontSize="11" />
+                    <TextBlock Grid.Column="1" Text="Einheit" Foreground="#86868B" FontSize="11" />
+                    <TextBlock Grid.Column="2" Text="Bezeichnung" Foreground="#86868B" FontSize="11" />
+                    <TextBlock Grid.Column="3" Text="Status" Foreground="#86868B" FontSize="11" />
+                    <NumericUpDown Grid.Row="1" Value="{Binding Quantity}" Minimum="0" Increment="1" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" />
+                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Name}" PlaceholderText="Material" />
+                    <ComboBox Grid.Row="1" Grid.Column="3" ItemsSource="{Binding $parent[Window].DataContext.MaterialStatusOptions}" SelectedItem="{Binding Status}" />
+                    <Button Grid.Row="1" Grid.Column="4" Content="×" Click="DeleteMaterial_OnClick" Tag="{Binding}" />
+                    <TextBlock Grid.Row="2" Text="Lieferant" Foreground="#86868B" FontSize="11" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Notiz" Foreground="#86868B" FontSize="11" />
+                    <TextBox Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding Supplier}" PlaceholderText="Lieferant" />
+                    <TextBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3" Text="{Binding Note}" PlaceholderText="Notiz" />
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -374,7 +420,10 @@
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="#6E6E73" FontSize="12" Margin="0,4,0,0" />
                       <TextBlock Text="{Binding StoredPath}" Foreground="#86868B" FontSize="11" TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Grid.Column="2" Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />
+                    <StackPanel Grid.Column="2" Spacing="8">
+                      <Button Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />
+                      <Button Content="Entfernen" Click="DeleteAttachment_OnClick" Tag="{Binding}" />
+                    </StackPanel>
                   </Grid>
                 </Border>
               </DataTemplate>

@@ -138,6 +138,53 @@ public sealed class BueroRepository
         return items;
     }
 
+    public void SaveCategory(CategoryItem category)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO Categories (Id, Name, SortOrder, Color, IsVisible)
+            VALUES ($id, $name, $sortOrder, $color, $isVisible)
+            ON CONFLICT(Id) DO UPDATE SET
+                Name = excluded.Name,
+                SortOrder = excluded.SortOrder,
+                Color = excluded.Color,
+                IsVisible = excluded.IsVisible;
+            """;
+        command.Parameters.AddWithValue("$id", category.Id);
+        command.Parameters.AddWithValue("$name", category.Name);
+        command.Parameters.AddWithValue("$sortOrder", category.SortOrder);
+        command.Parameters.AddWithValue("$color", category.Color);
+        command.Parameters.AddWithValue("$isVisible", category.IsVisible ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    public void HideCategory(string categoryId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Categories SET IsVisible = 0 WHERE Id = $id;";
+        command.Parameters.AddWithValue("$id", categoryId);
+        command.ExecuteNonQuery();
+    }
+
+    public int GetTaskCountForCategory(string categoryId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM Tasks WHERE CategoryId = $categoryId;";
+        command.Parameters.AddWithValue("$categoryId", categoryId);
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    public int GetNextCategorySortOrder()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COALESCE(MAX(SortOrder), -1) + 1 FROM Categories;";
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
     public List<MaterialItem> GetMaterials(string taskId)
     {
         using var connection = OpenConnection();
@@ -285,6 +332,15 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM Materials WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", materialId);
+        command.ExecuteNonQuery();
+    }
+
+    public void DeleteAttachment(string attachmentId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Attachments WHERE Id = $id;";
+        command.Parameters.AddWithValue("$id", attachmentId);
         command.ExecuteNonQuery();
     }
 
