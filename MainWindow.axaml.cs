@@ -266,13 +266,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(PreviewImagePath));
             OnPropertyChanged(nameof(HasPreviewImage));
             OnPropertyChanged(nameof(HasPreviewPlaceholder));
+            OnPropertyChanged(nameof(AttachmentPreviewTitle));
+            OnPropertyChanged(nameof(AttachmentPreviewInfo));
         }
     }
 
     public bool HasSelectedAttachment => SelectedAttachment is not null;
     public string PreviewImagePath => SelectedAttachment?.ThumbnailPath ?? string.Empty;
-    public bool HasPreviewImage => !string.IsNullOrWhiteSpace(PreviewImagePath) && File.Exists(PreviewImagePath);
+    public bool HasPreviewImage => SelectedAttachment is not null &&
+                                   File.Exists(SelectedAttachment.StoredPath) &&
+                                   !string.IsNullOrWhiteSpace(PreviewImagePath) &&
+                                   File.Exists(PreviewImagePath);
     public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
+    public string AttachmentPreviewTitle => SelectedAttachment is null
+        ? string.Empty
+        : File.Exists(SelectedAttachment.StoredPath)
+            ? SelectedAttachment.FileName
+            : "Datei nicht gefunden";
+    public string AttachmentPreviewInfo
+    {
+        get
+        {
+            if (SelectedAttachment is null)
+            {
+                return string.Empty;
+            }
+
+            if (!File.Exists(SelectedAttachment.StoredPath))
+            {
+                return "Datei nicht gefunden.";
+            }
+
+            var extension = SelectedAttachment.FileType.TrimStart('.').ToLowerInvariant();
+            var sizeText = FormatFileSize(new FileInfo(SelectedAttachment.StoredPath).Length);
+            return extension == "msg"
+                ? $"Outlook-Nachricht (.msg) - extern öffnen. {sizeText}"
+                : $"{SelectedAttachment.FileTypeBadge} - {sizeText}";
+        }
+    }
     public bool HasNoMaterials => Materials.Count == 0;
     public string OneDriveEditDirectory => _appSettings.OneDriveEditDirectory;
     public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
@@ -1038,39 +1069,123 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Anhang auswählen",
-            AllowMultiple = false
+            AllowMultiple = true
         });
 
-        var pickedFile = files.FirstOrDefault();
-        var sourcePath = pickedFile?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+        var addedCount = 0;
+        foreach (var file in files)
         {
+            var sourcePath = file.TryGetLocalPath();
+            if (AddAttachmentFromPath(sourcePath, selectAfterAdd: false))
+            {
+                addedCount++;
+            }
+        }
+
+        if (addedCount > 0)
+        {
+            SelectAttachment(Attachments.First());
+            AttachmentEditStatus = addedCount == 1
+                ? "1 Datei hinzugefügt."
+                : $"{addedCount} Dateien hinzugefügt.";
+        }
+    }
+
+    private bool AddAttachmentFromPath(string? sourcePath, bool selectAfterAdd)
+    {
+        if (SelectedTask is null || string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            _repository.SaveTask(SelectedTask);
+            var attachmentDirectory = AppPaths.GetAttachmentDirectory(SelectedTask.Id);
+            Directory.CreateDirectory(attachmentDirectory);
+
+            var originalName = Path.GetFileName(sourcePath);
+            var storedName = CreateStoredFileName(originalName);
+            var destinationPath = Path.Combine(attachmentDirectory, storedName);
+            File.Copy(sourcePath, destinationPath, overwrite: false);
+
+            var attachment = new AttachmentItem
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                TaskId = SelectedTask.Id,
+                FileName = originalName,
+                StoredPath = destinationPath,
+                ThumbnailPath = string.Empty,
+                FileType = Path.GetExtension(originalName),
+                AddedAt = DateTime.Now
+            };
+
+            EnsureAttachmentThumbnail(attachment);
+            _repository.SaveAttachment(attachment);
+            Attachments.Insert(0, attachment);
+            if (selectAfterAdd)
+            {
+                SelectAttachment(attachment);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AttachmentEditStatus = $"Anhang konnte nicht hinzugefügt werden: {Path.GetFileName(sourcePath)}";
+            Debug.WriteLine($"Attachment add failed for '{sourcePath}': {ex}");
+            return false;
+        }
+    }
+
+    private void AttachmentDropZone_OnDragOver(object? sender, DragEventArgs e)
+    {
+        var hasFiles = e.DataTransfer.TryGetFiles()?.Any() == true;
+        e.DragEffects = SelectedTask is null || !hasFiles
+            ? DragDropEffects.None
+            : DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private void AttachmentDropZone_OnDrop(object? sender, DragEventArgs e)
+    {
+        if (SelectedTask is null)
+        {
+            AttachmentEditStatus = "Bitte zuerst eine Aufgabe auswählen.";
+            e.Handled = true;
             return;
         }
 
-        var attachmentDirectory = AppPaths.GetAttachmentDirectory(SelectedTask.Id);
-        Directory.CreateDirectory(attachmentDirectory);
-
-        var originalName = Path.GetFileName(sourcePath);
-        var storedName = CreateStoredFileName(originalName);
-        var destinationPath = Path.Combine(attachmentDirectory, storedName);
-        File.Copy(sourcePath, destinationPath, overwrite: false);
-
-        var attachment = new AttachmentItem
+        var files = e.DataTransfer.TryGetFiles();
+        if (files is null)
         {
-            Id = Guid.NewGuid().ToString("N"),
-            TaskId = SelectedTask.Id,
-            FileName = originalName,
-            StoredPath = destinationPath,
-            ThumbnailPath = string.Empty,
-            FileType = Path.GetExtension(originalName),
-            AddedAt = DateTime.Now
-        };
+            e.Handled = true;
+            return;
+        }
 
-        EnsureAttachmentThumbnail(attachment);
-        _repository.SaveAttachment(attachment);
-        Attachments.Insert(0, attachment);
-        SelectAttachment(attachment);
+        var addedCount = 0;
+        foreach (var file in files)
+        {
+            var sourcePath = file.TryGetLocalPath();
+            if (AddAttachmentFromPath(sourcePath, selectAfterAdd: false))
+            {
+                addedCount++;
+            }
+        }
+
+        if (addedCount > 0)
+        {
+            SelectAttachment(Attachments.First());
+            AttachmentEditStatus = addedCount == 1
+                ? "1 Datei per Drag & Drop hinzugefügt."
+                : $"{addedCount} Dateien per Drag & Drop hinzugefügt.";
+        }
+        else
+        {
+            AttachmentEditStatus = "Keine Datei hinzugefügt.";
+        }
+
+        e.Handled = true;
     }
 
     private void OpenAttachment_OnClick(object? sender, RoutedEventArgs e)
@@ -1609,15 +1724,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(PreviewImagePath));
             OnPropertyChanged(nameof(HasPreviewImage));
             OnPropertyChanged(nameof(HasPreviewPlaceholder));
+            OnPropertyChanged(nameof(AttachmentPreviewTitle));
+            OnPropertyChanged(nameof(AttachmentPreviewInfo));
 
             EnsureAttachmentThumbnail(SelectedAttachment);
             session.Status = "Imported";
             session.ImportedAt = DateTime.Now;
             _repository.SaveAttachmentEditSession(session);
-            SetSelectedAttachmentEditSession(session, "iPad-Bearbeitung übernommen. Alte Version wurde gesichert.");
+            var moveMessage = MoveImportedEditFileToDoneFolder(session.ExportPath);
+            var statusMessage = "iPad-Bearbeitung übernommen. Alte Version wurde gesichert.";
+            if (!string.IsNullOrWhiteSpace(moveMessage))
+            {
+                statusMessage += $" {moveMessage}";
+            }
+
+            SetSelectedAttachmentEditSession(session, statusMessage);
             OnPropertyChanged(nameof(PreviewImagePath));
             OnPropertyChanged(nameof(HasPreviewImage));
             OnPropertyChanged(nameof(HasPreviewPlaceholder));
+            OnPropertyChanged(nameof(AttachmentPreviewTitle));
+            OnPropertyChanged(nameof(AttachmentPreviewInfo));
         }
         catch (Exception ex)
         {
@@ -1969,6 +2095,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         return CreateUniquePath(directory, $"{stem}_vor_iPad_{timestamp}{extension}");
+    }
+
+    private static string MoveImportedEditFileToDoneFolder(string exportPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(exportPath) || !File.Exists(exportPath))
+            {
+                return string.Empty;
+            }
+
+            var sourceDirectory = Path.GetDirectoryName(exportPath);
+            if (string.IsNullOrWhiteSpace(sourceDirectory))
+            {
+                return string.Empty;
+            }
+
+            var doneDirectory = Path.Combine(sourceDirectory, "Erledigt");
+            Directory.CreateDirectory(doneDirectory);
+            var targetPath = CreateUniquePath(doneDirectory, Path.GetFileName(exportPath));
+            File.Move(exportPath, targetPath);
+            return "Bearbeitete Datei wurde nach Erledigt verschoben.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not move imported edit file '{exportPath}': {ex}");
+            return "Bearbeitete OneDrive-Datei konnte nicht nach Erledigt verschoben werden.";
+        }
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double value = bytes;
+        var unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? $"{bytes} B"
+            : $"{value:0.#} {units[unitIndex]}";
     }
 
     private void OpenFolder(string path)
