@@ -526,15 +526,18 @@
                       SelectionChanged="StatusCombo_OnSelectionChanged" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Priorität" Margin="0,8,0,0" />
-            <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur / Zuständig" Margin="0,8,0,0" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur" Margin="0,8,0,0" />
             <ComboBox Grid.Row="3" Grid.Column="0" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding SelectedTask.Priority}" />
-            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedTask.AssignedTo}" />
+            <TextBox Grid.Row="3"
+                     Grid.Column="1"
+                     Text="{Binding SelectedTask.Technician}"
+                     MaxWidth="220"
+                     HorizontalAlignment="Left" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monteur" Margin="0,8,0,0" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuständig" Margin="0,8,0,0" />
             <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" />
-            <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.Technician}" />
+            <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.AssignedTo}" />
             <StackPanel Grid.Row="5" Grid.Column="1" Spacing="6">
-              <DatePicker SelectedDate="{Binding SelectedSentAt}" />
               <TextBox Text="{Binding SentAtInputText}"
                        Tag="SentAt"
                        PlaceholderText="TT.MM.JJJJ"
@@ -547,7 +550,6 @@
             <TextBlock Text="Termin" />
             <TextBlock Grid.Column="1" Text="Wiedervorlage" />
             <StackPanel Grid.Row="1" Spacing="6">
-              <DatePicker SelectedDate="{Binding SelectedDueDate}" />
               <TextBox Text="{Binding DueDateInputText}"
                        Tag="DueDate"
                        PlaceholderText="TT.MM.JJJJ"
@@ -555,7 +557,6 @@
                        KeyDown="DateTextBox_OnKeyDown" />
             </StackPanel>
             <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
-              <DatePicker SelectedDate="{Binding SelectedFollowUpDate}" />
               <TextBox Text="{Binding FollowUpDateInputText}"
                        Tag="FollowUpDate"
                        PlaceholderText="TT.MM.JJJJ"

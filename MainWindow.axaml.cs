@@ -159,54 +159,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    public DateTimeOffset? SelectedDueDate
-    {
-        get => SelectedTask?.DueDate is null ? null : new DateTimeOffset(SelectedTask.DueDate.Value);
-        set
-        {
-            if (SelectedTask is null)
-            {
-                return;
-            }
-
-            SelectedTask.DueDate = value?.DateTime;
-            OnPropertyChanged(nameof(SelectedDueDate));
-            UpdateDateTextFieldsFromSelectedTask();
-        }
-    }
-
-    public DateTimeOffset? SelectedFollowUpDate
-    {
-        get => SelectedTask?.FollowUpDate is null ? null : new DateTimeOffset(SelectedTask.FollowUpDate.Value);
-        set
-        {
-            if (SelectedTask is null)
-            {
-                return;
-            }
-
-            SelectedTask.FollowUpDate = value?.DateTime;
-            OnPropertyChanged(nameof(SelectedFollowUpDate));
-            UpdateDateTextFieldsFromSelectedTask();
-        }
-    }
-
-    public DateTimeOffset? SelectedSentAt
-    {
-        get => SelectedTask?.SentAt is null ? null : new DateTimeOffset(SelectedTask.SentAt.Value);
-        set
-        {
-            if (SelectedTask is null)
-            {
-                return;
-            }
-
-            SelectedTask.SentAt = value?.DateTime;
-            OnPropertyChanged(nameof(SelectedSentAt));
-            UpdateDateTextFieldsFromSelectedTask();
-        }
-    }
-
     public string DueDateInputText
     {
         get => _dueDateText;
@@ -701,7 +653,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (SelectedTask is not null)
                 {
                     SelectedTask.DueDate = value;
-                    OnPropertyChanged(nameof(SelectedDueDate));
                 }
             });
     }
@@ -717,7 +668,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (SelectedTask is not null)
                 {
                     SelectedTask.FollowUpDate = value;
-                    OnPropertyChanged(nameof(SelectedFollowUpDate));
                 }
             });
     }
@@ -733,7 +683,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (SelectedTask is not null)
                 {
                     SelectedTask.SentAt = value;
-                    OnPropertyChanged(nameof(SelectedSentAt));
                 }
             });
     }
@@ -885,9 +834,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedTask));
         OnPropertyChanged(nameof(HasSelectedTask));
         OnPropertyChanged(nameof(HasNoMaterials));
-        OnPropertyChanged(nameof(SelectedDueDate));
-        OnPropertyChanged(nameof(SelectedFollowUpDate));
-        OnPropertyChanged(nameof(SelectedSentAt));
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
     }
@@ -972,9 +918,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _isLoadingSelection = false;
-        OnPropertyChanged(nameof(SelectedDueDate));
-        OnPropertyChanged(nameof(SelectedFollowUpDate));
-        OnPropertyChanged(nameof(SelectedSentAt));
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
     }
