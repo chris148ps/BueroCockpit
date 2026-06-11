@@ -40,7 +40,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isUpdateAvailable;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
-    private bool _suppressTaskSelectionChanged;
+    private bool _isUpdatingSelection;
+    private bool _isRefreshingVisibleTasks;
+    private bool _suppressTaskListSelectionChanged;
+    private bool _suppressCategorySelectionChanged;
+    private bool _suppressStatusSelectionChanged;
+    private bool _suppressSavingDuringSelection;
+    private int _selectionNavigationDepth;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -61,7 +67,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => _selectedCategory;
         set
         {
-            if (_selectedCategory == value)
+            if (_selectedCategory == value || (_selectedCategory is not null && value is not null && _selectedCategory.Id == value.Id))
             {
                 return;
             }
@@ -83,18 +89,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
             CategoryMessage = string.Empty;
-            if (IsOverviewSelected)
-            {
-                ShowOverview();
-            }
-            else if (IsSettingsSelected)
-            {
-                ShowSettings();
-            }
-            else
-            {
-                RefreshVisibleTasks();
-            }
         }
     }
 
@@ -103,12 +97,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => _selectedTask;
         set
         {
-            if (_selectedTask == value)
+            if (_selectedTask == value || (_selectedTask is not null && value is not null && _selectedTask.Id == value.Id))
             {
                 return;
             }
 
-            SaveCurrentMaterials();
+            if (_selectionNavigationDepth == 0 &&
+                !_isUpdatingSelection &&
+                IsGlobalSearchEnabled &&
+                value is not null &&
+                SelectedCategory?.Id != value.CategoryId)
+            {
+                NavigateToTask(value, fromGlobalSearch: true);
+                return;
+            }
+
+            if (!_suppressSavingDuringSelection)
+            {
+                SaveCurrentMaterials();
+            }
             if (_selectedTask is not null)
             {
                 _selectedTask.IsSelected = false;
@@ -138,7 +145,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _selectedTaskCategory = value;
             OnPropertyChanged(nameof(SelectedTaskCategory));
-            if (!_isLoadingSelection && SelectedTask is not null && value is not null)
+            if (!_isLoadingSelection &&
+                !_isUpdatingSelection &&
+                !_isRefreshingVisibleTasks &&
+                _selectionNavigationDepth == 0 &&
+                SelectedTask is not null &&
+                value is not null)
             {
                 SelectedTask.CategoryId = value.Id;
                 _repository.SaveTask(SelectedTask);
@@ -447,45 +459,101 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         UpdateCategoryCounts();
         SelectedCategory = Categories.FirstOrDefault(c => c.Name == OverviewCategoryName) ?? Categories.FirstOrDefault();
+        ApplySelectedCategoryContent();
     }
 
     private void RefreshVisibleTasks()
     {
+        if (_isRefreshingVisibleTasks)
+        {
+            return;
+        }
+
         if (IsOverviewSelected)
         {
             ShowOverview();
             return;
         }
 
-        VisibleTasks.Clear();
+        _isRefreshingVisibleTasks = true;
+        _suppressTaskListSelectionChanged = true;
+        try
+        {
+            var selectedTaskId = SelectedTask?.Id;
+            VisibleTasks.Clear();
 
-        var selected = SelectedCategory;
-        var searchEverywhere = IsGlobalSearchEnabled && !string.IsNullOrWhiteSpace(SearchText);
-        IEnumerable<TaskItem> tasks = searchEverywhere
-            ? AllTasks
-            : selected is null
+            var selected = SelectedCategory;
+            var searchEverywhere = IsGlobalSearchEnabled && !string.IsNullOrWhiteSpace(SearchText);
+            IEnumerable<TaskItem> tasks = searchEverywhere
                 ? AllTasks
-                : AllTasks.Where(t => t.CategoryId == selected.Id);
+                : selected is null
+                    ? AllTasks
+                    : AllTasks.Where(t => t.CategoryId == selected.Id);
 
-        if (!string.IsNullOrWhiteSpace(SearchText))
-        {
-            var query = SearchText.Trim();
-            tasks = tasks.Where(task => TaskMatchesSearch(task, query));
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                var query = SearchText.Trim();
+                tasks = tasks.Where(task => TaskMatchesSearch(task, query));
+            }
+
+            foreach (var task in tasks)
+            {
+                task.CategoryHint = GetCategoryName(task.CategoryId);
+                task.ShowCategoryHint = searchEverywhere;
+                VisibleTasks.Add(task);
+            }
+
+            TaskListCaption = searchEverywhere
+                ? VisibleTasks.Count == 1 ? "1 Treffer in allen Bereichen" : $"{VisibleTasks.Count} Treffer in allen Bereichen"
+                : VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
+
+            var taskToSelect = selectedTaskId is null
+                ? VisibleTasks.FirstOrDefault()
+                : VisibleTasks.FirstOrDefault(task => task.Id == selectedTaskId) ?? VisibleTasks.FirstOrDefault();
+            SetSelectedTaskDuringRefresh(taskToSelect);
         }
-
-        foreach (var task in tasks)
+        finally
         {
-            task.CategoryHint = GetCategoryName(task.CategoryId);
-            task.ShowCategoryHint = searchEverywhere;
-            VisibleTasks.Add(task);
+            _suppressTaskListSelectionChanged = false;
+            _isRefreshingVisibleTasks = false;
         }
+    }
 
-        TaskListCaption = searchEverywhere
-            ? VisibleTasks.Count == 1 ? "1 Treffer in allen Bereichen" : $"{VisibleTasks.Count} Treffer in allen Bereichen"
-            : VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
-        if (SelectedTask is null || !VisibleTasks.Contains(SelectedTask))
+    private void ApplySelectedCategoryContent()
+    {
+        if (IsOverviewSelected)
         {
-            SelectedTask = VisibleTasks.FirstOrDefault();
+            ShowOverview();
+        }
+        else if (IsSettingsSelected)
+        {
+            ShowSettings();
+        }
+        else
+        {
+            RefreshVisibleTasks();
+        }
+    }
+
+    private void SetSelectedTaskDuringRefresh(TaskItem? task)
+    {
+        var wasUpdatingSelection = _isUpdatingSelection;
+        var wasSuppressingStatusSelection = _suppressStatusSelectionChanged;
+        var wasSuppressingSaving = _suppressSavingDuringSelection;
+
+        _isUpdatingSelection = true;
+        _suppressStatusSelectionChanged = true;
+        _suppressSavingDuringSelection = true;
+        try
+        {
+            SelectedTask = task;
+            TaskList.SelectedItem = task;
+        }
+        finally
+        {
+            _suppressSavingDuringSelection = wasSuppressingSaving;
+            _suppressStatusSelectionChanged = wasSuppressingStatusSelection;
+            _isUpdatingSelection = wasUpdatingSelection;
         }
     }
 
@@ -494,7 +562,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ClearSelectedTask();
         VisibleTasks.Clear();
         TaskListCaption = "Tagesübersicht";
-        SearchText = string.Empty;
+        ClearSearchTextWithoutRefresh();
         RefreshDashboard();
     }
 
@@ -503,12 +571,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ClearSelectedTask();
         VisibleTasks.Clear();
         TaskListCaption = "Einstellungen";
-        SearchText = string.Empty;
+        ClearSearchTextWithoutRefresh();
+    }
+
+    private void ClearSearchTextWithoutRefresh()
+    {
+        if (string.IsNullOrEmpty(_searchText))
+        {
+            return;
+        }
+
+        _searchText = string.Empty;
+        OnPropertyChanged(nameof(SearchText));
     }
 
     private void ClearSelectedTask()
     {
-        SaveCurrentMaterials();
+        if (!_suppressSavingDuringSelection)
+        {
+            SaveCurrentMaterials();
+        }
         if (_selectedTask is not null)
         {
             _selectedTask.IsSelected = false;
@@ -841,6 +923,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         InsertBeforeSettings(category);
         RefreshTaskCategories();
         SelectedCategory = category;
+        ApplySelectedCategoryContent();
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie angelegt.";
     }
@@ -886,6 +969,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Categories.Remove(category);
         RefreshTaskCategories();
         SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") ?? Categories.FirstOrDefault();
+        ApplySelectedCategoryContent();
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie ausgeblendet.";
     }
@@ -946,16 +1030,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void StatusCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_isLoadingSelection || SelectedTask is null)
+        if (_isLoadingSelection ||
+            _isUpdatingSelection ||
+            _isRefreshingVisibleTasks ||
+            _suppressStatusSelectionChanged ||
+            _selectionNavigationDepth > 0 ||
+            SelectedTask is null)
         {
             return;
         }
 
-        if (sender is ComboBox { SelectedItem: string status })
+        if (sender is not ComboBox { SelectedItem: string status } ||
+            SelectedTask.Status.Equals(status, StringComparison.Ordinal))
         {
-            SelectedTask.Status = status;
+            return;
         }
 
+        SelectedTask.Status = status;
         ApplySelectedTaskStatusRules();
         _repository.SaveTask(SelectedTask);
         RefreshVisibleTasks();
@@ -969,16 +1060,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var category = Categories.FirstOrDefault(c => c.Id == task.CategoryId)
-            ?? Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben")
-            ?? Categories.FirstOrDefault(c => c.Name != "Übersicht");
-        if (category is null)
-        {
-            return;
-        }
-
-        SelectedCategory = category;
-        SelectedTask = task;
+        NavigateToTask(task, fromGlobalSearch: false);
     }
 
     private void SearchBox_OnTextChanged(object? sender, TextChangedEventArgs e)
@@ -1297,28 +1379,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategoryList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        RefreshVisibleTasks();
+        if (_suppressCategorySelectionChanged || _isUpdatingSelection || _selectionNavigationDepth > 0)
+        {
+            return;
+        }
+
+        ApplySelectedCategoryContent();
     }
 
     private void TaskList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_suppressTaskSelectionChanged)
+        if (_suppressTaskListSelectionChanged || _isUpdatingSelection || _isRefreshingVisibleTasks || _selectionNavigationDepth > 0)
         {
             return;
         }
 
-        var selectedTask = SelectedTask;
-        if (IsGlobalSearchEnabled && selectedTask is not null && SelectedCategory?.Id != selectedTask.CategoryId)
+        if (sender is not ListBox { SelectedItem: TaskItem selectedTask })
         {
-            SelectTaskFromGlobalSearch(selectedTask);
             return;
         }
 
-        OnPropertyChanged(nameof(SelectedTask));
+        if (IsGlobalSearchEnabled && SelectedCategory?.Id != selectedTask.CategoryId)
+        {
+            NavigateToTask(selectedTask, fromGlobalSearch: true);
+            return;
+        }
+
+        SelectedTask = selectedTask;
     }
 
-    private void SelectTaskFromGlobalSearch(TaskItem task)
+    private void NavigateToTask(TaskItem? task, bool fromGlobalSearch)
     {
+        if (task is null || _selectionNavigationDepth > 0)
+        {
+            return;
+        }
+
         var category = Categories.FirstOrDefault(c => c.Id == task.CategoryId);
         if (category is null)
         {
@@ -1326,22 +1422,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _suppressTaskSelectionChanged = true;
+        _selectionNavigationDepth++;
+        _isUpdatingSelection = true;
+        _suppressTaskListSelectionChanged = true;
+        _suppressCategorySelectionChanged = true;
+        _suppressStatusSelectionChanged = true;
+        _suppressSavingDuringSelection = true;
         try
         {
-            if (_isGlobalSearchEnabled)
+            if (fromGlobalSearch && _isGlobalSearchEnabled)
             {
                 _isGlobalSearchEnabled = false;
                 OnPropertyChanged(nameof(IsGlobalSearchEnabled));
             }
 
             SelectedCategory = category;
+            CategoryList.SelectedItem = category;
             RefreshVisibleTasks();
             SelectedTask = VisibleTasks.FirstOrDefault(item => item.Id == task.Id);
+            TaskList.SelectedItem = SelectedTask;
         }
         finally
         {
-            _suppressTaskSelectionChanged = false;
+            _suppressSavingDuringSelection = false;
+            _suppressStatusSelectionChanged = false;
+            _suppressCategorySelectionChanged = false;
+            _suppressTaskListSelectionChanged = false;
+            _isUpdatingSelection = false;
+            _selectionNavigationDepth--;
         }
     }
 
