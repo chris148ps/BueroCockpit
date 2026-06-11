@@ -1004,7 +1004,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Status = "benötigt"
         };
 
-        Materials.Add(item);
+        Materials.Insert(0, item);
         OnPropertyChanged(nameof(HasNoMaterials));
         _repository.SaveMaterial(item);
     }
@@ -1727,10 +1727,56 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveCurrentMaterials()
     {
+        MergeDuplicateMaterials();
         foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)))
         {
             _repository.SaveMaterial(item);
         }
+    }
+
+    private void MergeDuplicateMaterials()
+    {
+        var seen = new Dictionary<string, MaterialItem>(StringComparer.OrdinalIgnoreCase);
+        var duplicates = new List<MaterialItem>();
+
+        foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)).Reverse().ToList())
+        {
+            var normalizedName = NormalizeMaterialKeyPart(item.Name);
+            if (string.IsNullOrWhiteSpace(normalizedName))
+            {
+                continue;
+            }
+
+            var normalizedUnit = NormalizeMaterialKeyPart(item.Unit);
+            var key = $"{normalizedName}|{normalizedUnit}";
+            if (seen.TryGetValue(key, out var existing))
+            {
+                existing.Quantity += item.Quantity;
+                duplicates.Add(item);
+            }
+            else
+            {
+                item.Name = item.Name.Trim();
+                item.Unit = item.Unit.Trim();
+                seen[key] = item;
+            }
+        }
+
+        foreach (var duplicate in duplicates)
+        {
+            _repository.DeleteMaterial(duplicate.Id);
+            Materials.Remove(duplicate);
+        }
+
+        if (duplicates.Count > 0)
+        {
+            OnPropertyChanged(nameof(HasNoMaterials));
+        }
+    }
+
+    private static string NormalizeMaterialKeyPart(string value)
+    {
+        return string.Join(' ', value.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
     private bool TaskMatchesSearch(TaskItem task, string query)
