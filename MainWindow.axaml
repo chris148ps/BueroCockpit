@@ -382,8 +382,32 @@
             <CheckBox IsChecked="{Binding IsGlobalSearchEnabled}"
                       Content="Alle Bereiche durchsuchen"
                       Margin="0,8,0,0" />
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        Margin="0,8,0,0">
+              <TextBlock Text="Sortierung:"
+                         FontSize="12"
+                         Foreground="#6E6E73"
+                         VerticalAlignment="Center" />
+              <ComboBox ItemsSource="{Binding SortModeOptions}"
+                        SelectedItem="{Binding SelectedCategory.SortMode, Mode=TwoWay}"
+                        SelectionChanged="CategorySortMode_OnSelectionChanged"
+                        Width="135"
+                        MinHeight="28"
+                        FontSize="12" />
+              <Button Content="Sortieren"
+                      Click="AutoSortTasks_OnClick"
+                      MinHeight="28"
+                      Padding="10,2"
+                      FontSize="12" />
+            </StackPanel>
           </StackPanel>
-          <Button Grid.Column="1" Classes="Primary" Content="Neue Aufgabe" Click="NewTask_OnClick" />
+          <Button Grid.Column="1"
+                  Classes="Primary"
+                  Content="Neue Aufgabe"
+                  Click="NewTask_OnClick"
+                  VerticalAlignment="Top" />
         </Grid>
 
         <Border DockPanel.Dock="Top"

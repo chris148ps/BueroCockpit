@@ -67,6 +67,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
 
+    public string[] SortModeOptions { get; } = ["Manuell", "Termin", "Wiedervorlage", "Gesendet am", "Geändert am"];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
     public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
@@ -997,6 +998,92 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SaveCurrentMaterials();
         RefreshVisibleTasks();
         UpdateCategoryCounts();
+    }
+
+
+
+    private void CategorySortMode_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshingVisibleTasks || SelectedCategory is not { } category)
+        {
+            return;
+        }
+
+        _repository.SaveCategory(category);
+        RefreshVisibleTasks();
+    }
+
+    private void AutoSortTasks_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedCategory is null)
+        {
+            return;
+        }
+
+        AutoSortCurrentCategory();
+    }
+
+    private void AutoSortCurrentCategory()
+    {
+        if (SelectedCategory is null)
+        {
+            return;
+        }
+
+        var categoryTasks = AllTasks
+            .Where(task => task.CategoryId == SelectedCategory.Id)
+            .ToList();
+
+        if (categoryTasks.Count == 0)
+        {
+            return;
+        }
+
+        var sortedTasks = SortTasksForCategory(categoryTasks, SelectedCategory.SortMode).ToList();
+
+        for (var index = 0; index < sortedTasks.Count; index++)
+        {
+            sortedTasks[index].SortPosition = index + 1;
+            _repository.SaveTask(sortedTasks[index]);
+        }
+
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+    }
+
+    private static IEnumerable<TaskItem> SortTasksForCategory(IEnumerable<TaskItem> tasks, string? sortMode)
+    {
+        var mode = string.IsNullOrWhiteSpace(sortMode) ? "Geändert am" : sortMode.Trim();
+
+        return mode switch
+        {
+            "Termin" => tasks
+                .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
+                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+
+            "Wiedervorlage" => tasks
+                .OrderBy(task => task.FollowUpDate.HasValue ? 0 : 1)
+                .ThenBy(task => task.FollowUpDate ?? DateTime.MaxValue)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+
+            "Gesendet am" => tasks
+                .OrderBy(task => task.SentAt.HasValue ? 0 : 1)
+                .ThenBy(task => task.SentAt ?? DateTime.MaxValue)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+
+            "Manuell" => tasks
+                .OrderBy(task => task.SortPosition)
+                .ThenBy(task => task.CreatedAt),
+
+            _ => tasks
+                .OrderByDescending(task => task.UpdatedAt)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+        };
     }
 
     private void DeleteTask_OnClick(object? sender, RoutedEventArgs e)
