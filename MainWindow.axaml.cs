@@ -28,6 +28,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private AttachmentItem? _selectedAttachment;
     private AttachmentEditSession? _selectedAttachmentEditSession;
     private string _taskListCaption = "0 Aufgaben";
+    private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
     private bool _isGlobalSearchEnabled;
     private string _categoryEditorName = string.Empty;
@@ -54,6 +55,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
     public ObservableCollection<TaskItem> VisibleTasks { get; } = new();
+    public ObservableCollection<TaskSearchResult> GlobalSearchResults { get; } = new();
     public ObservableCollection<MaterialItem> Materials { get; } = new();
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
@@ -99,16 +101,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (_selectedTask == value || (_selectedTask is not null && value is not null && _selectedTask.Id == value.Id))
             {
-                return;
-            }
-
-            if (_selectionNavigationDepth == 0 &&
-                !_isUpdatingSelection &&
-                IsGlobalSearchEnabled &&
-                value is not null &&
-                SelectedCategory?.Id != value.CategoryId)
-            {
-                NavigateToTask(value, fromGlobalSearch: true);
                 return;
             }
 
@@ -300,6 +292,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _searchText = value;
             OnPropertyChanged(nameof(SearchText));
             RefreshVisibleTasks();
+            RefreshGlobalSearchResults();
         }
     }
 
@@ -315,9 +308,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _isGlobalSearchEnabled = value;
             OnPropertyChanged(nameof(IsGlobalSearchEnabled));
+            OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
             RefreshVisibleTasks();
+            RefreshGlobalSearchResults();
         }
     }
+
+    public string GlobalSearchCaption
+    {
+        get => _globalSearchCaption;
+        set
+        {
+            if (_globalSearchCaption != value)
+            {
+                _globalSearchCaption = value;
+                OnPropertyChanged(nameof(GlobalSearchCaption));
+            }
+        }
+    }
+
+    public bool IsGlobalSearchPanelVisible =>
+        IsGlobalSearchEnabled &&
+        !string.IsNullOrWhiteSpace(SearchText) &&
+        GlobalSearchResults.Count > 0;
 
     public string CategoryEditorName
     {
@@ -483,12 +496,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             VisibleTasks.Clear();
 
             var selected = SelectedCategory;
-            var searchEverywhere = IsGlobalSearchEnabled && !string.IsNullOrWhiteSpace(SearchText);
-            IEnumerable<TaskItem> tasks = searchEverywhere
+            IEnumerable<TaskItem> tasks = selected is null
                 ? AllTasks
-                : selected is null
-                    ? AllTasks
-                    : AllTasks.Where(t => t.CategoryId == selected.Id);
+                : AllTasks.Where(t => t.CategoryId == selected.Id);
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
@@ -499,13 +509,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var task in tasks)
             {
                 task.CategoryHint = GetCategoryName(task.CategoryId);
-                task.ShowCategoryHint = searchEverywhere;
+                task.ShowCategoryHint = false;
                 VisibleTasks.Add(task);
             }
 
-            TaskListCaption = searchEverywhere
-                ? VisibleTasks.Count == 1 ? "1 Treffer in allen Bereichen" : $"{VisibleTasks.Count} Treffer in allen Bereichen"
-                : VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
+            TaskListCaption = VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
 
             var taskToSelect = selectedTaskId is null
                 ? VisibleTasks.FirstOrDefault()
@@ -517,6 +525,84 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _suppressTaskListSelectionChanged = false;
             _isRefreshingVisibleTasks = false;
         }
+    }
+
+    private void RefreshGlobalSearchResults()
+    {
+        if (_selectionNavigationDepth > 0 || _isUpdatingSelection)
+        {
+            return;
+        }
+
+        GlobalSearchResults.Clear();
+        if (!IsGlobalSearchEnabled || string.IsNullOrWhiteSpace(SearchText))
+        {
+            GlobalSearchCaption = string.Empty;
+            OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
+            return;
+        }
+
+        var query = SearchText.Trim();
+        foreach (var task in AllTasks.Where(task => TaskMatchesSearch(task, query)).Take(50))
+        {
+            GlobalSearchResults.Add(CreateSearchResult(task, query));
+        }
+
+        GlobalSearchCaption = GlobalSearchResults.Count == 1
+            ? "1 Treffer in allen Bereichen"
+            : $"{GlobalSearchResults.Count} Treffer in allen Bereichen";
+        OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
+    }
+
+    private TaskSearchResult CreateSearchResult(TaskItem task, string query)
+    {
+        var categoryName = GetCategoryName(task.CategoryId);
+        var matchInfo = GetSearchMatchInfo(task, categoryName, query);
+        return new TaskSearchResult(
+            task,
+            categoryName,
+            task.CustomerName,
+            task.Title,
+            matchInfo,
+            task.Technician,
+            task.CustomerAddress,
+            task.DueDate,
+            task.SentAt);
+    }
+
+    private string GetSearchMatchInfo(TaskItem task, string categoryName, string query)
+    {
+        if (Contains(task.CustomerAddress, query))
+        {
+            return "Treffer in Adresse";
+        }
+
+        if (Contains(task.Technician, query))
+        {
+            return "Treffer in Monteur";
+        }
+
+        if (Contains(task.Status, query))
+        {
+            return "Treffer in Status";
+        }
+
+        if (Contains(categoryName, query))
+        {
+            return "Treffer in Bereich";
+        }
+
+        if (_repository.GetMaterials(task.Id).Any(material => Contains(material.Name, query)))
+        {
+            return "Treffer in Material";
+        }
+
+        if (_repository.GetAttachments(task.Id).Any(attachment => Contains(attachment.FileName, query)))
+        {
+            return "Treffer in Anhang";
+        }
+
+        return "Treffer in Aufgabe";
     }
 
     private void ApplySelectedCategoryContent()
@@ -578,11 +664,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(_searchText))
         {
+            GlobalSearchResults.Clear();
+            GlobalSearchCaption = string.Empty;
+            OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
             return;
         }
 
         _searchText = string.Empty;
         OnPropertyChanged(nameof(SearchText));
+        GlobalSearchResults.Clear();
+        GlobalSearchCaption = string.Empty;
+        OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
     }
 
     private void ClearSelectedTask()
@@ -1399,13 +1491,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (IsGlobalSearchEnabled && SelectedCategory?.Id != selectedTask.CategoryId)
-        {
-            NavigateToTask(selectedTask, fromGlobalSearch: true);
-            return;
-        }
-
         SelectedTask = selectedTask;
+    }
+
+    private void GlobalSearchResult_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (sender is Avalonia.StyledElement { DataContext: TaskSearchResult result })
+        {
+            e.Handled = true;
+            NavigateToTask(result.Task, fromGlobalSearch: true);
+        }
     }
 
     private void NavigateToTask(TaskItem? task, bool fromGlobalSearch)
@@ -1434,6 +1529,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _isGlobalSearchEnabled = false;
                 OnPropertyChanged(nameof(IsGlobalSearchEnabled));
+                GlobalSearchResults.Clear();
+                GlobalSearchCaption = string.Empty;
+                OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
             }
 
             SelectedCategory = category;
@@ -1761,4 +1859,39 @@ public sealed class DashboardSection
     public ObservableCollection<TaskItem> Tasks { get; }
     public bool HasTasks => Tasks.Count > 0;
     public bool HasNoTasks => !HasTasks;
+}
+
+public sealed class TaskSearchResult
+{
+    public TaskSearchResult(
+        TaskItem task,
+        string categoryName,
+        string customerName,
+        string title,
+        string matchInfo,
+        string technician,
+        string customerAddress,
+        DateTime? dueDate,
+        DateTime? sentAt)
+    {
+        Task = task;
+        CategoryName = categoryName;
+        CustomerName = customerName;
+        Title = title;
+        MatchInfo = matchInfo;
+        Technician = technician;
+        CustomerAddress = customerAddress;
+        DueDate = dueDate;
+        SentAt = sentAt;
+    }
+
+    public TaskItem Task { get; }
+    public string CategoryName { get; }
+    public string CustomerName { get; }
+    public string Title { get; }
+    public string MatchInfo { get; }
+    public string Technician { get; }
+    public string CustomerAddress { get; }
+    public DateTime? DueDate { get; }
+    public DateTime? SentAt { get; }
 }

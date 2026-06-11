@@ -386,6 +386,42 @@
           <Button Grid.Column="1" Classes="Primary" Content="Neue Aufgabe" Click="NewTask_OnClick" />
         </Grid>
 
+        <Border DockPanel.Dock="Top"
+                Classes="Card"
+                Padding="12"
+                Margin="0,0,0,14"
+                IsVisible="{Binding IsGlobalSearchPanelVisible}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding GlobalSearchCaption}"
+                       FontWeight="SemiBold"
+                       Foreground="#3C5F8F" />
+            <ItemsControl ItemsSource="{Binding GlobalSearchResults}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="#F7FAFF"
+                          BorderBrush="#D5E7FF"
+                          BorderThickness="1"
+                          CornerRadius="10"
+                          Padding="10"
+                          Margin="0,0,0,8"
+                          PointerPressed="GlobalSearchResult_OnPointerPressed">
+                    <StackPanel Spacing="4">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Border Grid.Column="1" Background="#FFFFFF" CornerRadius="8" Padding="8,2">
+                          <TextBlock Text="{Binding CategoryName}" FontSize="12" Foreground="#3C5F8F" />
+                        </Border>
+                      </Grid>
+                      <TextBlock Text="{Binding Title}" Foreground="#38383D" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding MatchInfo}" Foreground="#6E6E73" FontSize="12" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
         <ListBox x:Name="TaskList"
                  ItemsSource="{Binding VisibleTasks}"
                  SelectedItem="{Binding SelectedTask}"
