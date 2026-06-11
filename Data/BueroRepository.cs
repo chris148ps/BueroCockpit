@@ -22,6 +22,7 @@ public sealed class BueroRepository
                 Id TEXT PRIMARY KEY,
                 Name TEXT NOT NULL,
                 SortOrder INTEGER NOT NULL,
+                SortMode TEXT NOT NULL DEFAULT 'Geändert am',
                 Color TEXT NOT NULL,
                 IsVisible INTEGER NOT NULL
             );
@@ -38,6 +39,10 @@ public sealed class BueroRepository
                 Priority TEXT NOT NULL,
                 DueDate TEXT NULL,
                 FollowUpDate TEXT NULL,
+                SentAt TEXT NULL,
+                CustomerAddress TEXT NOT NULL DEFAULT '',
+                Technician TEXT NOT NULL DEFAULT '',
+                SortPosition REAL NOT NULL DEFAULT 0,
                 AssignedTo TEXT NOT NULL,
                 CreatedAt TEXT NOT NULL,
                 UpdatedAt TEXT NOT NULL,
@@ -86,6 +91,7 @@ public sealed class BueroRepository
             );
             """);
 
+        MigrateSchema(connection);
         SeedDefaultCategories(connection);
     }
 
@@ -94,7 +100,7 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, Name, SortOrder, Color, IsVisible
+            SELECT Id, Name, SortOrder, SortMode, Color, IsVisible
             FROM Categories
             WHERE IsVisible = 1
             ORDER BY SortOrder, Name;
@@ -109,8 +115,9 @@ public sealed class BueroRepository
                 Id = reader.GetString(0),
                 Name = reader.GetString(1),
                 SortOrder = reader.GetInt32(2),
-                Color = reader.GetString(3),
-                IsVisible = reader.GetInt32(4) == 1
+                SortMode = reader.GetString(3),
+                Color = reader.GetString(4),
+                IsVisible = reader.GetInt32(5) == 1
             });
         }
 
@@ -123,7 +130,8 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT Id, Title, CustomerName, Description, CategoryId, Status, Priority,
-                   DueDate, FollowUpDate, AssignedTo, CreatedAt, UpdatedAt, CompletedAt
+                   DueDate, FollowUpDate, SentAt, CustomerAddress, Technician, SortPosition,
+                   AssignedTo, CreatedAt, UpdatedAt, CompletedAt
             FROM Tasks
             ORDER BY UpdatedAt DESC;
             """;
@@ -143,10 +151,14 @@ public sealed class BueroRepository
                 Priority = reader.GetString(6),
                 DueDate = ReadNullableDate(reader, 7),
                 FollowUpDate = ReadNullableDate(reader, 8),
-                AssignedTo = reader.GetString(9),
-                CreatedAt = ReadDate(reader.GetString(10)),
-                UpdatedAt = ReadDate(reader.GetString(11)),
-                CompletedAt = ReadNullableDate(reader, 12)
+                SentAt = ReadNullableDate(reader, 9),
+                CustomerAddress = reader.GetString(10),
+                Technician = reader.GetString(11),
+                SortPosition = reader.GetDouble(12),
+                AssignedTo = reader.GetString(13),
+                CreatedAt = ReadDate(reader.GetString(14)),
+                UpdatedAt = ReadDate(reader.GetString(15)),
+                CompletedAt = ReadNullableDate(reader, 16)
             });
         }
 
@@ -158,17 +170,19 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO Categories (Id, Name, SortOrder, Color, IsVisible)
-            VALUES ($id, $name, $sortOrder, $color, $isVisible)
+            INSERT INTO Categories (Id, Name, SortOrder, SortMode, Color, IsVisible)
+            VALUES ($id, $name, $sortOrder, $sortMode, $color, $isVisible)
             ON CONFLICT(Id) DO UPDATE SET
                 Name = excluded.Name,
                 SortOrder = excluded.SortOrder,
+                SortMode = excluded.SortMode,
                 Color = excluded.Color,
                 IsVisible = excluded.IsVisible;
             """;
         command.Parameters.AddWithValue("$id", category.Id);
         command.Parameters.AddWithValue("$name", category.Name);
         command.Parameters.AddWithValue("$sortOrder", category.SortOrder);
+        command.Parameters.AddWithValue("$sortMode", category.SortMode);
         command.Parameters.AddWithValue("$color", category.Color);
         command.Parameters.AddWithValue("$isVisible", category.IsVisible ? 1 : 0);
         command.ExecuteNonQuery();
@@ -198,6 +212,15 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COALESCE(MAX(SortOrder), -1) + 1 FROM Categories;";
         return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    public double GetNextTaskSortPosition(string categoryId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COALESCE(MAX(SortPosition), -1) + 1 FROM Tasks WHERE CategoryId = $categoryId;";
+        command.Parameters.AddWithValue("$categoryId", categoryId);
+        return Convert.ToDouble(command.ExecuteScalar());
     }
 
     public List<MaterialItem> GetMaterials(string taskId)
@@ -276,18 +299,24 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, Priority,
-                               DueDate, FollowUpDate, AssignedTo, CreatedAt, UpdatedAt, CompletedAt)
+                               DueDate, FollowUpDate, SentAt, CustomerAddress, Technician, SortPosition,
+                               AssignedTo, CreatedAt, UpdatedAt, CompletedAt)
             VALUES ($id, $title, $customerName, $description, $categoryId, $status, $priority,
-                    $dueDate, $followUpDate, $assignedTo, $createdAt, $updatedAt, $completedAt)
+                    $dueDate, $followUpDate, $sentAt, $customerAddress, $technician, $sortPosition,
+                    $assignedTo, $createdAt, $updatedAt, $completedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Title = excluded.Title,
                 CustomerName = excluded.CustomerName,
+                CustomerAddress = excluded.CustomerAddress,
                 Description = excluded.Description,
                 CategoryId = excluded.CategoryId,
                 Status = excluded.Status,
                 Priority = excluded.Priority,
                 DueDate = excluded.DueDate,
                 FollowUpDate = excluded.FollowUpDate,
+                SentAt = excluded.SentAt,
+                Technician = excluded.Technician,
+                SortPosition = excluded.SortPosition,
                 AssignedTo = excluded.AssignedTo,
                 UpdatedAt = excluded.UpdatedAt,
                 CompletedAt = excluded.CompletedAt;
@@ -458,6 +487,41 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
     }
 
+    private static void MigrateSchema(SqliteConnection connection)
+    {
+        AddColumnIfMissing(connection, "Categories", "SortMode", "TEXT NOT NULL DEFAULT 'Geändert am'");
+        AddColumnIfMissing(connection, "Tasks", "SentAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Tasks", "Technician", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
+    }
+
+    private static void AddColumnIfMissing(SqliteConnection connection, string tableName, string columnName, string columnDefinition)
+    {
+        if (ColumnExists(connection, tableName, columnName))
+        {
+            return;
+        }
+
+        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};");
+    }
+
+    private static bool ColumnExists(SqliteConnection connection, string tableName, string columnName)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({tableName});";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (reader.GetString(1).Equals(columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void SeedDefaultCategories(SqliteConnection connection)
     {
         using var countCommand = connection.CreateCommand();
@@ -487,12 +551,13 @@ public sealed class BueroRepository
         {
             using var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO Categories (Id, Name, SortOrder, Color, IsVisible)
-                VALUES ($id, $name, $sortOrder, $color, 1);
+                INSERT INTO Categories (Id, Name, SortOrder, SortMode, Color, IsVisible)
+                VALUES ($id, $name, $sortOrder, $sortMode, $color, 1);
                 """;
             command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
             command.Parameters.AddWithValue("$name", defaults[i]);
             command.Parameters.AddWithValue("$sortOrder", i);
+            command.Parameters.AddWithValue("$sortMode", "Geändert am");
             command.Parameters.AddWithValue("$color", i == 0 ? "#E9EEF7" : "#F2F3F5");
             command.ExecuteNonQuery();
         }
@@ -509,6 +574,10 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$priority", task.Priority);
         command.Parameters.AddWithValue("$dueDate", ToDb(task.DueDate));
         command.Parameters.AddWithValue("$followUpDate", ToDb(task.FollowUpDate));
+        command.Parameters.AddWithValue("$sentAt", ToDb(task.SentAt));
+        command.Parameters.AddWithValue("$customerAddress", task.CustomerAddress);
+        command.Parameters.AddWithValue("$technician", task.Technician);
+        command.Parameters.AddWithValue("$sortPosition", task.SortPosition);
         command.Parameters.AddWithValue("$assignedTo", task.AssignedTo);
         command.Parameters.AddWithValue("$createdAt", ToDb(task.CreatedAt));
         command.Parameters.AddWithValue("$updatedAt", ToDb(task.UpdatedAt));

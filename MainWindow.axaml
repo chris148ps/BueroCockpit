@@ -434,13 +434,19 @@
           <TextBlock Classes="SectionTitle" Text="Aufgabe" />
           <TextBlock Text="Kunde" />
           <TextBox Text="{Binding SelectedTask.CustomerName}" PlaceholderText="Kundenname" />
+          <TextBlock Text="Kundenadresse" />
+          <TextBox Text="{Binding SelectedTask.CustomerAddress}"
+                   PlaceholderText="Adresse"
+                   AcceptsReturn="True"
+                   TextWrapping="Wrap"
+                   MinHeight="64" />
           <TextBlock Text="Titel" />
           <TextBox Text="{Binding SelectedTask.Title}" PlaceholderText="Kurzer Aufgabentitel" />
           <TextBlock Text="Beschreibung / Notiz" />
           <TextBox Text="{Binding SelectedTask.Description}" PlaceholderText="Notizen, Verlauf, offene Punkte"
                    AcceptsReturn="True" TextWrapping="Wrap" MinHeight="110" />
 
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Kategorie" />
             <TextBlock Grid.Row="0" Grid.Column="1" Text="Status" />
             <ComboBox Grid.Row="1" Grid.Column="0"
@@ -461,6 +467,11 @@
             <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur / Zuständig" Margin="0,8,0,0" />
             <ComboBox Grid.Row="3" Grid.Column="0" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding SelectedTask.Priority}" />
             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedTask.AssignedTo}" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monteur" Margin="0,8,0,0" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" />
+            <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.Technician}" />
+            <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding SelectedSentAt}" />
           </Grid>
 
           <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">

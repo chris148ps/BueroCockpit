@@ -4,29 +4,37 @@ public sealed class TaskItem : ObservableObject
 {
     private string _title = string.Empty;
     private string _customerName = string.Empty;
+    private string _customerAddress = string.Empty;
     private string _description = string.Empty;
     private string _categoryId = string.Empty;
     private string _status = "Offen";
     private string _priority = "Normal";
     private DateTime? _dueDate;
     private DateTime? _followUpDate;
+    private DateTime? _sentAt;
     private string _assignedTo = string.Empty;
+    private string _technician = string.Empty;
     private DateTime? _completedAt;
+    private double _sortPosition;
     private bool _isSelected;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get => _title; set => SetProperty(ref _title, value); }
     public string CustomerName { get => _customerName; set => SetProperty(ref _customerName, value); }
+    public string CustomerAddress { get => _customerAddress; set => SetProperty(ref _customerAddress, value); }
     public string Description { get => _description; set => SetProperty(ref _description, value); }
     public string CategoryId { get => _categoryId; set => SetProperty(ref _categoryId, value); }
     public string Status { get => _status; set => SetProperty(ref _status, value); }
     public string Priority { get => _priority; set => SetProperty(ref _priority, value); }
     public DateTime? DueDate { get => _dueDate; set => SetProperty(ref _dueDate, value); }
     public DateTime? FollowUpDate { get => _followUpDate; set => SetProperty(ref _followUpDate, value); }
+    public DateTime? SentAt { get => _sentAt; set => SetProperty(ref _sentAt, value); }
     public string AssignedTo { get => _assignedTo; set => SetProperty(ref _assignedTo, value); }
+    public string Technician { get => _technician; set => SetProperty(ref _technician, value); }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }
+    public double SortPosition { get => _sortPosition; set => SetProperty(ref _sortPosition, value); }
     public bool IsSelected
     {
         get => _isSelected;
@@ -42,6 +50,7 @@ public sealed class TaskItem : ObservableObject
 
     public string DueDateText => DueDate?.ToString("dd.MM.yyyy") ?? "-";
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
+    public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
     public string CardBackground => IsSelected ? "#EEF5FF" : "#FFFFFF";
     public string CardBorderBrush => IsSelected ? "#7CB7FF" : "#E0E0E5";
 }

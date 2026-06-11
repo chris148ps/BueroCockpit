@@ -176,6 +176,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public DateTimeOffset? SelectedSentAt
+    {
+        get => SelectedTask?.SentAt is null ? null : new DateTimeOffset(SelectedTask.SentAt.Value);
+        set
+        {
+            if (SelectedTask is null)
+            {
+                return;
+            }
+
+            SelectedTask.SentAt = value?.DateTime;
+            OnPropertyChanged(nameof(SelectedSentAt));
+        }
+    }
+
     public bool HasSelectedTask => SelectedTask is not null;
     public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
@@ -484,6 +499,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(HasNoMaterials));
         OnPropertyChanged(nameof(SelectedDueDate));
         OnPropertyChanged(nameof(SelectedFollowUpDate));
+        OnPropertyChanged(nameof(SelectedSentAt));
     }
 
     private void RefreshDashboard()
@@ -568,6 +584,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isLoadingSelection = false;
         OnPropertyChanged(nameof(SelectedDueDate));
         OnPropertyChanged(nameof(SelectedFollowUpDate));
+        OnPropertyChanged(nameof(SelectedSentAt));
     }
 
     private void NewTask_OnClick(object? sender, RoutedEventArgs e)
@@ -588,6 +605,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = "Neue Aufgabe",
             Status = "Offen",
             Priority = "Normal",
+            SortPosition = _repository.GetNextTaskSortPosition(category.Id),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -789,6 +807,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Id = Guid.NewGuid().ToString("N"),
             Name = name,
             SortOrder = _repository.GetNextCategorySortOrder(),
+            SortMode = "Geändert am",
             Color = "#F2F3F5",
             IsVisible = true
         };
@@ -860,6 +879,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Id = Guid.NewGuid().ToString("N"),
             CustomerName = source.CustomerName,
+            CustomerAddress = source.CustomerAddress,
             Title = source.Title.StartsWith("Kopie - ", StringComparison.OrdinalIgnoreCase) ? source.Title : $"Kopie - {source.Title}",
             Description = source.Description,
             CategoryId = source.CategoryId,
@@ -867,7 +887,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Priority = source.Priority,
             DueDate = source.DueDate,
             FollowUpDate = source.FollowUpDate,
+            SentAt = source.SentAt,
             AssignedTo = source.AssignedTo,
+            Technician = source.Technician,
+            SortPosition = _repository.GetNextTaskSortPosition(source.CategoryId),
             CreatedAt = now,
             UpdatedAt = now,
             CompletedAt = source.Status == "Erledigt" ? now : null
@@ -1268,9 +1291,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool TaskMatchesSearch(TaskItem task, string query)
     {
         if (Contains(task.CustomerName, query) ||
+            Contains(task.CustomerAddress, query) ||
             Contains(task.Title, query) ||
             Contains(task.Description, query) ||
-            Contains(task.AssignedTo, query))
+            Contains(task.AssignedTo, query) ||
+            Contains(task.Technician, query))
         {
             return true;
         }
