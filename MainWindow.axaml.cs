@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using BueroCockpit.Data;
@@ -30,6 +32,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _taskListCaption = "0 Aufgaben";
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
+    private string _dueDateText = string.Empty;
+    private string _followUpDateText = string.Empty;
+    private string _sentAtText = string.Empty;
+    private string _dateInputMessage = string.Empty;
     private bool _isGlobalSearchEnabled;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
@@ -47,6 +53,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _suppressCategorySelectionChanged;
     private bool _suppressStatusSelectionChanged;
     private bool _suppressSavingDuringSelection;
+    private bool _isUpdatingDateFields;
     private int _selectionNavigationDepth;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
@@ -164,6 +171,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             SelectedTask.DueDate = value?.DateTime;
             OnPropertyChanged(nameof(SelectedDueDate));
+            UpdateDateTextFieldsFromSelectedTask();
         }
     }
 
@@ -179,6 +187,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             SelectedTask.FollowUpDate = value?.DateTime;
             OnPropertyChanged(nameof(SelectedFollowUpDate));
+            UpdateDateTextFieldsFromSelectedTask();
         }
     }
 
@@ -194,8 +203,64 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             SelectedTask.SentAt = value?.DateTime;
             OnPropertyChanged(nameof(SelectedSentAt));
+            UpdateDateTextFieldsFromSelectedTask();
         }
     }
+
+    public string DueDateInputText
+    {
+        get => _dueDateText;
+        set
+        {
+            if (_dueDateText != value)
+            {
+                _dueDateText = value;
+                OnPropertyChanged(nameof(DueDateInputText));
+            }
+        }
+    }
+
+    public string FollowUpDateInputText
+    {
+        get => _followUpDateText;
+        set
+        {
+            if (_followUpDateText != value)
+            {
+                _followUpDateText = value;
+                OnPropertyChanged(nameof(FollowUpDateInputText));
+            }
+        }
+    }
+
+    public string SentAtInputText
+    {
+        get => _sentAtText;
+        set
+        {
+            if (_sentAtText != value)
+            {
+                _sentAtText = value;
+                OnPropertyChanged(nameof(SentAtInputText));
+            }
+        }
+    }
+
+    public string DateInputMessage
+    {
+        get => _dateInputMessage;
+        set
+        {
+            if (_dateInputMessage != value)
+            {
+                _dateInputMessage = value;
+                OnPropertyChanged(nameof(DateInputMessage));
+                OnPropertyChanged(nameof(HasDateInputMessage));
+            }
+        }
+    }
+
+    public bool HasDateInputMessage => !string.IsNullOrWhiteSpace(DateInputMessage);
 
     public bool HasSelectedTask => SelectedTask is not null;
     public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
@@ -605,6 +670,130 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return "Treffer in Aufgabe";
     }
 
+    private void UpdateDateTextFieldsFromSelectedTask()
+    {
+        if (_isUpdatingDateFields)
+        {
+            return;
+        }
+
+        _isUpdatingDateFields = true;
+        try
+        {
+            DueDateInputText = FormatDateShort(SelectedTask?.DueDate);
+            FollowUpDateInputText = FormatDateShort(SelectedTask?.FollowUpDate);
+            SentAtInputText = FormatDateShort(SelectedTask?.SentAt);
+        }
+        finally
+        {
+            _isUpdatingDateFields = false;
+        }
+    }
+
+    private void ApplyDueDateText()
+    {
+        ApplyDateText(
+            DueDateInputText,
+            "Termin",
+            () => SelectedTask?.DueDate,
+            value =>
+            {
+                if (SelectedTask is not null)
+                {
+                    SelectedTask.DueDate = value;
+                    OnPropertyChanged(nameof(SelectedDueDate));
+                }
+            });
+    }
+
+    private void ApplyFollowUpDateText()
+    {
+        ApplyDateText(
+            FollowUpDateInputText,
+            "Wiedervorlage",
+            () => SelectedTask?.FollowUpDate,
+            value =>
+            {
+                if (SelectedTask is not null)
+                {
+                    SelectedTask.FollowUpDate = value;
+                    OnPropertyChanged(nameof(SelectedFollowUpDate));
+                }
+            });
+    }
+
+    private void ApplySentAtText()
+    {
+        ApplyDateText(
+            SentAtInputText,
+            "Gesendet am",
+            () => SelectedTask?.SentAt,
+            value =>
+            {
+                if (SelectedTask is not null)
+                {
+                    SelectedTask.SentAt = value;
+                    OnPropertyChanged(nameof(SelectedSentAt));
+                }
+            });
+    }
+
+    private void ApplyDateText(string input, string fieldName, Func<DateTime?> getCurrentValue, Action<DateTime?> setValue)
+    {
+        if (_isUpdatingDateFields || SelectedTask is null)
+        {
+            return;
+        }
+
+        if (!TryParseGermanDate(input, out var parsedDate))
+        {
+            DateInputMessage = $"{fieldName}: Bitte Datum als TT.MM.JJJJ eingeben.";
+            UpdateDateTextFieldsFromSelectedTask();
+            return;
+        }
+
+        var current = getCurrentValue();
+        if (current?.Date == parsedDate?.Date)
+        {
+            DateInputMessage = string.Empty;
+            UpdateDateTextFieldsFromSelectedTask();
+            return;
+        }
+
+        setValue(parsedDate);
+        _repository.SaveTask(SelectedTask);
+        DateInputMessage = string.Empty;
+        UpdateDateTextFieldsFromSelectedTask();
+    }
+
+    private static string FormatDateShort(DateTime? value)
+    {
+        return value?.ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
+    }
+
+    private static string FormatDateLong(DateTime? value)
+    {
+        return value?.ToString("ddd., dd.MM.yyyy", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
+    }
+
+    private static bool TryParseGermanDate(string input, out DateTime? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return true;
+        }
+
+        var formats = new[] { "dd.MM.yyyy", "d.M.yyyy", "dd.MM.yy", "d.M.yy" };
+        if (!DateTime.TryParseExact(input.Trim(), formats, CultureInfo.GetCultureInfo("de-DE"), DateTimeStyles.None, out var parsed))
+        {
+            return false;
+        }
+
+        value = parsed.Date;
+        return true;
+    }
+
     private void ApplySelectedCategoryContent()
     {
         if (IsOverviewSelected)
@@ -699,6 +888,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedDueDate));
         OnPropertyChanged(nameof(SelectedFollowUpDate));
         OnPropertyChanged(nameof(SelectedSentAt));
+        DateInputMessage = string.Empty;
+        UpdateDateTextFieldsFromSelectedTask();
     }
 
     private void RefreshDashboard()
@@ -784,6 +975,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedDueDate));
         OnPropertyChanged(nameof(SelectedFollowUpDate));
         OnPropertyChanged(nameof(SelectedSentAt));
+        DateInputMessage = string.Empty;
+        UpdateDateTextFieldsFromSelectedTask();
     }
 
     private void NewTask_OnClick(object? sender, RoutedEventArgs e)
@@ -1161,6 +1354,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             SearchText = textBox.Text ?? string.Empty;
         }
+    }
+
+    private void DueDateTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        ApplyDueDateText();
+    }
+
+    private void FollowUpDateTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        ApplyFollowUpDateText();
+    }
+
+    private void SentAtTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        ApplySentAtText();
+    }
+
+    private void DateTextBox_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        switch ((sender as Control)?.Tag as string)
+        {
+            case "DueDate":
+                ApplyDueDateText();
+                break;
+            case "FollowUpDate":
+                ApplyFollowUpDateText();
+                break;
+            case "SentAt":
+                ApplySentAtText();
+                break;
+        }
+
+        e.Handled = true;
     }
 
     private void CategoryEditor_OnTextChanged(object? sender, TextChangedEventArgs e)

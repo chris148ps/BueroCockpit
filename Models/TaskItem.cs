@@ -38,8 +38,29 @@ public sealed class TaskItem : ObservableObject
     public string CategoryId { get => _categoryId; set => SetProperty(ref _categoryId, value); }
     public string Status { get => _status; set => SetProperty(ref _status, value); }
     public string Priority { get => _priority; set => SetProperty(ref _priority, value); }
-    public DateTime? DueDate { get => _dueDate; set => SetProperty(ref _dueDate, value); }
-    public DateTime? FollowUpDate { get => _followUpDate; set => SetProperty(ref _followUpDate, value); }
+    public DateTime? DueDate
+    {
+        get => _dueDate;
+        set
+        {
+            if (SetProperty(ref _dueDate, value))
+            {
+                OnPropertyChanged(nameof(DueDateText));
+            }
+        }
+    }
+
+    public DateTime? FollowUpDate
+    {
+        get => _followUpDate;
+        set
+        {
+            if (SetProperty(ref _followUpDate, value))
+            {
+                OnPropertyChanged(nameof(FollowUpDateText));
+            }
+        }
+    }
     public DateTime? SentAt
     {
         get => _sentAt;

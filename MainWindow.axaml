@@ -533,15 +533,40 @@
             <TextBlock Grid.Row="4" Grid.Column="0" Text="Monteur" Margin="0,8,0,0" />
             <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" />
             <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.Technician}" />
-            <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding SelectedSentAt}" />
+            <StackPanel Grid.Row="5" Grid.Column="1" Spacing="6">
+              <DatePicker SelectedDate="{Binding SelectedSentAt}" />
+              <TextBox Text="{Binding SentAtInputText}"
+                       Tag="SentAt"
+                       PlaceholderText="TT.MM.JJJJ"
+                       LostFocus="SentAtTextBox_OnLostFocus"
+                       KeyDown="DateTextBox_OnKeyDown" />
+            </StackPanel>
           </Grid>
 
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
             <TextBlock Text="Termin" />
             <TextBlock Grid.Column="1" Text="Wiedervorlage" />
-            <DatePicker Grid.Row="1" SelectedDate="{Binding SelectedDueDate}" />
-            <DatePicker Grid.Row="1" Grid.Column="1" SelectedDate="{Binding SelectedFollowUpDate}" />
+            <StackPanel Grid.Row="1" Spacing="6">
+              <DatePicker SelectedDate="{Binding SelectedDueDate}" />
+              <TextBox Text="{Binding DueDateInputText}"
+                       Tag="DueDate"
+                       PlaceholderText="TT.MM.JJJJ"
+                       LostFocus="DueDateTextBox_OnLostFocus"
+                       KeyDown="DateTextBox_OnKeyDown" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+              <DatePicker SelectedDate="{Binding SelectedFollowUpDate}" />
+              <TextBox Text="{Binding FollowUpDateInputText}"
+                       Tag="FollowUpDate"
+                       PlaceholderText="TT.MM.JJJJ"
+                       LostFocus="FollowUpDateTextBox_OnLostFocus"
+                       KeyDown="DateTextBox_OnKeyDown" />
+            </StackPanel>
           </Grid>
+          <TextBlock Text="{Binding DateInputMessage}"
+                     IsVisible="{Binding HasDateInputMessage}"
+                     Foreground="#B42318"
+                     TextWrapping="Wrap" />
 
           <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
             <TextBlock Classes="SectionTitle" Text="Material" Margin="0" />
