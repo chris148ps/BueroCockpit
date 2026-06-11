@@ -40,6 +40,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isUpdateAvailable;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
+    private bool _suppressTaskSelectionChanged;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -1301,18 +1302,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void TaskList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (_suppressTaskSelectionChanged)
+        {
+            return;
+        }
+
         var selectedTask = SelectedTask;
         if (IsGlobalSearchEnabled && selectedTask is not null && SelectedCategory?.Id != selectedTask.CategoryId)
         {
-            var category = Categories.FirstOrDefault(c => c.Id == selectedTask.CategoryId);
-            if (category is not null)
-            {
-                SelectedCategory = category;
-                SelectedTask = VisibleTasks.FirstOrDefault(task => task.Id == selectedTask.Id) ?? selectedTask;
-            }
+            SelectTaskFromGlobalSearch(selectedTask);
+            return;
         }
 
         OnPropertyChanged(nameof(SelectedTask));
+    }
+
+    private void SelectTaskFromGlobalSearch(TaskItem task)
+    {
+        var category = Categories.FirstOrDefault(c => c.Id == task.CategoryId);
+        if (category is null)
+        {
+            ClearSelectedTask();
+            return;
+        }
+
+        _suppressTaskSelectionChanged = true;
+        try
+        {
+            if (_isGlobalSearchEnabled)
+            {
+                _isGlobalSearchEnabled = false;
+                OnPropertyChanged(nameof(IsGlobalSearchEnabled));
+            }
+
+            SelectedCategory = category;
+            RefreshVisibleTasks();
+            SelectedTask = VisibleTasks.FirstOrDefault(item => item.Id == task.Id);
+        }
+        finally
+        {
+            _suppressTaskSelectionChanged = false;
+        }
     }
 
     private void SaveCurrentMaterials()
