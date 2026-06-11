@@ -1380,6 +1380,97 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CategoryMessage = "Kategorie umbenannt.";
     }
 
+
+    private void MoveCategoryUp_OnClick(object? sender, RoutedEventArgs e)
+    {
+        MoveSelectedCategory(-1);
+    }
+
+    private void MoveCategoryDown_OnClick(object? sender, RoutedEventArgs e)
+    {
+        MoveSelectedCategory(1);
+    }
+
+    private void MoveSelectedCategory(int direction)
+    {
+        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
+        {
+            CategoryMessage = "Diese Kategorie kann nicht verschoben werden.";
+            return;
+        }
+
+        var movableCategories = Categories
+            .Where(category => !IsSpecialCategory(category))
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        var currentIndex = movableCategories.FindIndex(category => category.Id == SelectedCategory.Id);
+        if (currentIndex < 0)
+        {
+            CategoryMessage = "Kategorie wurde nicht gefunden.";
+            return;
+        }
+
+        var targetIndex = currentIndex + direction;
+        if (targetIndex < 0 || targetIndex >= movableCategories.Count)
+        {
+            CategoryMessage = direction < 0
+                ? "Kategorie ist bereits ganz oben."
+                : "Kategorie ist bereits ganz unten.";
+            return;
+        }
+
+        var current = movableCategories[currentIndex];
+        var target = movableCategories[targetIndex];
+
+        (current.SortOrder, target.SortOrder) = (target.SortOrder, current.SortOrder);
+
+        _repository.SaveCategory(current);
+        _repository.SaveCategory(target);
+
+        ReorderVisibleCategories(current.Id);
+        RefreshTaskCategories();
+
+        CategoryMessage = "Kategorie-Reihenfolge geändert.";
+    }
+
+    private void ReorderVisibleCategories(string selectedCategoryId)
+    {
+        var overviewCategory = Categories.FirstOrDefault(category => category.Name == OverviewCategoryName);
+        var settingsCategory = Categories.FirstOrDefault(category => category.Id == SettingsCategoryId);
+
+        var orderedCategories = Categories
+            .Where(category => !IsSpecialCategory(category))
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        Categories.Clear();
+
+        if (overviewCategory is not null)
+        {
+            Categories.Add(overviewCategory);
+        }
+
+        foreach (var category in orderedCategories)
+        {
+            Categories.Add(category);
+        }
+
+        if (settingsCategory is not null)
+        {
+            Categories.Add(settingsCategory);
+        }
+
+        SelectedCategory = Categories.FirstOrDefault(category => category.Id == selectedCategoryId)
+            ?? overviewCategory
+            ?? Categories.FirstOrDefault();
+
+        ApplySelectedCategoryContent();
+        UpdateCategoryCounts();
+    }
+
     private void HideCategory_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))

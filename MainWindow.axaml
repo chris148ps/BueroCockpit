@@ -170,6 +170,10 @@
               <Button Grid.Column="1" Content="Ändern" Click="RenameCategory_OnClick" />
             </Grid>
             <Button Content="Löschen" Click="HideCategory_OnClick" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+              <Button Content="Hoch" Click="MoveCategoryUp_OnClick" />
+              <Button Grid.Column="1" Content="Runter" Click="MoveCategoryDown_OnClick" />
+            </Grid>
             <TextBlock Text="{Binding CategoryMessage}"
                        IsVisible="{Binding HasCategoryMessage}"
                        Foreground="#6E6E73"
