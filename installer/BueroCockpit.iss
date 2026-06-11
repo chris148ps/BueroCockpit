@@ -1,8 +1,8 @@
-; BueroCockpit Windows installer.
+﻿; BueroCockpit Windows installer.
 ; Build on Windows with Inno Setup 6:
 ;   ISCC.exe installer\BueroCockpit.iss
 
-#define MyAppName "BüroCockpit"
+#define MyAppName "BÃ¼roCockpit"
 #define MyAppVersion "0.1.0"
 #define MyAppPublisher "Christian Stange"
 #define MyAppExeName "BueroCockpit.exe"
@@ -19,8 +19,8 @@ DisableProgramGroupPage=yes
 OutputDir=..\publish\installer
 OutputBaseFilename=BueroCockpitSetup
 SetupIconFile=..\Assets\BueroCockpit.ico
-Compression=lzma
-SolidCompression=yes
+Compression=zip
+SolidCompression=no
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible arm64
 ArchitecturesInstallIn64BitMode=x64compatible arm64
@@ -31,7 +31,7 @@ PrivilegesRequired=admin
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Desktop-Verknüpfung erstellen"; GroupDescription: "Zusätzliche Verknüpfungen:"; Flags: unchecked
+Name: "desktopicon"; Description: "Desktop-VerknÃ¼pfung erstellen"; GroupDescription: "ZusÃ¤tzliche VerknÃ¼pfungen:"; Flags: unchecked
 
 [Files]
 Source: "..\publish\windows-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64Install
@@ -54,3 +54,4 @@ function IsX64Install: Boolean;
 begin
   Result := IsX64Compatible and not IsARM64;
 end;
+
