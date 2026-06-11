@@ -1275,6 +1275,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         e.Handled = true;
     }
 
+
+    private void PrintSelectedAttachments_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var selectedAttachments = Attachments
+            .Where(attachment => attachment.IsSelectedForPrint)
+            .ToList();
+
+        if (selectedAttachments.Count == 0)
+        {
+            AttachmentEditStatus = "Bitte zuerst mindestens einen Anhang zum Drucken auswählen.";
+            return;
+        }
+
+        var printedCount = 0;
+        var missingCount = 0;
+
+        foreach (var attachment in selectedAttachments)
+        {
+            if (string.IsNullOrWhiteSpace(attachment.StoredPath) || !File.Exists(attachment.StoredPath))
+            {
+                missingCount++;
+                continue;
+            }
+
+            if (PrintAttachmentExternal(attachment))
+            {
+                printedCount++;
+            }
+        }
+
+        AttachmentEditStatus = missingCount == 0
+            ? $"{printedCount} Anhang/Anhänge an die Druckfunktion übergeben."
+            : $"{printedCount} Anhang/Anhänge an die Druckfunktion übergeben. {missingCount} Datei(en) nicht gefunden.";
+    }
+
     private void OpenAttachment_OnClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: AttachmentItem item })
@@ -1928,6 +1963,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AttachmentEditStatus = "iPad-Bearbeitung konnte nicht übernommen werden.";
             Debug.WriteLine($"Attachment import failed: {ex}");
             UpdateImportAvailability();
+        }
+    }
+
+
+    private static bool PrintAttachmentExternal(AttachmentItem item)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(item.StoredPath) || !File.Exists(item.StoredPath))
+            {
+                return false;
+            }
+
+            if (OperatingSystem.IsWindows())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = item.StoredPath,
+                    Verb = "print",
+                    UseShellExecute = true
+                });
+
+                return true;
+            }
+
+            OpenAttachmentExternal(item);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Attachment print failed: {ex}");
+            return false;
         }
     }
 

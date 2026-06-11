@@ -43,5 +43,7 @@ public sealed class AttachmentItem : ObservableObject
     }
 
     public string CardBackground => IsSelected ? "#EEF5FF" : "#FFFFFF";
+    public bool IsSelectedForPrint { get; set; }
+
     public string CardBorderBrush => IsSelected ? "#7CB7FF" : "#E0E0E5";
 }

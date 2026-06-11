@@ -716,7 +716,12 @@
 
           <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
             <TextBlock Classes="SectionTitle" Text="Anhänge" Margin="0" />
-            <Button Grid.Column="1" Content="Datei hinzufügen" Click="AddAttachment_OnClick" />
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="8">
+              <Button Content="Ausgewählte drucken" Click="PrintSelectedAttachments_OnClick" />
+              <Button Content="Datei hinzufügen" Click="AddAttachment_OnClick" />
+            </StackPanel>
           </Grid>
 
           <Border Classes="Card"
@@ -741,8 +746,13 @@
                         Background="{Binding CardBackground}"
                         BorderBrush="{Binding CardBorderBrush}"
                         PointerPressed="AttachmentCard_OnPointerPressed">
-                  <Grid ColumnDefinitions="170,*,Auto" ColumnSpacing="12">
-                    <Border Width="160" Height="110" CornerRadius="10" Background="#F2F3F5" ClipToBounds="True">
+                  <Grid ColumnDefinitions="Auto,170,*,Auto" ColumnSpacing="12">
+                    <CheckBox Grid.Column="0"
+                              IsChecked="{Binding IsSelectedForPrint, Mode=TwoWay}"
+                              Content="Drucken"
+                              VerticalAlignment="Center"
+                              Margin="0,0,4,0" />
+                    <Border Grid.Column="1" Width="160" Height="110" CornerRadius="10" Background="#F2F3F5" ClipToBounds="True">
                       <Grid>
                         <Image IsVisible="{Binding HasThumbnail}"
                                Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
@@ -757,12 +767,12 @@
                                    Foreground="#6E6E73" />
                       </Grid>
                     </Border>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
                       <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="#6E6E73" FontSize="12" Margin="0,4,0,0" />
                       <TextBlock Text="{Binding StoredPath}" Foreground="#86868B" FontSize="11" TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Spacing="8">
+                    <StackPanel Grid.Column="3" Spacing="8">
                       <Button Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />
                       <Button Content="Entfernen" Click="DeleteAttachment_OnClick" Tag="{Binding}" />
                     </StackPanel>
