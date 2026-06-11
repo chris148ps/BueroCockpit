@@ -377,8 +377,11 @@
             <TextBlock Text="{Binding TaskListCaption}" Foreground="#6E6E73" Margin="0,4,0,0" />
             <TextBox Text="{Binding SearchText}"
                      TextChanged="SearchBox_OnTextChanged"
-                     PlaceholderText="Suchen nach Kunde, Titel, Notiz, Zuständigem, Material"
+                     PlaceholderText="Suchen nach Kunde, Titel, Adresse, Monteur, Status, Material, Anhang"
                      Margin="0,12,0,0" />
+            <CheckBox IsChecked="{Binding IsGlobalSearchEnabled}"
+                      Content="Alle Bereiche durchsuchen"
+                      Margin="0,8,0,0" />
           </StackPanel>
           <Button Grid.Column="1" Classes="Primary" Content="Neue Aufgabe" Click="NewTask_OnClick" />
         </Grid>
@@ -401,12 +404,35 @@
                     </Border>
                   </Grid>
                   <TextBlock Text="{Binding Title}" Foreground="#38383D" TextWrapping="Wrap" />
+                  <Border Background="#F2F7FF"
+                          BorderBrush="#D5E7FF"
+                          BorderThickness="1"
+                          CornerRadius="8"
+                          Padding="8,3"
+                          HorizontalAlignment="Left"
+                          IsVisible="{Binding ShowCategoryHint}">
+                    <TextBlock Text="{Binding CategoryHint, StringFormat='Bereich: {0}'}"
+                               FontSize="12"
+                               Foreground="#3C5F8F" />
+                  </Border>
+                  <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
+                             IsVisible="{Binding HasTechnician}"
+                             Foreground="#6E6E73"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding CustomerAddress, StringFormat='Adresse: {0}'}"
+                             IsVisible="{Binding HasCustomerAddress}"
+                             Foreground="#6E6E73"
+                             TextWrapping="Wrap"
+                             MaxHeight="48" />
                   <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
                     <TextBlock Text="Status" Foreground="#86868B" FontSize="11" />
                     <TextBlock Grid.Column="1" Text="Termin" Foreground="#86868B" FontSize="11" />
                     <TextBlock Grid.Row="1" Text="{Binding Status}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DueDateText}" />
                   </Grid>
+                  <TextBlock Text="{Binding SentAtText, StringFormat='Gesendet: {0}'}"
+                             IsVisible="{Binding HasSentAt}"
+                             Foreground="#6E6E73" />
                   <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
                              Foreground="#6E6E73" />
                 </StackPanel>

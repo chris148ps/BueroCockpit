@@ -29,6 +29,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private AttachmentEditSession? _selectedAttachmentEditSession;
     private string _taskListCaption = "0 Aufgaben";
     private string _searchText = string.Empty;
+    private bool _isGlobalSearchEnabled;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
     private string _backupStatus = "Noch kein Backup erstellt.";
@@ -289,6 +290,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public bool IsGlobalSearchEnabled
+    {
+        get => _isGlobalSearchEnabled;
+        set
+        {
+            if (_isGlobalSearchEnabled == value)
+            {
+                return;
+            }
+
+            _isGlobalSearchEnabled = value;
+            OnPropertyChanged(nameof(IsGlobalSearchEnabled));
+            RefreshVisibleTasks();
+        }
+    }
+
     public string CategoryEditorName
     {
         get => _categoryEditorName;
@@ -442,9 +459,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         VisibleTasks.Clear();
 
         var selected = SelectedCategory;
-        IEnumerable<TaskItem> tasks = selected is null
+        var searchEverywhere = IsGlobalSearchEnabled && !string.IsNullOrWhiteSpace(SearchText);
+        IEnumerable<TaskItem> tasks = searchEverywhere
             ? AllTasks
-            : AllTasks.Where(t => t.CategoryId == selected.Id);
+            : selected is null
+                ? AllTasks
+                : AllTasks.Where(t => t.CategoryId == selected.Id);
 
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
@@ -454,10 +474,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var task in tasks)
         {
+            task.CategoryHint = GetCategoryName(task.CategoryId);
+            task.ShowCategoryHint = searchEverywhere;
             VisibleTasks.Add(task);
         }
 
-        TaskListCaption = VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
+        TaskListCaption = searchEverywhere
+            ? VisibleTasks.Count == 1 ? "1 Treffer in allen Bereichen" : $"{VisibleTasks.Count} Treffer in allen Bereichen"
+            : VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
         if (SelectedTask is null || !VisibleTasks.Contains(SelectedTask))
         {
             SelectedTask = VisibleTasks.FirstOrDefault();
@@ -1277,6 +1301,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void TaskList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        var selectedTask = SelectedTask;
+        if (IsGlobalSearchEnabled && selectedTask is not null && SelectedCategory?.Id != selectedTask.CategoryId)
+        {
+            var category = Categories.FirstOrDefault(c => c.Id == selectedTask.CategoryId);
+            if (category is not null)
+            {
+                SelectedCategory = category;
+                SelectedTask = VisibleTasks.FirstOrDefault(task => task.Id == selectedTask.Id) ?? selectedTask;
+            }
+        }
+
         OnPropertyChanged(nameof(SelectedTask));
     }
 
@@ -1290,17 +1325,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool TaskMatchesSearch(TaskItem task, string query)
     {
+        var categoryName = GetCategoryName(task.CategoryId);
         if (Contains(task.CustomerName, query) ||
             Contains(task.CustomerAddress, query) ||
             Contains(task.Title, query) ||
             Contains(task.Description, query) ||
             Contains(task.AssignedTo, query) ||
-            Contains(task.Technician, query))
+            Contains(task.Technician, query) ||
+            Contains(task.Status, query) ||
+            Contains(categoryName, query))
         {
             return true;
         }
 
-        return _repository.GetMaterials(task.Id).Any(material => Contains(material.Name, query));
+        return _repository.GetMaterials(task.Id).Any(material => Contains(material.Name, query)) ||
+               _repository.GetAttachments(task.Id).Any(attachment => Contains(attachment.FileName, query));
+    }
+
+    private string GetCategoryName(string categoryId)
+    {
+        return Categories.FirstOrDefault(category => category.Id == categoryId)?.Name ?? string.Empty;
     }
 
     private bool HasOpenMaterial(TaskItem task)
