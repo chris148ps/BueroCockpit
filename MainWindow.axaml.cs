@@ -1824,7 +1824,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(UpdateSource));
         IsUpdateAvailable = false;
         UpdateStatus = string.IsNullOrWhiteSpace(_appSettings.UpdateFeedUrl)
-            ? "Noch kein Update-Kanal eingerichtet."
+            ? "Standard-Updatekanal wird verwendet."
             : "Update-Kanal gespeichert.";
     }
 

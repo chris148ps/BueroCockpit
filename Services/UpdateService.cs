@@ -7,10 +7,12 @@ namespace BueroCockpit.Services;
 
 public sealed class UpdateService
 {
+    public const string DefaultUpdateFeedUrl = "https://github.com/chris148ps/BueroCockpit/releases/latest/download";
+
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
     private string _updateFeedUrl = string.Empty;
-    private string _statusText = "Noch kein Update-Kanal eingerichtet.";
+    private string _statusText = "Update-Kanal: GitHub Releases.";
 
     public string UpdateFeedUrl
     {
@@ -29,7 +31,13 @@ public sealed class UpdateService
         }
     }
 
-    public string UpdateSource => string.IsNullOrWhiteSpace(UpdateFeedUrl) ? "Noch nicht eingerichtet" : UpdateFeedUrl;
+    public string EffectiveUpdateFeedUrl => string.IsNullOrWhiteSpace(UpdateFeedUrl)
+        ? DefaultUpdateFeedUrl
+        : UpdateFeedUrl;
+
+    public string UpdateSource => string.IsNullOrWhiteSpace(UpdateFeedUrl)
+        ? $"Standard: {DefaultUpdateFeedUrl}"
+        : UpdateFeedUrl;
     public bool HasPendingUpdate => _pendingUpdate is not null;
 
     public string GetCurrentVersion()
@@ -71,7 +79,7 @@ public sealed class UpdateService
             if (_updateManager is null)
             {
                 _pendingUpdate = null;
-                _statusText = "Noch kein Update-Kanal eingerichtet.";
+                _statusText = "Update-Kanal konnte nicht eingerichtet werden.";
                 return false;
             }
 
@@ -127,14 +135,11 @@ public sealed class UpdateService
 
     private UpdateManager? CreateUpdateManager()
     {
-        if (string.IsNullOrWhiteSpace(UpdateFeedUrl))
-        {
-            return null;
-        }
+        var feedUrl = EffectiveUpdateFeedUrl;
 
-        IUpdateSource source = Directory.Exists(UpdateFeedUrl)
-            ? new SimpleFileSource(new DirectoryInfo(UpdateFeedUrl))
-            : new SimpleWebSource(UpdateFeedUrl);
+        IUpdateSource source = Directory.Exists(feedUrl)
+            ? new SimpleFileSource(new DirectoryInfo(feedUrl))
+            : new SimpleWebSource(feedUrl);
         return new UpdateManager(source);
     }
 }
