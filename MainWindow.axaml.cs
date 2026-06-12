@@ -256,6 +256,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public string CurrentAppVersion => _updateService.GetCurrentVersion();
     public string UpdateSource => _updateService.UpdateSource;
+    public string AutoUpdateInstallStatus => _updateService.IsVelopackAvailable()
+        ? "Diese laufende Instanz: installierte Version. Auto-Update aktiv."
+        : "Diese laufende Instanz: Entwicklungsstart. Auto-Update ist nur in der installierten Windows-Version aktiv.";
     public string UpdateFeedUrl
     {
         get => _updateFeedUrl;
@@ -1822,6 +1825,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settingsService.Save(_appSettings);
         _updateService.UpdateFeedUrl = _appSettings.UpdateFeedUrl;
         OnPropertyChanged(nameof(UpdateSource));
+        OnPropertyChanged(nameof(AutoUpdateInstallStatus));
         IsUpdateAvailable = false;
         UpdateStatus = string.IsNullOrWhiteSpace(_appSettings.UpdateFeedUrl)
             ? "Standard-Updatekanal wird verwendet."
