@@ -98,7 +98,7 @@ public sealed class UpdateService
         catch (Exception ex)
         {
             _pendingUpdate = null;
-            _statusText = "Updateprüfung konnte nicht ausgeführt werden.";
+            _statusText = $"Updateprüfung konnte nicht ausgeführt werden: {ex.GetType().Name}: {ex.Message}";
             Debug.WriteLine($"Update check failed: {ex}");
             return false;
         }
