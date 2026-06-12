@@ -302,7 +302,7 @@
               <TextBlock Text="{Binding TasksDirectory}" TextWrapping="Wrap" />
               <TextBlock Text="Backup-Ordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding BackupDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Gemeinsame Netzwerk- oder OneDrive-Ordner nur verwenden, wenn BüroCockpit nicht gleichzeitig auf mehreren PCs geöffnet wird."
+              <TextBlock Text="Vor Nutzung eines Netzwerkordners sicherstellen, dass BüroCockpit nicht gleichzeitig auf mehreren PCs geöffnet wird."
                          Foreground="#6E6E73"
                          TextWrapping="Wrap"
                          Margin="0,8,0,0" />
@@ -319,6 +319,9 @@
                         Margin="0,0,8,8" />
                 <Button Content="Speicherort vorbereiten"
                         Click="PrepareStorageLocation_OnClick"
+                        Margin="0,0,8,8" />
+                <Button Content="Datenordner kopieren und übernehmen"
+                        Click="MigrateStorageLocation_OnClick"
                         Margin="0,0,0,8" />
               </WrapPanel>
             </StackPanel>

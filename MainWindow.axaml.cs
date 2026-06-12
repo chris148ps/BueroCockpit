@@ -1736,6 +1736,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StorageLocationStatus = result.Message;
     }
 
+    private async void MigrateStorageLocation_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            StorageLocationStatus = "Ordnerauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Zielordner für BüroCockpit-Daten auswählen",
+            AllowMultiple = false
+        });
+
+        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return;
+        }
+
+        var result = _storageLocationService.MigrateToCustomDataDirectory(folderPath);
+        StorageLocationStatus = result.Message;
+        if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.BackupPath))
+        {
+            LastBackupPath = result.BackupPath;
+            LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+            BackupStatus = "Backup vor Datenordner-Migration wurde erstellt.";
+        }
+    }
+
     private void UpdateFeed_OnTextChanged(object? sender, TextChangedEventArgs e)
     {
         if (sender is TextBox textBox)
