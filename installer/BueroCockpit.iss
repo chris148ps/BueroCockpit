@@ -3,7 +3,7 @@
 ;   ISCC.exe installer\BueroCockpit.iss
 
 #define MyAppName "BüroCockpit"
-#define MyAppVersion "0.2.3"
+#define MyAppVersion "0.2.4"
 #define MyAppPublisher "Christian Stange"
 #define MyAppExeName "BueroCockpit.exe"
 

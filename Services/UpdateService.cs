@@ -7,8 +7,7 @@ namespace BueroCockpit.Services;
 
 public sealed class UpdateService
 {
-    private const string DefaultUpdateOwner = "chris148ps";
-    private const string DefaultUpdateRepository = "BueroCockpit-Updates";
+    private const string DefaultUpdateRepositoryUrl = "https://github.com/chris148ps/BueroCockpit-Updates";
 
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
@@ -35,7 +34,7 @@ public sealed class UpdateService
     public string EffectiveUpdateFeedUrl => UpdateFeedUrl?.Trim() ?? string.Empty;
 
     public string UpdateSource => string.IsNullOrWhiteSpace(UpdateFeedUrl)
-        ? $"Standard: GitHub Releases ({DefaultUpdateOwner}/{DefaultUpdateRepository})"
+        ? $"Standard: GitHub Releases ({DefaultUpdateRepositoryUrl})"
         : UpdateFeedUrl;
     public bool HasPendingUpdate => _pendingUpdate is not null;
 
@@ -138,7 +137,7 @@ public sealed class UpdateService
 
         if (string.IsNullOrWhiteSpace(feedUrl))
         {
-            return new UpdateManager(new GithubSource(DefaultUpdateOwner, DefaultUpdateRepository, false, null));
+            return new UpdateManager(new GithubSource(DefaultUpdateRepositoryUrl, null, false, null));
         }
 
         IUpdateSource source = Directory.Exists(feedUrl)
