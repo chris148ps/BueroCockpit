@@ -18,6 +18,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
     private readonly StorageLocationService _storageLocationService = new();
+    private readonly AppInstanceLockService _appInstanceLockService = new();
     private readonly BueroRepository _repository;
     private readonly ThumbnailService _thumbnailService;
     private readonly BackupService _backupService;
@@ -42,6 +43,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _categoryMessage = string.Empty;
     private string _backupStatus = "Noch kein Backup erstellt.";
     private string _storageLocationStatus = "Speicherort nicht geändert.";
+    private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -227,6 +229,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string DatabasePath => AppPaths.DatabasePath;
     public string TasksDirectory => AppPaths.TasksDirectory;
     public string BackupDirectory => AppPaths.BackupDirectory;
+    public string LockPath => AppPaths.LockPath;
     public string StorageLocationStatus
     {
         get => _storageLocationStatus;
@@ -236,6 +239,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _storageLocationStatus = value;
                 OnPropertyChanged(nameof(StorageLocationStatus));
+            }
+        }
+    }
+    public string AppInstanceLockStatus
+    {
+        get => _appInstanceLockStatus;
+        set
+        {
+            if (_appInstanceLockStatus != value)
+            {
+                _appInstanceLockStatus = value;
+                OnPropertyChanged(nameof(AppInstanceLockStatus));
             }
         }
     }
@@ -508,6 +523,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow()
     {
         _storageLocationService.ApplyConfiguredDataDirectory();
+        var lockResult = _appInstanceLockService.Acquire();
+        AppInstanceLockStatus = FormatAppInstanceLockStatus(lockResult);
+
         _repository = new BueroRepository();
         _thumbnailService = new ThumbnailService();
         _backupService = new BackupService();
@@ -516,6 +534,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _hashService = new FileHashService();
 
         InitializeComponent();
+        if (!lockResult.IsAcquired)
+        {
+            Title = "BüroCockpit - Datenordner-Warnung";
+        }
+
+        Closed += (_, _) => _appInstanceLockService.Release();
         _appSettings = _settingsService.Load();
         UpdateFeedUrl = _appSettings.UpdateFeedUrl;
         _updateService.UpdateFeedUrl = UpdateFeedUrl;
@@ -524,6 +548,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _repository.Initialize();
         LoadData();
+    }
+
+    private static string FormatAppInstanceLockStatus(AppInstanceLockResult lockResult)
+    {
+        if (lockResult.IsAcquired)
+        {
+            return $"{lockResult.Message} Lock-Datei: {lockResult.LockPath}";
+        }
+
+        if (lockResult.ExistingLock is null)
+        {
+            return lockResult.Message;
+        }
+
+        var existing = lockResult.ExistingLock;
+        return $"{lockResult.Message} Lock-Datei: {lockResult.LockPath}. " +
+               $"Gerät: {existing.MachineName}, Benutzer: {existing.UserName}, Prozess: {existing.ProcessId}, gestartet: {existing.StartedAt.LocalDateTime:dd.MM.yyyy HH:mm:ss}.";
     }
 
     private void LoadData()
