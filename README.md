@@ -1,8 +1,8 @@
-# BüroCockpit
+# BueroCockpit
 
-BüroCockpit ist eine lokale Büro-Aufgabenverwaltung mit Avalonia/.NET. Die App verwaltet Aufgaben, Kategorien, Material, Anhänge, Vorschau, Dashboard, lokale Backups und eine vorbereitete OneDrive-Ordner-Bearbeitung für Anhänge.
+BueroCockpit ist eine lokale Büro-Aufgabenverwaltung mit Avalonia/.NET. Die App verwaltet Aufgaben, Kategorien, Material, Anhänge, Vorschau, Dashboard, lokale Backups und eine vorbereitete OneDrive-Ordner-Bearbeitung für Anhänge.
 
-Der sichtbare App-Name ist `BüroCockpit`. Technische Namen wie Projektordner, Repository, Namespace und EXE bleiben `BueroCockpit`.
+Der sichtbare App-Name ist `BueroCockpit`. Technische Namen wie Projektordner, Repository, Namespace und EXE bleiben `BueroCockpit`.
 
 ## Entwicklung auf macOS
 
@@ -123,8 +123,8 @@ Der GitHub Release wird später bewusst manuell erstellt. Beispiel, nicht automa
 
 ```bash
 gh release create v0.2.0 \
-  --title "BüroCockpit 0.2.0" \
-  --notes "Neue Version von BüroCockpit." \
+  --title "BueroCockpit 0.2.0" \
+  --notes "Neue Version von BueroCockpit." \
   publish/BueroCockpit-windows-x64.zip \
   publish/BueroCockpit-windows-arm64.zip \
   publish/installer/BueroCockpitSetup.exe \
@@ -169,7 +169,7 @@ Grundablauf:
    ./scripts/package-velopack-windows.sh
    ```
 5. Die neuen Velopack-Artefakte aus `publish/velopack/win-x64` nach `publish/local-update-test/feed` kopieren.
-6. In BüroCockpit unter `Einstellungen` den lokalen Update-Kanal auf den Feed-Ordner setzen, z. B. `publish/local-update-test/feed`.
+6. In BueroCockpit unter `Einstellungen` den lokalen Update-Kanal auf den Feed-Ordner setzen, z. B. `publish/local-update-test/feed`.
 7. `Nach Updates suchen` ausführen und das gefundene Update testen.
 8. Prüfen, dass AppData, Datenbank, Anhänge und Backups erhalten bleiben.
 9. Nach dem Test die Projektversion wieder auf den echten Stand zurücksetzen.

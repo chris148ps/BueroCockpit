@@ -536,7 +536,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         InitializeComponent();
         if (!lockResult.IsAcquired)
         {
-            Title = "BüroCockpit - Datenordner-Warnung";
+            Title = "BueroCockpit - Datenordner-Warnung";
         }
 
         Closed += (_, _) => _appInstanceLockService.Release();
@@ -1763,7 +1763,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Neuen BüroCockpit-Datenordner auswählen",
+            Title = "Neuen BueroCockpit-Datenordner auswählen",
             AllowMultiple = false
         });
 
@@ -1788,7 +1788,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Zielordner für BüroCockpit-Daten auswählen",
+            Title = "Zielordner für BueroCockpit-Daten auswählen",
             AllowMultiple = false
         });
 

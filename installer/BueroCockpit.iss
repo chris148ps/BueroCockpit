@@ -1,9 +1,9 @@
-﻿; BueroCockpit Windows installer.
+; BueroCockpit Windows installer.
 ; Build on Windows with Inno Setup 6:
 ;   ISCC.exe installer\BueroCockpit.iss
 
-#define MyAppName "BÃ¼roCockpit"
-#define MyAppVersion "0.1.0"
+#define MyAppName "BueroCockpit"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "Christian Stange"
 #define MyAppExeName "BueroCockpit.exe"
 
@@ -31,7 +31,7 @@ PrivilegesRequired=admin
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Desktop-VerknÃ¼pfung erstellen"; GroupDescription: "ZusÃ¤tzliche VerknÃ¼pfungen:"; Flags: unchecked
+Name: "desktopicon"; Description: "Desktop-Verknuepfung erstellen"; GroupDescription: "Zusaetzliche Verknuepfungen:"; Flags: unchecked
 
 [Files]
 Source: "..\publish\windows-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64Install

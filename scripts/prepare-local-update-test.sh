@@ -35,7 +35,7 @@ Nächste manuelle Schritte für einen Test von 0.1.0 auf 0.2.0:
 
 4. Initiale 0.1.0-Version aus "$TEST_ROOT/initial" installieren/starten.
 
-5. In BüroCockpit unter Einstellungen den lokalen Update-Kanal setzen:
+5. In BueroCockpit unter Einstellungen den lokalen Update-Kanal setzen:
    $TEST_ROOT/feed
 
 6. "Nach Updates suchen" ausführen und prüfen, dass Version 0.2.0 gefunden wird.

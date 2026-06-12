@@ -48,7 +48,7 @@ public sealed class StorageLocationService
             if (File.Exists(targetDatabasePath))
             {
                 return StorageLocationPreparationResult.Fail(
-                    "Der gewählte Ordner enthält bereits eine BüroCockpit-Datenbank. Es wurde nichts überschrieben und kein Speicherort geändert.");
+                    "Der gewählte Ordner enthält bereits eine BueroCockpit-Datenbank. Es wurde nichts überschrieben und kein Speicherort geändert.");
             }
 
             Directory.CreateDirectory(Path.Combine(targetDirectory, "Tasks"));
@@ -58,7 +58,7 @@ public sealed class StorageLocationService
 
             return StorageLocationPreparationResult.Success(
                 targetDirectory,
-                "Speicherort vorbereitet. Bitte BüroCockpit neu starten. Bestehende Daten wurden nicht verschoben oder gelöscht.");
+                "Speicherort vorbereitet. Bitte BueroCockpit neu starten. Bestehende Daten wurden nicht verschoben oder gelöscht.");
         }
         catch (Exception ex)
         {
@@ -121,7 +121,7 @@ public sealed class StorageLocationService
             return StorageLocationMigrationResult.Success(
                 targetDirectory,
                 backupResult.BackupPath,
-                "Daten wurden kopiert. Bitte BüroCockpit neu starten, damit der neue Speicherort aktiv wird.");
+                "Daten wurden kopiert. Bitte BueroCockpit neu starten, damit der neue Speicherort aktiv wird.");
         }
         catch (Exception ex)
         {
@@ -141,12 +141,12 @@ public sealed class StorageLocationService
     {
         if (File.Exists(Path.Combine(targetDirectory, "buerocockpit.db")))
         {
-            return "Der Zielordner enthält bereits eine BüroCockpit-Datenbank. Es wurde nichts überschrieben und kein Speicherort geändert.";
+            return "Der Zielordner enthält bereits eine BueroCockpit-Datenbank. Es wurde nichts überschrieben und kein Speicherort geändert.";
         }
 
         if (File.Exists(Path.Combine(targetDirectory, "settings.json")))
         {
-            return "Der Zielordner enthält bereits BüroCockpit-Einstellungen. Bitte einen leeren Zielordner wählen.";
+            return "Der Zielordner enthält bereits BueroCockpit-Einstellungen. Bitte einen leeren Zielordner wählen.";
         }
 
         foreach (var directoryName in new[] { "Tasks", "Backups" })
