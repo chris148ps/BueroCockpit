@@ -74,7 +74,7 @@ echo "git push origin v$VERSION"
 echo
 echo "GitHub Release manuell erstellen und Artefakte anhängen."
 echo "Nicht automatisch ausgeführt:"
-echo "gh release create v$VERSION --title \"BueroCockpit $VERSION\" --notes \"Neue Version von BueroCockpit.\" \\"
+echo "gh release create v$VERSION --title \"BüroCockpit $VERSION\" --notes \"Neue Version von BüroCockpit.\" \\"
 echo "  publish/BueroCockpit-windows-x64.zip \\"
 echo "  publish/BueroCockpit-windows-arm64.zip \\"
 echo "  publish/installer/BueroCockpitSetup.exe \\"

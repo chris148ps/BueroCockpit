@@ -7,7 +7,7 @@ PROJECT_FILE="$PROJECT_ROOT/BueroCockpit.csproj"
 PUBLISH_ROOT="$PROJECT_ROOT/publish"
 VELOPACK_ROOT="$PUBLISH_ROOT/velopack"
 APP_ID="BueroCockpit"
-APP_TITLE="BueroCockpit"
+APP_TITLE="BüroCockpit"
 MAIN_EXE="BueroCockpit.exe"
 
 cd "$PROJECT_ROOT"

@@ -1,9 +1,9 @@
-; BueroCockpit Windows installer.
+; BüroCockpit Windows installer.
 ; Build on Windows with Inno Setup 6:
 ;   ISCC.exe installer\BueroCockpit.iss
 
-#define MyAppName "BueroCockpit"
-#define MyAppVersion "0.2.0"
+#define MyAppName "BüroCockpit"
+#define MyAppVersion "0.2.1"
 #define MyAppPublisher "Christian Stange"
 #define MyAppExeName "BueroCockpit.exe"
 

@@ -26,7 +26,7 @@ public sealed class AppInstanceLockService
                 {
                     return AppInstanceLockResult.Warning(
                         lockPath,
-                        "BueroCockpit scheint auf einem anderen Gerät bereits mit diesem Datenordner geöffnet zu sein.",
+                        "BüroCockpit scheint auf einem anderen Gerät bereits mit diesem Datenordner geöffnet zu sein.",
                         existingLock);
                 }
             }
@@ -40,7 +40,7 @@ public sealed class AppInstanceLockService
             Debug.WriteLine($"App instance lock could not be acquired: {ex}");
             return AppInstanceLockResult.Warning(
                 lockPath,
-                "Datenordner-Sperre konnte nicht geschrieben werden. Bitte BueroCockpit nicht gleichzeitig auf mehreren Geräten öffnen.",
+                "Datenordner-Sperre konnte nicht geschrieben werden. Bitte BüroCockpit nicht gleichzeitig auf mehreren Geräten öffnen.",
                 null);
         }
     }
