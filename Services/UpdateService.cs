@@ -8,7 +8,7 @@ namespace BueroCockpit.Services;
 public sealed class UpdateService
 {
     private const string DefaultUpdateOwner = "chris148ps";
-    private const string DefaultUpdateRepository = "BueroCockpit";
+    private const string DefaultUpdateRepository = "BueroCockpit-Updates";
 
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
