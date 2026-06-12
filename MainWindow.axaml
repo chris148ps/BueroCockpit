@@ -292,18 +292,35 @@
           <Border Classes="Card">
             <StackPanel Spacing="10">
               <TextBlock Text="Datenordner" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="App-Datenordner" Foreground="#86868B" FontSize="12" />
+              <TextBlock Text="Aktiver Datenordner" Foreground="#86868B" FontSize="12" />
               <TextBlock Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
+              <TextBlock Text="Standard-Datenordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="{Binding DefaultAppDataDirectory}" TextWrapping="Wrap" />
               <TextBlock Text="Datenbank" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding DatabasePath}" TextWrapping="Wrap" />
               <TextBlock Text="Aufgaben-/Anhangsordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding TasksDirectory}" TextWrapping="Wrap" />
               <TextBlock Text="Backup-Ordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding BackupDirectory}" TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
-                <Button Content="Datenordner öffnen" Click="OpenDataFolder_OnClick" />
-                <Button Grid.Column="1" Content="Backup-Ordner öffnen" Click="OpenBackupFolder_OnClick" />
-              </Grid>
+              <TextBlock Text="Gemeinsame Netzwerk- oder OneDrive-Ordner nur verwenden, wenn BüroCockpit nicht gleichzeitig auf mehreren PCs geöffnet wird."
+                         Foreground="#6E6E73"
+                         TextWrapping="Wrap"
+                         Margin="0,8,0,0" />
+              <TextBlock Text="{Binding StorageLocationStatus}" Foreground="#38383D" TextWrapping="Wrap" />
+              <WrapPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="Aktiven Datenordner öffnen"
+                        Click="OpenDataFolder_OnClick"
+                        Margin="0,0,8,8" />
+                <Button Content="Standard-Datenordner öffnen"
+                        Click="OpenDefaultDataFolder_OnClick"
+                        Margin="0,0,8,8" />
+                <Button Content="Backup-Ordner öffnen"
+                        Click="OpenBackupFolder_OnClick"
+                        Margin="0,0,8,8" />
+                <Button Content="Speicherort vorbereiten"
+                        Click="PrepareStorageLocation_OnClick"
+                        Margin="0,0,0,8" />
+              </WrapPanel>
             </StackPanel>
           </Border>
 

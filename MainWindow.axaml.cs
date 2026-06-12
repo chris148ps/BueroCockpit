@@ -17,12 +17,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string OverviewCategoryName = "Übersicht";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
-    private readonly BueroRepository _repository = new();
-    private readonly ThumbnailService _thumbnailService = new();
-    private readonly BackupService _backupService = new();
-    private readonly UpdateService _updateService = new();
-    private readonly AppSettingsService _settingsService = new();
-    private readonly FileHashService _hashService = new();
+    private readonly StorageLocationService _storageLocationService = new();
+    private readonly BueroRepository _repository;
+    private readonly ThumbnailService _thumbnailService;
+    private readonly BackupService _backupService;
+    private readonly UpdateService _updateService;
+    private readonly AppSettingsService _settingsService;
+    private readonly FileHashService _hashService;
     private AppSettings _appSettings = new();
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
@@ -40,6 +41,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
     private string _backupStatus = "Noch kein Backup erstellt.";
+    private string _storageLocationStatus = "Speicherort nicht geändert.";
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -221,9 +223,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsSettingsSelected;
     public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
     public string AppDataDirectory => AppPaths.AppDataDirectory;
+    public string DefaultAppDataDirectory => AppPaths.DefaultAppDataDirectory;
     public string DatabasePath => AppPaths.DatabasePath;
     public string TasksDirectory => AppPaths.TasksDirectory;
     public string BackupDirectory => AppPaths.BackupDirectory;
+    public string StorageLocationStatus
+    {
+        get => _storageLocationStatus;
+        set
+        {
+            if (_storageLocationStatus != value)
+            {
+                _storageLocationStatus = value;
+                OnPropertyChanged(nameof(StorageLocationStatus));
+            }
+        }
+    }
     public string CurrentAppVersion => _updateService.GetCurrentVersion();
     public string UpdateSource => _updateService.UpdateSource;
     public string UpdateFeedUrl
@@ -492,6 +507,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public MainWindow()
     {
+        _storageLocationService.ApplyConfiguredDataDirectory();
+        _repository = new BueroRepository();
+        _thumbnailService = new ThumbnailService();
+        _backupService = new BackupService();
+        _updateService = new UpdateService();
+        _settingsService = new AppSettingsService();
+        _hashService = new FileHashService();
+
         InitializeComponent();
         _appSettings = _settingsService.Load();
         UpdateFeedUrl = _appSettings.UpdateFeedUrl;
@@ -1678,9 +1701,39 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OpenFolder(AppPaths.AppDataDirectory);
     }
 
+    private void OpenDefaultDataFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        OpenFolder(AppPaths.DefaultAppDataDirectory);
+    }
+
     private void OpenBackupFolder_OnClick(object? sender, RoutedEventArgs e)
     {
         OpenFolder(AppPaths.BackupDirectory);
+    }
+
+    private async void PrepareStorageLocation_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            StorageLocationStatus = "Ordnerauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Neuen BüroCockpit-Datenordner auswählen",
+            AllowMultiple = false
+        });
+
+        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return;
+        }
+
+        var result = _storageLocationService.PrepareCustomDataDirectory(folderPath);
+        StorageLocationStatus = result.Message;
     }
 
     private void UpdateFeed_OnTextChanged(object? sender, TextChangedEventArgs e)
