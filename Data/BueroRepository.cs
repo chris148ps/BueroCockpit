@@ -51,6 +51,14 @@ public sealed class BueroRepository
             """);
 
         ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS TaskCategories (
+                TaskId TEXT NOT NULL,
+                CategoryId TEXT NOT NULL,
+                PRIMARY KEY (TaskId, CategoryId),
+                FOREIGN KEY (TaskId) REFERENCES Tasks(Id) ON DELETE CASCADE,
+                FOREIGN KEY (CategoryId) REFERENCES Categories(Id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS Materials (
                 Id TEXT PRIMARY KEY,
                 TaskId TEXT NOT NULL,
@@ -323,6 +331,8 @@ public sealed class BueroRepository
             """;
         AddTaskParameters(command, task);
         command.ExecuteNonQuery();
+
+        SaveTaskCategories(task);
     }
 
     public void DeleteTask(string taskId)
@@ -560,6 +570,78 @@ public sealed class BueroRepository
             command.Parameters.AddWithValue("$sortMode", "Geändert am");
             command.Parameters.AddWithValue("$color", i == 0 ? "#E9EEF7" : "#F2F3F5");
             command.ExecuteNonQuery();
+        }
+    }
+
+
+    private void LoadTaskCategories(List<TaskItem> tasks)
+    {
+        if (tasks.Count == 0)
+        {
+            return;
+        }
+
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT TaskId, CategoryId
+            FROM TaskCategories
+            ORDER BY CategoryId
+        """;
+
+        using var reader = command.ExecuteReader();
+        var byTaskId = tasks.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase);
+
+        while (reader.Read())
+        {
+            var taskId = reader.GetString(0);
+            var categoryId = reader.GetString(1);
+
+            if (byTaskId.TryGetValue(taskId, out var task) &&
+                !task.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
+            {
+                task.CategoryIds.Add(categoryId);
+            }
+        }
+
+        foreach (var task in tasks)
+        {
+            if (task.CategoryIds.Count == 0 && !string.IsNullOrWhiteSpace(task.CategoryId))
+            {
+                task.CategoryIds.Add(task.CategoryId);
+            }
+        }
+    }
+
+    private void SaveTaskCategories(TaskItem task)
+    {
+        if (task.CategoryIds.Count == 0 && !string.IsNullOrWhiteSpace(task.CategoryId))
+        {
+            task.CategoryIds.Add(task.CategoryId);
+        }
+
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var deleteCommand = connection.CreateCommand();
+        deleteCommand.CommandText = "DELETE FROM TaskCategories WHERE TaskId = $taskId";
+        deleteCommand.Parameters.AddWithValue("$taskId", task.Id);
+        deleteCommand.ExecuteNonQuery();
+
+        foreach (var categoryId in task.CategoryIds
+                     .Where(id => !string.IsNullOrWhiteSpace(id))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            using var insertCommand = connection.CreateCommand();
+            insertCommand.CommandText = """
+                INSERT OR IGNORE INTO TaskCategories (TaskId, CategoryId)
+                VALUES ($taskId, $categoryId)
+            """;
+            insertCommand.Parameters.AddWithValue("$taskId", task.Id);
+            insertCommand.Parameters.AddWithValue("$categoryId", categoryId);
+            insertCommand.ExecuteNonQuery();
         }
     }
 

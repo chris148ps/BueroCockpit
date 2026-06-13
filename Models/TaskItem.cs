@@ -36,6 +36,7 @@ public sealed class TaskItem : ObservableObject
     }
     public string Description { get => _description; set => SetProperty(ref _description, value); }
     public string CategoryId { get => _categoryId; set => SetProperty(ref _categoryId, value); }
+    public List<string> CategoryIds { get; set; } = new();
     public string Status { get => _status; set => SetProperty(ref _status, value); }
     public string Priority { get => _priority; set => SetProperty(ref _priority, value); }
     public DateTime? DueDate
