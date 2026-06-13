@@ -2,10 +2,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.RegularExpressions;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Platform.Storage;
+using Avalonia.Media;
 using BueroCockpit.Data;
 using BueroCockpit.Models;
 using BueroCockpit.Services;
@@ -25,6 +29,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly UpdateService _updateService;
     private readonly AppSettingsService _settingsService;
     private readonly FileHashService _hashService;
+    private readonly HashSet<string> _tasksPendingDuplicateCheck = new(StringComparer.OrdinalIgnoreCase);
     private AppSettings _appSettings = new();
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
@@ -1054,6 +1059,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         _repository.SaveTask(task);
+        _tasksPendingDuplicateCheck.Add(task.Id);
         AllTasks.Insert(0, task);
         SelectedCategory = category;
         RefreshVisibleTasks();
@@ -1061,7 +1067,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private void SaveTask_OnClick(object? sender, RoutedEventArgs e)
+    private async void SaveTask_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedTask is null)
         {
@@ -1070,7 +1076,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         ApplySelectedTaskStatusRules();
 
+        if (_tasksPendingDuplicateCheck.Contains(SelectedTask.Id) &&
+            await HandleNewTaskDuplicateAsync(SelectedTask))
+        {
+            return;
+        }
+
         _repository.SaveTask(SelectedTask);
+        _tasksPendingDuplicateCheck.Remove(SelectedTask.Id);
         SaveCurrentMaterials();
         RefreshVisibleTasks();
         UpdateCategoryCounts();
@@ -1207,6 +1220,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var task = SelectedTask;
         _repository.DeleteTask(task.Id);
+        _tasksPendingDuplicateCheck.Remove(task.Id);
         AllTasks.Remove(task);
         Materials.Clear();
         Attachments.Clear();
@@ -2383,6 +2397,204 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return value?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
     }
 
+    private async Task<bool> HandleNewTaskDuplicateAsync(TaskItem newTask)
+    {
+        var targetCategory = GetTaskTargetCategory(newTask);
+        if (targetCategory is null)
+        {
+            return false;
+        }
+
+        var duplicate = FindSimilarTask(newTask);
+        if (duplicate is null)
+        {
+            return false;
+        }
+
+        var dialog = new DuplicateTaskDialog(
+            duplicate.Task,
+            GetTaskCategoryNames(duplicate.Task),
+            targetCategory.Name);
+        var choice = await dialog.ShowDialog<DuplicateTaskChoice>(this);
+
+        switch (choice)
+        {
+            case DuplicateTaskChoice.AddToCategory:
+                AddTaskToCategory(duplicate.Task, targetCategory.Id);
+                _repository.SaveTask(duplicate.Task);
+                RemovePendingNewTask(newTask);
+                NavigateToTask(duplicate.Task, fromGlobalSearch: false);
+                UpdateCategoryCounts();
+                return true;
+
+            case DuplicateTaskChoice.MoveToCategory:
+                duplicate.Task.CategoryIds = [targetCategory.Id];
+                duplicate.Task.CategoryId = targetCategory.Id;
+                _repository.SaveTask(duplicate.Task);
+                RemovePendingNewTask(newTask);
+                NavigateToTask(duplicate.Task, fromGlobalSearch: false);
+                UpdateCategoryCounts();
+                return true;
+
+            case DuplicateTaskChoice.CreateAnyway:
+                return false;
+
+            case DuplicateTaskChoice.Cancel:
+            default:
+                RemovePendingNewTask(newTask);
+                RefreshVisibleTasks();
+                UpdateCategoryCounts();
+                return true;
+        }
+    }
+
+    private CategoryItem? GetTaskTargetCategory(TaskItem task)
+    {
+        if (!string.IsNullOrWhiteSpace(task.CategoryId))
+        {
+            var category = Categories.FirstOrDefault(item => string.Equals(item.Id, task.CategoryId, StringComparison.OrdinalIgnoreCase));
+            if (category is not null && !IsSpecialCategory(category))
+            {
+                return category;
+            }
+        }
+
+        foreach (var categoryId in task.CategoryIds)
+        {
+            var category = Categories.FirstOrDefault(item => string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+            if (category is not null && !IsSpecialCategory(category))
+            {
+                return category;
+            }
+        }
+
+        return SelectedCategory is not null && !IsSpecialCategory(SelectedCategory)
+            ? SelectedCategory
+            : null;
+    }
+
+    private SimilarTaskMatch? FindSimilarTask(TaskItem newTask)
+    {
+        return AllTasks
+            .Where(task => !string.Equals(task.Id, newTask.Id, StringComparison.OrdinalIgnoreCase))
+            .Select(task => new SimilarTaskMatch(task, CalculateSimilarityScore(newTask, task)))
+            .Where(match => match.Score >= 70)
+            .OrderByDescending(match => match.Score)
+            .ThenByDescending(match => match.Task.UpdatedAt)
+            .FirstOrDefault();
+    }
+
+    private static int CalculateSimilarityScore(TaskItem left, TaskItem right)
+    {
+        var score = 0;
+        var customerNameScore = CompareNormalizedText(left.CustomerName, right.CustomerName, exactScore: 45, containsScore: 30);
+        var titleScore = CompareNormalizedText(left.Title, right.Title, exactScore: 45, containsScore: 30);
+        score += customerNameScore;
+        score += titleScore;
+        score += CompareNormalizedText(left.CustomerAddress, right.CustomerAddress, exactScore: 25, containsScore: 15);
+        score += CompareNormalizedText(left.Description, right.Description, exactScore: 10, containsScore: 5);
+
+        if (customerNameScore == 0 && titleScore == 0)
+        {
+            return 0;
+        }
+
+        return score;
+    }
+
+    private static int CompareNormalizedText(string? left, string? right, int exactScore, int containsScore)
+    {
+        var normalizedLeft = NormalizeDuplicateText(left);
+        var normalizedRight = NormalizeDuplicateText(right);
+        if (normalizedLeft.Length == 0 || normalizedRight.Length == 0)
+        {
+            return 0;
+        }
+
+        if (string.Equals(normalizedLeft, normalizedRight, StringComparison.Ordinal))
+        {
+            return exactScore;
+        }
+
+        if (normalizedLeft.Length >= 5 &&
+            normalizedRight.Length >= 5 &&
+            (normalizedLeft.Contains(normalizedRight, StringComparison.Ordinal) ||
+             normalizedRight.Contains(normalizedLeft, StringComparison.Ordinal)))
+        {
+            return containsScore;
+        }
+
+        return 0;
+    }
+
+    private static string NormalizeDuplicateText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return Regex.Replace(value.Trim().ToLowerInvariant(), @"\s+", " ");
+    }
+
+    private void AddTaskToCategory(TaskItem task, string categoryId)
+    {
+        task.CategoryIds = task.CategoryIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!task.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
+        {
+            task.CategoryIds.Add(categoryId);
+        }
+
+        if (string.IsNullOrWhiteSpace(task.CategoryId))
+        {
+            task.CategoryId = categoryId;
+        }
+    }
+
+    private string GetTaskCategoryNames(TaskItem task)
+    {
+        var categoryIds = task.CategoryIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Append(task.CategoryId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var names = categoryIds
+            .Select(id => Categories.FirstOrDefault(category => string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase))?.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        return names.Count == 0 ? "Keine Kategorie" : string.Join(", ", names);
+    }
+
+    private void RemovePendingNewTask(TaskItem task)
+    {
+        _tasksPendingDuplicateCheck.Remove(task.Id);
+        _repository.DeleteTask(task.Id);
+        AllTasks.Remove(task);
+        if (SelectedTask?.Id == task.Id)
+        {
+            var wasSuppressingSaving = _suppressSavingDuringSelection;
+            _suppressSavingDuringSelection = true;
+            try
+            {
+                SelectedTask = null;
+            }
+            finally
+            {
+                _suppressSavingDuringSelection = wasSuppressingSaving;
+            }
+
+            Materials.Clear();
+            Attachments.Clear();
+            SelectedAttachment = null;
+        }
+    }
+
     private void RefreshTaskCategories()
     {
         TaskCategories.Clear();
@@ -2769,4 +2981,90 @@ public sealed class TaskCategorySelection
     public CategoryItem Category { get; }
     public string Name => Category.Name;
     public bool IsSelected { get; set; }
+}
+
+public enum DuplicateTaskChoice
+{
+    Cancel,
+    AddToCategory,
+    MoveToCategory,
+    CreateAnyway
+}
+
+public sealed record SimilarTaskMatch(TaskItem Task, int Score);
+
+public sealed class DuplicateTaskDialog : Window
+{
+    public DuplicateTaskDialog(TaskItem existingTask, string existingCategories, string targetCategory)
+    {
+        Title = "Ähnlicher Auftrag gefunden";
+        Width = 540;
+        MinWidth = 460;
+        SizeToContent = SizeToContent.Height;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        CanResize = false;
+
+        var content = new StackPanel
+        {
+            Margin = new Thickness(20),
+            Spacing = 12
+        };
+
+        content.Children.Add(new TextBlock
+        {
+            Text = "Es gibt bereits einen ähnlichen Auftrag.",
+            FontSize = 18,
+            FontWeight = FontWeight.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        content.Children.Add(CreateInfoText($"Bestehend: {existingTask.CustomerName} - {existingTask.Title}"));
+        content.Children.Add(CreateInfoText($"Bestehende Kategorie(n): {existingCategories}"));
+        content.Children.Add(CreateInfoText($"Aktuelle Zielkategorie: {targetCategory}"));
+
+        var buttonPanel = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            Spacing = 8,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+
+        buttonPanel.Children.Add(CreateChoiceButton(
+            "Bestehenden Auftrag zusätzlich dieser Kategorie zuordnen",
+            DuplicateTaskChoice.AddToCategory));
+        buttonPanel.Children.Add(CreateChoiceButton(
+            "Bestehenden Auftrag in diese Kategorie verschieben",
+            DuplicateTaskChoice.MoveToCategory));
+        buttonPanel.Children.Add(CreateChoiceButton(
+            "Trotzdem neu anlegen",
+            DuplicateTaskChoice.CreateAnyway));
+        buttonPanel.Children.Add(CreateChoiceButton(
+            "Abbrechen",
+            DuplicateTaskChoice.Cancel));
+
+        content.Children.Add(buttonPanel);
+        Content = content;
+    }
+
+    private static TextBlock CreateInfoText(string text)
+    {
+        return new TextBlock
+        {
+            Text = text,
+            TextWrapping = TextWrapping.Wrap
+        };
+    }
+
+    private Button CreateChoiceButton(string text, DuplicateTaskChoice choice)
+    {
+        var button = new Button
+        {
+            Content = text,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(12, 8)
+        };
+        button.Click += (_, _) => Close(choice);
+        return button;
+    }
 }
