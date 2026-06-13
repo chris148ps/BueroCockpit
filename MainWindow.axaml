@@ -80,12 +80,16 @@
     <Style Selector="Button.PreviewClose">
       <Setter Property="Width" Value="30" />
       <Setter Property="Height" Value="30" />
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="MinHeight" Value="30" />
       <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="CornerRadius" Value="15" />
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontSize" Value="15" />
     </Style>
     <Style Selector="ListBox">
       <Setter Property="Background" Value="Transparent" />
@@ -764,8 +768,14 @@
                 <TextBlock Classes="SectionTitle" Text="Vorschau" Margin="0" VerticalAlignment="Center" />
                 <Button Grid.Column="1"
                         Classes="PreviewClose"
-                        Content="×"
-                        Click="ClosePreview_OnClick" />
+                        Click="ClosePreview_OnClick">
+                  <TextBlock Text="×"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             TextAlignment="Center"
+                             FontSize="14"
+                             Margin="0,-1,0,0" />
+                </Button>
               </Grid>
 
                       <Border MinHeight="220"
@@ -846,9 +856,14 @@
                         Orientation="Horizontal"
                         Spacing="8">
               <Button Content="Ausgewählte drucken" Click="PrintSelectedAttachments_OnClick" />
-              <Button Content="Datei hinzufügen" Click="AddAttachment_OnClick" />
+              <Button Content="Datei anhängen" Click="AddAttachment_OnClick" />
             </StackPanel>
           </Grid>
+          <TextBlock Text="Dateien, Fotos und PDFs zum Auftrag."
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="12"
+                     TextWrapping="Wrap"
+                     Margin="0,-4,0,2" />
 
           <Border Classes="Card"
                   Padding="14"
@@ -858,7 +873,7 @@
                   DragDrop.AllowDrop="True"
                   DragDrop.DragOver="AttachmentDropZone_OnDragOver"
                   DragDrop.Drop="AttachmentDropZone_OnDrop">
-            <TextBlock Text="Dateien hier ablegen oder über Datei hinzufügen auswählen"
+            <TextBlock Text="Dateien hier ablegen oder über „Datei anhängen“ auswählen"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap" />
           </Border>
