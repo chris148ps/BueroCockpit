@@ -3099,15 +3099,15 @@ public sealed class DuplicateTaskDialog : Window
 
         content.Children.Add(new TextBlock
         {
-            Text = "Diesen Auftrag gibt es wahrscheinlich schon.",
+            Text = "Dieser Auftrag scheint bereits vorhanden zu sein.",
             FontSize = 18,
             FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
         });
 
-        content.Children.Add(CreateInfoText($"Bestehend: {existingTask.CustomerName} - {existingTask.Title}"));
+        content.Children.Add(CreateInfoText($"Bestehender Auftrag: {existingTask.CustomerName} – {existingTask.Title}"));
         content.Children.Add(CreateInfoText($"Bestehende Kategorie(n): {existingCategories}"));
-        content.Children.Add(CreateInfoText($"Aktuelle Zielkategorie: {targetCategory}"));
+        content.Children.Add(CreateInfoText($"Neue gewünschte Kategorie: {targetCategory}"));
 
         var buttonPanel = new StackPanel
         {
@@ -3117,13 +3117,13 @@ public sealed class DuplicateTaskDialog : Window
         };
 
         buttonPanel.Children.Add(CreateChoiceButton(
-            "Vorhandenen Auftrag nutzen",
+            "Zusätzlich zuordnen",
             DuplicateTaskChoice.AddToCategory));
         buttonPanel.Children.Add(CreateChoiceButton(
-            "Vorhandenen Auftrag verschieben",
+            "In neue Kategorie verschieben",
             DuplicateTaskChoice.MoveToCategory));
         buttonPanel.Children.Add(CreateChoiceButton(
-            "Als neuen Auftrag speichern",
+            "Trotzdem neu erstellen",
             DuplicateTaskChoice.CreateAnyway));
         buttonPanel.Children.Add(CreateChoiceButton(
             "Abbrechen",
