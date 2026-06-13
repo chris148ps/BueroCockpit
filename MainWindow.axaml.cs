@@ -83,6 +83,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string[] SortModeOptions { get; } = ["Manuell", "Termin", "Wiedervorlage", "Gesendet am", "Geändert am"];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
+    public ObservableCollection<string> TechnicianOptions { get; } = new();
+    private string _newTechnicianName = string.Empty;
+
+    public string NewTechnicianName
+    {
+        get => _newTechnicianName;
+        set
+        {
+            if (_newTechnicianName == value)
+            {
+                return;
+            }
+
+            _newTechnicianName = value;
+            OnPropertyChanged(nameof(NewTechnicianName));
+        }
+    }
+
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
     public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
     public string[] AppearanceModeOptions { get; } = [LightMode, DarkMode];
@@ -559,6 +577,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _hashService = new FileHashService();
 
         _appSettings = _settingsService.Load();
+        LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
         if (!lockResult.IsAcquired)
@@ -2992,6 +3011,61 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return $"{safeStem}_{Guid.NewGuid():N}{extension}";
+    }
+
+
+    private void LoadTechnicianOptions()
+    {
+        TechnicianOptions.Clear();
+
+        foreach (var name in _appSettings.TechnicianNames
+                     .Where(name => !string.IsNullOrWhiteSpace(name))
+                     .Select(name => name.Trim())
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+        {
+            TechnicianOptions.Add(name);
+        }
+    }
+
+    private void SaveTechnicianOptions()
+    {
+        _appSettings.TechnicianNames = TechnicianOptions
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        _settingsService.Save(_appSettings);
+        LoadTechnicianOptions();
+    }
+
+    private void AddTechnician_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var name = NewTechnicianName.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        if (!TechnicianOptions.Any(existing => string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            TechnicianOptions.Add(name);
+            SaveTechnicianOptions();
+        }
+
+        NewTechnicianName = string.Empty;
+    }
+
+    private void RemoveTechnician_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: string technicianName })
+        {
+            TechnicianOptions.Remove(technicianName);
+            SaveTechnicianOptions();
+        }
     }
 
     private void OnPropertyChanged(string propertyName)

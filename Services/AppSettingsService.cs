@@ -11,6 +11,7 @@ public sealed class AppSettings
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;
+    public List<string> TechnicianNames { get; set; } = [];
 }
 
 public sealed class AppSettingsService

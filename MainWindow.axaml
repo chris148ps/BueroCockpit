@@ -343,7 +343,40 @@
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
-              <TextBlock Text="Gemeinsamer Büro-Datenordner" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Text="Monteur-Vorgaben" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,0" />
+            <TextBlock Text="Diese Namen stehen im Aufgaben-Detailfeld „Monteur“ als Auswahl zur Verfügung."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,8" />
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Grid.Column="0"
+                       Text="{Binding NewTechnicianName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Monteurname" />
+              <Button Grid.Column="1"
+                      Content="Hinzufügen"
+                      Click="AddTechnician_OnClick" />
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding TechnicianOptions}" Margin="0,8,0,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0"
+                                 Text="{Binding}"
+                                 VerticalAlignment="Center" />
+                      <Button Grid.Column="1"
+                              Content="Entfernen"
+                              Classes="Secondary"
+                              Click="RemoveTechnician_OnClick" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="Gemeinsamer Büro-Datenordner" FontSize="16" FontWeight="SemiBold" />
               <TextBlock Text="Hier werden Aufgaben, Anhänge und Backups gespeichert. Für mehrere Arbeitsplätze wähle denselben freigegebenen OneDrive-Ordner aus."
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
@@ -732,10 +765,11 @@
                         SelectedItem="{Binding SelectedTask.Status}"
                         SelectionChanged="StatusCombo_OnSelectionChanged" />
 
-              <TextBox Grid.Row="1"
-                       Grid.Column="1"
-                       Text="{Binding SelectedTask.Technician, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       HorizontalAlignment="Stretch" />
+              <ComboBox Grid.Row="1"
+                        Grid.Column="1"
+                        ItemsSource="{Binding TechnicianOptions}"
+                        SelectedItem="{Binding SelectedTask.Technician, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch" />
 
               <TextBox Grid.Row="1"
                        Grid.Column="2"
