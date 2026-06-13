@@ -3097,7 +3097,7 @@ public sealed class DuplicateTaskDialog : Window
 
         content.Children.Add(new TextBlock
         {
-            Text = "Es gibt bereits einen ähnlichen Auftrag.",
+            Text = "Diesen Auftrag gibt es wahrscheinlich schon.",
             FontSize = 18,
             FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
@@ -3115,13 +3115,13 @@ public sealed class DuplicateTaskDialog : Window
         };
 
         buttonPanel.Children.Add(CreateChoiceButton(
-            "Bestehenden Auftrag zusätzlich dieser Kategorie zuordnen",
+            "Vorhandenen Auftrag nutzen",
             DuplicateTaskChoice.AddToCategory));
         buttonPanel.Children.Add(CreateChoiceButton(
-            "Bestehenden Auftrag in diese Kategorie verschieben",
+            "Vorhandenen Auftrag verschieben",
             DuplicateTaskChoice.MoveToCategory));
         buttonPanel.Children.Add(CreateChoiceButton(
-            "Trotzdem neu anlegen",
+            "Als neuen Auftrag speichern",
             DuplicateTaskChoice.CreateAnyway));
         buttonPanel.Children.Add(CreateChoiceButton(
             "Abbrechen",
