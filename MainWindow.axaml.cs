@@ -2448,7 +2448,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var dialog = new DuplicateTaskDialog(
             duplicate.Task,
             GetTaskCategoryNames(duplicate.Task),
-            targetCategory.Name);
+            targetCategory.Name,
+            duplicate.Score);
         var choice = await dialog.ShowDialog<DuplicateTaskChoice>(this);
 
         switch (choice)
@@ -3082,7 +3083,7 @@ public sealed record SimilarTaskMatch(TaskItem Task, int Score);
 
 public sealed class DuplicateTaskDialog : Window
 {
-    public DuplicateTaskDialog(TaskItem existingTask, string existingCategories, string targetCategory)
+    public DuplicateTaskDialog(TaskItem existingTask, string existingCategories, string targetCategory, int score)
     {
         Title = "Ähnlicher Auftrag gefunden";
         Width = 540;
@@ -3108,6 +3109,7 @@ public sealed class DuplicateTaskDialog : Window
         content.Children.Add(CreateInfoText($"Bestehender Auftrag: {existingTask.CustomerName} – {existingTask.Title}"));
         content.Children.Add(CreateInfoText($"Bestehende Kategorie(n): {existingCategories}"));
         content.Children.Add(CreateInfoText($"Neue gewünschte Kategorie: {targetCategory}"));
+        content.Children.Add(CreateInfoText($"Übereinstimmung: {score} Punkte"));
 
         var buttonPanel = new StackPanel
         {
