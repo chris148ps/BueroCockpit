@@ -3108,6 +3108,7 @@ public sealed class DuplicateTaskDialog : Window
         content.Children.Add(CreateInfoText($"Bestehender Auftrag: {existingTask.CustomerName} – {existingTask.Title}"));
         content.Children.Add(CreateInfoText($"Bestehende Kategorie(n): {existingCategories}"));
         content.Children.Add(CreateInfoText($"Neue gewünschte Kategorie: {targetCategory}"));
+        content.Children.Add(CreateInfoText($"Übereinstimmung: {match.Score} Punkte"));
 
         var buttonPanel = new StackPanel
         {
