@@ -716,7 +716,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private TaskSearchResult CreateSearchResult(TaskItem task, string query)
     {
-        var categoryName = GetCategoryName(task.CategoryId);
+        var categoryName = GetTaskCategoryNames(task);
         var matchInfo = GetSearchMatchInfo(task, categoryName, query);
         return new TaskSearchResult(
             task,
@@ -2276,7 +2276,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var category = Categories.FirstOrDefault(c => c.Id == task.CategoryId);
+        var category = Categories.FirstOrDefault(c => TaskBelongsToCategory(task, c.Id))
+                       ?? Categories.FirstOrDefault(c => c.Id == task.CategoryId);
         if (category is null)
         {
             ClearSelectedTask();
@@ -2373,7 +2374,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool TaskMatchesSearch(TaskItem task, string query)
     {
-        var categoryName = GetCategoryName(task.CategoryId);
+        var categoryName = GetTaskCategoryNames(task);
         if (Contains(task.CustomerName, query) ||
             Contains(task.CustomerAddress, query) ||
             Contains(task.Title, query) ||
@@ -2410,10 +2411,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return false;
         }
 
-        var categoryName = Categories.FirstOrDefault(c => c.Id == task.CategoryId)?.Name ?? string.Empty;
-        return Contains(categoryName, "Angebote erstellen") ||
-               Contains(categoryName, "Wartet auf Kunde") ||
-               Contains(categoryName, "Material bestellen") ||
+        var categoryNames = GetTaskCategoryNameList(task);
+        return categoryNames.Any(categoryName => Contains(categoryName, "Angebote erstellen")) ||
+               categoryNames.Any(categoryName => Contains(categoryName, "Wartet auf Kunde")) ||
+               categoryNames.Any(categoryName => Contains(categoryName, "Material bestellen")) ||
                task.Status.Equals("Wartet auf Kunde", StringComparison.OrdinalIgnoreCase) ||
                task.Status.Equals("Material offen", StringComparison.OrdinalIgnoreCase) ||
                !IsDoneOrArchived(task);
