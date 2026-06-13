@@ -983,7 +983,6 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                       <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
-                      <TextBlock Text="{Binding StoredPath}" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Spacing="8">
                       <Button Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />

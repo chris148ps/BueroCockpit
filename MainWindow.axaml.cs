@@ -1054,7 +1054,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var item in _repository.GetAttachments(SelectedTask.Id))
             {
                 EnsureAttachmentThumbnail(item);
-                Attachments.Add(item);
+                Attachments.Insert(0, item);
             }
         }
         else
@@ -1330,7 +1330,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (addedCount > 0)
         {
-            SelectAttachment(Attachments.First());
             AttachmentEditStatus = addedCount == 1
                 ? "1 Datei hinzugefügt."
                 : $"{addedCount} Dateien hinzugefügt.";
@@ -1371,7 +1370,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Attachments.Insert(0, attachment);
             if (selectAfterAdd)
             {
-                SelectAttachment(attachment);
             }
 
             return true;
@@ -1421,7 +1419,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (addedCount > 0)
         {
-            SelectAttachment(Attachments.First());
             AttachmentEditStatus = addedCount == 1
                 ? "1 Datei per Drag & Drop hinzugefügt."
                 : $"{addedCount} Dateien per Drag & Drop hinzugefügt.";
