@@ -7,6 +7,7 @@ namespace BueroCockpit.Services;
 public sealed class AppSettings
 {
     public string OneDriveEditDirectory { get; set; } = string.Empty;
+    public string AppearanceMode { get; set; } = "Dark Mode";
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;

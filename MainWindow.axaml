@@ -7,7 +7,7 @@
         Height="780"
         MinWidth="1080"
         MinHeight="680"
-        Background="#F5F5F7"
+        Background="{DynamicResource WindowBackgroundBrush}"
         Icon="/Assets/BueroCockpit.ico"
         Title="BüroCockpit">
   <Window.Resources>
@@ -16,48 +16,75 @@
 
   <Window.Styles>
     <Style Selector="TextBlock">
-      <Setter Property="Foreground" Value="#1D1D1F" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="FontSize" Value="13" />
     </Style>
     <Style Selector="TextBlock.SectionTitle">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="#6E6E73" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="Margin" Value="0,14,0,8" />
     </Style>
     <Style Selector="TextBox, ComboBox, DatePicker, NumericUpDown">
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="BorderBrush" Value="#D8D8DD" />
-      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="MinHeight" Value="34" />
     </Style>
     <Style Selector="Button">
       <Setter Property="CornerRadius" Value="9" />
       <Setter Property="Padding" Value="13,8" />
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="BorderBrush" Value="#D8D8DD" />
-      <Setter Property="Foreground" Value="#1D1D1F" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="FocusAdorner" Value="{x:Null}" />
     </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonHoverBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonHoverForegroundBrush}" />
+    </Style>
+    <Style Selector="Button:pressed">
+      <Setter Property="Background" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+    </Style>
     <Style Selector="Button:focus-visible">
-      <Setter Property="BorderBrush" Value="#8DBEFF" />
+      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonHoverBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonHoverForegroundBrush}" />
     </Style>
     <Style Selector="Button.Primary">
-      <Setter Property="Background" Value="#1F6FEB" />
-      <Setter Property="BorderBrush" Value="#1F6FEB" />
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="Button.Primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonPrimaryHoverBorderBrush}" />
       <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
     <Style Selector="Button.Danger">
-      <Setter Property="Foreground" Value="#B42318" />
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="Button.Danger:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerHoverBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonDangerHoverForegroundBrush}" />
+    </Style>
+    <Style Selector="Button.Danger:focus-visible">
+      <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerHoverBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonDangerHoverForegroundBrush}" />
     </Style>
     <Style Selector="Button.PreviewClose">
       <Setter Property="Width" Value="30" />
       <Setter Property="Height" Value="30" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="CornerRadius" Value="15" />
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="BorderBrush" Value="#D8D8DD" />
-      <Setter Property="Foreground" Value="#6E6E73" />
+      <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="FontSize" Value="16" />
     </Style>
     <Style Selector="ListBox">
@@ -104,9 +131,16 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
+    <Style Selector="ListBox#TaskList Border.TaskCard">
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="ListBox#TaskList Border.TaskCard:pointerover">
+      <Setter Property="BorderBrush" Value="#000000" />
+    </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem">
       <Setter Property="Padding" Value="0" />
-      <Setter Property="Margin" Value="0,2" />
+      <Setter Property="Margin" Value="0,2,8,2" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
@@ -132,9 +166,12 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
+    <Style Selector="ListBox#CategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
+      <Setter Property="BorderBrush" Value="#000000" />
+    </Style>
     <Style Selector="Border.Card">
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="BorderBrush" Value="#E0E0E5" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="14" />
@@ -143,25 +180,25 @@
 
   <Grid ColumnDefinitions="240,430,*">
     <Border Grid.Column="0"
-            Background="#ECECF0"
-            BorderBrush="#D8D8DD"
+            Background="{DynamicResource SidebarBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrushDark}"
             BorderThickness="0,0,1,0"
             Padding="18">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
           <TextBlock Text="BüroCockpit" FontSize="24" FontWeight="SemiBold" />
-          <TextBlock Text="Lokale Aufgaben" Foreground="#6E6E73" Margin="1,3,0,0" />
+          <TextBlock Text="Lokale Aufgaben" Foreground="{DynamicResource TextSecondaryBrush}" Margin="1,3,0,0" />
         </StackPanel>
 
         <Border DockPanel.Dock="Bottom"
-                Background="#F7F7F9"
-                BorderBrush="#D8D8DD"
+                Background="{DynamicResource SidebarPanelBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
                 BorderThickness="1"
                 CornerRadius="12"
                 Padding="10"
                 Margin="0,16,0,0">
           <StackPanel Spacing="8">
-            <TextBlock Text="Kategorie" FontWeight="SemiBold" Foreground="#6E6E73" FontSize="12" />
+            <TextBlock Text="Kategorie" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" />
             <TextBox Text="{Binding CategoryEditorName}"
                      TextChanged="CategoryEditor_OnTextChanged"
                      PlaceholderText="Name" />
@@ -176,7 +213,7 @@
             </Grid>
             <TextBlock Text="{Binding CategoryMessage}"
                        IsVisible="{Binding HasCategoryMessage}"
-                       Foreground="#6E6E73"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="12"
                        TextWrapping="Wrap" />
           </StackPanel>
@@ -184,19 +221,20 @@
 
         <ListBox x:Name="CategoryList"
                  ItemsSource="{Binding Categories}"
-                 SelectedItem="{Binding SelectedCategory}"
-                 SelectionChanged="CategoryList_OnSelectionChanged">
+                SelectedItem="{Binding SelectedCategory}"
+                SelectionChanged="CategoryList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Border CornerRadius="9"
+              <Border Classes="CategoryItemFrame"
+                      CornerRadius="9"
                       Padding="10,9"
-                      Background="{Binding SidebarBackground}"
-                      BorderBrush="{Binding SidebarBorderBrush}"
+                      Background="{DynamicResource SurfaceElevatedBrush}"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                  <Border Grid.Column="1" Background="#FFFFFF" CornerRadius="8" Padding="7,2">
-                    <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="#6E6E73" />
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
+                    <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
                 </Grid>
               </Border>
@@ -209,13 +247,13 @@
     <Border Grid.Column="1"
             Grid.ColumnSpan="2"
             Padding="26"
-            Background="#F5F5F7"
+            Background="{DynamicResource WindowBackgroundBrush}"
             IsVisible="{Binding IsOverviewSelected}">
       <ScrollViewer>
         <StackPanel Spacing="18">
           <StackPanel>
             <TextBlock Text="Übersicht" FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding DashboardDateText}" Foreground="#6E6E73" Margin="0,5,0,0" />
+            <TextBlock Text="{Binding DashboardDateText}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
           </StackPanel>
 
           <ItemsControl ItemsSource="{Binding DashboardSections}">
@@ -233,21 +271,21 @@
                   <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">
                       <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
-                      <Border Grid.Column="1" Background="#F2F3F5" CornerRadius="10" Padding="9,3">
-                        <TextBlock Text="{Binding Count}" FontWeight="SemiBold" Foreground="#525257" />
+                      <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                        <TextBlock Text="{Binding Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                       </Border>
                     </Grid>
 
                     <TextBlock Text="Keine Aufgaben."
                                IsVisible="{Binding HasNoTasks}"
-                               Foreground="#86868B"
+                               Foreground="{DynamicResource TextTertiaryBrush}"
                                Margin="0,10,0,0" />
 
                     <ItemsControl ItemsSource="{Binding Tasks}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                          <Border Background="#F7F8FA"
-                                  BorderBrush="#E5E5EA"
+                          <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                                  BorderBrush="{DynamicResource BorderBrushDark}"
                                   BorderThickness="1"
                                   CornerRadius="10"
                                   Padding="10"
@@ -255,12 +293,12 @@
                                   PointerPressed="DashboardTask_OnPointerPressed">
                             <StackPanel Spacing="4">
                               <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                              <TextBlock Text="{Binding Title}" Foreground="#38383D" TextWrapping="Wrap" />
+                              <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                               <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding Status}" Foreground="#6E6E73" FontSize="12" />
+                                <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
-                                           Foreground="#6E6E73"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12" />
                               </Grid>
                             </StackPanel>
@@ -280,36 +318,46 @@
     <Border Grid.Column="1"
             Grid.ColumnSpan="2"
             Padding="26"
-            Background="#F5F5F7"
+            Background="{DynamicResource WindowBackgroundBrush}"
             IsVisible="{Binding IsSettingsSelected}">
       <ScrollViewer>
         <StackPanel Spacing="18">
           <StackPanel>
             <TextBlock Text="Einstellungen" FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Datenspeicher und lokale Sicherungen" Foreground="#6E6E73" Margin="0,5,0,0" />
+            <TextBlock Text="Datenspeicher und lokale Sicherungen" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
           </StackPanel>
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
+              <TextBlock Text="Darstellung" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Text="Erscheinungsbild" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+              <ComboBox ItemsSource="{Binding AppearanceModeOptions}"
+                        SelectedItem="{Binding AppearanceMode, Mode=TwoWay}"
+                        Width="180" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
               <TextBlock Text="Datenordner" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="Aktiver Datenordner" Foreground="#86868B" FontSize="12" />
+              <TextBlock Text="Aktiver Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
               <TextBlock Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Standard-Datenordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="Standard-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding DefaultAppDataDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Datenbank" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="Datenbank" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding DatabasePath}" TextWrapping="Wrap" />
-              <TextBlock Text="Aufgaben-/Anhangsordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="Aufgaben-/Anhangsordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding TasksDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Backup-Ordner" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="Backup-Ordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding BackupDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Lock-Datei" Foreground="#86868B" FontSize="12" Margin="0,8,0,0" />
+              <TextBlock Text="Lock-Datei" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
               <TextBlock Text="{Binding LockPath}" TextWrapping="Wrap" />
               <TextBlock Text="BüroCockpit ist nicht für gleichzeitiges Bearbeiten derselben Daten von mehreren PCs ausgelegt. Bitte immer nur auf einem Gerät gleichzeitig öffnen."
-                         Foreground="#6E6E73"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap"
                          Margin="0,8,0,0" />
-              <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="#B42318" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding StorageLocationStatus}" Foreground="#38383D" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding StorageLocationStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
               <WrapPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <Button Content="Aktiven Datenordner öffnen"
                         Click="OpenDataFolder_OnClick"
@@ -333,13 +381,13 @@
           <Border Classes="Card">
             <StackPanel Spacing="10">
               <TextBlock Text="OneDrive / iPad-Bearbeitung" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="OneDrive-Bearbeitungsordner" Foreground="#86868B" FontSize="12" />
+              <TextBlock Text="OneDrive-Bearbeitungsordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
               <TextBlock Text="{Binding OneDriveEditDirectory}"
                          IsVisible="{Binding HasOneDriveEditDirectory}"
                          TextWrapping="Wrap" />
               <TextBlock Text="Noch kein OneDrive-Bearbeitungsordner gewählt."
                          IsVisible="{Binding HasNoOneDriveEditDirectory}"
-                         Foreground="#6E6E73"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
                 <Button Content="OneDrive-Ordner auswählen" Click="SelectOneDriveFolder_OnClick" />
@@ -354,13 +402,13 @@
                 <TextBlock Text="Backup" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <Button Grid.Column="1" Content="Backup erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
               </Grid>
-              <TextBlock Text="{Binding BackupStatus}" Foreground="#38383D" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding BackupStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}"
                          IsVisible="{Binding HasLastBackup}"
-                         Foreground="#6E6E73" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <TextBlock Text="{Binding LastBackupPath}"
                          IsVisible="{Binding HasLastBackup}"
-                         Foreground="#6E6E73"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
             </StackPanel>
           </Border>
@@ -369,21 +417,21 @@
             <StackPanel Spacing="10">
               <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" />
               <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="18">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Aktuelle Version" Foreground="#86868B" FontSize="12" />
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Aktuelle Version" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentAppVersion}" TextWrapping="Wrap" />
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Update-Kanal" Foreground="#86868B" FontSize="12" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Update-Kanal" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UpdateSource}" TextWrapping="Wrap" />
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Auto-Update-Status" Foreground="#86868B" FontSize="12" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Auto-Update-Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AutoUpdateInstallStatus}" TextWrapping="Wrap" />
               </Grid>
-              <TextBlock Text="Lokaler Feed-Ordner oder Feed-URL" Foreground="#86868B" FontSize="12" />
+              <TextBlock Text="Lokaler Feed-Ordner oder Feed-URL" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <TextBox Grid.Row="3" Text="{Binding UpdateFeedUrl}"
                          TextChanged="UpdateFeed_OnTextChanged"
                          PlaceholderText="z. B. publish/local-update-test/feed" />
                 <Button Grid.Row="3" Grid.Column="1" Content="Speichern" Click="SaveUpdateFeed_OnClick" />
               </Grid>
-              <TextBlock Text="{Binding UpdateStatus}" Foreground="#38383D" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding UpdateStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
                 <Button Content="Nach Updates suchen" Click="CheckUpdates_OnClick" />
                 <Button Grid.Column="1"
@@ -398,12 +446,12 @@
       </ScrollViewer>
     </Border>
 
-    <Border Grid.Column="1" Padding="20" Background="#F5F5F7" IsVisible="{Binding IsTaskAreaVisible}">
+    <Border Grid.Column="1" Padding="20" Background="{DynamicResource WindowBackgroundBrush}" IsVisible="{Binding IsTaskAreaVisible}">
       <DockPanel LastChildFill="True">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="22" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding TaskListCaption}" Foreground="#6E6E73" Margin="0,4,0,0" />
+            <TextBlock Text="{Binding TaskListCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
             <TextBox Text="{Binding SearchText}"
                      TextChanged="SearchBox_OnTextChanged"
                      PlaceholderText="Suchen nach Kunde, Titel, Adresse, Monteur, Status, Material, Anhang"
@@ -417,7 +465,7 @@
                         Margin="0,8,0,0">
               <TextBlock Text="Sortierung:"
                          FontSize="12"
-                         Foreground="#6E6E73"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
                          VerticalAlignment="Center" />
               <ComboBox ItemsSource="{Binding SortModeOptions}"
                         SelectedItem="{Binding SelectedCategory.SortMode, Mode=TwoWay}"
@@ -447,12 +495,12 @@
           <StackPanel Spacing="8">
             <TextBlock Text="{Binding GlobalSearchCaption}"
                        FontWeight="SemiBold"
-                       Foreground="#3C5F8F" />
+                       Foreground="{DynamicResource AccentBrush}" />
             <ItemsControl ItemsSource="{Binding GlobalSearchResults}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Background="#F7FAFF"
-                          BorderBrush="#D5E7FF"
+                  <Border Background="{DynamicResource AccentSoftBrush}"
+                          BorderBrush="{DynamicResource AccentSoftBorderBrush}"
                           BorderThickness="1"
                           CornerRadius="10"
                           Padding="10"
@@ -461,12 +509,12 @@
                     <StackPanel Spacing="4">
                       <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                        <Border Grid.Column="1" Background="#FFFFFF" CornerRadius="8" Padding="8,2">
-                          <TextBlock Text="{Binding CategoryName}" FontSize="12" Foreground="#3C5F8F" />
+                        <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="8,2">
+                          <TextBlock Text="{Binding CategoryName}" FontSize="12" Foreground="{DynamicResource AccentBrush}" />
                         </Border>
                       </Grid>
-                      <TextBlock Text="{Binding Title}" Foreground="#38383D" TextWrapping="Wrap" />
-                      <TextBlock Text="{Binding MatchInfo}" Foreground="#6E6E73" FontSize="12" />
+                      <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding MatchInfo}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" />
                     </StackPanel>
                   </Border>
                 </DataTemplate>
@@ -481,20 +529,21 @@
                  SelectionChanged="TaskList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Border Classes="Card"
+              <Border Classes="Card TaskCard"
                       Margin="0,0,0,10"
-                      Background="{Binding CardBackground}"
-                      BorderBrush="{Binding CardBorderBrush}">
+                      Background="{DynamicResource SurfaceBackgroundBrush}"
+                      PointerEntered="TaskCard_OnPointerEntered"
+                      PointerExited="TaskCard_OnPointerExited">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" FontSize="15" />
-                    <Border Grid.Column="1" Background="#F2F3F5" CornerRadius="8" Padding="8,3">
-                      <TextBlock Text="{Binding Priority}" FontSize="12" Foreground="#525257" />
+                    <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="8,3">
+                      <TextBlock Text="{Binding Priority}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                     </Border>
                   </Grid>
-                  <TextBlock Text="{Binding Title}" Foreground="#38383D" TextWrapping="Wrap" />
-                  <Border Background="#F2F7FF"
-                          BorderBrush="#D5E7FF"
+                  <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                  <Border Background="{DynamicResource AccentSoftBrush}"
+                          BorderBrush="{DynamicResource AccentSoftBorderBrush}"
                           BorderThickness="1"
                           CornerRadius="8"
                           Padding="8,3"
@@ -502,28 +551,28 @@
                           IsVisible="{Binding ShowCategoryHint}">
                     <TextBlock Text="{Binding CategoryHint, StringFormat='Bereich: {0}'}"
                                FontSize="12"
-                               Foreground="#3C5F8F" />
+                               Foreground="{DynamicResource AccentBrush}" />
                   </Border>
                   <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
                              IsVisible="{Binding HasTechnician}"
-                             Foreground="#6E6E73"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
                              TextWrapping="Wrap" />
                   <TextBlock Text="{Binding CustomerAddress, StringFormat='Adresse: {0}'}"
                              IsVisible="{Binding HasCustomerAddress}"
-                             Foreground="#6E6E73"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
                              TextWrapping="Wrap"
                              MaxHeight="48" />
                   <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
-                    <TextBlock Text="Status" Foreground="#86868B" FontSize="11" />
-                    <TextBlock Grid.Column="1" Text="Termin" Foreground="#86868B" FontSize="11" />
+                    <TextBlock Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
+                    <TextBlock Grid.Column="1" Text="Termin" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <TextBlock Grid.Row="1" Text="{Binding Status}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DueDateText}" />
                   </Grid>
                   <TextBlock Text="{Binding SentAtText, StringFormat='Gesendet: {0}'}"
                              IsVisible="{Binding HasSentAt}"
-                             Foreground="#6E6E73" />
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
                   <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
-                             Foreground="#6E6E73" />
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
                 </StackPanel>
               </Border>
             </DataTemplate>
@@ -533,8 +582,8 @@
     </Border>
 
     <Border Grid.Column="2"
-            Background="#FFFFFF"
-            BorderBrush="#E0E0E5"
+            Background="{DynamicResource SurfaceBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrushDark}"
             BorderThickness="1,0,0,0"
             IsVisible="{Binding IsTaskAreaVisible}">
       <ScrollViewer>
@@ -628,7 +677,7 @@
           </Grid>
           <TextBlock Text="{Binding DateInputMessage}"
                      IsVisible="{Binding HasDateInputMessage}"
-                     Foreground="#B42318"
+                     Foreground="{DynamicResource DangerBrush}"
                      TextWrapping="Wrap" />
 
           <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
@@ -640,7 +689,7 @@
                   IsVisible="{Binding HasNoMaterials}"
                   Padding="12"
                   Margin="0,0,0,8">
-            <TextBlock Text="Noch kein Material erfasst." Foreground="#6E6E73" />
+            <TextBlock Text="Noch kein Material erfasst." Foreground="{DynamicResource TextSecondaryBrush}" />
           </Border>
 
           <ItemsControl ItemsSource="{Binding Materials}">
@@ -648,10 +697,10 @@
               <DataTemplate>
                 <Border Classes="Card" Margin="0,0,0,8" Padding="12">
                   <Grid ColumnDefinitions="120,78,*,132,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                    <TextBlock Text="Menge" Foreground="#86868B" FontSize="11" />
-                    <TextBlock Grid.Column="1" Text="Einheit" Foreground="#86868B" FontSize="11" />
-                    <TextBlock Grid.Column="2" Text="Bezeichnung" Foreground="#86868B" FontSize="11" />
-                    <TextBlock Grid.Column="3" Text="Status" Foreground="#86868B" FontSize="11" />
+                    <TextBlock Text="Menge" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
+                    <TextBlock Grid.Column="1" Text="Einheit" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
+                    <TextBlock Grid.Column="2" Text="Bezeichnung" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
+                    <TextBlock Grid.Column="3" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <NumericUpDown Grid.Row="1" Value="{Binding Quantity}" Minimum="0" Increment="1" Width="112" />
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" />
                     <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Name}" PlaceholderText="Material" />
@@ -663,7 +712,7 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
 
-          <Border Classes="Card"
+              <Border Classes="Card"
                   IsVisible="{Binding HasSelectedAttachment}"
                   Padding="14"
                   Margin="0,0,0,10">
@@ -676,11 +725,11 @@
                         Click="ClosePreview_OnClick" />
               </Grid>
 
-              <Border MinHeight="220"
+                      <Border MinHeight="220"
                       MaxHeight="520"
                       CornerRadius="12"
-                      Background="#F6F7F9"
-                      BorderBrush="#E0E0E5"
+                      Background="{DynamicResource InputBackgroundBrush}"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
                       ClipToBounds="True">
                 <Grid>
@@ -697,7 +746,7 @@
                              VerticalAlignment="Center"
                              FontSize="28"
                              FontWeight="SemiBold"
-                             Foreground="#6E6E73" />
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Grid>
               </Border>
 
@@ -705,7 +754,7 @@
                 <StackPanel>
                   <TextBlock Text="{Binding AttachmentPreviewTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
                   <TextBlock Text="{Binding AttachmentPreviewInfo}"
-                             Foreground="#6E6E73"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
                              FontSize="12"
                              Margin="0,3,0,0"
                              TextWrapping="Wrap" />
@@ -713,17 +762,17 @@
                 <Button Grid.Column="1" Content="Extern öffnen" Click="OpenSelectedAttachmentExternal_OnClick" />
               </Grid>
 
-              <Border Background="#F7F8FA"
-                      BorderBrush="#E5E5EA"
+              <Border Background="{DynamicResource InputBackgroundBrush}"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
                       CornerRadius="10"
                       Padding="10">
                 <StackPanel Spacing="8">
                   <TextBlock Text="iPad-Bearbeitung"
                              FontWeight="SemiBold"
-                             Foreground="#525257" />
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
                   <TextBlock Text="Beim Übernehmen wird diese Anlage aktualisiert. Die alte Version wird gesichert."
-                             Foreground="#6E6E73"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
                              FontSize="12"
                              TextWrapping="Wrap" />
                   <WrapPanel Orientation="Horizontal">
@@ -741,7 +790,7 @@
                   </WrapPanel>
                   <TextBlock Text="{Binding AttachmentEditStatus}"
                              IsVisible="{Binding HasAttachmentEditStatus}"
-                             Foreground="#38383D"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
                              TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
@@ -761,13 +810,13 @@
           <Border Classes="Card"
                   Padding="14"
                   Margin="0,0,0,10"
-                  Background="#F7F8FA"
-                  BorderBrush="#D8D8DD"
+                  Background="{DynamicResource InputBackgroundBrush}"
+                  BorderBrush="{DynamicResource BorderBrushDark}"
                   DragDrop.AllowDrop="True"
                   DragDrop.DragOver="AttachmentDropZone_OnDragOver"
                   DragDrop.Drop="AttachmentDropZone_OnDrop">
             <TextBlock Text="Dateien hier ablegen oder über Datei hinzufügen auswählen"
-                       Foreground="#6E6E73"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap" />
           </Border>
 
@@ -777,11 +826,11 @@
                 <Border Classes="Card"
                         Margin="0,0,0,8"
                         Padding="12"
-                        Background="{Binding CardBackground}"
-                        BorderBrush="{Binding CardBorderBrush}"
+                        Background="{DynamicResource SurfaceBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrushDark}"
                         PointerPressed="AttachmentCard_OnPointerPressed">
                   <Grid ColumnDefinitions="170,*,Auto" ColumnSpacing="12">
-                    <Border Grid.Column="0" Width="160" Height="110" CornerRadius="10" Background="#F2F3F5" ClipToBounds="True">
+                    <Border Grid.Column="0" Width="160" Height="110" CornerRadius="10" Background="{DynamicResource InputBackgroundBrush}" ClipToBounds="True">
                       <Grid>
                         <Image IsVisible="{Binding HasThumbnail}"
                                Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
@@ -793,13 +842,13 @@
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    FontWeight="SemiBold"
-                                   Foreground="#6E6E73" />
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                       </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                       <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                      <TextBlock Text="{Binding FileTypeBadge}" Foreground="#6E6E73" FontSize="12" Margin="0,4,0,0" />
-                      <TextBlock Text="{Binding StoredPath}" Foreground="#86868B" FontSize="11" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding FileTypeBadge}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
+                      <TextBlock Text="{Binding StoredPath}" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Spacing="8">
                       <Button Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />

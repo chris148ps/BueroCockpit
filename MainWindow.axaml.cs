@@ -21,6 +21,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string OverviewCategoryName = "Übersicht";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
+    private const string LightMode = "Light Mode";
+    private const string DarkMode = "Dark Mode";
     private readonly StorageLocationService _storageLocationService = new();
     private readonly AppInstanceLockService _appInstanceLockService = new();
     private readonly BueroRepository _repository;
@@ -53,6 +55,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
     private string _updateFeedUrl = string.Empty;
+    private string _appearanceMode = DarkMode;
     private bool _isUpdateAvailable;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
@@ -81,6 +84,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
     public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
+    public string[] AppearanceModeOptions { get; } = [LightMode, DarkMode];
 
     public CategoryItem? SelectedCategory
     {
@@ -281,6 +285,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 OnPropertyChanged(nameof(UpdateFeedUrl));
             }
         }
+    }
+
+    public string AppearanceMode
+    {
+        get => _appearanceMode;
+        set => SetAppearanceMode(value, persist: true);
     }
 
     public AttachmentItem? SelectedAttachment
@@ -547,6 +557,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settingsService = new AppSettingsService();
         _hashService = new FileHashService();
 
+        _appSettings = _settingsService.Load();
+        SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
         if (!lockResult.IsAcquired)
         {
@@ -554,7 +566,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         Closed += (_, _) => _appInstanceLockService.Release();
-        _appSettings = _settingsService.Load();
         UpdateFeedUrl = _appSettings.UpdateFeedUrl;
         _updateService.UpdateFeedUrl = UpdateFeedUrl;
         UpdateStatus = _updateService.GetUpdateStatusText();
@@ -580,6 +591,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return $"{lockResult.Message} Lock-Datei: {lockResult.LockPath}. " +
                $"Gerät: {existing.MachineName}, Benutzer: {existing.UserName}, Prozess: {existing.ProcessId}, gestartet: {existing.StartedAt.LocalDateTime:dd.MM.yyyy HH:mm:ss}.";
     }
+
+
+    private void TaskCard_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            border.BorderBrush = Brushes.Black;
+            border.BorderThickness = new Thickness(1);
+        }
+    }
+
+    private void TaskCard_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            border.BorderBrush = Brushes.Transparent;
+            border.BorderThickness = new Thickness(1);
+        }
+    }
+
 
     private void LoadData()
     {
@@ -2916,6 +2947,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private void SetAppearanceMode(string? appearanceMode, bool persist)
+    {
+        var normalizedAppearanceMode = NormalizeAppearanceMode(appearanceMode);
+        _appSettings.AppearanceMode = normalizedAppearanceMode;
+
+        if (_appearanceMode == normalizedAppearanceMode)
+        {
+            if (persist)
+            {
+                _settingsService.Save(_appSettings);
+            }
+
+            return;
+        }
+
+        _appearanceMode = normalizedAppearanceMode;
+        OnPropertyChanged(nameof(AppearanceMode));
+
+        if (Application.Current is App app)
+        {
+            app.ApplyAppearanceMode(normalizedAppearanceMode);
+        }
+
+        if (persist)
+        {
+            _settingsService.Save(_appSettings);
+        }
+    }
+
+    private static string NormalizeAppearanceMode(string? appearanceMode)
+    {
+        return string.Equals(appearanceMode?.Trim(), LightMode, StringComparison.OrdinalIgnoreCase)
+            ? LightMode
+            : DarkMode;
     }
 }
 
