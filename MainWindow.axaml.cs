@@ -1872,6 +1872,119 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         e.Handled = true;
     }
 
+    private async void CategoryRenameFromMenu_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: CategoryItem category })
+        {
+            return;
+        }
+
+        var newName = await ShowRenameCategoryDialog(category.Name);
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            return;
+        }
+
+        newName = newName.Trim();
+        if (string.Equals(newName, category.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        SelectedCategory = category;
+        CategoryEditorName = newName;
+        RenameCategory_OnClick(sender, e);
+    }
+
+    private async Task<string?> ShowRenameCategoryDialog(string currentName)
+    {
+        var input = new TextBox
+        {
+            Text = currentName,
+            MinWidth = 320,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+
+        var dialog = new Window
+        {
+            Title = "Kategorie umbenennen",
+            Width = 420,
+            Height = 180,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false
+        };
+
+        var result = new TaskCompletionSource<string?>();
+
+        var cancelButton = new Button
+        {
+            Content = "Abbrechen"
+        };
+
+        var renameButton = new Button
+        {
+            Content = "Umbenennen"
+        };
+
+        cancelButton.Click += (_, _) =>
+        {
+            result.TrySetResult(null);
+            dialog.Close();
+        };
+
+        renameButton.Click += (_, _) =>
+        {
+            result.TrySetResult(input.Text);
+            dialog.Close();
+        };
+
+        dialog.Content = new Border
+        {
+            Padding = new Thickness(18),
+            Child = new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Neuer Kategoriename"
+                    },
+                    input,
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                        Children =
+                        {
+                            cancelButton,
+                            renameButton
+                        }
+                    }
+                }
+            }
+        };
+
+        dialog.Closed += (_, _) => result.TrySetResult(null);
+
+        _ = dialog.ShowDialog(this);
+        input.Focus();
+        input.SelectAll();
+
+        return await result.Task;
+    }
+
+    private void CategoryDeleteFromMenu_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: CategoryItem category })
+        {
+            SelectedCategory = category;
+            CategoryEditorName = category.Name;
+            HideCategory_OnClick(sender, e);
+        }
+    }
+
     private void CategoryEditor_OnTextChanged(object? sender, TextChangedEventArgs e)
     {
         if (sender is TextBox textBox)

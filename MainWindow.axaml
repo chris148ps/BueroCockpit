@@ -118,8 +118,7 @@
         <ControlTemplate>
           <ContentPresenter Content="{TemplateBinding Content}"
                             ContentTemplate="{TemplateBinding ContentTemplate}"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"
+                                       VerticalContentAlignment="Stretch"
                             Background="Transparent"
                             BorderBrush="Transparent"
                             BorderThickness="0"
@@ -153,8 +152,7 @@
         <ControlTemplate>
           <ContentPresenter Content="{TemplateBinding Content}"
                             ContentTemplate="{TemplateBinding ContentTemplate}"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"
+                                       VerticalContentAlignment="Stretch"
                             Background="Transparent"
                             BorderBrush="Transparent"
                             BorderThickness="0"
@@ -173,6 +171,14 @@
     <Style Selector="ListBox#CategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
       <Setter Property="BorderBrush" Value="#000000" />
     </Style>
+    <Style Selector="ListBox#CategoryList ListBoxItem:selected Border.CategoryItemFrame">
+      <Setter Property="BorderBrush" Value="#000000" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="ListBox#CategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
+      <Setter Property="BorderBrush" Value="#000000" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
     <Style Selector="Border.Card">
       <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
@@ -182,7 +188,7 @@
     </Style>
   </Window.Styles>
 
-  <Grid ColumnDefinitions="240,430,*">
+  <Grid ColumnDefinitions="300,430,*">
     <Border Grid.Column="0"
             Background="{DynamicResource SidebarBackgroundBrush}"
             BorderBrush="{DynamicResource BorderBrushDark}"
@@ -194,49 +200,77 @@
           <TextBlock Text="Lokale Aufgaben" Foreground="{DynamicResource TextSecondaryBrush}" Margin="1,3,0,0" />
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom"
-                Background="{DynamicResource SidebarPanelBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}"
-                BorderThickness="1"
-                CornerRadius="12"
-                Padding="10"
-                Margin="0,16,0,0">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Kategorie" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" />
-            <TextBox Text="{Binding CategoryEditorName}"
-                     TextChanged="CategoryEditor_OnTextChanged"
-                     PlaceholderText="Name" />
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-              <Button Content="+ Neu" Click="AddCategory_OnClick" />
-              <Button Grid.Column="1" Content="Ändern" Click="RenameCategory_OnClick" />
-            </Grid>
-            <Button Content="Löschen" Click="HideCategory_OnClick" />
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-              <Button Content="Hoch" Click="MoveCategoryUp_OnClick" />
-              <Button Grid.Column="1" Content="Runter" Click="MoveCategoryDown_OnClick" />
-            </Grid>
-            <TextBlock Text="{Binding CategoryMessage}"
-                       IsVisible="{Binding HasCategoryMessage}"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="12"
-                       TextWrapping="Wrap" />
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+          <TextBlock Grid.Column="0"
+                     Text="Kategorien"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1"
+                      Orientation="Horizontal"
+                      Spacing="4">
+            <Button Width="26"
+                    Height="26"
+                    MinWidth="26"
+                    MinHeight="26"
+                    Padding="0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    ToolTip.Tip="Ausgewählte Kategorie nach oben"
+                    Click="MoveCategoryUp_OnClick">
+              <TextBlock Text="↑"
+                         FontSize="13"
+                         LineHeight="13"
+                         TextAlignment="Center"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Margin="0,-1,0,0" />
+            </Button>
+            <Button Width="26"
+                    Height="26"
+                    MinWidth="26"
+                    MinHeight="26"
+                    Padding="0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    ToolTip.Tip="Ausgewählte Kategorie nach unten"
+                    Click="MoveCategoryDown_OnClick">
+              <TextBlock Text="↓"
+                         FontSize="13"
+                         LineHeight="13"
+                         TextAlignment="Center"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Margin="0,-1,0,0" />
+            </Button>
           </StackPanel>
-        </Border>
+        </Grid>
 
         <ListBox x:Name="CategoryList"
+                 HorizontalAlignment="Stretch"
                  ItemsSource="{Binding Categories}"
-                SelectedItem="{Binding SelectedCategory}"
-                SelectionChanged="CategoryList_OnSelectionChanged">
+                 SelectedItem="{Binding SelectedCategory}"
+                 SelectionChanged="CategoryList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
               <Border Classes="CategoryItemFrame"
+                      HorizontalAlignment="Stretch"
                       CornerRadius="9"
                       Padding="10,9"
                       Background="{DynamicResource SurfaceElevatedBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                <Border.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Umbenennen" Click="CategoryRenameFromMenu_OnClick" />
+                    <MenuItem Header="Löschen" Click="CategoryDeleteFromMenu_OnClick" />
+                  </ContextMenu>
+                </Border.ContextMenu>
+                <Grid ColumnDefinitions="*,Auto" MinWidth="200">
+                  <TextBlock Text="{Binding Name}"
+                             FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis"
+                             VerticalAlignment="Center" />
                   <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
                     <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
@@ -343,7 +377,34 @@
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
-              <TextBlock Text="Monteur-Vorgaben" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,0" />
+              <TextBlock Text="Kategorie-Vorgaben" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,0" />
+            <TextBlock Text="Hier werden neue Kategorien angelegt. Umbenennen und Löschen erfolgt per Rechtsklick auf eine Kategorie in der linken Liste."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,8" />
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Grid.Column="0"
+                       Text="{Binding CategoryEditorName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="CategoryEditor_OnTextChanged"
+                       PlaceholderText="Neue Kategorie" />
+              <Button Grid.Column="1"
+                      Content="Hinzufügen"
+                      Click="AddCategory_OnClick" />
+            </Grid>
+
+            <TextBlock Text="{Binding CategoryMessage}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       Margin="0,6,0,0" />
+
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Monteur-Vorgaben" FontSize="16" FontWeight="SemiBold" />
             <TextBlock Text="Diese Namen stehen im Aufgaben-Detailfeld „Monteur“ als Auswahl zur Verfügung."
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap"
@@ -376,7 +437,12 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Text="Gemeinsamer Büro-Datenordner" FontSize="16" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Gemeinsamer Büro-Datenordner" FontSize="16" FontWeight="SemiBold" />
               <TextBlock Text="Hier werden Aufgaben, Anhänge und Backups gespeichert. Für mehrere Arbeitsplätze wähle denselben freigegebenen OneDrive-Ordner aus."
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
@@ -649,12 +715,7 @@
                       PointerEntered="TaskCard_OnPointerEntered"
                       PointerExited="TaskCard_OnPointerExited">
                 <StackPanel Spacing="8">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" FontSize="15" />
-                    <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="8,3">
-                      <TextBlock Text="{Binding Priority}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    </Border>
-                  </Grid>
+                  <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" FontSize="15" />
                   <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                   <ItemsControl ItemsSource="{Binding CategoryNameChips}"
                                 IsVisible="{Binding ShowCategoryHint}"
