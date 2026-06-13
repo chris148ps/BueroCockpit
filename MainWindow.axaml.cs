@@ -614,7 +614,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var selected = SelectedCategory;
             IEnumerable<TaskItem> tasks = selected is null
                 ? AllTasks
-                : AllTasks.Where(t => t.CategoryId == selected.Id);
+                : AllTasks.Where(t => TaskBelongsToCategory(t, selected.Id));
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
@@ -983,7 +983,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ? AllTasks.Count
                 : category.Id == SettingsCategoryId
                     ? 0
-                : AllTasks.Count(t => t.CategoryId == category.Id);
+                : AllTasks.Count(t => TaskBelongsToCategory(t, category.Id));
         }
     }
 
@@ -1098,7 +1098,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var categoryTasks = AllTasks
-            .Where(task => task.CategoryId == SelectedCategory.Id)
+            .Where(task => TaskBelongsToCategory(task, SelectedCategory.Id))
             .ToList();
 
         if (categoryTasks.Count == 0)
@@ -2370,6 +2370,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Categories.Add(category);
         }
+    }
+
+    private static bool TaskBelongsToCategory(TaskItem task, string categoryId)
+    {
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return false;
+        }
+
+        if (string.Equals(task.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return task.CategoryIds.Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsSpecialCategory(CategoryItem category)
