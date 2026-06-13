@@ -683,11 +683,10 @@
             IsVisible="{Binding IsTaskAreaVisible}">
       <ScrollViewer>
         <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasSelectedTask}">
-          <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
-            <Button Grid.Column="1" Content="Duplizieren" Click="DuplicateTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" />
+            <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
+            <Button Grid.Column="2" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" />
           </Grid>
 
           <TextBlock Text="Hinweis: Ähnliche Aufträge werden beim Speichern geprüft."
@@ -721,34 +720,31 @@
             </StackPanel>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Organisation" Margin="0,12,0,0" />
-          <Border Classes="Card" Padding="14">
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+          <TextBlock Classes="SectionTitle" Text="Organisation" Margin="0,8,0,0" />
+          <Border Classes="Card" Padding="12">
+            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="Monteur" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Gesendet am" Foreground="{DynamicResource TextSecondaryBrush}" />
+
               <ComboBox Grid.Row="1" Grid.Column="0"
                         ItemsSource="{Binding StatusOptions}"
                         SelectedItem="{Binding SelectedTask.Status}"
                         SelectionChanged="StatusCombo_OnSelectionChanged" />
 
-              <TextBlock Grid.Row="2" Grid.Column="0" Text="Priorität" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <ComboBox Grid.Row="3" Grid.Column="0" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding SelectedTask.Priority}" />
-              <TextBox Grid.Row="3"
+              <TextBox Grid.Row="1"
                        Grid.Column="1"
                        Text="{Binding SelectedTask.Technician, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       MaxWidth="220"
-                       HorizontalAlignment="Left" />
+                       HorizontalAlignment="Stretch" />
 
-              <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuständig" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.AssignedTo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-              <StackPanel Grid.Row="5" Grid.Column="1" Spacing="6">
-                <TextBox Text="{Binding SentAtInputText}"
-                         Tag="SentAt"
-                         PlaceholderText="TT.MM.JJJJ"
-                         LostFocus="SentAtTextBox_OnLostFocus"
-                         KeyDown="DateTextBox_OnKeyDown" />
-              </StackPanel>
+              <TextBox Grid.Row="1"
+                       Grid.Column="2"
+                       Text="{Binding SentAtInputText}"
+                       Tag="SentAt"
+                       PlaceholderText="TT.MM.JJJJ"
+                       LostFocus="SentAtTextBox_OnLostFocus"
+                       TextChanged="DateTextBox_OnTextChanged"
+                           KeyDown="DateTextBox_OnKeyDown" />
             </Grid>
           </Border>
 
@@ -782,6 +778,7 @@
                            Tag="DueDate"
                            PlaceholderText="TT.MM.JJJJ"
                            LostFocus="DueDateTextBox_OnLostFocus"
+                           TextChanged="DateTextBox_OnTextChanged"
                            KeyDown="DateTextBox_OnKeyDown" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
@@ -789,6 +786,7 @@
                            Tag="FollowUpDate"
                            PlaceholderText="TT.MM.JJJJ"
                            LostFocus="FollowUpDateTextBox_OnLostFocus"
+                           TextChanged="DateTextBox_OnTextChanged"
                            KeyDown="DateTextBox_OnKeyDown" />
                 </StackPanel>
               </Grid>

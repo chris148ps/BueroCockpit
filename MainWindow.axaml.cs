@@ -18,6 +18,7 @@ namespace BueroCockpit;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
+    private bool _dateTextFormattingActive;
     private const string OverviewCategoryName = "Übersicht";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
@@ -1796,6 +1797,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SentAtTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
     {
         ApplySentAtText();
+    }
+
+
+    private void DateTextBox_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_dateTextFormattingActive || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        var rawText = textBox.Text ?? string.Empty;
+        var digits = new string(rawText.Where(char.IsDigit).Take(8).ToArray());
+
+        var formatted = digits.Length switch
+        {
+            <= 1 => digits,
+            2 => $"{digits}.",
+            <= 3 => $"{digits[..2]}.{digits[2..]}",
+            4 => $"{digits[..2]}.{digits[2..]}.",
+            _ => $"{digits[..2]}.{digits[2..4]}.{digits[4..]}"
+        };
+
+        if (formatted == rawText)
+        {
+            return;
+        }
+
+        _dateTextFormattingActive = true;
+        textBox.Text = formatted;
+        textBox.CaretIndex = formatted.Length;
+        _dateTextFormattingActive = false;
     }
 
     private void DateTextBox_OnKeyDown(object? sender, KeyEventArgs e)
