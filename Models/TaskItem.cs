@@ -91,6 +91,7 @@ public sealed class TaskItem : ObservableObject
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }
     public double SortPosition { get => _sortPosition; set => SetProperty(ref _sortPosition, value); }
     public string CategoryHint { get => _categoryHint; set => SetProperty(ref _categoryHint, value); }
+    public List<string> CategoryNameChips { get; set; } = new();
     public bool ShowCategoryHint { get => _showCategoryHint; set => SetProperty(ref _showCategoryHint, value); }
     public bool IsSelected
     {

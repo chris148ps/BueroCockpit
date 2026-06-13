@@ -105,7 +105,7 @@
     </Style>
     <Style Selector="ListBox#TaskList ListBoxItem">
       <Setter Property="Padding" Value="0" />
-      <Setter Property="Margin" Value="0" />
+      <Setter Property="Margin" Value="0,0,10,0" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
@@ -542,17 +542,31 @@
                     </Border>
                   </Grid>
                   <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-                  <Border Background="{DynamicResource AccentSoftBrush}"
-                          BorderBrush="{DynamicResource AccentSoftBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="8"
-                          Padding="8,3"
-                          HorizontalAlignment="Left"
-                          IsVisible="{Binding ShowCategoryHint}">
-                    <TextBlock Text="{Binding CategoryHint, StringFormat='Bereich: {0}'}"
-                               FontSize="12"
-                               Foreground="{DynamicResource AccentBrush}" />
-                  </Border>
+                  <ItemsControl ItemsSource="{Binding CategoryNameChips}"
+                                IsVisible="{Binding ShowCategoryHint}"
+                                Margin="0,2,12,0">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Background="{DynamicResource AccentSoftBrush}"
+                                BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="7"
+                                Padding="6,2"
+                                Margin="0,0,4,4"
+                                MaxWidth="130">
+                          <TextBlock Text="{Binding}"
+                                     FontSize="11"
+                                     TextTrimming="CharacterEllipsis"
+                                     Foreground="{DynamicResource AccentBrush}" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
                   <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
                              IsVisible="{Binding HasTechnician}"
                              Foreground="{DynamicResource TextSecondaryBrush}"

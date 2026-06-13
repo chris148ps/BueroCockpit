@@ -666,8 +666,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var task in tasks)
             {
-                task.CategoryHint = GetCategoryName(task.CategoryId);
-                task.ShowCategoryHint = false;
+                task.CategoryNameChips = GetTaskCategoryNameList(task);
+                task.CategoryHint = string.Join(", ", task.CategoryNameChips);
+                task.ShowCategoryHint = task.CategoryNameChips.Count > 0;
                 VisibleTasks.Add(task);
             }
 
@@ -2584,6 +2585,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             task.CategoryId = categoryId;
         }
+    }
+
+    private List<string> GetTaskCategoryNameList(TaskItem task)
+    {
+        var ids = task.CategoryIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Concat(new[] { task.CategoryId })
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return ids
+            .Select(id => Categories.FirstOrDefault(category => string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase))?.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Cast<string>()
+            .ToList();
     }
 
     private string GetTaskCategoryNames(TaskItem task)
