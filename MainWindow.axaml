@@ -690,28 +690,33 @@
             </ItemsControl>
           </Border>
 
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-            <TextBlock Text="Termin" />
-            <TextBlock Grid.Column="1" Text="Wiedervorlage" />
-            <StackPanel Grid.Row="1" Spacing="6">
-              <TextBox Text="{Binding DueDateInputText}"
-                       Tag="DueDate"
-                       PlaceholderText="TT.MM.JJJJ"
-                       LostFocus="DueDateTextBox_OnLostFocus"
-                       KeyDown="DateTextBox_OnKeyDown" />
+          <TextBlock Classes="SectionTitle" Text="Termine" Margin="0,12,0,0" />
+          <Border Classes="Card" Padding="14">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                <TextBlock Text="Termin" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Column="1" Text="Wiedervorlage" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <StackPanel Grid.Row="1" Spacing="6">
+                  <TextBox Text="{Binding DueDateInputText}"
+                           Tag="DueDate"
+                           PlaceholderText="TT.MM.JJJJ"
+                           LostFocus="DueDateTextBox_OnLostFocus"
+                           KeyDown="DateTextBox_OnKeyDown" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                  <TextBox Text="{Binding FollowUpDateInputText}"
+                           Tag="FollowUpDate"
+                           PlaceholderText="TT.MM.JJJJ"
+                           LostFocus="FollowUpDateTextBox_OnLostFocus"
+                           KeyDown="DateTextBox_OnKeyDown" />
+                </StackPanel>
+              </Grid>
+              <TextBlock Text="{Binding DateInputMessage}"
+                         IsVisible="{Binding HasDateInputMessage}"
+                         Foreground="{DynamicResource DangerBrush}"
+                         TextWrapping="Wrap" />
             </StackPanel>
-            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
-              <TextBox Text="{Binding FollowUpDateInputText}"
-                       Tag="FollowUpDate"
-                       PlaceholderText="TT.MM.JJJJ"
-                       LostFocus="FollowUpDateTextBox_OnLostFocus"
-                       KeyDown="DateTextBox_OnKeyDown" />
-            </StackPanel>
-          </Grid>
-          <TextBlock Text="{Binding DateInputMessage}"
-                     IsVisible="{Binding HasDateInputMessage}"
-                     Foreground="{DynamicResource DangerBrush}"
-                     TextWrapping="Wrap" />
+          </Border>
 
           <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
             <TextBlock Classes="SectionTitle" Text="Material" Margin="0" />
