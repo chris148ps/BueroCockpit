@@ -616,47 +616,60 @@
                      Margin="0,-4,0,2" />
 
           <TextBlock Classes="SectionTitle" Text="Aufgabe" />
-          <TextBlock Text="Kunde" />
-          <TextBox Text="{Binding SelectedTask.CustomerName}" PlaceholderText="Kundenname" />
-          <TextBlock Text="Kundenadresse" />
-          <TextBox Text="{Binding SelectedTask.CustomerAddress}"
-                   PlaceholderText="Adresse"
-                   AcceptsReturn="True"
-                   TextWrapping="Wrap"
-                   MinHeight="64" />
-          <TextBlock Text="Titel" />
-          <TextBox Text="{Binding SelectedTask.Title}" PlaceholderText="Kurzer Aufgabentitel" />
-          <TextBlock Text="Beschreibung / Notiz" />
-          <TextBox Text="{Binding SelectedTask.Description}" PlaceholderText="Notizen, Verlauf, offene Punkte"
-                   AcceptsReturn="True" TextWrapping="Wrap" MinHeight="110" />
+          <Border Classes="Card" Padding="14">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Kunde" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBox Text="{Binding SelectedTask.CustomerName}" PlaceholderText="Kundenname" />
 
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" />
-            <ComboBox Grid.Row="1" Grid.Column="0"
-                      ItemsSource="{Binding StatusOptions}"
-                      SelectedItem="{Binding SelectedTask.Status}"
-                      SelectionChanged="StatusCombo_OnSelectionChanged" />
+              <TextBlock Text="Kundenadresse" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBox Text="{Binding SelectedTask.CustomerAddress}"
+                       PlaceholderText="Adresse"
+                       AcceptsReturn="True"
+                       TextWrapping="Wrap"
+                       MinHeight="64" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Priorität" Margin="0,8,0,0" />
-            <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur" Margin="0,8,0,0" />
-            <ComboBox Grid.Row="3" Grid.Column="0" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding SelectedTask.Priority}" />
-            <TextBox Grid.Row="3"
-                     Grid.Column="1"
-                     Text="{Binding SelectedTask.Technician}"
-                     MaxWidth="220"
-                     HorizontalAlignment="Left" />
+              <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBox Text="{Binding SelectedTask.Title}" PlaceholderText="Kurzer Aufgabentitel" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuständig" Margin="0,8,0,0" />
-            <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" />
-            <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.AssignedTo}" />
-            <StackPanel Grid.Row="5" Grid.Column="1" Spacing="6">
-              <TextBox Text="{Binding SentAtInputText}"
-                       Tag="SentAt"
-                       PlaceholderText="TT.MM.JJJJ"
-                       LostFocus="SentAtTextBox_OnLostFocus"
-                       KeyDown="DateTextBox_OnKeyDown" />
+              <TextBlock Text="Beschreibung / Notiz" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBox Text="{Binding SelectedTask.Description}"
+                       PlaceholderText="Notizen, Verlauf, offene Punkte"
+                       AcceptsReturn="True"
+                       TextWrapping="Wrap"
+                       MinHeight="110" />
             </StackPanel>
-          </Grid>
+          </Border>
+
+          <TextBlock Classes="SectionTitle" Text="Organisation" Margin="0,12,0,0" />
+          <Border Classes="Card" Padding="14">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <ComboBox Grid.Row="1" Grid.Column="0"
+                        ItemsSource="{Binding StatusOptions}"
+                        SelectedItem="{Binding SelectedTask.Status}"
+                        SelectionChanged="StatusCombo_OnSelectionChanged" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Priorität" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="Monteur" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <ComboBox Grid.Row="3" Grid.Column="0" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding SelectedTask.Priority}" />
+              <TextBox Grid.Row="3"
+                       Grid.Column="1"
+                       Text="{Binding SelectedTask.Technician}"
+                       MaxWidth="220"
+                       HorizontalAlignment="Left" />
+
+              <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuständig" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.AssignedTo}" />
+              <StackPanel Grid.Row="5" Grid.Column="1" Spacing="6">
+                <TextBox Text="{Binding SentAtInputText}"
+                         Tag="SentAt"
+                         PlaceholderText="TT.MM.JJJJ"
+                         LostFocus="SentAtTextBox_OnLostFocus"
+                         KeyDown="DateTextBox_OnKeyDown" />
+              </StackPanel>
+            </Grid>
+          </Border>
 
           <TextBlock Classes="SectionTitle" Text="Kategorien" Margin="0,12,0,0" />
           <Border Classes="Card" Padding="12">
