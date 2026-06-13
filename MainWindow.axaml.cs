@@ -64,6 +64,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public ObservableCollection<CategoryItem> Categories { get; } = new();
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
+    public ObservableCollection<TaskCategorySelection> TaskCategorySelections { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
     public ObservableCollection<TaskItem> VisibleTasks { get; } = new();
     public ObservableCollection<TaskSearchResult> GlobalSearchResults { get; } = new();
@@ -157,7 +158,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 value is not null)
             {
                 SelectedTask.CategoryId = value.Id;
+                if (!SelectedTask.CategoryIds.Contains(value.Id, StringComparer.OrdinalIgnoreCase))
+                {
+                    SelectedTask.CategoryIds.Add(value.Id);
+                }
                 _repository.SaveTask(SelectedTask);
+                RefreshTaskCategorySelections();
                 RefreshVisibleTasks();
                 UpdateCategoryCounts();
             }
@@ -997,7 +1003,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (SelectedTask is not null)
         {
+            EnsureTaskCategoryState(SelectedTask);
             SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == SelectedTask.CategoryId);
+            RefreshTaskCategorySelections();
 
             foreach (var item in _repository.GetMaterials(SelectedTask.Id))
             {
@@ -1014,6 +1022,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else
         {
             SelectedTaskCategory = null;
+            RefreshTaskCategorySelections();
         }
 
         _isLoadingSelection = false;
@@ -1063,6 +1072,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _repository.SaveTask(SelectedTask);
         SaveCurrentMaterials();
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+    }
+
+    private void TaskCategoryCheckBox_OnChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_isLoadingSelection ||
+            _isUpdatingSelection ||
+            _isRefreshingVisibleTasks ||
+            _selectionNavigationDepth > 0 ||
+            SelectedTask is null ||
+            sender is not CheckBox checkBox ||
+            checkBox.DataContext is not TaskCategorySelection selection)
+        {
+            return;
+        }
+
+        var categoryId = selection.Category.Id;
+        EnsureTaskCategoryState(SelectedTask);
+
+        if (checkBox.IsChecked == true)
+        {
+            if (!SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
+            {
+                SelectedTask.CategoryIds.Add(categoryId);
+            }
+        }
+        else
+        {
+            SelectedTask.CategoryIds.RemoveAll(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        EnsureTaskCategoryState(SelectedTask);
+        SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == SelectedTask.CategoryId);
+        _repository.SaveTask(SelectedTask);
+        RefreshTaskCategorySelections();
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -2345,6 +2390,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             TaskCategories.Add(category);
         }
+
+        RefreshTaskCategorySelections();
+    }
+
+    private void RefreshTaskCategorySelections()
+    {
+        TaskCategorySelections.Clear();
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        EnsureTaskCategoryState(SelectedTask);
+        foreach (var category in TaskCategories)
+        {
+            TaskCategorySelections.Add(new TaskCategorySelection(
+                category,
+                TaskBelongsToCategory(SelectedTask, category.Id)));
+        }
+    }
+
+    private static void EnsureTaskCategoryState(TaskItem task)
+    {
+        task.CategoryIds = task.CategoryIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (task.CategoryIds.Count == 0 && !string.IsNullOrWhiteSpace(task.CategoryId))
+        {
+            task.CategoryIds.Add(task.CategoryId);
+        }
+
+        if (task.CategoryIds.Count > 0 &&
+            !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
+        {
+            task.CategoryId = task.CategoryIds[0];
+        }
     }
 
     private static CategoryItem CreateSettingsCategory()
@@ -2673,4 +2756,17 @@ public sealed class TaskSearchResult
     public string CustomerAddress { get; }
     public DateTime? DueDate { get; }
     public DateTime? SentAt { get; }
+}
+
+public sealed class TaskCategorySelection
+{
+    public TaskCategorySelection(CategoryItem category, bool isSelected)
+    {
+        Category = category;
+        IsSelected = isSelected;
+    }
+
+    public CategoryItem Category { get; }
+    public string Name => Category.Name;
+    public bool IsSelected { get; set; }
 }
