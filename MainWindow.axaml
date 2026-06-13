@@ -700,20 +700,20 @@
           <Border Classes="Card" Padding="14">
             <StackPanel Spacing="8">
               <TextBlock Text="Kunde" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBox Text="{Binding SelectedTask.CustomerName}" PlaceholderText="Kundenname" />
+              <TextBox Text="{Binding SelectedTask.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kundenname" />
 
               <TextBlock Text="Kundenadresse" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
-              <TextBox Text="{Binding SelectedTask.CustomerAddress}"
+              <TextBox Text="{Binding SelectedTask.CustomerAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Adresse"
                        AcceptsReturn="True"
                        TextWrapping="Wrap"
                        MinHeight="64" />
 
               <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
-              <TextBox Text="{Binding SelectedTask.Title}" PlaceholderText="Kurzer Aufgabentitel" />
+              <TextBox Text="{Binding SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kurzer Aufgabentitel" />
 
               <TextBlock Text="Beschreibung / Notiz" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
-              <TextBox Text="{Binding SelectedTask.Description}"
+              <TextBox Text="{Binding SelectedTask.Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Notizen, Verlauf, offene Punkte"
                        AcceptsReturn="True"
                        TextWrapping="Wrap"
@@ -735,13 +735,13 @@
               <ComboBox Grid.Row="3" Grid.Column="0" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding SelectedTask.Priority}" />
               <TextBox Grid.Row="3"
                        Grid.Column="1"
-                       Text="{Binding SelectedTask.Technician}"
+                       Text="{Binding SelectedTask.Technician, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        MaxWidth="220"
                        HorizontalAlignment="Left" />
 
               <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuständig" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
               <TextBlock Grid.Row="4" Grid.Column="1" Text="Gesendet am" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.AssignedTo}" />
+              <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding SelectedTask.AssignedTo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
               <StackPanel Grid.Row="5" Grid.Column="1" Spacing="6">
                 <TextBox Text="{Binding SentAtInputText}"
                          Tag="SentAt"
