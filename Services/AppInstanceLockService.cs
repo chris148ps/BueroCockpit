@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Text.Json;
 using BueroCockpit.Data;
@@ -22,18 +23,24 @@ public sealed class AppInstanceLockService
             {
                 var existingLock = ReadLock(lockPath);
                 var lastWriteTime = File.GetLastWriteTimeUtc(lockPath);
-                if (DateTimeOffset.UtcNow - lastWriteTime <= StaleLockAge)
+                var lockAge = DateTimeOffset.UtcNow - lastWriteTime;
+
+                if (existingLock is null || lockAge > StaleLockAge || IsStaleSameMachineLock(existingLock))
+                {
+                    TryDeleteLock(lockPath);
+                }
+                else
                 {
                     return AppInstanceLockResult.Warning(
                         lockPath,
-                        "BüroCockpit scheint auf einem anderen Gerät bereits mit diesem Datenordner geöffnet zu sein.",
+                        "Dieser Datenordner wird bereits auf einem anderen Arbeitsplatz verwendet. Bitte BüroCockpit dort zuerst schließen.",
                         existingLock);
                 }
             }
 
             _currentLock = CreateCurrentLock();
             WriteLock(lockPath, _currentLock);
-            return AppInstanceLockResult.Acquired(lockPath, "Datenordner-Zugriffsschutz ist aktiv.");
+            return AppInstanceLockResult.Acquired(lockPath, string.Empty);
         }
         catch (Exception ex)
         {
@@ -115,6 +122,39 @@ public sealed class AppInstanceLockService
         return string.Equals(lockInfo.MachineName, Environment.MachineName, StringComparison.OrdinalIgnoreCase) &&
                lockInfo.ProcessId == Environment.ProcessId;
     }
+    private static bool IsStaleSameMachineLock(AppInstanceLockInfo lockInfo)
+    {
+        if (!string.Equals(lockInfo.MachineName, Environment.MachineName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(lockInfo.ProcessId);
+            return process.HasExited;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static void TryDeleteLock(string lockPath)
+    {
+        try
+        {
+            if (File.Exists(lockPath))
+            {
+                File.Delete(lockPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Stale app instance lock could not be deleted: {ex}");
+        }
+    }
+
 }
 
 public sealed class AppInstanceLockInfo

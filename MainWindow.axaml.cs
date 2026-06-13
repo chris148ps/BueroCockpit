@@ -566,6 +566,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         Closed += (_, _) => _appInstanceLockService.Release();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => _appInstanceLockService.Release();
+        Console.CancelKeyPress += (_, _) => _appInstanceLockService.Release();
         UpdateFeedUrl = _appSettings.UpdateFeedUrl;
         _updateService.UpdateFeedUrl = UpdateFeedUrl;
         UpdateStatus = _updateService.GetUpdateStatusText();
@@ -579,7 +581,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (lockResult.IsAcquired)
         {
-            return $"{lockResult.Message} Lock-Datei: {lockResult.LockPath}";
+            return lockResult.Message;
         }
 
         if (lockResult.ExistingLock is null)
@@ -588,8 +590,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var existing = lockResult.ExistingLock;
-        return $"{lockResult.Message} Lock-Datei: {lockResult.LockPath}. " +
-               $"Gerät: {existing.MachineName}, Benutzer: {existing.UserName}, Prozess: {existing.ProcessId}, gestartet: {existing.StartedAt.LocalDateTime:dd.MM.yyyy HH:mm:ss}.";
+        return lockResult.Message;
     }
 
 

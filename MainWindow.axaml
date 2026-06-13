@@ -343,40 +343,117 @@
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
-              <TextBlock Text="Datenordner" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="Aktiver Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-              <TextBlock Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Standard-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
-              <TextBlock Text="{Binding DefaultAppDataDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Datenbank" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
-              <TextBlock Text="{Binding DatabasePath}" TextWrapping="Wrap" />
-              <TextBlock Text="Aufgaben-/Anhangsordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
-              <TextBlock Text="{Binding TasksDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Backup-Ordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
-              <TextBlock Text="{Binding BackupDirectory}" TextWrapping="Wrap" />
-              <TextBlock Text="Lock-Datei" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,8,0,0" />
-              <TextBlock Text="{Binding LockPath}" TextWrapping="Wrap" />
-              <TextBlock Text="BüroCockpit ist nicht für gleichzeitiges Bearbeiten derselben Daten von mehreren PCs ausgelegt. Bitte immer nur auf einem Gerät gleichzeitig öffnen."
+              <TextBlock Text="Gemeinsamer Büro-Datenordner" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Text="Hier werden Aufgaben, Anhänge und Backups gespeichert. Für mehrere Arbeitsplätze wähle denselben freigegebenen OneDrive-Ordner aus."
                          Foreground="{DynamicResource TextSecondaryBrush}"
-                         TextWrapping="Wrap"
-                         Margin="0,8,0,0" />
-              <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding StorageLocationStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-              <WrapPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="Aktiven Datenordner öffnen"
+                         TextWrapping="Wrap" />
+
+              <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                <Button Content="OneDrive-Datenordner auswählen"
+                        Click="MigrateStorageLocation_OnClick"
+                        Classes="Primary"
+                        Margin="0,0,8,8" />
+                <Button Content="Aktuellen Ordner öffnen"
                         Click="OpenDataFolder_OnClick"
+                        FontSize="12"
+                        Padding="10,6"
+                        Margin="0,0,8,8" />
+              </WrapPanel>
+
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2" Margin="0,4,0,0">
+                <TextBlock Grid.Row="0"
+                           Grid.Column="0"
+                           Text="Aktuell verwendet"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           FontSize="12" />
+                <TextBlock Grid.Row="0"
+                           Grid.Column="1"
+                           Text="{Binding AppDataDirectory}"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <TextBlock Grid.Row="1"
+                           Grid.Column="0"
+                           Text="Standard"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           FontSize="12" />
+                <TextBlock Grid.Row="1"
+                           Grid.Column="1"
+                           Text="{Binding DefaultAppDataDirectory}"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+              </Grid>
+
+              <StackPanel Spacing="4" Margin="0,4,0,0">
+                <TextBlock Text="Technische Details"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           FontSize="12"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="2">
+                  <TextBlock Grid.Row="0"
+                             Grid.Column="0"
+                             Text="Datenbank"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12" />
+                  <TextBlock Grid.Row="0"
+                             Grid.Column="1"
+                             Text="{Binding DatabasePath}"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1"
+                             Grid.Column="0"
+                             Text="Aufgaben-/Anhangsordner"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12" />
+                  <TextBlock Grid.Row="1"
+                             Grid.Column="1"
+                             Text="{Binding TasksDirectory}"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2"
+                             Grid.Column="0"
+                             Text="Backup-Ordner"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12" />
+                  <TextBlock Grid.Row="2"
+                             Grid.Column="1"
+                             Text="{Binding BackupDirectory}"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="3"
+                             Grid.Column="0"
+                             Text="Lock-Datei"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12" />
+                  <TextBlock Grid.Row="3"
+                             Grid.Column="1"
+                             Text="{Binding LockPath}"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                </Grid>
+                <TextBlock Text="BüroCockpit ist nicht für gleichzeitiges Bearbeiten derselben Daten von mehreren PCs ausgelegt. Bitte immer nur auf einem Gerät gleichzeitig öffnen."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0" />
+              </StackPanel>
+
+              <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding StorageLocationStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+              <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                <Button Content="Backup-Ordner öffnen"
+                        Click="OpenBackupFolder_OnClick"
+                        FontSize="12"
+                        Padding="10,6"
                         Margin="0,0,8,8" />
                 <Button Content="Standard-Datenordner öffnen"
                         Click="OpenDefaultDataFolder_OnClick"
-                        Margin="0,0,8,8" />
-                <Button Content="Backup-Ordner öffnen"
-                        Click="OpenBackupFolder_OnClick"
-                        Margin="0,0,8,8" />
-                <Button Content="Speicherort vorbereiten"
-                        Click="PrepareStorageLocation_OnClick"
-                        Margin="0,0,8,8" />
-                <Button Content="Datenordner kopieren und übernehmen"
-                        Click="MigrateStorageLocation_OnClick"
+                        FontSize="12"
+                        Padding="10,6"
                         Margin="0,0,0,8" />
               </WrapPanel>
             </StackPanel>
