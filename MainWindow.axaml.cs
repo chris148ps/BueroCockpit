@@ -1142,7 +1142,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private void TaskCategoryCheckBox_OnChanged(object? sender, RoutedEventArgs e)
+    private async void TaskCategoryCheckBox_OnChanged(object? sender, RoutedEventArgs e)
     {
         if (_isLoadingSelection ||
             _isUpdatingSelection ||
@@ -1158,10 +1158,55 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var categoryId = selection.Category.Id;
         EnsureTaskCategoryState(SelectedTask);
 
+        var wasAlreadyAssigned = SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase);
+
         if (checkBox.IsChecked == true)
         {
-            if (!SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
+            if (!wasAlreadyAssigned)
             {
+                var duplicate = FindSimilarTask(SelectedTask, categoryId);
+
+                if (duplicate is not null)
+                {
+                    var dialog = new DuplicateTaskDialog(
+                        duplicate.Task,
+                        GetTaskCategoryNames(duplicate.Task),
+                        selection.Category.Name,
+                        duplicate.Score);
+
+                    var choice = await dialog.ShowDialog<DuplicateTaskChoice>(this);
+
+                    switch (choice)
+                    {
+                        case DuplicateTaskChoice.AddToCategory:
+                            AddTaskToCategory(duplicate.Task, categoryId);
+                            _repository.SaveTask(duplicate.Task);
+                            NavigateToTask(duplicate.Task, fromGlobalSearch: false);
+                            RefreshTaskCategorySelections();
+                            RefreshVisibleTasks();
+                            UpdateCategoryCounts();
+                            return;
+
+                        case DuplicateTaskChoice.MoveToCategory:
+                            duplicate.Task.CategoryIds = [categoryId];
+                            duplicate.Task.CategoryId = categoryId;
+                            _repository.SaveTask(duplicate.Task);
+                            NavigateToTask(duplicate.Task, fromGlobalSearch: false);
+                            RefreshTaskCategorySelections();
+                            RefreshVisibleTasks();
+                            UpdateCategoryCounts();
+                            return;
+
+                        case DuplicateTaskChoice.Cancel:
+                            RefreshTaskCategorySelections();
+                            return;
+
+                        case DuplicateTaskChoice.CreateAnyway:
+                        default:
+                            break;
+                    }
+                }
+
                 SelectedTask.CategoryIds.Add(categoryId);
             }
         }
@@ -2669,10 +2714,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : null;
     }
 
-    private SimilarTaskMatch? FindSimilarTask(TaskItem newTask)
+    private SimilarTaskMatch? FindSimilarTask(TaskItem newTask, string? targetCategoryId = null)
     {
         return AllTasks
             .Where(task => !string.Equals(task.Id, newTask.Id, StringComparison.OrdinalIgnoreCase))
+            .Where(task => string.IsNullOrWhiteSpace(targetCategoryId) ||
+                task.CategoryIds.Contains(targetCategoryId, StringComparer.OrdinalIgnoreCase) ||
+                string.Equals(task.CategoryId, targetCategoryId, StringComparison.OrdinalIgnoreCase))
             .Select(task => new SimilarTaskMatch(task, CalculateSimilarityScore(newTask, task)))
             .Where(match => match.Score >= 70)
             .OrderByDescending(match => match.Score)
