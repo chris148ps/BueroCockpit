@@ -120,6 +120,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _selectedCategory.IsSelected = false;
             }
 
+            if (IsUnsavedPlaceholderTask(_selectedTask))
+            {
+                RemovePendingNewTask(_selectedTask!);
+            }
+
             _selectedCategory = value;
             if (_selectedCategory is not null)
             {
@@ -145,7 +150,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
-            if (!_suppressSavingDuringSelection)
+            var removedPendingPlaceholder = false;
+            if (_selectedTask is not null && value is not null && IsUnsavedPlaceholderTask(_selectedTask))
+            {
+                RemovePendingNewTask(_selectedTask);
+                removedPendingPlaceholder = true;
+            }
+            else if (!_suppressSavingDuringSelection)
             {
                 SaveCurrentMaterials();
             }
@@ -163,6 +174,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedTask));
             OnPropertyChanged(nameof(HasSelectedTask));
             LoadTaskDetails();
+
+            if (removedPendingPlaceholder)
+            {
+                RefreshVisibleTasks();
+                UpdateCategoryCounts();
+            }
         }
     }
 
@@ -980,6 +997,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ClearSelectedTask()
     {
+        if (IsUnsavedPlaceholderTask(_selectedTask))
+        {
+            RemovePendingNewTask(_selectedTask!);
+            return;
+        }
+
         if (!_suppressSavingDuringSelection)
         {
             SaveCurrentMaterials();
@@ -1090,6 +1113,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void NewTask_OnClick(object? sender, RoutedEventArgs e)
     {
+        if (IsUnsavedPlaceholderTask(SelectedTask))
+        {
+            ClearSelectedTask();
+        }
+
         var category = IsOverviewSelected || IsSettingsSelected ? Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") : SelectedCategory;
         category ??= Categories.FirstOrDefault();
         if (category is null)
@@ -2901,23 +2929,39 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _tasksPendingDuplicateCheck.Remove(task.Id);
         _repository.DeleteTask(task.Id);
         AllTasks.Remove(task);
-        if (SelectedTask?.Id == task.Id)
-        {
-            var wasSuppressingSaving = _suppressSavingDuringSelection;
-            _suppressSavingDuringSelection = true;
-            try
-            {
-                SelectedTask = null;
-            }
-            finally
-            {
-                _suppressSavingDuringSelection = wasSuppressingSaving;
-            }
+        ClearTaskSelectionAfterRemoval(task);
+        UpdateCategoryCounts();
+    }
 
-            Materials.Clear();
-            Attachments.Clear();
-            SelectedAttachment = null;
+    private bool IsUnsavedPlaceholderTask(TaskItem? task)
+    {
+        return task is not null &&
+               _tasksPendingDuplicateCheck.Contains(task.Id) &&
+               !HasMeaningfulDuplicateInput(task);
+    }
+
+    private void ClearTaskSelectionAfterRemoval(TaskItem removedTask)
+    {
+        if (_selectedTask?.Id != removedTask.Id)
+        {
+            return;
         }
+
+        if (_selectedTask is not null)
+        {
+            _selectedTask.IsSelected = false;
+        }
+
+        _selectedTask = null;
+        SelectedAttachment = null;
+        SelectedTaskCategory = null;
+        Materials.Clear();
+        Attachments.Clear();
+        OnPropertyChanged(nameof(SelectedTask));
+        OnPropertyChanged(nameof(HasSelectedTask));
+        OnPropertyChanged(nameof(HasNoMaterials));
+        DateInputMessage = string.Empty;
+        UpdateDateTextFieldsFromSelectedTask();
     }
 
     private void RefreshTaskCategories()
