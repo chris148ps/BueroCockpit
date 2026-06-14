@@ -2670,12 +2670,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async Task<bool> HandleNewTaskDuplicateAsync(TaskItem newTask)
     {
         var targetCategory = GetTaskTargetCategory(newTask);
-        if (targetCategory is null)
+        if (targetCategory is null || !HasMeaningfulDuplicateInput(newTask))
         {
             return false;
         }
 
-        var duplicate = FindSimilarTask(newTask);
+        var duplicate = FindSimilarTask(newTask, minimumScore: 30);
         if (duplicate is null)
         {
             return false;
@@ -2744,7 +2744,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : null;
     }
 
-    private SimilarTaskMatch? FindSimilarTask(TaskItem newTask, string? targetCategoryId = null)
+    private SimilarTaskMatch? FindSimilarTask(TaskItem newTask, string? targetCategoryId = null, int minimumScore = 70)
     {
         return AllTasks
             .Where(task => !string.Equals(task.Id, newTask.Id, StringComparison.OrdinalIgnoreCase))
@@ -2752,7 +2752,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 task.CategoryIds.Contains(targetCategoryId, StringComparer.OrdinalIgnoreCase) ||
                 string.Equals(task.CategoryId, targetCategoryId, StringComparison.OrdinalIgnoreCase))
             .Select(task => new SimilarTaskMatch(task, CalculateSimilarityScore(newTask, task)))
-            .Where(match => match.Score >= 70)
+            .Where(match => match.Score >= minimumScore)
             .OrderByDescending(match => match.Score)
             .ThenByDescending(match => match.Task.UpdatedAt)
             .FirstOrDefault();
@@ -2785,6 +2785,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return 0;
         }
 
+        if (IsDuplicatePlaceholder(normalizedLeft) || IsDuplicatePlaceholder(normalizedRight))
+        {
+            return 0;
+        }
+
         if (string.Equals(normalizedLeft, normalizedRight, StringComparison.Ordinal))
         {
             return exactScore;
@@ -2799,6 +2804,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return 0;
+    }
+
+    private static bool HasMeaningfulDuplicateInput(TaskItem task)
+    {
+        return IsMeaningfulDuplicateValue(task.CustomerName) ||
+               IsMeaningfulDuplicateValue(task.Title);
+    }
+
+    private static bool IsMeaningfulDuplicateValue(string? value)
+    {
+        var normalized = NormalizeDuplicateText(value);
+        return normalized.Length > 0 && !IsDuplicatePlaceholder(normalized);
+    }
+
+    private static bool IsDuplicatePlaceholder(string normalizedValue)
+    {
+        return normalizedValue.Equals("neuer kunde", StringComparison.Ordinal) ||
+               normalizedValue.Equals("neue aufgabe", StringComparison.Ordinal) ||
+               normalizedValue.Equals("ohne kundenname", StringComparison.Ordinal) ||
+               normalizedValue.Equals("ohne titel", StringComparison.Ordinal);
     }
 
     private static string NormalizeDuplicateText(string? value)
