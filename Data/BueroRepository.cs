@@ -99,6 +99,21 @@ public sealed class BueroRepository
             );
             """);
 
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS DeskItems (
+                Id TEXT PRIMARY KEY,
+                Type TEXT NOT NULL,
+                Text TEXT NOT NULL,
+                X REAL NOT NULL,
+                Y REAL NOT NULL,
+                Width REAL NOT NULL,
+                Height REAL NOT NULL,
+                IsImportant INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL
+            );
+            """);
+
         MigrateSchema(connection);
 
         ExecuteNonQuery(connection, """
@@ -314,6 +329,38 @@ public sealed class BueroRepository
         return items;
     }
 
+    public List<DeskItem> GetDeskItems()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Id, Type, Text, X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt
+            FROM DeskItems
+            ORDER BY CreatedAt, Id;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var items = new List<DeskItem>();
+        while (reader.Read())
+        {
+            items.Add(new DeskItem
+            {
+                Id = reader.GetString(0),
+                Type = reader.GetString(1),
+                Text = reader.GetString(2),
+                X = reader.GetDouble(3),
+                Y = reader.GetDouble(4),
+                Width = reader.GetDouble(5),
+                Height = reader.GetDouble(6),
+                IsImportant = reader.GetInt32(7) == 1,
+                CreatedAt = ReadDate(reader.GetString(8)),
+                UpdatedAt = ReadDate(reader.GetString(9))
+            });
+        }
+
+        return items;
+    }
+
     public void SaveTask(TaskItem task)
     {
         if (task is null)
@@ -479,6 +526,38 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
     }
 
+    public void SaveDeskItem(DeskItem item)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO DeskItems (
+                Id, Type, Text, X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt)
+            VALUES (
+                $id, $type, $text, $x, $y, $width, $height, $isImportant, $createdAt, $updatedAt)
+            ON CONFLICT(Id) DO UPDATE SET
+                Type = excluded.Type,
+                Text = excluded.Text,
+                X = excluded.X,
+                Y = excluded.Y,
+                Width = excluded.Width,
+                Height = excluded.Height,
+                IsImportant = excluded.IsImportant,
+                UpdatedAt = excluded.UpdatedAt;
+            """;
+        command.Parameters.AddWithValue("$id", item.Id);
+        command.Parameters.AddWithValue("$type", item.Type);
+        command.Parameters.AddWithValue("$text", item.Text);
+        command.Parameters.AddWithValue("$x", item.X);
+        command.Parameters.AddWithValue("$y", item.Y);
+        command.Parameters.AddWithValue("$width", item.Width);
+        command.Parameters.AddWithValue("$height", item.Height);
+        command.Parameters.AddWithValue("$isImportant", item.IsImportant ? 1 : 0);
+        command.Parameters.AddWithValue("$createdAt", ToDb(item.CreatedAt));
+        command.Parameters.AddWithValue("$updatedAt", ToDb(item.UpdatedAt));
+        command.ExecuteNonQuery();
+    }
+
     public void UpdateAttachmentThumbnail(string attachmentId, string thumbnailPath)
     {
         using var connection = OpenConnection();
@@ -567,6 +646,15 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "Technician", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "DeskItems", "Type", "TEXT NOT NULL DEFAULT 'Note'");
+        AddColumnIfMissing(connection, "DeskItems", "Text", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "X", "REAL NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "DeskItems", "Y", "REAL NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "DeskItems", "Width", "REAL NOT NULL DEFAULT 260");
+        AddColumnIfMissing(connection, "DeskItems", "Height", "REAL NOT NULL DEFAULT 190");
+        AddColumnIfMissing(connection, "DeskItems", "IsImportant", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "DeskItems", "CreatedAt", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "UpdatedAt", "TEXT NOT NULL DEFAULT ''");
     }
 
     private static void AddColumnIfMissing(SqliteConnection connection, string tableName, string columnName, string columnDefinition)

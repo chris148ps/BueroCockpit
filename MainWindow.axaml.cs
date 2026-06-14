@@ -10,6 +10,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Media;
+using Avalonia.VisualTree;
+using Avalonia.Threading;
 using BueroCockpit.Data;
 using BueroCockpit.Models;
 using BueroCockpit.Services;
@@ -19,6 +21,8 @@ namespace BueroCockpit;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private bool _dateTextFormattingActive;
+    private const string DeskCategoryId = "__desk";
+    private const string DeskCategoryName = "Schreibtisch";
     private const string OverviewCategoryName = "Übersicht";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
@@ -39,6 +43,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? _selectedTaskCategory;
     private AttachmentItem? _selectedAttachment;
     private AttachmentEditSession? _selectedAttachmentEditSession;
+    private DeskItem? _draggedDeskItem;
+    private Control? _draggedDeskContainer;
+    private IPointer? _draggedDeskPointer;
     private string _taskListCaption = "0 Aufgaben";
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
@@ -68,6 +75,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _suppressSavingDuringSelection;
     private bool _isUpdatingDateFields;
     private int _selectionNavigationDepth;
+    private Point _deskDragStartPointerPosition;
+    private Point _deskDragStartItemPosition;
+    private Vector _deskDragCurrentDelta;
+    private bool _isDraggingDeskItem;
+    private IPointer? _deskPanPointer;
+    private Point _deskPanStartPointerPosition;
+    private Vector _deskPanStartOffset;
+    private bool _isLoadingDeskItems;
+    private bool _isApplyingDeskDrag;
+    private bool _deskInitialViewApplied;
+    private double _deskFitZoom = 1.0;
+    private double _deskUserZoom = 1.0;
+    private double _deskSurfaceWidth = 2400;
+    private double _deskSurfaceHeight = 1600;
+    private const double DeskBaseSurfaceWidth = 2400;
+    private const double DeskBaseSurfaceHeight = 1600;
+    private const double DeskMinZoom = 0.2;
+    private const double DeskMaxZoom = 3.0;
+    private const double DeskFitMargin = 120;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -80,6 +106,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<MaterialItem> Materials { get; } = new();
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
+    public ObservableCollection<DeskItem> DeskItems { get; } = new();
 
     public string[] SortModeOptions { get; } = ["Manuell", "Termin", "Wiedervorlage", "Gesendet am", "Geändert am"];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
@@ -104,6 +131,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
     public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
     public string[] AppearanceModeOptions { get; } = [LightMode, DarkMode];
+
+    public string DeskZoomLabel => $"{Math.Round(_deskUserZoom * 100):0} %";
+
+    public double DeskZoom => _deskFitZoom * _deskUserZoom;
+
+    public Avalonia.Media.ITransform DeskZoomTransform => new ScaleTransform(DeskZoom, DeskZoom);
+
+    public double DeskSurfaceWidth
+    {
+        get => _deskSurfaceWidth;
+        private set
+        {
+            if (Math.Abs(_deskSurfaceWidth - value) < 0.5)
+            {
+                return;
+            }
+
+            _deskSurfaceWidth = value;
+            OnPropertyChanged(nameof(DeskSurfaceWidth));
+        }
+    }
+
+    public double DeskSurfaceHeight
+    {
+        get => _deskSurfaceHeight;
+        private set
+        {
+            if (Math.Abs(_deskSurfaceHeight - value) < 0.5)
+            {
+                return;
+            }
+
+            _deskSurfaceHeight = value;
+            OnPropertyChanged(nameof(DeskSurfaceHeight));
+        }
+    }
 
     public CategoryItem? SelectedCategory
     {
@@ -133,6 +196,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             OnPropertyChanged(nameof(SelectedCategory));
             OnPropertyChanged(nameof(IsOverviewSelected));
+            OnPropertyChanged(nameof(IsDeskSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
@@ -272,8 +336,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool HasSelectedTask => SelectedTask is not null;
     public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
+    public bool IsDeskSelected => SelectedCategory?.Id == DeskCategoryId;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
-    public bool IsTaskAreaVisible => !IsOverviewSelected && !IsSettingsSelected;
+    public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
     public string AppDataDirectory => AppPaths.AppDataDirectory;
     public string DefaultAppDataDirectory => AppPaths.DefaultAppDataDirectory;
@@ -609,6 +674,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _updateService.UpdateFeedUrl = UpdateFeedUrl;
         UpdateStatus = _updateService.GetUpdateStatusText();
         DataContext = this;
+        Loaded += MainWindow_OnLoaded;
+        DeskScrollViewer.AddHandler(
+            InputElement.PointerWheelChangedEvent,
+            DeskScrollViewer_OnPointerWheelChanged,
+            RoutingStrategies.Bubble,
+            handledEventsToo: true);
 
         _repository.Initialize();
         LoadData();
@@ -649,10 +720,322 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void MainWindow_OnLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (_deskInitialViewApplied)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(FitDeskToViewport, DispatcherPriority.Loaded);
+    }
+
+    private void DeskNoteHeader_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control || control.DataContext is not DeskItem deskItem)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var noteContainer = FindDeskNoteContainer(control);
+        if (noteContainer is null)
+        {
+            return;
+        }
+
+        _draggedDeskItem = deskItem;
+        _draggedDeskContainer = noteContainer;
+        _draggedDeskPointer = e.Pointer;
+        _deskDragStartPointerPosition = GetDeskLogicalPointerPosition(e);
+        _deskDragStartItemPosition = new Point(deskItem.X, deskItem.Y);
+        _deskDragCurrentDelta = default;
+        _isDraggingDeskItem = false;
+        _draggedDeskContainer.RenderTransform = new TranslateTransform();
+        _draggedDeskPointer.Capture(control);
+        e.Handled = true;
+    }
+
+    private void DeskSurface_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control surface || IsPointerInsideDeskNote(e))
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(surface).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _deskPanPointer = e.Pointer;
+        _deskPanStartPointerPosition = e.GetPosition(DeskScrollViewer);
+        _deskPanStartOffset = DeskScrollViewer.Offset;
+        _deskPanPointer.Capture(surface);
+        e.Handled = true;
+    }
+
+    private void DeskSurface_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_deskPanPointer is null)
+        {
+            return;
+        }
+
+        var currentPosition = e.GetPosition(DeskScrollViewer);
+        var delta = currentPosition - _deskPanStartPointerPosition;
+        SetDeskOffset(_deskPanStartOffset - new Vector(delta.X, delta.Y));
+        e.Handled = true;
+    }
+
+    private void DeskSurface_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_deskPanPointer is null)
+        {
+            return;
+        }
+
+        ClearDeskPanState();
+        e.Handled = true;
+    }
+
+    private void DeskSurface_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        ClearDeskPanState();
+    }
+
+    private void DeskNoteHeader_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_draggedDeskItem is null || _draggedDeskContainer is null || _draggedDeskPointer is null)
+        {
+            return;
+        }
+
+        var currentPosition = GetDeskLogicalPointerPosition(e);
+        var deltaX = currentPosition.X - _deskDragStartPointerPosition.X;
+        var deltaY = currentPosition.Y - _deskDragStartPointerPosition.Y;
+
+        if (Math.Abs(deltaX) > 0.5 || Math.Abs(deltaY) > 0.5)
+        {
+            _isDraggingDeskItem = true;
+        }
+
+        _deskDragCurrentDelta = new Vector(deltaX, deltaY);
+        if (_draggedDeskContainer.RenderTransform is TranslateTransform translateTransform)
+        {
+            translateTransform.X = deltaX;
+            translateTransform.Y = deltaY;
+        }
+
+        e.Handled = true;
+    }
+
+    private void DeskNoteHeader_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_draggedDeskItem is null || _draggedDeskContainer is null || _draggedDeskPointer is null)
+        {
+            return;
+        }
+
+        CommitDeskDrag();
+        ClearDeskDragState();
+        e.Handled = true;
+    }
+
+    private void DeskScrollViewer_OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        var pointerPosition = e.GetPosition(DeskScrollViewer);
+        var zoomFactor = e.Delta.Y > 0 ? 1.12 : 1 / 1.12;
+        SetDeskUserZoom(_deskUserZoom * zoomFactor, pointerPosition);
+        e.Handled = true;
+    }
+
+    private void DeskZoomIn_OnClick(object? sender, RoutedEventArgs e)
+    {
+        SetDeskUserZoom(_deskUserZoom * 1.15, GetDeskViewportCenter());
+    }
+
+    private void DeskZoomOut_OnClick(object? sender, RoutedEventArgs e)
+    {
+        SetDeskUserZoom(_deskUserZoom / 1.15, GetDeskViewportCenter());
+    }
+
+    private void DeskZoomReset_OnClick(object? sender, RoutedEventArgs e)
+    {
+        SetDeskUserZoom(1.0, GetDeskViewportCenter());
+    }
+
+    private void DeskFitToView_OnClick(object? sender, RoutedEventArgs e)
+    {
+        FitDeskToViewport();
+    }
+
+    private void DeskNoteHeader_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CommitDeskDrag();
+        ClearDeskDragState();
+    }
+
+    private void DeskItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_isLoadingDeskItems || _isApplyingDeskDrag || sender is not DeskItem deskItem)
+        {
+            return;
+        }
+
+        if (e.PropertyName is null ||
+            e.PropertyName == nameof(DeskItem.Text) ||
+            e.PropertyName == nameof(DeskItem.IsImportant) ||
+            e.PropertyName == nameof(DeskItem.X) ||
+            e.PropertyName == nameof(DeskItem.Y) ||
+            e.PropertyName == nameof(DeskItem.Width) ||
+            e.PropertyName == nameof(DeskItem.Height) ||
+            e.PropertyName == nameof(DeskItem.Type))
+        {
+            deskItem.UpdatedAt = DateTime.Now;
+            _repository.SaveDeskItem(deskItem);
+            UpdateDeskSurfaceBounds();
+        }
+    }
+
+    private void FitDeskToViewport()
+    {
+        if (DeskScrollViewer.Viewport.Width <= 0 || DeskScrollViewer.Viewport.Height <= 0)
+        {
+            Dispatcher.UIThread.Post(FitDeskToViewport, DispatcherPriority.Loaded);
+            return;
+        }
+
+        var bounds = GetDeskContentBounds();
+        var width = Math.Max(bounds.Width, 1);
+        var height = Math.Max(bounds.Height, 1);
+        var zoom = Math.Min(
+            DeskScrollViewer.Viewport.Width / width,
+            DeskScrollViewer.Viewport.Height / height);
+
+        SetDeskFitZoom(zoom);
+        _deskUserZoom = 1.0;
+        OnPropertyChanged(nameof(DeskZoomLabel));
+        OnPropertyChanged(nameof(DeskZoom));
+        OnPropertyChanged(nameof(DeskZoomTransform));
+        SetDeskOffset(new Vector(
+            bounds.X * DeskZoom - Math.Max(0, (DeskScrollViewer.Viewport.Width - bounds.Width * DeskZoom) / 2),
+            bounds.Y * DeskZoom - Math.Max(0, (DeskScrollViewer.Viewport.Height - bounds.Height * DeskZoom) / 2)));
+        _deskInitialViewApplied = true;
+    }
+
+    private void SetDeskFitZoom(double fitZoom)
+    {
+        var clampedFitZoom = Math.Clamp(fitZoom, DeskMinZoom, DeskMaxZoom);
+        if (Math.Abs(_deskFitZoom - clampedFitZoom) < 0.0001)
+        {
+            return;
+        }
+
+        _deskFitZoom = clampedFitZoom;
+        OnPropertyChanged(nameof(DeskZoom));
+        OnPropertyChanged(nameof(DeskZoomTransform));
+    }
+
+    private void SetDeskUserZoom(double targetUserZoom, Point? focusViewportPoint)
+    {
+        var previousZoom = DeskZoom;
+        var clampedUserZoom = Math.Clamp(targetUserZoom, DeskMinZoom, DeskMaxZoom);
+        if (Math.Abs(_deskUserZoom - clampedUserZoom) < 0.0001)
+        {
+            return;
+        }
+
+        var viewport = DeskScrollViewer.Viewport;
+        var focus = focusViewportPoint ?? new Point(viewport.Width / 2, viewport.Height / 2);
+        var offset = DeskScrollViewer.Offset;
+        var logicalFocus = new Point(
+            (offset.X + focus.X) / previousZoom,
+            (offset.Y + focus.Y) / previousZoom);
+
+        _deskUserZoom = clampedUserZoom;
+        OnPropertyChanged(nameof(DeskZoom));
+        OnPropertyChanged(nameof(DeskZoomLabel));
+        OnPropertyChanged(nameof(DeskZoomTransform));
+        SetDeskOffset(new Vector(
+            logicalFocus.X * DeskZoom - focus.X,
+            logicalFocus.Y * DeskZoom - focus.Y));
+    }
+
+    private void SetDeskOffset(Vector offset)
+    {
+        DeskScrollViewer.Offset = new Vector(
+            Math.Max(0, offset.X),
+            Math.Max(0, offset.Y));
+    }
+
+    private Rect GetDeskContentBounds()
+    {
+        if (DeskItems.Count == 0)
+        {
+            return new Rect(0, 0, DeskBaseSurfaceWidth, DeskBaseSurfaceHeight);
+        }
+
+        var minX = Math.Max(0, DeskItems.Min(item => item.X) - DeskFitMargin);
+        var minY = Math.Max(0, DeskItems.Min(item => item.Y) - DeskFitMargin);
+        var maxX = DeskItems.Max(item => item.X + item.Width) + DeskFitMargin;
+        var maxY = DeskItems.Max(item => item.Y + item.Height) + DeskFitMargin;
+        return new Rect(minX, minY, Math.Max(1, maxX - minX), Math.Max(1, maxY - minY));
+    }
+
+    private Point GetDeskLogicalPointerPosition(PointerEventArgs e)
+    {
+        var pointerPosition = e.GetPosition(DeskScrollViewer);
+        var offset = DeskScrollViewer.Offset;
+        return new Point(
+            (offset.X + pointerPosition.X) / DeskZoom,
+            (offset.Y + pointerPosition.Y) / DeskZoom);
+    }
+
+    private Point GetDeskViewportCenter()
+    {
+        return new Point(DeskScrollViewer.Viewport.Width / 2, DeskScrollViewer.Viewport.Height / 2);
+    }
+
+    private void CommitDeskDrag()
+    {
+        if (_draggedDeskItem is null || _draggedDeskContainer is null)
+        {
+            return;
+        }
+
+        if (!_isDraggingDeskItem &&
+            Math.Abs(_deskDragCurrentDelta.X) <= 0.5 &&
+            Math.Abs(_deskDragCurrentDelta.Y) <= 0.5)
+        {
+            return;
+        }
+
+        _isApplyingDeskDrag = true;
+        try
+        {
+            _draggedDeskItem.X = Math.Max(0, _deskDragStartItemPosition.X + _deskDragCurrentDelta.X);
+            _draggedDeskItem.Y = Math.Max(0, _deskDragStartItemPosition.Y + _deskDragCurrentDelta.Y);
+        }
+        finally
+        {
+            _isApplyingDeskDrag = false;
+        }
+
+        _draggedDeskItem.UpdatedAt = DateTime.Now;
+        _repository.SaveDeskItem(_draggedDeskItem);
+        UpdateDeskSurfaceBounds();
+    }
+
 
     private void LoadData()
     {
         Categories.Clear();
+        Categories.Add(CreateDeskCategory());
         foreach (var category in _repository.GetCategories())
         {
             Categories.Add(category);
@@ -666,8 +1049,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AllTasks.Add(task);
         }
 
+        LoadDeskItems();
         UpdateCategoryCounts();
-        SelectedCategory = Categories.FirstOrDefault(c => c.Name == OverviewCategoryName) ?? Categories.FirstOrDefault();
+        SelectedCategory = Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
+            ?? Categories.FirstOrDefault(c => c.Name == OverviewCategoryName)
+            ?? Categories.FirstOrDefault();
         ApplySelectedCategoryContent();
     }
 
@@ -681,6 +1067,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (IsOverviewSelected)
         {
             ShowOverview();
+            return;
+        }
+
+        if (IsDeskSelected)
+        {
+            ShowDesk();
             return;
         }
 
@@ -929,6 +1321,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             ShowOverview();
         }
+        else if (IsDeskSelected)
+        {
+            ShowDesk();
+        }
         else if (IsSettingsSelected)
         {
             ShowSettings();
@@ -968,6 +1364,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TaskListCaption = "Tagesübersicht";
         ClearSearchTextWithoutRefresh();
         RefreshDashboard();
+    }
+
+    private void ShowDesk()
+    {
+        ClearSelectedTask();
+        VisibleTasks.Clear();
+        TaskListCaption = "Schreibtisch";
+        ClearSearchTextWithoutRefresh();
     }
 
     private void ShowSettings()
@@ -1066,12 +1470,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         foreach (var category in Categories)
         {
-            category.TaskCount = category.Name == "Übersicht"
+            category.TaskCount = category.Name == OverviewCategoryName
                 ? AllTasks.Count
-                : category.Id == SettingsCategoryId
+                : category.Id == DeskCategoryId || category.Id == SettingsCategoryId
                     ? 0
                 : AllTasks.Count(t => TaskBelongsToCategory(t, category.Id));
         }
+    }
+
+    private void LoadDeskItems()
+    {
+        foreach (var item in DeskItems)
+        {
+            item.PropertyChanged -= DeskItem_OnPropertyChanged;
+        }
+
+        DeskItems.Clear();
+        _isLoadingDeskItems = true;
+        try
+        {
+            foreach (var item in _repository.GetDeskItems())
+            {
+                SubscribeDeskItem(item);
+                DeskItems.Add(item);
+            }
+        }
+        finally
+        {
+            _isLoadingDeskItems = false;
+        }
+
+        UpdateDeskSurfaceBounds();
+    }
+
+    private void UpdateDeskSurfaceBounds()
+    {
+        var maxX = DeskItems.Count == 0
+            ? DeskSurfaceWidth
+            : DeskItems.Max(item => item.X + item.Width + DeskFitMargin * 2);
+        var maxY = DeskItems.Count == 0
+            ? DeskSurfaceHeight
+            : DeskItems.Max(item => item.Y + item.Height + DeskFitMargin * 2);
+
+        DeskSurfaceWidth = Math.Max(DeskBaseSurfaceWidth, Math.Ceiling(maxX));
+        DeskSurfaceHeight = Math.Max(DeskBaseSurfaceHeight, Math.Ceiling(maxY));
     }
 
     private void LoadTaskDetails()
@@ -1146,6 +1588,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshVisibleTasks();
         SelectedTask = task;
         UpdateCategoryCounts();
+    }
+
+    private void AddDeskNote_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var now = DateTime.Now;
+        var offset = DeskItems.Count * 28;
+        var deskItem = new DeskItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Type = "Note",
+            Text = string.Empty,
+            X = 40 + (offset % 320),
+            Y = 40 + (offset % 220),
+            Width = 300,
+            Height = 210,
+            IsImportant = false,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        _repository.SaveDeskItem(deskItem);
+        SubscribeDeskItem(deskItem);
+        DeskItems.Add(deskItem);
+        UpdateDeskSurfaceBounds();
     }
 
     private async void SaveTask_OnClick(object? sender, RoutedEventArgs e)
@@ -1781,6 +2247,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ReorderVisibleCategories(string selectedCategoryId)
     {
+        var deskCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId);
         var overviewCategory = Categories.FirstOrDefault(category => category.Name == OverviewCategoryName);
         var settingsCategory = Categories.FirstOrDefault(category => category.Id == SettingsCategoryId);
 
@@ -1791,6 +2258,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .ToList();
 
         Categories.Clear();
+
+        if (deskCategory is not null)
+        {
+            Categories.Add(deskCategory);
+        }
 
         if (overviewCategory is not null)
         {
@@ -1808,6 +2280,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SelectedCategory = Categories.FirstOrDefault(category => category.Id == selectedCategoryId)
+            ?? deskCategory
             ?? overviewCategory
             ?? Categories.FirstOrDefault();
 
@@ -3063,6 +3536,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private static CategoryItem CreateDeskCategory()
+    {
+        return new CategoryItem
+        {
+            Id = DeskCategoryId,
+            Name = DeskCategoryName,
+            SortOrder = int.MinValue + 1,
+            Color = "#F4F0DE",
+            IsVisible = true
+        };
+    }
+
     private void InsertBeforeSettings(CategoryItem category)
     {
         var settingsIndex = Categories.ToList().FindIndex(item => item.Id == SettingsCategoryId);
@@ -3093,7 +3578,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsSpecialCategory(CategoryItem category)
     {
-        return category.Id == SettingsCategoryId || category.Name == OverviewCategoryName;
+        return category.Id == DeskCategoryId ||
+               category.Id == SettingsCategoryId ||
+               category.Name == OverviewCategoryName;
     }
 
     private void LoadSelectedAttachmentEditSession()
@@ -3320,6 +3807,64 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return $"{safeStem}_{Guid.NewGuid():N}{extension}";
+    }
+
+    private void SubscribeDeskItem(DeskItem item)
+    {
+        item.PropertyChanged += DeskItem_OnPropertyChanged;
+    }
+
+    private void ClearDeskDragState()
+    {
+        if (_draggedDeskContainer is not null)
+        {
+            _draggedDeskContainer.RenderTransform = null;
+
+            if (_draggedDeskPointer is not null)
+            {
+                _draggedDeskPointer.Capture(null);
+            }
+        }
+
+        _draggedDeskItem = null;
+        _draggedDeskContainer = null;
+        _draggedDeskPointer = null;
+        _isDraggingDeskItem = false;
+        _deskDragCurrentDelta = default;
+    }
+
+    private void ClearDeskPanState()
+    {
+        if (_deskPanPointer is not null)
+        {
+            _deskPanPointer.Capture(null);
+        }
+
+        _deskPanPointer = null;
+    }
+
+    private static Border? FindDeskNoteContainer(Control control)
+    {
+        return control.GetVisualAncestors()
+            .OfType<Border>()
+            .FirstOrDefault(border => Equals(border.Tag, "DeskNoteRoot"));
+    }
+
+    private static bool IsPointerInsideDeskNote(PointerEventArgs e)
+    {
+        if (e.Source is not Visual visual)
+        {
+            return false;
+        }
+
+        if (visual is Border border && Equals(border.Tag, "DeskNoteRoot"))
+        {
+            return true;
+        }
+
+        return visual.GetVisualAncestors()
+            .OfType<Border>()
+            .Any(border => Equals(border.Tag, "DeskNoteRoot"));
     }
 
 

@@ -7,6 +7,7 @@
         Height="780"
         MinWidth="1080"
         MinHeight="680"
+        WindowState="Maximized"
         Background="{DynamicResource WindowBackgroundBrush}"
         Icon="/Assets/BueroCockpit.ico"
         Title="BüroCockpit">
@@ -31,6 +32,28 @@
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="MinHeight" Value="34" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="SelectionBrush" Value="#55D9B35C" />
+      <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor:focus">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor:focus-visible">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
     <Style Selector="Button">
       <Setter Property="CornerRadius" Value="9" />
@@ -90,6 +113,19 @@
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="FontSize" Value="15" />
+    </Style>
+    <Style Selector="Button.DeskZoomButton">
+      <Setter Property="Height" Value="34" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.DeskZoomButton TextBlock">
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,-1,0,0" />
     </Style>
     <Style Selector="ListBox">
       <Setter Property="Background" Value="Transparent" />
@@ -351,6 +387,145 @@
           </ItemsControl>
         </StackPanel>
       </ScrollViewer>
+    </Border>
+
+    <Border Grid.Column="1"
+            Grid.ColumnSpan="2"
+            Padding="26"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            IsVisible="{Binding IsDeskSelected}">
+      <DockPanel LastChildFill="True">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="Schreibtisch" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="Freie Fläche für Notizzettel und spätere Schreibtisch-Elemente."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="0,5,0,0"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Notizzettel hinzufügen"
+                    Classes="Primary"
+                    Click="AddDeskNote_OnClick"
+                    VerticalAlignment="Top" />
+            <WrapPanel HorizontalAlignment="Right" ItemSpacing="6" LineSpacing="6">
+              <Button Classes="DeskZoomButton"
+                      Width="34"
+                      MinWidth="34"
+                      Click="DeskZoomOut_OnClick">
+                <TextBlock Text="−" FontSize="16" LineHeight="16" />
+              </Button>
+              <Button Classes="DeskZoomButton"
+                      Content="{Binding DeskZoomLabel}"
+                      MinWidth="72"
+                      Padding="10,0"
+                      Click="DeskZoomReset_OnClick" />
+              <Button Classes="DeskZoomButton"
+                      Width="34"
+                      MinWidth="34"
+                      Click="DeskZoomIn_OnClick">
+                <TextBlock Text="+" FontSize="16" LineHeight="16" />
+              </Button>
+              <Button Classes="DeskZoomButton"
+                      Content="Alles anzeigen"
+                      MinWidth="108"
+                      Padding="10,0"
+                      Click="DeskFitToView_OnClick" />
+            </WrapPanel>
+          </StackPanel>
+        </Grid>
+
+        <Border Background="#FBF6E7"
+                BorderBrush="#E7D8A8"
+                BorderThickness="1"
+                CornerRadius="18"
+                Padding="20">
+          <ScrollViewer x:Name="DeskScrollViewer"
+                        HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Hidden">
+            <LayoutTransformControl x:Name="DeskZoomHost"
+                                    LayoutTransform="{Binding DeskZoomTransform}">
+              <Grid x:Name="DeskSurface"
+                    Width="{Binding DeskSurfaceWidth}"
+                    Height="{Binding DeskSurfaceHeight}"
+                    Background="Transparent"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    PointerPressed="DeskSurface_OnPointerPressed"
+                    PointerMoved="DeskSurface_OnPointerMoved"
+                    PointerReleased="DeskSurface_OnPointerReleased"
+                    PointerCaptureLost="DeskSurface_OnPointerCaptureLost">
+                <ItemsControl ItemsSource="{Binding DeskItems}">
+                  <ItemsControl.Styles>
+                    <Style Selector="ContentPresenter">
+                      <Setter Property="Canvas.Left" Value="{Binding X}" />
+                      <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                    </Style>
+                  </ItemsControl.Styles>
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <Canvas />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Width="{Binding Width}"
+                              Height="{Binding Height}"
+                              Background="{Binding NoteBackground}"
+                              BorderBrush="{Binding NoteBorderBrush}"
+                              BorderThickness="1.2"
+                              CornerRadius="18"
+                              Tag="DeskNoteRoot"
+                              ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                          <Border Grid.Row="0"
+                                  Background="{Binding NoteHeaderBackground}"
+                                  CornerRadius="18,18,10,10"
+                                  Padding="12,10"
+                                  PointerPressed="DeskNoteHeader_OnPointerPressed"
+                                  PointerMoved="DeskNoteHeader_OnPointerMoved"
+                                  PointerReleased="DeskNoteHeader_OnPointerReleased"
+                                  PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="Notizzettel"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="Ziehen"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         FontSize="12" />
+                            </Grid>
+                          </Border>
+
+                          <TextBox Grid.Row="1"
+                                   Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                   Classes="DeskNoteEditor"
+                                   Background="Transparent"
+                                   BorderThickness="0"
+                                   Padding="12,10"
+                                   AcceptsReturn="True"
+                                   TextWrapping="Wrap"
+                                   VerticalContentAlignment="Top"
+                                   FontSize="14"
+                                   PlaceholderText="Notiztext eingeben" />
+
+                          <Border Grid.Row="2"
+                                  Background="Transparent"
+                                  Padding="12,0,12,10">
+                            <CheckBox Content="Wichtig"
+                                      IsChecked="{Binding IsImportant, Mode=TwoWay}"
+                                      HorizontalAlignment="Left" />
+                          </Border>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Grid>
+            </LayoutTransformControl>
+          </ScrollViewer>
+        </Border>
+      </DockPanel>
     </Border>
 
     <Border Grid.Column="1"
