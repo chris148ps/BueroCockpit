@@ -316,6 +316,16 @@ public sealed class BueroRepository
 
     public void SaveTask(TaskItem task)
     {
+        if (task is null)
+        {
+            return;
+        }
+
+        if (!EnsureTaskCategoryState(task))
+        {
+            return;
+        }
+
         task.UpdatedAt = DateTime.Now;
         if (task.CreatedAt == default)
         {
@@ -631,14 +641,21 @@ public sealed class BueroRepository
             {
                 task.CategoryIds.Add(task.CategoryId);
             }
+
+            EnsureTaskCategoryState(task);
         }
     }
 
     private void SaveTaskCategories(TaskItem task)
     {
-        if (task.CategoryIds.Count == 0 && !string.IsNullOrWhiteSpace(task.CategoryId))
+        if (task is null)
         {
-            task.CategoryIds.Add(task.CategoryId);
+            return;
+        }
+
+        if (!EnsureTaskCategoryState(task))
+        {
+            return;
         }
 
         using var connection = OpenConnection();
@@ -662,6 +679,35 @@ public sealed class BueroRepository
             insertCommand.Parameters.AddWithValue("$categoryId", categoryId);
             insertCommand.ExecuteNonQuery();
         }
+    }
+
+    private static bool EnsureTaskCategoryState(TaskItem task)
+    {
+        task.CategoryIds ??= new List<string>();
+        task.CategoryIds = task.CategoryIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(task.CategoryId) &&
+            !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
+        {
+            task.CategoryIds.Insert(0, task.CategoryId);
+        }
+
+        if (task.CategoryIds.Count == 0)
+        {
+            task.CategoryId = string.Empty;
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(task.CategoryId) ||
+            !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
+        {
+            task.CategoryId = task.CategoryIds[0];
+        }
+
+        return !string.IsNullOrWhiteSpace(task.CategoryId);
     }
 
     private static void AddTaskParameters(SqliteCommand command, TaskItem task)

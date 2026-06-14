@@ -1156,7 +1156,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var categoryId = selection.Category.Id;
-        EnsureTaskCategoryState(SelectedTask);
+        if (!EnsureTaskCategoryState(SelectedTask))
+        {
+            RefreshTaskCategorySelections();
+            return;
+        }
 
         var wasAlreadyAssigned = SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase);
 
@@ -1212,11 +1216,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         else
         {
+            if (SelectedTask.CategoryIds.Count <= 1 &&
+                SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
+            {
+                RefreshTaskCategorySelections();
+                return;
+            }
+
             SelectedTask.CategoryIds.RemoveAll(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+
+            if (SelectedTask.CategoryIds.Count == 0)
+            {
+                SelectedTask.CategoryIds.Add(categoryId);
+                RefreshTaskCategorySelections();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedTask.CategoryId) ||
+                string.Equals(SelectedTask.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase) ||
+                !SelectedTask.CategoryIds.Contains(SelectedTask.CategoryId, StringComparer.OrdinalIgnoreCase))
+            {
+                SelectedTask.CategoryId = SelectedTask.CategoryIds.First();
+            }
         }
 
-        EnsureTaskCategoryState(SelectedTask);
-        SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == SelectedTask.CategoryId);
+        if (!EnsureTaskCategoryState(SelectedTask))
+        {
+            RefreshTaskCategorySelections();
+            return;
+        }
+
+        SelectedTaskCategory = Categories.FirstOrDefault(c => string.Equals(c.Id, SelectedTask.CategoryId, StringComparison.OrdinalIgnoreCase));
         _repository.SaveTask(SelectedTask);
         RefreshTaskCategorySelections();
         RefreshVisibleTasks();
@@ -2783,6 +2813,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void AddTaskToCategory(TaskItem task, string categoryId)
     {
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return;
+        }
+
+        EnsureTaskCategoryState(task);
+
         task.CategoryIds = task.CategoryIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -2797,6 +2834,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             task.CategoryId = categoryId;
         }
+
+        EnsureTaskCategoryState(task);
     }
 
     private List<string> GetTaskCategoryNameList(TaskItem task)
@@ -2884,23 +2923,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static void EnsureTaskCategoryState(TaskItem task)
+    private static bool EnsureTaskCategoryState(TaskItem task)
     {
+        task.CategoryIds ??= new List<string>();
         task.CategoryIds = task.CategoryIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (task.CategoryIds.Count == 0 && !string.IsNullOrWhiteSpace(task.CategoryId))
+        if (!string.IsNullOrWhiteSpace(task.CategoryId) &&
+            !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
         {
-            task.CategoryIds.Add(task.CategoryId);
+            task.CategoryIds.Insert(0, task.CategoryId);
         }
 
-        if (task.CategoryIds.Count > 0 &&
+        if (task.CategoryIds.Count == 0)
+        {
+            task.CategoryId = string.Empty;
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(task.CategoryId) ||
             !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
         {
             task.CategoryId = task.CategoryIds[0];
         }
+
+        return !string.IsNullOrWhiteSpace(task.CategoryId);
     }
 
     private static CategoryItem CreateSettingsCategory()
