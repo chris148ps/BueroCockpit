@@ -1441,25 +1441,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AllowMultiple = true
         });
 
-        var addedCount = 0;
-        foreach (var file in files)
-        {
-            var sourcePath = file.TryGetLocalPath();
-            if (AddAttachmentFromPath(sourcePath, selectAfterAdd: false))
-            {
-                addedCount++;
-            }
-        }
-
-        if (addedCount > 0)
-        {
-            AttachmentEditStatus = addedCount == 1
-                ? "1 Datei hinzugefügt."
-                : $"{addedCount} Dateien hinzugefügt.";
-        }
+        ImportAttachments(files.Select(file => file.TryGetLocalPath()), "hinzugefügt");
     }
 
-    private bool AddAttachmentFromPath(string? sourcePath, bool selectAfterAdd)
+    private bool AddAttachmentFromPath(string? sourcePath)
     {
         if (SelectedTask is null || string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
@@ -1491,9 +1476,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             EnsureAttachmentThumbnail(attachment);
             _repository.SaveAttachment(attachment);
             Attachments.Insert(0, attachment);
-            if (selectAfterAdd)
-            {
-            }
 
             return true;
         }
@@ -1530,26 +1512,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var addedCount = 0;
-        foreach (var file in files)
-        {
-            var sourcePath = file.TryGetLocalPath();
-            if (AddAttachmentFromPath(sourcePath, selectAfterAdd: false))
-            {
-                addedCount++;
-            }
-        }
-
-        if (addedCount > 0)
-        {
-            AttachmentEditStatus = addedCount == 1
-                ? "1 Datei per Drag & Drop hinzugefügt."
-                : $"{addedCount} Dateien per Drag & Drop hinzugefügt.";
-        }
-        else
-        {
-            AttachmentEditStatus = "Keine Datei hinzugefügt.";
-        }
+        ImportAttachments(files.Select(file => file.TryGetLocalPath()), "per Drag & Drop hinzugefügt");
 
         e.Handled = true;
     }
@@ -1642,6 +1605,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SelectAttachment(AttachmentItem item)
     {
         SelectedAttachment = item;
+    }
+
+    private void ImportAttachments(IEnumerable<string?> sourcePaths, string successSuffix)
+    {
+        var addedCount = 0;
+        var failedCount = 0;
+
+        foreach (var sourcePath in sourcePaths)
+        {
+            if (AddAttachmentFromPath(sourcePath))
+            {
+                addedCount++;
+            }
+            else if (!string.IsNullOrWhiteSpace(sourcePath))
+            {
+                failedCount++;
+            }
+        }
+
+        if (addedCount > 0)
+        {
+            AttachmentEditStatus = addedCount == 1
+                ? $"1 Datei {successSuffix}."
+                : $"{addedCount} Dateien {successSuffix}.";
+
+            if (failedCount > 0)
+            {
+                AttachmentEditStatus += $" {failedCount} Datei(en) konnten nicht hinzugefügt werden.";
+            }
+        }
+        else
+        {
+            AttachmentEditStatus = failedCount > 0
+                ? $"{failedCount} Datei(en) konnten nicht hinzugefügt werden."
+                : "Keine Datei hinzugefügt.";
+        }
     }
 
     private void AddCategory_OnClick(object? sender, RoutedEventArgs e)
