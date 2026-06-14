@@ -477,6 +477,12 @@
                               CornerRadius="18"
                               Tag="DeskNoteRoot"
                               ClipToBounds="True">
+                        <Border.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Löschen"
+                                      Click="DeleteDeskItem_OnClick" />
+                          </ContextMenu>
+                        </Border.ContextMenu>
                         <Grid RowDefinitions="Auto,*,Auto">
                           <Border Grid.Row="0"
                                   Background="{Binding NoteHeaderBackground}"
@@ -507,7 +513,14 @@
                                    TextWrapping="Wrap"
                                    VerticalContentAlignment="Top"
                                    FontSize="14"
-                                   PlaceholderText="Notiztext eingeben" />
+                                   PlaceholderText="Notiztext eingeben">
+                            <TextBox.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Löschen"
+                                          Click="DeleteDeskItem_OnClick" />
+                              </ContextMenu>
+                            </TextBox.ContextMenu>
+                          </TextBox>
 
                           <Border Grid.Row="2"
                                   Background="Transparent"

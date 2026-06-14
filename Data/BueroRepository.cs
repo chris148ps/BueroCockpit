@@ -558,6 +558,18 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
     }
 
+    public void DeleteDeskItem(string deskItemId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM DeskItems
+            WHERE Id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", deskItemId);
+        command.ExecuteNonQuery();
+    }
+
     public void UpdateAttachmentThumbnail(string attachmentId, string thumbnailPath)
     {
         using var connection = OpenConnection();

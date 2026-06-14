@@ -910,9 +910,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var bounds = GetDeskContentBounds();
-        var width = Math.Max(bounds.Width, 1);
-        var height = Math.Max(bounds.Height, 1);
+        // Die Start-/Komplettansicht bezieht sich bewusst auf die feste Schreibtischfläche,
+        // nicht auf die aktuell vorhandenen Notizzettel. Sonst werden einzelne Zettel beim
+        // Neustart automatisch zentriert/vergrößert und wirken, als hätten sie ihre Position verloren.
+        var width = Math.Max(DeskSurfaceWidth, 1);
+        var height = Math.Max(DeskSurfaceHeight, 1);
         var zoom = Math.Min(
             DeskScrollViewer.Viewport.Width / width,
             DeskScrollViewer.Viewport.Height / height);
@@ -922,9 +924,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(DeskZoomLabel));
         OnPropertyChanged(nameof(DeskZoom));
         OnPropertyChanged(nameof(DeskZoomTransform));
-        SetDeskOffset(new Vector(
-            bounds.X * DeskZoom - Math.Max(0, (DeskScrollViewer.Viewport.Width - bounds.Width * DeskZoom) / 2),
-            bounds.Y * DeskZoom - Math.Max(0, (DeskScrollViewer.Viewport.Height - bounds.Height * DeskZoom) / 2)));
+
+        // Start immer oben links auf der logischen Schreibtischfläche.
+        SetDeskOffset(new Vector(0, 0));
         _deskInitialViewApplied = true;
     }
 
@@ -1482,7 +1484,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         foreach (var item in DeskItems)
         {
-            item.PropertyChanged -= DeskItem_OnPropertyChanged;
+            UnsubscribeDeskItem(item);
         }
 
         DeskItems.Clear();
@@ -1612,6 +1614,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SubscribeDeskItem(deskItem);
         DeskItems.Add(deskItem);
         UpdateDeskSurfaceBounds();
+    }
+
+    private void DeleteDeskItem_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        DeleteDeskItem(deskItem);
     }
 
     private async void SaveTask_OnClick(object? sender, RoutedEventArgs e)
@@ -3812,6 +3824,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SubscribeDeskItem(DeskItem item)
     {
         item.PropertyChanged += DeskItem_OnPropertyChanged;
+    }
+
+    private void UnsubscribeDeskItem(DeskItem item)
+    {
+        item.PropertyChanged -= DeskItem_OnPropertyChanged;
+    }
+
+    private void DeleteDeskItem(DeskItem deskItem)
+    {
+        if (_draggedDeskItem == deskItem)
+        {
+            ClearDeskDragState();
+        }
+
+        UnsubscribeDeskItem(deskItem);
+        _repository.DeleteDeskItem(deskItem.Id);
+        DeskItems.Remove(deskItem);
+        UpdateDeskSurfaceBounds();
     }
 
     private void ClearDeskDragState()
