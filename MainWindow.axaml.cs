@@ -1512,7 +1512,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        ImportAttachments(files.Select(file => file.TryGetLocalPath()), "per Drag & Drop hinzugefügt");
+        ImportAttachments(files.Select(file => file.TryGetLocalPath()), "per Drag & Drop hinzugefügt", "Keine Datei hinzugefügt.");
 
         e.Handled = true;
     }
@@ -1570,15 +1570,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (SelectedAttachment == item)
+        try
+        {
+            _repository.DeleteAttachment(item.Id);
+        }
+        catch (Exception ex)
+        {
+            AttachmentEditStatus = $"Anhang konnte nicht entfernt werden: {item.FileName}";
+            Debug.WriteLine($"Attachment delete failed for '{item.Id}': {ex}");
+            return;
+        }
+
+        var wasSelected = SelectedAttachment == item;
+        var thumbnailPath = item.ThumbnailPath;
+        var storedPath = item.StoredPath;
+
+        DeleteAttachmentFileIfUnreferenced(storedPath);
+        DeleteAttachmentFileIfUnreferenced(thumbnailPath);
+
+        if (wasSelected)
         {
             SelectedAttachment = null;
         }
 
-        _repository.DeleteAttachment(item.Id);
-        TryDeleteFile(item.ThumbnailPath);
-        TryDeleteFile(item.StoredPath);
         Attachments.Remove(item);
+        AttachmentEditStatus = $"Anhang entfernt: {item.FileName}";
     }
 
     private void OpenSelectedAttachmentExternal_OnClick(object? sender, RoutedEventArgs e)
@@ -1607,7 +1623,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectedAttachment = item;
     }
 
-    private void ImportAttachments(IEnumerable<string?> sourcePaths, string successSuffix)
+    private void DeleteAttachmentFileIfUnreferenced(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || _repository.HasAttachmentPathReference(path))
+        {
+            return;
+        }
+
+        TryDeleteFile(path);
+    }
+
+    private void ImportAttachments(IEnumerable<string?> sourcePaths, string successSuffix, string? noneMessage = null)
     {
         var addedCount = 0;
         var failedCount = 0;
@@ -1637,9 +1663,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         else
         {
-            AttachmentEditStatus = failedCount > 0
-                ? $"{failedCount} Datei(en) konnten nicht hinzugefügt werden."
-                : "Keine Datei hinzugefügt.";
+            if (failedCount > 0)
+            {
+                AttachmentEditStatus = $"{failedCount} Datei(en) konnten nicht hinzugefügt werden.";
+            }
+            else if (!string.IsNullOrWhiteSpace(noneMessage))
+            {
+                AttachmentEditStatus = noneMessage;
+            }
         }
     }
 

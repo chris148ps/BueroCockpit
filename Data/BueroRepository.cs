@@ -421,10 +421,44 @@ public sealed class BueroRepository
     public void DeleteAttachment(string attachmentId)
     {
         using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        using (var editSessionCommand = connection.CreateCommand())
+        {
+            editSessionCommand.Transaction = transaction;
+            editSessionCommand.CommandText = "DELETE FROM AttachmentEditSessions WHERE AttachmentId = $id;";
+            editSessionCommand.Parameters.AddWithValue("$id", attachmentId);
+            editSessionCommand.ExecuteNonQuery();
+        }
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "DELETE FROM Attachments WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", attachmentId);
         command.ExecuteNonQuery();
+
+        transaction.Commit();
+    }
+
+    public bool HasAttachmentPathReference(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT 1
+            FROM Attachments
+            WHERE StoredPath = $path OR ThumbnailPath = $path
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$path", path);
+
+        using var reader = command.ExecuteReader();
+        return reader.Read();
     }
 
     public void SaveAttachment(AttachmentItem item)
