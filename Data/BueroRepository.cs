@@ -100,6 +100,24 @@ public sealed class BueroRepository
             """);
 
         MigrateSchema(connection);
+
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS TaskCategories (
+                TaskId TEXT NOT NULL,
+                CategoryId TEXT NOT NULL,
+                PRIMARY KEY (TaskId, CategoryId),
+                FOREIGN KEY (TaskId) REFERENCES Tasks(Id) ON DELETE CASCADE,
+                FOREIGN KEY (CategoryId) REFERENCES Categories(Id) ON DELETE CASCADE
+            );
+            """);
+
+        ExecuteNonQuery(connection, """
+            INSERT OR IGNORE INTO TaskCategories (TaskId, CategoryId)
+            SELECT Id, CategoryId
+            FROM Tasks
+            WHERE IFNULL(CategoryId, '') <> '';
+            """);
+
         SeedDefaultCategories(connection);
     }
 
@@ -170,6 +188,7 @@ public sealed class BueroRepository
             });
         }
 
+        LoadTaskCategories(items);
         return items;
     }
 
