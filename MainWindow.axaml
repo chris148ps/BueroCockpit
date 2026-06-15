@@ -543,7 +543,8 @@
                                 <Grid>
                                   <TextBlock Text="{Binding DisplayName}"
                                              FontWeight="SemiBold"
-                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             Foreground="#111827"
+                                             IsVisible="{Binding IsDisplayNameVisible}"
                                              IsHitTestVisible="False" />
                                   <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            Classes="DeskNoteEditor DeskItemNameEditor"
@@ -551,6 +552,7 @@
                                            HorizontalAlignment="Stretch"
                                            VerticalAlignment="Center"
                                            Background="{Binding NoteHeaderBackground}"
+                                           Foreground="#1F2937"
                                            FontWeight="SemiBold"
                                            FontSize="14"
                                            LostFocus="DeskItemNameEditor_OnLostFocus"
@@ -693,7 +695,7 @@
                                          TextWrapping="NoWrap"
                                          TextTrimming="CharacterEllipsis"
                                          FontSize="10"
-                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         Foreground="#111827"
                                          IsHitTestVisible="False" />
                               <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                        Classes="DeskNoteEditor DeskItemNameEditor"
@@ -1444,7 +1446,7 @@
                       </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="#111827" />
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
                     </StackPanel>
 	                    <StackPanel Grid.Column="2" Spacing="8">

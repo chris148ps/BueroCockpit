@@ -64,6 +64,12 @@ public sealed class DeskItem : ObservableObject
     {
         get
         {
+            if (IsRenaming)
+            {
+                return _displayName ?? string.Empty;
+            }
+
+
             if (!string.IsNullOrWhiteSpace(_displayName))
             {
                 return _displayName;
@@ -186,8 +192,20 @@ public sealed class DeskItem : ObservableObject
     public bool IsRenaming
     {
         get => _isRenaming;
-        set => SetProperty(ref _isRenaming, value);
+        set
+        {
+            if (_isRenaming == value)
+            {
+                return;
+            }
+
+            _isRenaming = value;
+            OnPropertyChanged(nameof(IsRenaming));
+            OnPropertyChanged(nameof(IsDisplayNameVisible));
+        }
     }
+
+    public bool IsDisplayNameVisible => !IsRenaming;
 
     public DateTime CreatedAt
     {
