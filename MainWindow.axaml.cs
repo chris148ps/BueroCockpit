@@ -2621,9 +2621,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
+
     private async Task<bool> ShowDeleteTaskConfirmationDialog(TaskItem task)
     {
-        var title = string.IsNullOrWhiteSpace(task.Title) ? "Diesen Auftrag" : task.Title.Trim();
+        var title = string.IsNullOrWhiteSpace(SelectedTask?.Title)
+            ? "Dieser Auftrag"
+            : SelectedTask.Title.Trim();
 
         var dialog = new Window
         {
@@ -2632,10 +2635,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
             Content = new Border
             {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(14),
-                Background = Brushes.White,
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -2644,7 +2649,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         new TextBlock
                         {
                             Text = "Auftrag wirklich komplett löschen?",
-                            FontSize = 20,
+                            FontSize = 18,
                             FontWeight = FontWeight.Bold,
                             Foreground = new SolidColorBrush(Color.Parse("#111827")),
                             TextWrapping = TextWrapping.Wrap
@@ -2652,7 +2657,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         new TextBlock
                         {
                             Text = $"„{title}“ wird komplett gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
-                            FontSize = 14,
+                            FontSize = 13,
                             Foreground = new SolidColorBrush(Color.Parse("#374151")),
                             TextWrapping = TextWrapping.Wrap
                         },
@@ -2664,26 +2669,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Margin = new Thickness(0, 4, 0, 0),
                             Children =
                             {
-                                new Button
-                                {
-                                    Content = "Abbrechen",
-                                    MinWidth = 105,
-                                    Height = 34,
-                                    Background = new SolidColorBrush(Color.Parse("#F3F4F6")),
-                                    Foreground = new SolidColorBrush(Color.Parse("#111827")),
-                                    BorderBrush = new SolidColorBrush(Color.Parse("#D1D5DB")),
-                                    BorderThickness = new Thickness(1)
-                                },
-                                new Button
-                                {
-                                    Content = "Endgültig löschen",
-                                    MinWidth = 145,
-                                    Height = 34,
-                                    Background = new SolidColorBrush(Color.Parse("#DC2626")),
-                                    Foreground = Brushes.White,
-                                    BorderBrush = new SolidColorBrush(Color.Parse("#B91C1C")),
-                                    BorderThickness = new Thickness(1)
-                                }
+                                CreateDialogAction("Abbrechen", false),
+                                CreateDialogAction("Endgültig löschen", true)
                             }
                         }
                     }
@@ -2692,16 +2679,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
-        var cancelButton = (Button)buttonsPanel.Children[0];
-        var deleteButton = (Button)buttonsPanel.Children[1];
+        var cancelAction = (Border)buttonsPanel.Children[0];
+        var deleteAction = (Border)buttonsPanel.Children[1];
 
         var result = false;
-        cancelButton.Click += (_, _) =>
+
+        cancelAction.PointerReleased += (_, _) =>
         {
             result = false;
             dialog.Close();
         };
-        deleteButton.Click += (_, _) =>
+
+        deleteAction.PointerReleased += (_, _) =>
         {
             result = true;
             dialog.Close();
@@ -2709,6 +2698,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         await dialog.ShowDialog(this);
         return result;
+
+        static Border CreateDialogAction(string text, bool isDanger)
+        {
+            var normalBackground = isDanger ? "#DC2626" : "#F3F4F6";
+            var hoverBackground = isDanger ? "#B91C1C" : "#DBEAFE";
+            var normalBorder = isDanger ? "#B91C1C" : "#D1D5DB";
+            var hoverBorder = isDanger ? "#991B1B" : "#93C5FD";
+            IBrush foreground = isDanger ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+
+            var label = new TextBlock
+            {
+                Text = text,
+                Foreground = foreground,
+                FontWeight = FontWeight.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var action = new Border
+            {
+                MinWidth = isDanger ? 145 : 105,
+                Height = 34,
+                Background = new SolidColorBrush(Color.Parse(normalBackground)),
+                BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 6),
+                Child = label
+            };
+
+            action.PointerEntered += (_, _) =>
+            {
+                action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
+                action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+                label.Foreground = foreground;
+            };
+
+            action.PointerExited += (_, _) =>
+            {
+                action.Background = new SolidColorBrush(Color.Parse(normalBackground));
+                action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+                label.Foreground = foreground;
+            };
+
+            return action;
+        }
     }
 
     private void AddMaterial_OnClick(object? sender, RoutedEventArgs e)
@@ -5712,8 +5747,28 @@ public sealed class DuplicateTaskDialog : Window
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Padding = new Thickness(12, 8),
-            IsCancel = choice == DuplicateTaskChoice.Cancel
+            IsCancel = choice == DuplicateTaskChoice.Cancel,
+            Background = new SolidColorBrush(Color.Parse("#F8FAFC")),
+            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#CBD5E1")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8)
         };
+
+        button.PointerEntered += (_, _) =>
+        {
+            button.Background = new SolidColorBrush(Color.Parse("#DBEAFE"));
+            button.Foreground = new SolidColorBrush(Color.Parse("#111827"));
+            button.BorderBrush = new SolidColorBrush(Color.Parse("#93C5FD"));
+        };
+
+        button.PointerExited += (_, _) =>
+        {
+            button.Background = new SolidColorBrush(Color.Parse("#F8FAFC"));
+            button.Foreground = new SolidColorBrush(Color.Parse("#111827"));
+            button.BorderBrush = new SolidColorBrush(Color.Parse("#CBD5E1"));
+        };
+
         button.Click += (_, _) => Close(choice);
         return button;
     }
