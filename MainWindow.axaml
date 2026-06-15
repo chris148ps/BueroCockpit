@@ -36,10 +36,10 @@
     <Style Selector="TextBox.DeskNoteEditor">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-      <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Foreground" Value="#1F2937" />
+      <Setter Property="CaretBrush" Value="#1F2937" />
       <Setter Property="SelectionBrush" Value="#55D9B35C" />
-      <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="SelectionForegroundBrush" Value="#1F2937" />
       <Setter Property="FocusAdorner" Value="{x:Null}" />
       <Setter Property="CornerRadius" Value="0" />
     </Style>
@@ -51,7 +51,40 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
+    <Style Selector="TextBox.DeskNoteEditor:focus-within">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
     <Style Selector="TextBox.DeskNoteEditor:focus-visible">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor:disabled">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="#1F2937" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor /template/ Border#PART_BorderElement:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor /template/ Border#PART_BorderElement:focus">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor /template/ Border#PART_BorderElement:focus-within">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.DeskNoteEditor /template/ ScrollViewer#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
@@ -445,16 +478,19 @@
                         VerticalScrollBarVisibility="Hidden">
             <LayoutTransformControl x:Name="DeskZoomHost"
                                     LayoutTransform="{Binding DeskZoomTransform}">
-              <Grid x:Name="DeskSurface"
-                    Width="{Binding DeskSurfaceWidth}"
-                    Height="{Binding DeskSurfaceHeight}"
-                    Background="Transparent"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    PointerPressed="DeskSurface_OnPointerPressed"
-                    PointerMoved="DeskSurface_OnPointerMoved"
-                    PointerReleased="DeskSurface_OnPointerReleased"
-                    PointerCaptureLost="DeskSurface_OnPointerCaptureLost">
+                <Grid x:Name="DeskSurface"
+                      Width="{Binding DeskSurfaceWidth}"
+                      Height="{Binding DeskSurfaceHeight}"
+                      Background="Transparent"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="DeskSurface_OnDragOver"
+                      DragDrop.Drop="DeskSurface_OnDrop"
+                      PointerPressed="DeskSurface_OnPointerPressed"
+                      PointerMoved="DeskSurface_OnPointerMoved"
+                      PointerReleased="DeskSurface_OnPointerReleased"
+                      PointerCaptureLost="DeskSurface_OnPointerCaptureLost">
                 <ItemsControl ItemsSource="{Binding DeskItems}">
                   <ItemsControl.Styles>
                     <Style Selector="ContentPresenter">
@@ -469,68 +505,172 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Width="{Binding Width}"
-                              Height="{Binding Height}"
-                              Background="{Binding NoteBackground}"
-                              BorderBrush="{Binding NoteBorderBrush}"
-                              BorderThickness="1.2"
-                              CornerRadius="18"
-                              Tag="DeskNoteRoot"
-                              ClipToBounds="True">
-                        <Border.ContextMenu>
-                          <ContextMenu>
-                            <MenuItem Header="Löschen"
-                                      Click="DeleteDeskItem_OnClick" />
-                          </ContextMenu>
-                        </Border.ContextMenu>
-                        <Grid RowDefinitions="Auto,*,Auto">
-                          <Border Grid.Row="0"
-                                  Background="{Binding NoteHeaderBackground}"
-                                  CornerRadius="18,18,10,10"
-                                  Padding="12,10"
-                                  PointerPressed="DeskNoteHeader_OnPointerPressed"
-                                  PointerMoved="DeskNoteHeader_OnPointerMoved"
-                                  PointerReleased="DeskNoteHeader_OnPointerReleased"
-                                  PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <TextBlock Text="Notizzettel"
-                                         FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextPrimaryBrush}" />
-                              <TextBlock Grid.Column="1"
-                                         Text="Ziehen"
-                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                         FontSize="12" />
-                            </Grid>
-                          </Border>
+                      <Grid>
+                        <Border Width="{Binding Width}"
+                                Height="{Binding Height}"
+                                Background="{Binding NoteBackground}"
+                                BorderBrush="{Binding NoteBorderBrush}"
+                                BorderThickness="1.2"
+                                CornerRadius="18"
+                                Tag="DeskNoteRoot"
+                                ClipToBounds="True"
+                                IsVisible="{Binding IsNoteCard}">
+                          <Border.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Löschen"
+                                        Click="DeleteDeskItem_OnClick" />
+                            </ContextMenu>
+                          </Border.ContextMenu>
+                          <Grid RowDefinitions="Auto,*,Auto">
+                            <Border Grid.Row="0"
+                                    Background="{Binding NoteHeaderBackground}"
+                                    CornerRadius="18,18,10,10"
+                                    Padding="12,10"
+                                    PointerPressed="DeskNoteHeader_OnPointerPressed"
+                                    PointerMoved="DeskNoteHeader_OnPointerMoved"
+                                    PointerReleased="DeskNoteHeader_OnPointerReleased"
+                                    PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost">
+                              <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Notizzettel"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="Ziehen"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12" />
+                              </Grid>
+                            </Border>
 
-                          <TextBox Grid.Row="1"
-                                   Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                   Classes="DeskNoteEditor"
-                                   Background="Transparent"
-                                   BorderThickness="0"
-                                   Padding="12,10"
-                                   AcceptsReturn="True"
-                                   TextWrapping="Wrap"
-                                   VerticalContentAlignment="Top"
-                                   FontSize="14"
-                                   PlaceholderText="Notiztext eingeben">
-                            <TextBox.ContextMenu>
-                              <ContextMenu>
-                                <MenuItem Header="Löschen"
-                                          Click="DeleteDeskItem_OnClick" />
-                              </ContextMenu>
-                            </TextBox.ContextMenu>
-                          </TextBox>
+                            <TextBox Grid.Row="1"
+                                     Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Classes="DeskNoteEditor"
+                                     Background="Transparent"
+                                     Foreground="#1F2937"
+                                     CaretBrush="#1F2937"
+                                     SelectionBrush="#55D9B35C"
+                                     SelectionForegroundBrush="#1F2937"
+                                     BorderThickness="0"
+                                     Padding="12,10"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalContentAlignment="Top"
+                                     FontSize="14"
+                                     PlaceholderText="Notiztext eingeben">
+                              <TextBox.ContextMenu>
+                                <ContextMenu>
+                                  <MenuItem Header="Löschen"
+                                            Click="DeleteDeskItem_OnClick" />
+                                </ContextMenu>
+                              </TextBox.ContextMenu>
+                            </TextBox>
 
-                          <Border Grid.Row="2"
-                                  Background="Transparent"
-                                  Padding="12,0,12,10">
-                            <CheckBox Content="Wichtig"
-                                      IsChecked="{Binding IsImportant, Mode=TwoWay}"
-                                      HorizontalAlignment="Left" />
-                          </Border>
-                        </Grid>
-                      </Border>
+                            <Border Grid.Row="2"
+                                    Background="Transparent"
+                                    Padding="12,0,12,10">
+                              <CheckBox Content="Wichtig"
+                                        IsChecked="{Binding IsImportant, Mode=TwoWay}"
+                                        HorizontalAlignment="Left" />
+                            </Border>
+                          </Grid>
+                        </Border>
+
+                        <Border Width="{Binding Width}"
+                                Height="{Binding Height}"
+                                Background="Transparent"
+                                Tag="DeskFileRoot"
+                                ClipToBounds="False"
+                                IsVisible="{Binding IsFileCard}"
+                                PointerPressed="DeskNoteHeader_OnPointerPressed"
+                                PointerMoved="DeskNoteHeader_OnPointerMoved"
+                                PointerReleased="DeskNoteHeader_OnPointerReleased"
+                                PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost"
+                                DoubleTapped="DeskFileCard_OnDoubleTapped">
+                          <Border.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Löschen"
+                                        Click="DeleteDeskItem_OnClick" />
+                              <MenuItem Header="{Binding ImportantToggleText}"
+                                        Click="ToggleDeskItemImportant_OnClick" />
+                            </ContextMenu>
+                          </Border.ContextMenu>
+
+                          <Grid RowDefinitions="*,Auto"
+                                Margin="0">
+                            <Border Grid.Row="0"
+                                    Margin="0,0,0,8"
+                                    Background="{Binding FileCardPreviewBackground}"
+                                    BorderBrush="{Binding FileCardBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    ClipToBounds="True"
+                                    IsHitTestVisible="False">
+                              <Grid Margin="12">
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Background="#C94A3F"
+                                        BorderBrush="#A33930"
+                                        BorderThickness="1"
+                                        CornerRadius="0,12,0,12"
+                                        Padding="8,4"
+                                        IsVisible="{Binding IsImportant}">
+                                  <TextBlock Text="Wichtig"
+                                             FontSize="11"
+                                             FontWeight="SemiBold"
+                                             Foreground="#FFFFFF" />
+                                </Border>
+
+                                <Image IsVisible="{Binding HasPreviewThumbnail}"
+                                       Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
+                                       Stretch="Uniform"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Stretch"
+                                       IsHitTestVisible="False" />
+
+                                <TextBlock IsVisible="{Binding HasPreviewText}"
+                                           Text="{Binding PreviewText}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Left"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           IsHitTestVisible="False" />
+
+                                <StackPanel IsVisible="{Binding HasSimplePreviewPlaceholder}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Spacing="10"
+                                            IsHitTestVisible="False">
+                                  <Border Background="{Binding FileCardBadgeBackground}"
+                                          BorderBrush="{Binding FileCardBadgeBorderBrush}"
+                                          BorderThickness="1"
+                                          CornerRadius="12"
+                                          Padding="16,12">
+                                    <TextBlock Text="{Binding FileKindLabel}"
+                                               FontSize="28"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                  </Border>
+                                  <TextBlock Text="{Binding FileBadgeText}"
+                                             HorizontalAlignment="Center"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                             FontSize="12" />
+                                </StackPanel>
+                              </Grid>
+                            </Border>
+
+                            <TextBlock Grid.Row="1"
+                                       Text="{Binding FileDisplayName}"
+                                       Margin="2,0,2,0"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       FontSize="10"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       IsHitTestVisible="False" />
+                          </Grid>
+                        </Border>
+                      </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -816,7 +956,7 @@
 
     <Border Grid.Column="1" Padding="20" Background="{DynamicResource WindowBackgroundBrush}" IsVisible="{Binding IsTaskAreaVisible}">
       <DockPanel LastChildFill="True">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding TaskListCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />

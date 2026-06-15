@@ -13,6 +13,8 @@ public static class AppPaths
     public static string LockPath => Path.Combine(AppDataDirectory, "buerocockpit.lock");
     public static string TasksDirectory => Path.Combine(AppDataDirectory, "Tasks");
     public static string BackupDirectory => Path.Combine(AppDataDirectory, "Backups");
+    public static string DeskItemsDirectory => Path.Combine(AppDataDirectory, "DeskItems");
+    public static string DeskFilesDirectory => Path.Combine(DeskItemsDirectory, "Files");
 
     public static bool IsUsingCustomDataDirectory =>
         !string.Equals(AppDataDirectory, DefaultAppDataDirectory, StringComparison.Ordinal);
@@ -43,12 +45,24 @@ public static class AppPaths
         return Path.Combine(AppDataDirectory, "Tasks", taskId, "AttachmentBackups");
     }
 
+    public static string GetDeskPdfDirectory(string deskItemId)
+    {
+        return GetDeskFileDirectory(deskItemId);
+    }
+
+    public static string GetDeskFileDirectory(string deskItemId)
+    {
+        return Path.Combine(DeskFilesDirectory, deskItemId);
+    }
+
     public static void EnsureBaseDirectories()
     {
         Directory.CreateDirectory(DefaultAppDataDirectory);
         Directory.CreateDirectory(AppDataDirectory);
         Directory.CreateDirectory(TasksDirectory);
         Directory.CreateDirectory(BackupDirectory);
+        Directory.CreateDirectory(DeskItemsDirectory);
+        Directory.CreateDirectory(DeskFilesDirectory);
     }
 
     private static string ExpandHomeDirectory(string path)

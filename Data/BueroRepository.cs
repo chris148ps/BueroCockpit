@@ -104,6 +104,10 @@ public sealed class BueroRepository
                 Id TEXT PRIMARY KEY,
                 Type TEXT NOT NULL,
                 Text TEXT NOT NULL,
+                PdfPath TEXT NOT NULL DEFAULT '',
+                FileName TEXT NOT NULL DEFAULT '',
+                ReferencePath TEXT NOT NULL DEFAULT '',
+                PdfThumbnailPath TEXT NOT NULL DEFAULT '',
                 X REAL NOT NULL,
                 Y REAL NOT NULL,
                 Width REAL NOT NULL,
@@ -334,7 +338,8 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, Type, Text, X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt
+            SELECT Id, Type, Text, PdfPath, FileName, ReferencePath, PdfThumbnailPath,
+                   X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt
             FROM DeskItems
             ORDER BY CreatedAt, Id;
             """;
@@ -348,13 +353,17 @@ public sealed class BueroRepository
                 Id = reader.GetString(0),
                 Type = reader.GetString(1),
                 Text = reader.GetString(2),
-                X = reader.GetDouble(3),
-                Y = reader.GetDouble(4),
-                Width = reader.GetDouble(5),
-                Height = reader.GetDouble(6),
-                IsImportant = reader.GetInt32(7) == 1,
-                CreatedAt = ReadDate(reader.GetString(8)),
-                UpdatedAt = ReadDate(reader.GetString(9))
+                FilePath = reader.GetString(3),
+                FileName = reader.GetString(4),
+                ReferencePath = reader.GetString(5),
+                ThumbnailPath = reader.GetString(6),
+                X = reader.GetDouble(7),
+                Y = reader.GetDouble(8),
+                Width = reader.GetDouble(9),
+                Height = reader.GetDouble(10),
+                IsImportant = reader.GetInt32(11) == 1,
+                CreatedAt = ReadDate(reader.GetString(12)),
+                UpdatedAt = ReadDate(reader.GetString(13))
             });
         }
 
@@ -532,12 +541,18 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO DeskItems (
-                Id, Type, Text, X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt)
+                Id, Type, Text, PdfPath, FileName, ReferencePath, PdfThumbnailPath,
+                X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt)
             VALUES (
-                $id, $type, $text, $x, $y, $width, $height, $isImportant, $createdAt, $updatedAt)
+                $id, $type, $text, $pdfPath, $fileName, $referencePath, $pdfThumbnailPath,
+                $x, $y, $width, $height, $isImportant, $createdAt, $updatedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Type = excluded.Type,
                 Text = excluded.Text,
+                PdfPath = excluded.PdfPath,
+                FileName = excluded.FileName,
+                ReferencePath = excluded.ReferencePath,
+                PdfThumbnailPath = excluded.PdfThumbnailPath,
                 X = excluded.X,
                 Y = excluded.Y,
                 Width = excluded.Width,
@@ -548,6 +563,10 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$id", item.Id);
         command.Parameters.AddWithValue("$type", item.Type);
         command.Parameters.AddWithValue("$text", item.Text);
+        command.Parameters.AddWithValue("$pdfPath", item.FilePath);
+        command.Parameters.AddWithValue("$fileName", item.FileName);
+        command.Parameters.AddWithValue("$referencePath", item.ReferencePath);
+        command.Parameters.AddWithValue("$pdfThumbnailPath", item.ThumbnailPath);
         command.Parameters.AddWithValue("$x", item.X);
         command.Parameters.AddWithValue("$y", item.Y);
         command.Parameters.AddWithValue("$width", item.Width);
@@ -660,6 +679,10 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "DeskItems", "Type", "TEXT NOT NULL DEFAULT 'Note'");
         AddColumnIfMissing(connection, "DeskItems", "Text", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "PdfPath", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "FileName", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "ReferencePath", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "PdfThumbnailPath", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "X", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "DeskItems", "Y", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "DeskItems", "Width", "REAL NOT NULL DEFAULT 260");

@@ -26,6 +26,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string OverviewCategoryName = "Übersicht";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
+    private const string DeskItemTypeNote = "Note";
+    private const string DeskItemTypeFile = "File";
+    private const string DeskItemTypePdf = "Pdf";
+    private const string DeskItemTypeImage = "Image";
+    private static readonly HashSet<string> DeskImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".bmp",
+        ".webp"
+    };
     private const string LightMode = "Light Mode";
     private const string DarkMode = "Dark Mode";
     private readonly StorageLocationService _storageLocationService = new();
@@ -808,6 +820,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ClearDeskPanState();
     }
 
+    private void DeskSurface_OnDragOver(object? sender, DragEventArgs e)
+    {
+        var hasLocalFiles = e.DataTransfer.TryGetFiles()?.Any(file =>
+            File.Exists(file.TryGetLocalPath() ?? string.Empty)) == true;
+        e.DragEffects = hasLocalFiles ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void DeskSurface_OnDrop(object? sender, DragEventArgs e)
+    {
+        var files = e.DataTransfer.TryGetFiles();
+        if (files is null)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var localPaths = files
+            .Select(file => file.TryGetLocalPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .ToList();
+
+        if (localPaths.Count == 0)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var dropPoint = e.GetPosition(DeskScrollViewer);
+        var addedCount = 0;
+        for (var index = 0; index < localPaths.Count; index++)
+        {
+            if (AddDeskFileCardFromPath(localPaths[index]!, dropPoint, index))
+            {
+                addedCount++;
+            }
+        }
+
+        if (addedCount > 0)
+        {
+            SelectedCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId) ?? SelectedCategory;
+            ApplySelectedCategoryContent();
+        }
+
+        e.Handled = true;
+    }
+
     private void DeskNoteHeader_OnPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_draggedDeskItem is null || _draggedDeskContainer is null || _draggedDeskPointer is null)
@@ -880,6 +939,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ClearDeskDragState();
     }
 
+    private void DeskFileCard_OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is not Control control || control.DataContext is not DeskItem deskItem)
+        {
+            return;
+        }
+
+        if (!deskItem.IsFileCard || !deskItem.HasFile)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        OpenDeskFileExternal(deskItem);
+    }
+
+    private void ToggleDeskItemImportant_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        deskItem.IsImportant = !deskItem.IsImportant;
+    }
+
     private void DeskItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isLoadingDeskItems || _isApplyingDeskDrag || sender is not DeskItem deskItem)
@@ -889,6 +974,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (e.PropertyName is null ||
             e.PropertyName == nameof(DeskItem.Text) ||
+            e.PropertyName == nameof(DeskItem.FilePath) ||
+            e.PropertyName == nameof(DeskItem.FileName) ||
+            e.PropertyName == nameof(DeskItem.ReferencePath) ||
+            e.PropertyName == nameof(DeskItem.ThumbnailPath) ||
             e.PropertyName == nameof(DeskItem.IsImportant) ||
             e.PropertyName == nameof(DeskItem.X) ||
             e.PropertyName == nameof(DeskItem.Y) ||
@@ -1503,16 +1592,161 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         UpdateDeskSurfaceBounds();
+        RefreshDeskFileCards();
+    }
+
+    private void RefreshDeskFileCards()
+    {
+        if (DeskItems.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var deskItem in DeskItems.Where(item => item.IsFileCard))
+        {
+            EnsureDeskFilePreview(deskItem);
+        }
+    }
+
+    private void EnsureDeskFilePreview(DeskItem deskItem)
+    {
+        if (!deskItem.IsFileCard || !deskItem.HasFile)
+        {
+            return;
+        }
+
+        var previewText = BuildDeskFilePreviewText(deskItem.FilePath);
+        if (!string.Equals(previewText ?? string.Empty, deskItem.Text ?? string.Empty, StringComparison.Ordinal))
+        {
+            deskItem.Text = previewText ?? string.Empty;
+        }
+
+        var previewPath = EnsureDeskFileThumbnail(deskItem);
+        if (!string.IsNullOrWhiteSpace(previewPath) &&
+            !string.Equals(previewPath, deskItem.ThumbnailPath, StringComparison.OrdinalIgnoreCase))
+        {
+            deskItem.ThumbnailPath = previewPath;
+            _repository.SaveDeskItem(deskItem);
+        }
+    }
+
+    private string? EnsureDeskFileThumbnail(DeskItem deskItem)
+    {
+        if (!deskItem.HasFile)
+        {
+            return null;
+        }
+
+        var extension = Path.GetExtension(deskItem.FilePath);
+        if (!DeskImageExtensions.Contains(extension) &&
+            !string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var previewAttachment = new AttachmentItem
+        {
+            Id = deskItem.Id,
+            StoredPath = deskItem.FilePath,
+            ThumbnailPath = deskItem.ThumbnailPath,
+            FileName = deskItem.FileName,
+            FileType = Path.GetExtension(deskItem.FileName)
+        };
+
+        return _thumbnailService.EnsureThumbnail(previewAttachment);
+    }
+
+    private static string? BuildDeskFilePreviewText(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            return null;
+        }
+
+        var extension = Path.GetExtension(filePath);
+        if (!string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(extension, ".md", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            var lines = File.ReadLines(filePath).Take(4).ToList();
+            if (lines.Count == 0)
+            {
+                return null;
+            }
+
+            var preview = string.Join(Environment.NewLine, lines).Trim();
+            if (preview.Length <= 240)
+            {
+                return preview;
+            }
+
+            return preview[..240].TrimEnd() + "...";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not read desk file preview '{filePath}': {ex}");
+            return null;
+        }
+    }
+
+    private static (double Width, double Height) GetDeskFileCardSize(string sourcePath)
+    {
+        var extension = Path.GetExtension(sourcePath);
+        if (string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return (200, 300);
+        }
+
+        if (DeskImageExtensions.Contains(extension))
+        {
+            return (235, 275);
+        }
+
+        if (string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(extension, ".md", StringComparison.OrdinalIgnoreCase))
+        {
+            return (240, 210);
+        }
+
+        return (220, 160);
+    }
+
+    private Point GetDeskDropLogicalPosition(Point positionOnViewer, double width, double height)
+    {
+        var offset = DeskScrollViewer.Offset;
+        var logicalX = (offset.X + positionOnViewer.X) / DeskZoom;
+        var logicalY = (offset.Y + positionOnViewer.Y) / DeskZoom;
+        return new Point(
+            Math.Max(40, logicalX - width / 2),
+            Math.Max(40, logicalY - height / 2));
+    }
+
+    private string CreateDeskFileStoredPath(string originalFileName, string deskItemId)
+    {
+        var deskFileDirectory = AppPaths.GetDeskFileDirectory(deskItemId);
+        Directory.CreateDirectory(deskFileDirectory);
+        var safeFileName = CreateStoredFileName(originalFileName);
+        return Path.Combine(deskFileDirectory, safeFileName);
+    }
+
+    private void RefreshDeskFileCard(DeskItem deskItem)
+    {
+        EnsureDeskFilePreview(deskItem);
     }
 
     private void UpdateDeskSurfaceBounds()
     {
-        var maxX = DeskItems.Count == 0
+        var visibleItems = DeskItems.Where(item => item.IsNoteCard || item.IsFileCard).ToList();
+        var maxX = visibleItems.Count == 0
             ? DeskSurfaceWidth
-            : DeskItems.Max(item => item.X + item.Width + DeskFitMargin * 2);
-        var maxY = DeskItems.Count == 0
+            : visibleItems.Max(item => item.X + item.Width + DeskFitMargin * 2);
+        var maxY = visibleItems.Count == 0
             ? DeskSurfaceHeight
-            : DeskItems.Max(item => item.Y + item.Height + DeskFitMargin * 2);
+            : visibleItems.Max(item => item.Y + item.Height + DeskFitMargin * 2);
 
         DeskSurfaceWidth = Math.Max(DeskBaseSurfaceWidth, Math.Ceiling(maxX));
         DeskSurfaceHeight = Math.Max(DeskBaseSurfaceHeight, Math.Ceiling(maxY));
@@ -1592,6 +1826,67 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
+    private static string GetDeskItemTypeForFile(string sourcePath)
+    {
+        var extension = Path.GetExtension(sourcePath);
+        if (string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return DeskItemTypePdf;
+        }
+
+        if (DeskImageExtensions.Contains(extension))
+        {
+            return DeskItemTypeImage;
+        }
+
+        return DeskItemTypeFile;
+    }
+
+    private bool AddDeskFileCardFromPath(string? sourcePath, Point dropPosition, int index)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) ||
+            !File.Exists(sourcePath))
+        {
+            return false;
+        }
+
+        var now = DateTime.Now;
+        var fileName = Path.GetFileName(sourcePath);
+        var cardSize = GetDeskFileCardSize(sourcePath);
+        var deskItem = new DeskItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Type = GetDeskItemTypeForFile(sourcePath),
+            FilePath = string.Empty,
+            FileName = fileName,
+            ReferencePath = sourcePath,
+            ThumbnailPath = string.Empty,
+            Text = string.Empty,
+            Width = cardSize.Width,
+            Height = cardSize.Height,
+            IsImportant = false,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var storedPath = CreateDeskFileStoredPath(fileName, deskItem.Id);
+        File.Copy(sourcePath, storedPath, overwrite: false);
+        deskItem.FilePath = storedPath;
+        deskItem.Text = BuildDeskFilePreviewText(storedPath) ?? string.Empty;
+
+        var offsetPosition = new Point(dropPosition.X + index * 24, dropPosition.Y + index * 24);
+        var logicalPosition = GetDeskDropLogicalPosition(offsetPosition, deskItem.Width, deskItem.Height);
+        deskItem.X = logicalPosition.X;
+        deskItem.Y = logicalPosition.Y;
+
+        _repository.SaveDeskItem(deskItem);
+        SubscribeDeskItem(deskItem);
+        DeskItems.Add(deskItem);
+        EnsureDeskFilePreview(deskItem);
+        UpdateDeskSurfaceBounds();
+        return true;
+    }
+
     private void AddDeskNote_OnClick(object? sender, RoutedEventArgs e)
     {
         var now = DateTime.Now;
@@ -1599,7 +1894,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var deskItem = new DeskItem
         {
             Id = Guid.NewGuid().ToString("N"),
-            Type = "Note",
+            Type = DeskItemTypeNote,
             Text = string.Empty,
             X = 40 + (offset % 320),
             Y = 40 + (offset % 220),
@@ -2197,7 +2492,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SelectedCategory.Name = name;
         _repository.SaveCategory(SelectedCategory);
-        RefreshTaskCategories();
         OnPropertyChanged(nameof(SelectedCategory));
         CategoryMessage = "Kategorie umbenannt.";
     }
@@ -3009,6 +3303,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         process.StartInfo = new ProcessStartInfo
         {
             FileName = item.StoredPath,
+            UseShellExecute = true
+        };
+        process.Start();
+    }
+
+    private static void OpenDeskFileExternal(DeskItem deskItem)
+    {
+        if (!deskItem.HasFile)
+        {
+            return;
+        }
+
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo
+        {
+            FileName = deskItem.FilePath,
             UseShellExecute = true
         };
         process.Start();
@@ -3840,6 +4150,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         UnsubscribeDeskItem(deskItem);
         _repository.DeleteDeskItem(deskItem.Id);
+        if (deskItem.IsFileCard)
+        {
+            TryDeleteFile(deskItem.ThumbnailPath);
+            TryDeleteFile(deskItem.FilePath);
+        }
         DeskItems.Remove(deskItem);
         UpdateDeskSurfaceBounds();
     }
@@ -3875,9 +4190,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static Border? FindDeskNoteContainer(Control control)
     {
+        if (control is Border border &&
+            (Equals(border.Tag, "DeskNoteRoot") || Equals(border.Tag, "DeskFileRoot")))
+        {
+            return border;
+        }
+
         return control.GetVisualAncestors()
             .OfType<Border>()
-            .FirstOrDefault(border => Equals(border.Tag, "DeskNoteRoot"));
+            .FirstOrDefault(border => Equals(border.Tag, "DeskNoteRoot") || Equals(border.Tag, "DeskFileRoot"));
     }
 
     private static bool IsPointerInsideDeskNote(PointerEventArgs e)
@@ -3887,14 +4208,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return false;
         }
 
-        if (visual is Border border && Equals(border.Tag, "DeskNoteRoot"))
+        if (visual is Border border && (Equals(border.Tag, "DeskNoteRoot") || Equals(border.Tag, "DeskFileRoot")))
         {
             return true;
         }
 
         return visual.GetVisualAncestors()
             .OfType<Border>()
-            .Any(border => Equals(border.Tag, "DeskNoteRoot"));
+            .Any(border => Equals(border.Tag, "DeskNoteRoot") || Equals(border.Tag, "DeskFileRoot"));
     }
 
 
