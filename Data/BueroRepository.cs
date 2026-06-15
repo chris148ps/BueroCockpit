@@ -318,13 +318,14 @@ public sealed class BueroRepository
         var items = new List<AttachmentItem>();
         while (reader.Read())
         {
+            var attachmentTaskId = reader.GetString(1);
             items.Add(new AttachmentItem
             {
                 Id = reader.GetString(0),
-                TaskId = reader.GetString(1),
+                TaskId = attachmentTaskId,
                 FileName = reader.GetString(2),
-                StoredPath = reader.GetString(3),
-                ThumbnailPath = reader.GetString(4),
+                StoredPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(3)),
+                ThumbnailPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(4)),
                 FileType = reader.GetString(5),
                 AddedAt = ReadDate(reader.GetString(6))
             });
@@ -353,10 +354,10 @@ public sealed class BueroRepository
                 Id = reader.GetString(0),
                 Type = reader.GetString(1),
                 Text = reader.GetString(2),
-                FilePath = reader.GetString(3),
+                FilePath = AppPaths.ResolveDeskItemPath(reader.GetString(3)),
                 FileName = reader.GetString(4),
-                ReferencePath = reader.GetString(5),
-                ThumbnailPath = reader.GetString(6),
+                ReferencePath = AppPaths.ResolveDeskItemPath(reader.GetString(5)),
+                ThumbnailPath = AppPaths.ResolveDeskItemPath(reader.GetString(6)),
                 X = reader.GetDouble(7),
                 Y = reader.GetDouble(8),
                 Width = reader.GetDouble(9),
@@ -506,15 +507,21 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT 1
-            FROM Attachments
-            WHERE StoredPath = $path OR ThumbnailPath = $path
-            LIMIT 1;
+            SELECT StoredPath, ThumbnailPath
+            FROM Attachments;
             """;
-        command.Parameters.AddWithValue("$path", path);
 
         using var reader = command.ExecuteReader();
-        return reader.Read();
+        while (reader.Read())
+        {
+            if (AppPaths.PathsEqual(path, reader.GetString(0)) ||
+                AppPaths.PathsEqual(path, reader.GetString(1)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void SaveAttachment(AttachmentItem item)
@@ -528,8 +535,8 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$id", item.Id);
         command.Parameters.AddWithValue("$taskId", item.TaskId);
         command.Parameters.AddWithValue("$fileName", item.FileName);
-        command.Parameters.AddWithValue("$storedPath", item.StoredPath);
-        command.Parameters.AddWithValue("$thumbnailPath", item.ThumbnailPath);
+        command.Parameters.AddWithValue("$storedPath", AppPaths.MakeRelativeToDataFolder(item.StoredPath));
+        command.Parameters.AddWithValue("$thumbnailPath", AppPaths.MakeRelativeToDataFolder(item.ThumbnailPath));
         command.Parameters.AddWithValue("$fileType", item.FileType);
         command.Parameters.AddWithValue("$addedAt", ToDb(item.AddedAt));
         command.ExecuteNonQuery();
@@ -563,10 +570,10 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$id", item.Id);
         command.Parameters.AddWithValue("$type", item.Type);
         command.Parameters.AddWithValue("$text", item.Text);
-        command.Parameters.AddWithValue("$pdfPath", item.FilePath);
+        command.Parameters.AddWithValue("$pdfPath", AppPaths.MakeRelativeToDataFolder(item.FilePath));
         command.Parameters.AddWithValue("$fileName", item.FileName);
-        command.Parameters.AddWithValue("$referencePath", item.ReferencePath);
-        command.Parameters.AddWithValue("$pdfThumbnailPath", item.ThumbnailPath);
+        command.Parameters.AddWithValue("$referencePath", AppPaths.MakeRelativeToDataFolder(item.ReferencePath));
+        command.Parameters.AddWithValue("$pdfThumbnailPath", AppPaths.MakeRelativeToDataFolder(item.ThumbnailPath));
         command.Parameters.AddWithValue("$x", item.X);
         command.Parameters.AddWithValue("$y", item.Y);
         command.Parameters.AddWithValue("$width", item.Width);
@@ -592,14 +599,35 @@ public sealed class BueroRepository
     public void UpdateAttachmentThumbnail(string attachmentId, string thumbnailPath)
     {
         using var connection = OpenConnection();
+
+        var storedPath = string.Empty;
+        using (var readCommand = connection.CreateCommand())
+        {
+            readCommand.CommandText = """
+                SELECT StoredPath
+                FROM Attachments
+                WHERE Id = $id
+                LIMIT 1;
+                """;
+            readCommand.Parameters.AddWithValue("$id", attachmentId);
+
+            using var reader = readCommand.ExecuteReader();
+            if (reader.Read())
+            {
+                storedPath = AppPaths.MakeRelativeToDataFolder(reader.GetString(0));
+            }
+        }
+
         using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE Attachments
-            SET ThumbnailPath = $thumbnailPath
+            SET StoredPath = $storedPath,
+                ThumbnailPath = $thumbnailPath
             WHERE Id = $id;
             """;
         command.Parameters.AddWithValue("$id", attachmentId);
-        command.Parameters.AddWithValue("$thumbnailPath", thumbnailPath);
+        command.Parameters.AddWithValue("$storedPath", storedPath);
+        command.Parameters.AddWithValue("$thumbnailPath", AppPaths.MakeRelativeToDataFolder(thumbnailPath));
         command.ExecuteNonQuery();
     }
 

@@ -1,3 +1,5 @@
+using BueroCockpit.Data;
+
 namespace BueroCockpit.Models;
 
 public sealed class AttachmentItem : ObservableObject
@@ -11,7 +13,18 @@ public sealed class AttachmentItem : ObservableObject
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string TaskId { get; set; } = string.Empty;
     public string FileName { get => _fileName; set => SetProperty(ref _fileName, value); }
-    public string StoredPath { get => _storedPath; set => SetProperty(ref _storedPath, value); }
+    public string StoredPath
+    {
+        get => _storedPath;
+        set
+        {
+            if (SetProperty(ref _storedPath, value))
+            {
+                OnPropertyChanged(nameof(HasFile));
+                OnPropertyChanged(nameof(HasNoFile));
+            }
+        }
+    }
     public string ThumbnailPath
     {
         get => _thumbnailPath;
@@ -27,7 +40,13 @@ public sealed class AttachmentItem : ObservableObject
     public string FileType { get => _fileType; set => SetProperty(ref _fileType, value); }
     public DateTime AddedAt { get; set; } = DateTime.Now;
     public string FileTypeBadge => string.IsNullOrWhiteSpace(FileType) ? "FILE" : FileType.TrimStart('.').ToUpperInvariant();
-    public bool HasThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(ThumbnailPath);
+    public bool HasFile =>
+        !string.IsNullOrWhiteSpace(StoredPath) &&
+        File.Exists(AppPaths.ResolveDataPath(StoredPath));
+    public bool HasNoFile => !HasFile;
+    public bool HasThumbnail =>
+        !string.IsNullOrWhiteSpace(ThumbnailPath) &&
+        File.Exists(AppPaths.ResolveDataPath(ThumbnailPath));
     public bool HasNoThumbnail => !HasThumbnail;
     public bool IsSelected
     {

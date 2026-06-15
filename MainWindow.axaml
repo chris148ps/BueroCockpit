@@ -1301,17 +1301,14 @@
                 </Grid>
               </Border>
 
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                <StackPanel>
-                  <TextBlock Text="{Binding AttachmentPreviewTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding AttachmentPreviewInfo}"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="12"
-                             Margin="0,3,0,0"
-                             TextWrapping="Wrap" />
-                </StackPanel>
-                <Button Grid.Column="1" Content="Extern öffnen" Click="OpenSelectedAttachmentExternal_OnClick" />
-              </Grid>
+	              <StackPanel Spacing="0">
+	                <TextBlock Text="{Binding AttachmentPreviewTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+	                <TextBlock Text="{Binding AttachmentPreviewInfo}"
+	                           Foreground="{DynamicResource TextSecondaryBrush}"
+	                           FontSize="12"
+	                           Margin="0,3,0,0"
+	                           TextWrapping="Wrap" />
+	              </StackPanel>
 
               <Border Background="{DynamicResource InputBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
@@ -1405,11 +1402,13 @@
                       <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Spacing="8">
-                      <Button Content="Öffnen" Click="OpenAttachment_OnClick" Tag="{Binding}" />
-                      <Button Content="Entfernen" Click="DeleteAttachment_OnClick" Tag="{Binding}" />
-                      <CheckBox IsChecked="{Binding IsSelectedForPrint, Mode=TwoWay}"
-                                Content="Auswählen"
+	                    <StackPanel Grid.Column="2" Spacing="8">
+	                      <Button Content="Extern öffnen"
+	                              Click="OpenAttachmentExternalFromList_OnClick"
+	                              IsEnabled="{Binding HasFile}" />
+	                      <Button Content="Entfernen" Click="DeleteAttachment_OnClick" Tag="{Binding}" />
+	                      <CheckBox IsChecked="{Binding IsSelectedForPrint, Mode=TwoWay}"
+	                                Content="Auswählen"
                                 HorizontalAlignment="Left" />
                     </StackPanel>
                   </Grid>

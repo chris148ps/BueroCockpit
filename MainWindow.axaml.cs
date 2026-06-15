@@ -440,17 +440,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasSelectedAttachment => SelectedAttachment is not null;
-    public string PreviewImagePath => SelectedAttachment?.ThumbnailPath ?? string.Empty;
+    public string PreviewImagePath => ResolveAttachmentPath(SelectedAttachment?.ThumbnailPath);
     public bool HasPreviewImage => SelectedAttachment is not null &&
-                                   File.Exists(SelectedAttachment.StoredPath) &&
+                                   File.Exists(ResolveAttachmentPath(SelectedAttachment.StoredPath)) &&
                                    !string.IsNullOrWhiteSpace(PreviewImagePath) &&
                                    File.Exists(PreviewImagePath);
     public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
-    public string AttachmentPreviewTitle => SelectedAttachment is null
-        ? string.Empty
-        : File.Exists(SelectedAttachment.StoredPath)
-            ? SelectedAttachment.FileName
-            : "Datei nicht gefunden";
+    public string AttachmentPreviewTitle
+    {
+        get
+        {
+            if (SelectedAttachment is null)
+            {
+                return string.Empty;
+            }
+
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+            if (File.Exists(storedPath))
+            {
+                return SelectedAttachment.FileName;
+            }
+
+            LogMissingAttachment(SelectedAttachment, storedPath);
+            return "Datei nicht gefunden";
+        }
+    }
     public string AttachmentPreviewInfo
     {
         get
@@ -460,13 +474,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return string.Empty;
             }
 
-            if (!File.Exists(SelectedAttachment.StoredPath))
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+            if (!File.Exists(storedPath))
             {
                 return "Datei nicht gefunden.";
             }
 
             var extension = SelectedAttachment.FileType.TrimStart('.').ToLowerInvariant();
-            var sizeText = FormatFileSize(new FileInfo(SelectedAttachment.StoredPath).Length);
+            var sizeText = FormatFileSize(new FileInfo(storedPath).Length);
             return extension == "msg"
                 ? $"Outlook-Nachricht (.msg) - extern öffnen. {sizeText}"
                 : $"{SelectedAttachment.FileTypeBadge} - {sizeText}";
@@ -1610,18 +1625,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void EnsureDeskFilePreview(DeskItem deskItem)
     {
-        if (!deskItem.IsFileCard || !deskItem.HasFile)
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        if (!deskItem.IsFileCard || !File.Exists(filePath))
         {
             return;
         }
 
-        var previewText = BuildDeskFilePreviewText(deskItem.FilePath);
+        var previewText = BuildDeskFilePreviewText(filePath);
         if (!string.Equals(previewText ?? string.Empty, deskItem.Text ?? string.Empty, StringComparison.Ordinal))
         {
             deskItem.Text = previewText ?? string.Empty;
         }
 
-        var previewPath = EnsureDeskFileThumbnail(deskItem);
+        var previewPath = EnsureDeskFileThumbnail(deskItem, filePath);
         if (!string.IsNullOrWhiteSpace(previewPath) &&
             !string.Equals(previewPath, deskItem.ThumbnailPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -1630,14 +1646,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private string? EnsureDeskFileThumbnail(DeskItem deskItem)
+    private string? EnsureDeskFileThumbnail(DeskItem deskItem, string filePath)
     {
-        if (!deskItem.HasFile)
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             return null;
         }
 
-        var extension = Path.GetExtension(deskItem.FilePath);
+        var extension = Path.GetExtension(filePath);
         if (!DeskImageExtensions.Contains(extension) &&
             !string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
         {
@@ -1647,8 +1663,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var previewAttachment = new AttachmentItem
         {
             Id = deskItem.Id,
-            StoredPath = deskItem.FilePath,
-            ThumbnailPath = deskItem.ThumbnailPath,
+            StoredPath = filePath,
+            ThumbnailPath = AppPaths.ResolveDeskItemPath(deskItem.ThumbnailPath),
             FileName = deskItem.FileName,
             FileType = Path.GetExtension(deskItem.FileName)
         };
@@ -1727,10 +1743,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private string CreateDeskFileStoredPath(string originalFileName, string deskItemId)
     {
-        var deskFileDirectory = AppPaths.GetDeskFileDirectory(deskItemId);
-        Directory.CreateDirectory(deskFileDirectory);
         var safeFileName = CreateStoredFileName(originalFileName);
-        return Path.Combine(deskFileDirectory, safeFileName);
+        var deskFilePath = AppPaths.GetDeskFilePath(deskItemId, safeFileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(deskFilePath)!);
+        return deskFilePath;
     }
 
     private void RefreshDeskFileCard(DeskItem deskItem)
@@ -2240,7 +2256,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Id = Guid.NewGuid().ToString("N"),
                 TaskId = SelectedTask.Id,
                 FileName = originalName,
-                StoredPath = destinationPath,
+                StoredPath = AppPaths.MakeRelativeToDataFolder(destinationPath),
                 ThumbnailPath = string.Empty,
                 FileType = Path.GetExtension(originalName),
                 AddedAt = DateTime.Now
@@ -2308,7 +2324,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var attachment in selectedAttachments)
         {
-            if (string.IsNullOrWhiteSpace(attachment.StoredPath) || !File.Exists(attachment.StoredPath))
+            var storedPath = ResolveAttachmentPath(attachment.StoredPath);
+            if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 missingCount++;
                 continue;
@@ -2325,14 +2342,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : $"{printedCount} Anhang/Anhänge an die Druckfunktion übergeben. {missingCount} Datei(en) nicht gefunden.";
     }
 
-    private void OpenAttachment_OnClick(object? sender, RoutedEventArgs e)
+    private void OpenAttachmentExternalFromList_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: AttachmentItem item })
+        if (sender is not Button { DataContext: AttachmentItem item })
         {
             return;
         }
 
-        SelectAttachment(item);
         OpenAttachmentExternal(item);
     }
 
@@ -2355,11 +2371,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var wasSelected = SelectedAttachment == item;
-        var thumbnailPath = item.ThumbnailPath;
-        var storedPath = item.StoredPath;
-
-        DeleteAttachmentFileIfUnreferenced(storedPath);
-        DeleteAttachmentFileIfUnreferenced(thumbnailPath);
+        DeleteAttachmentFileIfUnreferenced(item.StoredPath);
+        DeleteAttachmentFileIfUnreferenced(item.ThumbnailPath);
 
         if (wasSelected)
         {
@@ -2368,14 +2381,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Attachments.Remove(item);
         AttachmentEditStatus = $"Anhang entfernt: {item.FileName}";
-    }
-
-    private void OpenSelectedAttachmentExternal_OnClick(object? sender, RoutedEventArgs e)
-    {
-        if (SelectedAttachment is not null)
-        {
-            OpenAttachmentExternal(SelectedAttachment);
-        }
     }
 
     private void ClosePreview_OnClick(object? sender, RoutedEventArgs e)
@@ -2403,7 +2408,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        TryDeleteFile(path);
+        TryDeleteFile(ResolveAttachmentPath(path));
     }
 
     private void ImportAttachments(IEnumerable<string?> sourcePaths, string successSuffix, string? noneMessage = null)
@@ -3083,13 +3088,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!File.Exists(SelectedAttachment.StoredPath))
+        var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+        if (!File.Exists(storedPath))
         {
             AttachmentEditStatus = "Die gespeicherte Anhangdatei wurde nicht gefunden.";
             return;
         }
 
-        var originalHash = _hashService.ComputeSha256(SelectedAttachment.StoredPath);
+        var originalHash = _hashService.ComputeSha256(storedPath);
         if (string.IsNullOrWhiteSpace(originalHash))
         {
             AttachmentEditStatus = "Die Anhangdatei konnte nicht gelesen werden.";
@@ -3108,7 +3114,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var exportDirectory = Path.Combine(OneDriveEditDirectory, folderName);
             Directory.CreateDirectory(exportDirectory);
             var exportPath = CreateUniquePath(exportDirectory, SelectedAttachment.FileName);
-            File.Copy(SelectedAttachment.StoredPath, exportPath, overwrite: false);
+            File.Copy(storedPath, exportPath, overwrite: false);
 
             var exportedHash = _hashService.ComputeSha256(exportPath);
             if (string.IsNullOrWhiteSpace(exportedHash))
@@ -3178,7 +3184,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var currentOriginalHash = _hashService.ComputeSha256(SelectedAttachment.StoredPath);
+        var currentOriginalHash = _hashService.ComputeSha256(ResolveAttachmentPath(SelectedAttachment.StoredPath));
         var hasConflict = !string.IsNullOrWhiteSpace(currentOriginalHash) &&
                           currentOriginalHash != session.OriginalHashAtExport;
         session.Status = hasConflict ? "Conflict" : "Changed";
@@ -3218,15 +3224,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var backupDirectory = AppPaths.GetAttachmentBackupDirectory(SelectedAttachment.TaskId);
             Directory.CreateDirectory(backupDirectory);
             var backupPath = CreateBackupPath(backupDirectory, SelectedAttachment.FileName);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+            var thumbnailPath = ResolveAttachmentPath(SelectedAttachment.ThumbnailPath);
 
-            if (File.Exists(SelectedAttachment.StoredPath))
+            if (File.Exists(storedPath))
             {
-                File.Copy(SelectedAttachment.StoredPath, backupPath, overwrite: false);
+                File.Copy(storedPath, backupPath, overwrite: false);
                 session.BackupPath = backupPath;
             }
 
-            File.Copy(session.ExportPath, SelectedAttachment.StoredPath, overwrite: true);
-            TryDeleteFile(SelectedAttachment.ThumbnailPath);
+            File.Copy(session.ExportPath, storedPath, overwrite: true);
+            TryDeleteFile(thumbnailPath);
             SelectedAttachment.ThumbnailPath = string.Empty;
             OnPropertyChanged(nameof(PreviewImagePath));
             OnPropertyChanged(nameof(HasPreviewImage));
@@ -3265,7 +3273,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(item.StoredPath) || !File.Exists(item.StoredPath))
+            var storedPath = AppPaths.ResolveDataPath(item.StoredPath);
+            if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 return false;
             }
@@ -3274,7 +3283,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = item.StoredPath,
+                    FileName = storedPath,
                     Verb = "print",
                     UseShellExecute = true
                 });
@@ -3294,7 +3303,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static void OpenAttachmentExternal(AttachmentItem item)
     {
-        if (!File.Exists(item.StoredPath))
+        var storedPath = AppPaths.ResolveDataPath(item.StoredPath);
+        if (!File.Exists(storedPath))
         {
             return;
         }
@@ -3302,7 +3312,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
         {
-            FileName = item.StoredPath,
+            FileName = storedPath,
             UseShellExecute = true
         };
         process.Start();
@@ -3310,7 +3320,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static void OpenDeskFileExternal(DeskItem deskItem)
     {
-        if (!deskItem.HasFile)
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        if (!File.Exists(filePath))
         {
             return;
         }
@@ -3318,7 +3329,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
         {
-            FileName = deskItem.FilePath,
+            FileName = filePath,
             UseShellExecute = true
         };
         process.Start();
@@ -4107,6 +4118,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static string ResolveAttachmentPath(string? path)
+    {
+        return AppPaths.ResolveDataPath(path);
+    }
+
+    private static void LogMissingAttachment(AttachmentItem attachment, string resolvedPath)
+    {
+        Console.WriteLine(
+            $"Attachment missing: FileName='{attachment.FileName}', StoredPathRaw='{attachment.StoredPath}', StoredPathResolved='{resolvedPath}', File.Exists={File.Exists(resolvedPath)}");
+    }
+
+    private static void TryDeleteDeskItemFile(string path)
+    {
+        if (!AppPaths.IsDeskFileStoragePath(path))
+        {
+            return;
+        }
+
+        TryDeleteFile(AppPaths.ResolveDeskItemPath(path));
+    }
+
     private void EnsureAttachmentThumbnail(AttachmentItem attachment)
     {
         var thumbnailPath = _thumbnailService.EnsureThumbnail(attachment);
@@ -4152,8 +4184,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _repository.DeleteDeskItem(deskItem.Id);
         if (deskItem.IsFileCard)
         {
-            TryDeleteFile(deskItem.ThumbnailPath);
-            TryDeleteFile(deskItem.FilePath);
+            TryDeleteDeskItemFile(deskItem.ThumbnailPath);
+            TryDeleteDeskItemFile(deskItem.FilePath);
         }
         DeskItems.Remove(deskItem);
         UpdateDeskSurfaceBounds();
