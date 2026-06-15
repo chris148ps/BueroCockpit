@@ -88,6 +88,12 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
+    <Style Selector="TextBox.DeskItemNameEditor">
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+    </Style>
     <Style Selector="Button">
       <Setter Property="CornerRadius" Value="9" />
       <Setter Property="Padding" Value="13,8" />
@@ -517,6 +523,8 @@
                                 IsVisible="{Binding IsNoteCard}">
                           <Border.ContextMenu>
                             <ContextMenu>
+                              <MenuItem Header="Umbenennen"
+                                        Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
                                         Click="DeleteDeskItem_OnClick" />
                             </ContextMenu>
@@ -530,10 +538,24 @@
                                     PointerMoved="DeskNoteHeader_OnPointerMoved"
                                     PointerReleased="DeskNoteHeader_OnPointerReleased"
                                     PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost">
-                              <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Notizzettel"
+                              <Grid ColumnDefinitions="*,Auto"
+                                    ColumnSpacing="12">
+                                <Grid>
+                                  <TextBlock Text="{Binding DisplayName}"
+                                             FontWeight="SemiBold"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             IsHitTestVisible="False" />
+                                  <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                           Classes="DeskNoteEditor DeskItemNameEditor"
+                                           IsVisible="{Binding IsRenaming}"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Center"
+                                           Background="{Binding NoteHeaderBackground}"
                                            FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                           FontSize="14"
+                                           LostFocus="DeskItemNameEditor_OnLostFocus"
+                                           KeyDown="DeskItemNameEditor_OnKeyDown" />
+                                </Grid>
                                 <TextBlock Grid.Column="1"
                                            Text="Ziehen"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
@@ -558,6 +580,8 @@
                                      PlaceholderText="Notiztext eingeben">
                               <TextBox.ContextMenu>
                                 <ContextMenu>
+                                  <MenuItem Header="Umbenennen"
+                                            Click="BeginDeskItemRename_OnClick" />
                                   <MenuItem Header="Löschen"
                                             Click="DeleteDeskItem_OnClick" />
                                 </ContextMenu>
@@ -587,6 +611,8 @@
                                 DoubleTapped="DeskFileCard_OnDoubleTapped">
                           <Border.ContextMenu>
                             <ContextMenu>
+                              <MenuItem Header="Umbenennen"
+                                        Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
                                         Click="DeleteDeskItem_OnClick" />
                               <MenuItem Header="{Binding ImportantToggleText}"
@@ -659,16 +685,26 @@
                               </Grid>
                             </Border>
 
-                            <TextBlock Grid.Row="1"
-                                       Text="{Binding FileDisplayName}"
-                                       Margin="2,0,2,0"
-                                       HorizontalAlignment="Center"
+                            <Grid Grid.Row="1"
+                                  Margin="2,0,2,0">
+                              <TextBlock Text="{Binding DisplayName}"
+                                         HorizontalAlignment="Center"
+                                         TextAlignment="Center"
+                                         TextWrapping="NoWrap"
+                                         TextTrimming="CharacterEllipsis"
+                                         FontSize="10"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         IsHitTestVisible="False" />
+                              <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                       Classes="DeskNoteEditor DeskItemNameEditor"
+                                       IsVisible="{Binding IsRenaming}"
+                                       HorizontalAlignment="Stretch"
+                                       Background="{DynamicResource WindowBackgroundBrush}"
                                        TextAlignment="Center"
-                                       TextWrapping="NoWrap"
-                                       TextTrimming="CharacterEllipsis"
                                        FontSize="10"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       IsHitTestVisible="False" />
+                                       LostFocus="DeskItemNameEditor_OnLostFocus"
+                                       KeyDown="DeskItemNameEditor_OnKeyDown" />
+                            </Grid>
                           </Grid>
                         </Border>
                       </Grid>

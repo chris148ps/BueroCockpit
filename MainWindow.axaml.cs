@@ -1037,6 +1037,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         deskItem.IsImportant = !deskItem.IsImportant;
     }
 
+    private void BeginDeskItemRename_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        deskItem.IsRenaming = true;
+        Dispatcher.UIThread.Post(() => FocusDeskItemNameEditor(deskItem), DispatcherPriority.Loaded);
+    }
+
+    private void DeskItemNameEditor_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        deskItem.IsRenaming = false;
+    }
+
+    private void DeskItemNameEditor_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        if (e.Key is Key.Enter or Key.Escape)
+        {
+            deskItem.IsRenaming = false;
+            e.Handled = true;
+        }
+    }
+
     private void DeskItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isLoadingDeskItems || _isApplyingDeskDrag || sender is not DeskItem deskItem)
@@ -1046,6 +1081,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (e.PropertyName is null ||
             e.PropertyName == nameof(DeskItem.Text) ||
+            e.PropertyName == nameof(DeskItem.DisplayName) ||
             e.PropertyName == nameof(DeskItem.FilePath) ||
             e.PropertyName == nameof(DeskItem.FileName) ||
             e.PropertyName == nameof(DeskItem.ReferencePath) ||
@@ -1932,6 +1968,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Type = GetDeskItemTypeForFile(sourcePath),
             FilePath = string.Empty,
             FileName = fileName,
+            DisplayName = fileName,
             ReferencePath = sourcePath,
             ThumbnailPath = string.Empty,
             Text = string.Empty,
@@ -1968,6 +2005,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Id = Guid.NewGuid().ToString("N"),
             Type = DeskItemTypeNote,
+            DisplayName = "Notizzettel",
             Text = string.Empty,
             X = 40 + (offset % 320),
             Y = 40 + (offset % 220),
@@ -4426,6 +4464,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return visual.GetVisualAncestors()
             .OfType<Border>()
             .Any(border => Equals(border.Tag, "DeskNoteRoot") || Equals(border.Tag, "DeskFileRoot"));
+    }
+
+    private void FocusDeskItemNameEditor(DeskItem deskItem)
+    {
+        var textBox = DeskSurface.GetVisualDescendants()
+            .OfType<TextBox>()
+            .FirstOrDefault(control =>
+                ReferenceEquals(control.DataContext, deskItem) &&
+                control.Classes.Any(styleClass => styleClass == "DeskItemNameEditor"));
+
+        if (textBox is null)
+        {
+            return;
+        }
+
+        textBox.Focus();
+        textBox.SelectAll();
     }
 
 

@@ -3,6 +3,7 @@ namespace BueroCockpit.Models;
 public sealed class DeskItem : ObservableObject
 {
     private string _type = "Note";
+    private string _displayName = string.Empty;
     private string _text = string.Empty;
     private string _filePath = string.Empty;
     private string _fileName = string.Empty;
@@ -13,6 +14,7 @@ public sealed class DeskItem : ObservableObject
     private double _width = 300;
     private double _height = 210;
     private bool _isImportant;
+    private bool _isRenaming;
     private DateTime _createdAt = DateTime.Now;
     private DateTime _updatedAt = DateTime.Now;
 
@@ -28,11 +30,12 @@ public sealed class DeskItem : ObservableObject
                 OnPropertyChanged(nameof(IsPdfCard));
                 OnPropertyChanged(nameof(IsImageCard));
                 OnPropertyChanged(nameof(IsNoteCard));
+                OnPropertyChanged(nameof(DisplayName));
+                OnPropertyChanged(nameof(FileDisplayName));
                 OnPropertyChanged(nameof(HasFileReference));
                 OnPropertyChanged(nameof(HasFile));
                 OnPropertyChanged(nameof(HasPreviewText));
                 OnPropertyChanged(nameof(HasSimplePreviewPlaceholder));
-                OnPropertyChanged(nameof(FileDisplayName));
                 OnPropertyChanged(nameof(FileBadgeText));
                 OnPropertyChanged(nameof(FileKindLabel));
                 OnPropertyChanged(nameof(ImportantToggleText));
@@ -57,6 +60,36 @@ public sealed class DeskItem : ObservableObject
             }
         }
     }
+    public string DisplayName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(_displayName))
+            {
+                return _displayName;
+            }
+
+            if (IsNoteCard)
+            {
+                return "Notizzettel";
+            }
+
+            if (HasFileName)
+            {
+                return FileName;
+            }
+
+            var fileName = Path.GetFileName(FilePath);
+            return string.IsNullOrWhiteSpace(fileName) ? "Datei" : fileName;
+        }
+        set
+        {
+            if (SetProperty(ref _displayName, value))
+            {
+                OnPropertyChanged(nameof(FileDisplayName));
+            }
+        }
+    }
     public string FilePath
     {
         get => _filePath;
@@ -65,11 +98,12 @@ public sealed class DeskItem : ObservableObject
             if (SetProperty(ref _filePath, value))
             {
                 OnPropertyChanged(nameof(PdfPath));
+                OnPropertyChanged(nameof(DisplayName));
+                OnPropertyChanged(nameof(FileDisplayName));
                 OnPropertyChanged(nameof(HasFileReference));
                 OnPropertyChanged(nameof(HasFile));
                 OnPropertyChanged(nameof(HasPreviewText));
                 OnPropertyChanged(nameof(HasSimplePreviewPlaceholder));
-                OnPropertyChanged(nameof(FileDisplayName));
                 OnPropertyChanged(nameof(FileBadgeText));
                 OnPropertyChanged(nameof(FileKindLabel));
             }
@@ -88,6 +122,7 @@ public sealed class DeskItem : ObservableObject
             if (SetProperty(ref _fileName, value))
             {
                 OnPropertyChanged(nameof(HasFileName));
+                OnPropertyChanged(nameof(DisplayName));
                 OnPropertyChanged(nameof(FileDisplayName));
                 OnPropertyChanged(nameof(FileBadgeText));
                 OnPropertyChanged(nameof(FileKindLabel));
@@ -148,6 +183,11 @@ public sealed class DeskItem : ObservableObject
             }
         }
     }
+    public bool IsRenaming
+    {
+        get => _isRenaming;
+        set => SetProperty(ref _isRenaming, value);
+    }
 
     public DateTime CreatedAt
     {
@@ -173,13 +213,14 @@ public sealed class DeskItem : ObservableObject
     public bool HasPreviewThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(ThumbnailPath);
     public bool HasPdfThumbnail => HasPreviewThumbnail;
     public bool HasSimplePreviewPlaceholder => IsFileCard && !HasPreviewThumbnail && !HasPreviewText;
-    public string FileDisplayName => HasFileName ? FileName : Path.GetFileName(FilePath);
+    public string FileDisplayName => DisplayName;
     public string PreviewText => HasPreviewText ? Text.Trim() : string.Empty;
     public string FileBadgeText
     {
         get
         {
-            var extension = Path.GetExtension(FileDisplayName);
+            var fileName = HasFileName ? FileName : Path.GetFileName(FilePath);
+            var extension = Path.GetExtension(fileName);
             if (string.IsNullOrWhiteSpace(extension))
             {
                 return "DATEI";
