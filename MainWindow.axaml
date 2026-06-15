@@ -1140,6 +1140,8 @@
               <Border Classes="Card TaskCard"
                       Margin="0,0,0,10"
                       Background="{DynamicResource SurfaceBackgroundBrush}"
+                      BorderBrush="{Binding CardBorderBrush}"
+                      BorderThickness="1"
                       PointerEntered="TaskCard_OnPointerEntered"
                       PointerExited="TaskCard_OnPointerExited">
                 <StackPanel Spacing="8">

@@ -112,6 +112,6 @@ public sealed class TaskItem : ObservableObject
     public bool HasTechnician => !string.IsNullOrWhiteSpace(Technician);
     public bool HasCustomerAddress => !string.IsNullOrWhiteSpace(CustomerAddress);
     public bool HasSentAt => SentAt.HasValue;
-    public string CardBackground => IsSelected ? "#EEF5FF" : "#FFFFFF";
-    public string CardBorderBrush => IsSelected ? "#7CB7FF" : "#E0E0E5";
+    public string CardBackground => "#FFFFFF";
+    public string CardBorderBrush => IsSelected ? "#000000" : "#00000000";
 }

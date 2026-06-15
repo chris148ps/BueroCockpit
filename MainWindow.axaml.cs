@@ -754,12 +754,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
 
+
+    private static void ApplyTaskCardVisual(Border border, bool isHovered)
+    {
+        if (border.DataContext is TaskItem task && task.IsSelected)
+        {
+            border.BorderBrush = new SolidColorBrush(Color.Parse("#000000"));
+            border.BorderThickness = new Thickness(1);
+            return;
+        }
+
+        border.BorderBrush = new SolidColorBrush(Color.Parse(isHovered ? "#000000" : "#00000000"));
+        border.BorderThickness = new Thickness(1);
+    }
+
     private void TaskCard_OnPointerEntered(object? sender, PointerEventArgs e)
     {
         if (sender is Border border)
         {
-            border.BorderBrush = Brushes.Black;
-            border.BorderThickness = new Thickness(1);
+            ApplyTaskCardVisual(border, true);
         }
     }
 
@@ -767,8 +780,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (sender is Border border)
         {
-            border.BorderBrush = Brushes.Transparent;
-            border.BorderThickness = new Thickness(1);
+            ApplyTaskCardVisual(border, false);
         }
     }
 
@@ -2613,7 +2625,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
-    private void DeleteTask_OnClick(object? sender, RoutedEventArgs e)
+    private async void DeleteTask_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedTask is null)
         {
@@ -2621,6 +2633,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var task = SelectedTask;
+        var confirmed = await ShowDeleteTaskConfirmationDialog(task);
+        if (!confirmed)
+        {
+            return;
+        }
+
         _repository.DeleteTask(task.Id);
         _tasksPendingDuplicateCheck.Remove(task.Id);
         AllTasks.Remove(task);
@@ -2631,6 +2649,96 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(HasNoMaterials));
         RefreshVisibleTasks();
         UpdateCategoryCounts();
+    }
+
+    private async Task<bool> ShowDeleteTaskConfirmationDialog(TaskItem task)
+    {
+        var title = string.IsNullOrWhiteSpace(task.Title) ? "Diesen Auftrag" : task.Title.Trim();
+
+        var dialog = new Window
+        {
+            Title = "Auftrag löschen",
+            Width = 420,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Padding = new Thickness(14),
+                Background = Brushes.White,
+                Child = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Auftrag wirklich komplett löschen?",
+                            FontSize = 20,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = $"„{title}“ wird komplett gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+                            FontSize = 14,
+                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 4, 0, 0),
+                            Children =
+                            {
+                                new Button
+                                {
+                                    Content = "Abbrechen",
+                                    MinWidth = 105,
+                                    Height = 34,
+                                    Background = new SolidColorBrush(Color.Parse("#F3F4F6")),
+                                    Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                    BorderBrush = new SolidColorBrush(Color.Parse("#D1D5DB")),
+                                    BorderThickness = new Thickness(1)
+                                },
+                                new Button
+                                {
+                                    Content = "Endgültig löschen",
+                                    MinWidth = 145,
+                                    Height = 34,
+                                    Background = new SolidColorBrush(Color.Parse("#DC2626")),
+                                    Foreground = Brushes.White,
+                                    BorderBrush = new SolidColorBrush(Color.Parse("#B91C1C")),
+                                    BorderThickness = new Thickness(1)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
+        var cancelButton = (Button)buttonsPanel.Children[0];
+        var deleteButton = (Button)buttonsPanel.Children[1];
+
+        var result = false;
+        cancelButton.Click += (_, _) =>
+        {
+            result = false;
+            dialog.Close();
+        };
+        deleteButton.Click += (_, _) =>
+        {
+            result = true;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
     }
 
     private void AddMaterial_OnClick(object? sender, RoutedEventArgs e)
