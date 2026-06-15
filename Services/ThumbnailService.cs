@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using BueroCockpit.Data;
 using BueroCockpit.Models;
 using PDFtoImage;
 
@@ -23,43 +24,44 @@ public sealed class ThumbnailService
 
     public string? EnsureThumbnail(AttachmentItem attachment)
     {
+        var storedPath = AppPaths.ResolveDataPath(attachment.StoredPath);
         try
         {
-            if (string.IsNullOrWhiteSpace(attachment.StoredPath) || !File.Exists(attachment.StoredPath))
+            if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 return null;
             }
 
-            var extension = Path.GetExtension(attachment.StoredPath);
+            var extension = Path.GetExtension(storedPath);
             if (ImageExtensions.Contains(extension))
             {
-                return EnsureImageThumbnail(attachment);
+                return EnsureImageThumbnail(attachment, storedPath);
             }
 
             if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
             {
-                return EnsurePdfThumbnail(attachment);
+                return EnsurePdfThumbnail(attachment, storedPath);
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Thumbnail generation failed for '{attachment.StoredPath}': {ex}");
+            Debug.WriteLine($"Thumbnail generation failed for '{storedPath}': {ex}");
         }
 
         return null;
     }
 
-    private static string? EnsureImageThumbnail(AttachmentItem attachment)
+    private static string? EnsureImageThumbnail(AttachmentItem attachment, string storedPath)
     {
-        var thumbnailPath = GetThumbnailPath(attachment);
-        if (IsCurrent(attachment.StoredPath, thumbnailPath))
+        var thumbnailPath = GetThumbnailPath(attachment, storedPath);
+        if (IsCurrent(storedPath, thumbnailPath))
         {
             return thumbnailPath;
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(thumbnailPath)!);
 
-        using var source = new Bitmap(attachment.StoredPath);
+        using var source = new Bitmap(storedPath);
         using var renderTarget = new RenderTargetBitmap(new PixelSize(ThumbnailWidth, ThumbnailHeight), new Vector(96, 96));
         using (var context = renderTarget.CreateDrawingContext())
         {
@@ -69,19 +71,20 @@ public sealed class ThumbnailService
         }
 
         renderTarget.Save(thumbnailPath, 92);
-        File.SetLastWriteTimeUtc(thumbnailPath, File.GetLastWriteTimeUtc(attachment.StoredPath));
+        File.SetLastWriteTimeUtc(thumbnailPath, File.GetLastWriteTimeUtc(storedPath));
         return thumbnailPath;
     }
 
-    private static string? EnsurePdfThumbnail(AttachmentItem attachment)
+    private static string? EnsurePdfThumbnail(AttachmentItem attachment, string storedPath)
     {
+        var currentThumbnailPath = AppPaths.ResolveDataPath(attachment.ThumbnailPath);
         if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
         {
-            return IsCurrent(attachment.StoredPath, attachment.ThumbnailPath) ? attachment.ThumbnailPath : null;
+            return IsCurrent(storedPath, currentThumbnailPath) ? currentThumbnailPath : null;
         }
 
-        var thumbnailPath = GetThumbnailPath(attachment);
-        if (IsCurrent(attachment.StoredPath, thumbnailPath))
+        var thumbnailPath = GetThumbnailPath(attachment, storedPath);
+        if (IsCurrent(storedPath, thumbnailPath))
         {
             return thumbnailPath;
         }
@@ -89,11 +92,11 @@ public sealed class ThumbnailService
         Directory.CreateDirectory(Path.GetDirectoryName(thumbnailPath)!);
         Conversion.SavePng(
             thumbnailPath,
-            File.ReadAllBytes(attachment.StoredPath),
+            File.ReadAllBytes(storedPath),
             new Index(0),
             password: null,
             options: new PDFtoImage.RenderOptions { Width = PdfPreviewWidth, WithAspectRatio = true });
-        File.SetLastWriteTimeUtc(thumbnailPath, File.GetLastWriteTimeUtc(attachment.StoredPath));
+        File.SetLastWriteTimeUtc(thumbnailPath, File.GetLastWriteTimeUtc(storedPath));
         return thumbnailPath;
     }
 
@@ -107,9 +110,9 @@ public sealed class ThumbnailService
         return File.GetLastWriteTimeUtc(thumbnailPath) >= File.GetLastWriteTimeUtc(sourcePath);
     }
 
-    private static string GetThumbnailPath(AttachmentItem attachment)
+    private static string GetThumbnailPath(AttachmentItem attachment, string storedPath)
     {
-        var attachmentDirectory = Path.GetDirectoryName(attachment.StoredPath) ?? string.Empty;
+        var attachmentDirectory = Path.GetDirectoryName(storedPath) ?? string.Empty;
         var thumbnailDirectory = Path.Combine(attachmentDirectory, "Thumbnails");
         return Path.Combine(thumbnailDirectory, $"{attachment.Id}.png");
     }
