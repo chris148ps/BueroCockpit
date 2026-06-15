@@ -523,6 +523,9 @@
                                 IsVisible="{Binding IsNoteCard}">
                           <Border.ContextMenu>
                             <ContextMenu>
+                              <MenuItem Header="Zur Detailansicht"
+                                        IsEnabled="{Binding HasLinkedTask}"
+                                        Click="OpenDeskItemDetailView_OnClick" />
                               <MenuItem Header="Umbenennen"
                                         Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
@@ -583,6 +586,9 @@
                                        PlaceholderText="Notiztext eingeben">
                                 <TextBox.ContextMenu>
                                   <ContextMenu>
+                                    <MenuItem Header="Zur Detailansicht"
+                                              IsEnabled="{Binding HasLinkedTask}"
+                                              Click="OpenDeskItemDetailView_OnClick" />
                                     <MenuItem Header="Umbenennen"
                                               Click="BeginDeskItemRename_OnClick" />
                                     <MenuItem Header="Löschen"
@@ -636,6 +642,9 @@
                                 DoubleTapped="DeskFileCard_OnDoubleTapped">
                           <Border.ContextMenu>
                             <ContextMenu>
+                              <MenuItem Header="Zur Detailansicht"
+                                        IsEnabled="{Binding HasLinkedTask}"
+                                        Click="OpenDeskItemDetailView_OnClick" />
                               <MenuItem Header="Umbenennen"
                                         Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
@@ -1498,6 +1507,9 @@
 	                    <StackPanel Grid.Column="2" Spacing="8">
 	                      <Button Content="Extern öffnen"
 	                              Click="OpenAttachmentExternalFromList_OnClick"
+	                              IsEnabled="{Binding HasFile}" />
+	                      <Button Content="Auf Schreibtisch legen"
+	                              Click="PlaceAttachmentOnDesk_OnClick"
 	                              IsEnabled="{Binding HasFile}" />
 	                      <Button Content="Entfernen" Click="DeleteAttachment_OnClick" Tag="{Binding}" />
 	                      <CheckBox IsChecked="{Binding IsSelectedForPrint, Mode=TwoWay}"

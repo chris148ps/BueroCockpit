@@ -80,6 +80,7 @@ public sealed class BueroRepository
                 StoredPath TEXT NOT NULL,
                 ThumbnailPath TEXT NOT NULL,
                 FileType TEXT NOT NULL,
+                ContentHash TEXT NOT NULL DEFAULT '',
                 AddedAt TEXT NOT NULL
             );
             """);
@@ -109,6 +110,8 @@ public sealed class BueroRepository
                 DisplayName TEXT NOT NULL DEFAULT '',
                 ReferencePath TEXT NOT NULL DEFAULT '',
                 PdfThumbnailPath TEXT NOT NULL DEFAULT '',
+                LinkedTaskId TEXT NOT NULL DEFAULT '',
+                ContentHash TEXT NOT NULL DEFAULT '',
                 X REAL NOT NULL,
                 Y REAL NOT NULL,
                 Width REAL NOT NULL,
@@ -308,7 +311,7 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, TaskId, FileName, StoredPath, ThumbnailPath, FileType, AddedAt
+            SELECT Id, TaskId, FileName, StoredPath, ThumbnailPath, FileType, ContentHash, AddedAt
             FROM Attachments
             WHERE TaskId = $taskId
             ORDER BY AddedAt DESC;
@@ -328,7 +331,8 @@ public sealed class BueroRepository
                 StoredPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(3)),
                 ThumbnailPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(4)),
                 FileType = reader.GetString(5),
-                AddedAt = ReadDate(reader.GetString(6))
+                ContentHash = reader.GetString(6),
+                AddedAt = ReadDate(reader.GetString(7))
             });
         }
 
@@ -341,7 +345,7 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT Id, Type, Text, PdfPath, FileName, DisplayName, ReferencePath, PdfThumbnailPath,
-                   X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt
+                   LinkedTaskId, ContentHash, X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt
             FROM DeskItems
             ORDER BY CreatedAt, Id;
             """;
@@ -360,13 +364,15 @@ public sealed class BueroRepository
                 DisplayName = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
                 ReferencePath = AppPaths.ResolveDeskItemPath(reader.GetString(6)),
                 ThumbnailPath = AppPaths.ResolveDeskItemPath(reader.GetString(7)),
-                X = reader.GetDouble(8),
-                Y = reader.GetDouble(9),
-                Width = reader.GetDouble(10),
-                Height = reader.GetDouble(11),
-                IsImportant = reader.GetInt32(12) == 1,
-                CreatedAt = ReadDate(reader.GetString(13)),
-                UpdatedAt = ReadDate(reader.GetString(14))
+                LinkedTaskId = reader.GetString(8),
+                ContentHash = reader.GetString(9),
+                X = reader.GetDouble(10),
+                Y = reader.GetDouble(11),
+                Width = reader.GetDouble(12),
+                Height = reader.GetDouble(13),
+                IsImportant = reader.GetInt32(14) == 1,
+                CreatedAt = ReadDate(reader.GetString(15)),
+                UpdatedAt = ReadDate(reader.GetString(16))
             });
         }
 
@@ -531,8 +537,16 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO Attachments (Id, TaskId, FileName, StoredPath, ThumbnailPath, FileType, AddedAt)
-            VALUES ($id, $taskId, $fileName, $storedPath, $thumbnailPath, $fileType, $addedAt);
+            INSERT INTO Attachments (Id, TaskId, FileName, StoredPath, ThumbnailPath, FileType, ContentHash, AddedAt)
+            VALUES ($id, $taskId, $fileName, $storedPath, $thumbnailPath, $fileType, $contentHash, $addedAt)
+            ON CONFLICT(Id) DO UPDATE SET
+                TaskId = excluded.TaskId,
+                FileName = excluded.FileName,
+                StoredPath = excluded.StoredPath,
+                ThumbnailPath = excluded.ThumbnailPath,
+                FileType = excluded.FileType,
+                ContentHash = excluded.ContentHash,
+                AddedAt = excluded.AddedAt;
             """;
         command.Parameters.AddWithValue("$id", item.Id);
         command.Parameters.AddWithValue("$taskId", item.TaskId);
@@ -540,6 +554,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$storedPath", AppPaths.MakeRelativeToDataFolder(item.StoredPath));
         command.Parameters.AddWithValue("$thumbnailPath", AppPaths.MakeRelativeToDataFolder(item.ThumbnailPath));
         command.Parameters.AddWithValue("$fileType", item.FileType);
+        command.Parameters.AddWithValue("$contentHash", item.ContentHash);
         command.Parameters.AddWithValue("$addedAt", ToDb(item.AddedAt));
         command.ExecuteNonQuery();
     }
@@ -551,10 +566,10 @@ public sealed class BueroRepository
         command.CommandText = """
             INSERT INTO DeskItems (
                 Id, Type, Text, PdfPath, FileName, DisplayName, ReferencePath, PdfThumbnailPath,
-                X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt)
+                LinkedTaskId, ContentHash, X, Y, Width, Height, IsImportant, CreatedAt, UpdatedAt)
             VALUES (
                 $id, $type, $text, $pdfPath, $fileName, $displayName, $referencePath, $pdfThumbnailPath,
-                $x, $y, $width, $height, $isImportant, $createdAt, $updatedAt)
+                $linkedTaskId, $contentHash, $x, $y, $width, $height, $isImportant, $createdAt, $updatedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Type = excluded.Type,
                 Text = excluded.Text,
@@ -563,6 +578,8 @@ public sealed class BueroRepository
                 DisplayName = excluded.DisplayName,
                 ReferencePath = excluded.ReferencePath,
                 PdfThumbnailPath = excluded.PdfThumbnailPath,
+                LinkedTaskId = excluded.LinkedTaskId,
+                ContentHash = excluded.ContentHash,
                 X = excluded.X,
                 Y = excluded.Y,
                 Width = excluded.Width,
@@ -578,6 +595,8 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$displayName", item.DisplayName);
         command.Parameters.AddWithValue("$referencePath", AppPaths.MakeRelativeToDataFolder(item.ReferencePath));
         command.Parameters.AddWithValue("$pdfThumbnailPath", AppPaths.MakeRelativeToDataFolder(item.ThumbnailPath));
+        command.Parameters.AddWithValue("$linkedTaskId", item.LinkedTaskId);
+        command.Parameters.AddWithValue("$contentHash", item.ContentHash);
         command.Parameters.AddWithValue("$x", item.X);
         command.Parameters.AddWithValue("$y", item.Y);
         command.Parameters.AddWithValue("$width", item.Width);
@@ -709,6 +728,7 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "Technician", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Attachments", "ContentHash", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "Type", "TEXT NOT NULL DEFAULT 'Note'");
         AddColumnIfMissing(connection, "DeskItems", "Text", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "PdfPath", "TEXT NOT NULL DEFAULT ''");
@@ -716,6 +736,8 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "DeskItems", "DisplayName", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "ReferencePath", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "PdfThumbnailPath", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "LinkedTaskId", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "DeskItems", "ContentHash", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "X", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "DeskItems", "Y", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "DeskItems", "Width", "REAL NOT NULL DEFAULT 260");

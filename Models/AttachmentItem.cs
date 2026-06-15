@@ -8,6 +8,7 @@ public sealed class AttachmentItem : ObservableObject
     private string _storedPath = string.Empty;
     private string _thumbnailPath = string.Empty;
     private string _fileType = string.Empty;
+    private string _contentHash = string.Empty;
     private bool _isSelected;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -38,6 +39,7 @@ public sealed class AttachmentItem : ObservableObject
         }
     }
     public string FileType { get => _fileType; set => SetProperty(ref _fileType, value); }
+    public string ContentHash { get => _contentHash; set => SetProperty(ref _contentHash, value); }
     public DateTime AddedAt { get; set; } = DateTime.Now;
     public string FileTypeBadge => string.IsNullOrWhiteSpace(FileType) ? "FILE" : FileType.TrimStart('.').ToUpperInvariant();
     public bool HasFile =>

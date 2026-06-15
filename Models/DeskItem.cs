@@ -1,3 +1,5 @@
+using BueroCockpit.Data;
+
 namespace BueroCockpit.Models;
 
 public sealed class DeskItem : ObservableObject
@@ -9,6 +11,8 @@ public sealed class DeskItem : ObservableObject
     private string _fileName = string.Empty;
     private string _referencePath = string.Empty;
     private string _thumbnailPath = string.Empty;
+    private string _linkedTaskId = string.Empty;
+    private string _contentHash = string.Empty;
     private double _x = 48;
     private double _y = 48;
     private double _width = 300;
@@ -39,6 +43,7 @@ public sealed class DeskItem : ObservableObject
                 OnPropertyChanged(nameof(FileBadgeText));
                 OnPropertyChanged(nameof(FileKindLabel));
                 OnPropertyChanged(nameof(ImportantToggleText));
+                OnPropertyChanged(nameof(HasLinkedTask));
                 OnPropertyChanged(nameof(FileCardBackground));
                 OnPropertyChanged(nameof(FileCardBorderBrush));
                 OnPropertyChanged(nameof(FileCardPreviewBackground));
@@ -112,6 +117,7 @@ public sealed class DeskItem : ObservableObject
                 OnPropertyChanged(nameof(HasSimplePreviewPlaceholder));
                 OnPropertyChanged(nameof(FileBadgeText));
                 OnPropertyChanged(nameof(FileKindLabel));
+                OnPropertyChanged(nameof(HasLinkedTask));
             }
         }
     }
@@ -144,6 +150,7 @@ public sealed class DeskItem : ObservableObject
             if (SetProperty(ref _referencePath, value))
             {
                 OnPropertyChanged(nameof(HasReferencePath));
+                OnPropertyChanged(nameof(HasLinkedTask));
             }
         }
     }
@@ -160,6 +167,22 @@ public sealed class DeskItem : ObservableObject
                 OnPropertyChanged(nameof(HasSimplePreviewPlaceholder));
             }
         }
+    }
+    public string LinkedTaskId
+    {
+        get => _linkedTaskId;
+        set
+        {
+            if (SetProperty(ref _linkedTaskId, value))
+            {
+                OnPropertyChanged(nameof(HasLinkedTask));
+            }
+        }
+    }
+    public string ContentHash
+    {
+        get => _contentHash;
+        set => SetProperty(ref _contentHash, value);
     }
     public string PdfThumbnailPath
     {
@@ -227,6 +250,10 @@ public sealed class DeskItem : ObservableObject
     public bool HasFile => HasFileReference && File.Exists(FilePath);
     public bool HasFileName => !string.IsNullOrWhiteSpace(FileName);
     public bool HasReferencePath => !string.IsNullOrWhiteSpace(ReferencePath);
+    public bool HasLinkedTask =>
+        !string.IsNullOrWhiteSpace(LinkedTaskId) ||
+        TryGetLinkedTaskId(ReferencePath) is not null ||
+        TryGetLinkedTaskId(FilePath) is not null;
     public bool HasPreviewText => IsFileCard && !string.IsNullOrWhiteSpace(Text);
     public bool HasPreviewThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(ThumbnailPath);
     public bool HasPdfThumbnail => HasPreviewThumbnail;
@@ -257,4 +284,28 @@ public sealed class DeskItem : ObservableObject
     public string FileCardPreviewBackground => IsImportant ? "#FFFDFC" : "#FFFFFF";
     public string FileCardBadgeBackground => IsImportant ? "#F6DDD9" : "#E4E0D8";
     public string FileCardBadgeBorderBrush => IsImportant ? "#D98A82" : "#CFC9BB";
+
+    private static string? TryGetLinkedTaskId(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var relativePath = AppPaths.MakeRelativeToDataFolder(path).Replace('\\', '/');
+        if (!relativePath.StartsWith("Tasks/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var attachmentsMarker = "/Attachments/";
+        var attachmentsIndex = relativePath.IndexOf(attachmentsMarker, StringComparison.OrdinalIgnoreCase);
+        if (attachmentsIndex <= "Tasks/".Length)
+        {
+            return null;
+        }
+
+        var taskId = relativePath["Tasks/".Length..attachmentsIndex];
+        return string.IsNullOrWhiteSpace(taskId) ? null : taskId;
+    }
 }

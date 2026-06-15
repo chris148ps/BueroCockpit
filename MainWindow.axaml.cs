@@ -1120,6 +1120,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OpenDeskFileExternal(deskItem);
     }
 
+    private void OpenDeskItemDetailView_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        var hadDeskContentHash = !string.IsNullOrWhiteSpace(deskItem.ContentHash);
+        var linkedTaskId = TryResolveDeskItemLinkedTaskIdFromPath(deskItem);
+        if (string.IsNullOrWhiteSpace(linkedTaskId) && deskItem.IsFileCard)
+        {
+            var deskContentHash = EnsureDeskItemContentHash(deskItem);
+            if (!string.IsNullOrWhiteSpace(deskContentHash))
+            {
+                var attachmentHashIndex = BuildAttachmentHashIndex();
+                linkedTaskId = TryResolveTaskIdByAttachmentHash(deskContentHash, attachmentHashIndex);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(linkedTaskId))
+        {
+            if (!hadDeskContentHash && !string.IsNullOrWhiteSpace(deskItem.ContentHash))
+            {
+                _repository.SaveDeskItem(deskItem);
+            }
+
+            return;
+        }
+
+        var task = AllTasks.FirstOrDefault(item =>
+            string.Equals(item.Id, linkedTaskId, StringComparison.OrdinalIgnoreCase));
+        if (task is null)
+        {
+            return;
+        }
+
+        if (!string.Equals(deskItem.LinkedTaskId, linkedTaskId, StringComparison.OrdinalIgnoreCase))
+        {
+            deskItem.LinkedTaskId = linkedTaskId;
+        }
+
+        NavigateToTask(task, fromGlobalSearch: false);
+    }
+
     private void ToggleDeskItemImportant_OnClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { DataContext: DeskItem deskItem })
@@ -1178,6 +1222,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             e.PropertyName == nameof(DeskItem.FilePath) ||
             e.PropertyName == nameof(DeskItem.FileName) ||
             e.PropertyName == nameof(DeskItem.ReferencePath) ||
+            e.PropertyName == nameof(DeskItem.LinkedTaskId) ||
             e.PropertyName == nameof(DeskItem.ThumbnailPath) ||
             e.PropertyName == nameof(DeskItem.IsImportant) ||
             e.PropertyName == nameof(DeskItem.X) ||
@@ -1781,14 +1826,45 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isLoadingDeskItems = true;
         try
         {
+            Dictionary<string, string?>? attachmentHashIndex = null;
             foreach (var item in _repository.GetDeskItems())
             {
+                var needsSave = false;
                 var normalizedSize = NormalizeDeskItemSize(item);
                 if (Math.Abs(item.Width - normalizedSize.Width) > 0.5 ||
                     Math.Abs(item.Height - normalizedSize.Height) > 0.5)
                 {
                     item.Width = normalizedSize.Width;
                     item.Height = normalizedSize.Height;
+                    needsSave = true;
+                }
+
+                var resolvedLinkedTaskId = TryResolveDeskItemLinkedTaskIdFromPath(item);
+                if (string.IsNullOrWhiteSpace(resolvedLinkedTaskId) && item.IsFileCard)
+                {
+                    var contentHashBefore = item.ContentHash;
+                    var deskContentHash = EnsureDeskItemContentHash(item);
+                    if (!string.Equals(contentHashBefore, item.ContentHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        needsSave = true;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(deskContentHash))
+                    {
+                        attachmentHashIndex ??= BuildAttachmentHashIndex();
+                        resolvedLinkedTaskId = TryResolveTaskIdByAttachmentHash(deskContentHash, attachmentHashIndex);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(resolvedLinkedTaskId) &&
+                    !string.Equals(item.LinkedTaskId, resolvedLinkedTaskId, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.LinkedTaskId = resolvedLinkedTaskId;
+                    needsSave = true;
+                }
+
+                if (needsSave)
+                {
                     _repository.SaveDeskItem(item);
                 }
 
@@ -2183,7 +2259,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return DeskItemTypeFile;
     }
 
-    private bool AddDeskFileCardFromPath(string? sourcePath, Point dropPosition, int index)
+    private bool AddDeskFileCardFromPath(string? sourcePath, Point dropPosition, int index, string? linkedTaskId = null)
     {
         if (string.IsNullOrWhiteSpace(sourcePath) ||
             !File.Exists(sourcePath))
@@ -2215,6 +2291,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         File.Copy(sourcePath, storedPath, overwrite: false);
         deskItem.FilePath = storedPath;
         deskItem.Text = BuildDeskFilePreviewText(storedPath) ?? string.Empty;
+
+        var resolvedLinkedTaskId = !string.IsNullOrWhiteSpace(linkedTaskId)
+            ? linkedTaskId
+            : TryResolveDeskItemLinkedTaskIdFromPath(deskItem);
+
+        if (string.IsNullOrWhiteSpace(resolvedLinkedTaskId))
+        {
+            deskItem.ContentHash = EnsureDeskItemContentHash(deskItem) ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(resolvedLinkedTaskId) &&
+            !string.IsNullOrWhiteSpace(deskItem.ContentHash))
+        {
+            var attachmentHashIndex = BuildAttachmentHashIndex();
+            resolvedLinkedTaskId = TryResolveTaskIdByAttachmentHash(deskItem.ContentHash, attachmentHashIndex);
+        }
+
+        if (!string.IsNullOrWhiteSpace(resolvedLinkedTaskId))
+        {
+            deskItem.LinkedTaskId = resolvedLinkedTaskId;
+        }
 
         var offsetPosition = new Point(dropPosition.X + index * 24, dropPosition.Y + index * 24);
         var logicalPosition = GetDeskDropLogicalPosition(offsetPosition, deskItem.Width, deskItem.Height);
@@ -2622,6 +2719,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 AddedAt = DateTime.Now
             };
 
+            attachment.ContentHash = EnsureAttachmentContentHash(attachment, persist: false) ?? string.Empty;
             EnsureAttachmentThumbnail(attachment);
             _repository.SaveAttachment(attachment);
             Attachments.Insert(0, attachment);
@@ -2710,6 +2808,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         OpenAttachmentExternal(item);
+    }
+
+    private void PlaceAttachmentOnDesk_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: AttachmentItem item })
+        {
+            return;
+        }
+
+        var sourcePath = ResolveAttachmentPath(item.StoredPath);
+        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+        {
+            AttachmentEditStatus = $"Die gespeicherte Anhangdatei wurde nicht gefunden: {item.FileName}";
+            return;
+        }
+
+        var placementIndex = Math.Min(DeskItems.Count(deskItem => deskItem.IsFileCard), 5);
+        if (!AddDeskFileCardFromPath(sourcePath, GetDeskViewportCenter(), placementIndex, item.TaskId))
+        {
+            AttachmentEditStatus = $"Anhang konnte nicht auf den Schreibtisch gelegt werden: {item.FileName}";
+            return;
+        }
+
+        AttachmentEditStatus = $"Anhang auf den Schreibtisch gelegt: {item.FileName}.";
+        SelectedCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId) ?? SelectedCategory;
+        ApplySelectedCategoryContent();
     }
 
     private void DeleteAttachment_OnClick(object? sender, RoutedEventArgs e)
@@ -3739,8 +3863,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var category = Categories.FirstOrDefault(c => TaskBelongsToCategory(task, c.Id))
-                       ?? Categories.FirstOrDefault(c => c.Id == task.CategoryId);
+        var category = GetTaskNavigationCategory(task);
         if (category is null)
         {
             ClearSelectedTask();
@@ -3779,6 +3902,45 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isUpdatingSelection = false;
             _selectionNavigationDepth--;
         }
+    }
+
+    private CategoryItem? GetTaskNavigationCategory(TaskItem task)
+    {
+        var matchingCategories = new List<CategoryItem>();
+
+        if (!string.IsNullOrWhiteSpace(task.CategoryId))
+        {
+            var primaryCategory = Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, task.CategoryId, StringComparison.OrdinalIgnoreCase));
+            if (primaryCategory is not null && !IsSpecialCategory(primaryCategory))
+            {
+                matchingCategories.Add(primaryCategory);
+            }
+        }
+
+        foreach (var categoryId in task.CategoryIds)
+        {
+            var category = Categories.FirstOrDefault(item =>
+                string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+            if (category is null || IsSpecialCategory(category))
+            {
+                continue;
+            }
+
+            if (!matchingCategories.Any(item => string.Equals(item.Id, category.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                matchingCategories.Add(category);
+            }
+        }
+
+        if (SelectedCategory is not null &&
+            !IsSpecialCategory(SelectedCategory) &&
+            matchingCategories.Any(category => string.Equals(category.Id, SelectedCategory.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            return SelectedCategory;
+        }
+
+        return matchingCategories.FirstOrDefault();
     }
 
     private void SelectCategoryAndTask(CategoryItem category, TaskItem task)
@@ -4585,6 +4747,113 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         TryDeleteFile(AppPaths.ResolveDeskItemPath(path));
+    }
+
+    private static string? TryGetLinkedTaskIdFromPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var relativePath = AppPaths.MakeRelativeToDataFolder(path).Replace('\\', '/');
+        if (!relativePath.StartsWith("Tasks/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var attachmentsMarker = "/Attachments/";
+        var attachmentsIndex = relativePath.IndexOf(attachmentsMarker, StringComparison.OrdinalIgnoreCase);
+        if (attachmentsIndex <= "Tasks/".Length)
+        {
+            return null;
+        }
+
+        var taskId = relativePath["Tasks/".Length..attachmentsIndex];
+        return string.IsNullOrWhiteSpace(taskId) ? null : taskId;
+    }
+
+    private static string? TryResolveDeskItemLinkedTaskIdFromPath(DeskItem deskItem)
+    {
+        return !string.IsNullOrWhiteSpace(deskItem.LinkedTaskId)
+            ? deskItem.LinkedTaskId
+            : TryGetLinkedTaskIdFromPath(deskItem.ReferencePath) ?? TryGetLinkedTaskIdFromPath(deskItem.FilePath);
+    }
+
+    private string? EnsureDeskItemContentHash(DeskItem deskItem)
+    {
+        if (!string.IsNullOrWhiteSpace(deskItem.ContentHash))
+        {
+            return deskItem.ContentHash;
+        }
+
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        var contentHash = _hashService.ComputeSha256(filePath);
+        if (!string.IsNullOrWhiteSpace(contentHash))
+        {
+            deskItem.ContentHash = contentHash;
+        }
+
+        return contentHash;
+    }
+
+    private string? EnsureAttachmentContentHash(AttachmentItem attachment, bool persist)
+    {
+        if (!string.IsNullOrWhiteSpace(attachment.ContentHash))
+        {
+            return attachment.ContentHash;
+        }
+
+        var contentHash = _hashService.ComputeSha256(ResolveAttachmentPath(attachment.StoredPath));
+        if (string.IsNullOrWhiteSpace(contentHash))
+        {
+            return null;
+        }
+
+        attachment.ContentHash = contentHash;
+        if (persist)
+        {
+            _repository.SaveAttachment(attachment);
+        }
+
+        return contentHash;
+    }
+
+    private Dictionary<string, string?> BuildAttachmentHashIndex()
+    {
+        var hashIndex = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var task in AllTasks)
+        {
+            foreach (var attachment in _repository.GetAttachments(task.Id))
+            {
+                var contentHash = EnsureAttachmentContentHash(attachment, persist: true);
+                if (string.IsNullOrWhiteSpace(contentHash))
+                {
+                    continue;
+                }
+
+                if (hashIndex.TryGetValue(contentHash, out var knownTaskId))
+                {
+                    if (knownTaskId is not null &&
+                        !string.Equals(knownTaskId, attachment.TaskId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hashIndex[contentHash] = null;
+                    }
+                }
+                else
+                {
+                    hashIndex[contentHash] = attachment.TaskId;
+                }
+            }
+        }
+
+        return hashIndex;
+    }
+
+    private static string? TryResolveTaskIdByAttachmentHash(string contentHash, IReadOnlyDictionary<string, string?> attachmentHashIndex)
+    {
+        return attachmentHashIndex.TryGetValue(contentHash, out var taskId) ? taskId : null;
     }
 
     private void EnsureAttachmentThumbnail(AttachmentItem attachment)
