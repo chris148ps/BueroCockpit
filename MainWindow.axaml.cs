@@ -58,6 +58,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private DeskItem? _draggedDeskItem;
     private Control? _draggedDeskContainer;
     private IPointer? _draggedDeskPointer;
+    private DeskItem? _resizedDeskItem;
+    private IPointer? _resizedDeskPointer;
     private string _taskListCaption = "0 Aufgaben";
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
@@ -91,11 +93,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private Point _deskDragStartItemPosition;
     private Vector _deskDragCurrentDelta;
     private bool _isDraggingDeskItem;
+    private Point _deskResizeStartPointerPosition;
+    private Vector _deskResizeStartItemSize;
+    private Vector _deskResizeCurrentDelta;
+    private bool _isResizingDeskItem;
     private IPointer? _deskPanPointer;
     private Point _deskPanStartPointerPosition;
     private Vector _deskPanStartOffset;
     private bool _isLoadingDeskItems;
     private bool _isApplyingDeskDrag;
+    private bool _isApplyingDeskResize;
     private bool _deskInitialViewApplied;
     private double _deskFitZoom = 1.0;
     private double _deskUserZoom = 1.0;
@@ -103,6 +110,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private double _deskSurfaceHeight = 1600;
     private const double DeskBaseSurfaceWidth = 2400;
     private const double DeskBaseSurfaceHeight = 1600;
+    private const double DeskNoteDefaultWidth = 300;
+    private const double DeskNoteDefaultHeight = 210;
+    private const double DeskFileDefaultWidth = 220;
+    private const double DeskFileDefaultHeight = 180;
+    private const double DeskPdfDefaultWidth = 200;
+    private const double DeskPdfDefaultHeight = 300;
+    private const double DeskImageDefaultWidth = 235;
+    private const double DeskImageDefaultHeight = 275;
+    private const double DeskTextFileDefaultWidth = 240;
+    private const double DeskTextFileDefaultHeight = 210;
+    private const double DeskItemMinNoteWidth = 180;
+    private const double DeskItemMinNoteHeight = 120;
+    private const double DeskItemMinFileWidth = 160;
+    private const double DeskItemMinFileHeight = 180;
+    private const double DeskItemMaxWidth = 1200;
+    private const double DeskItemMaxHeight = 1600;
     private const double DeskMinZoom = 0.2;
     private const double DeskMaxZoom = 10.0;
     private const double DeskFitMargin = 120;
@@ -832,6 +855,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        ClearDeskResizeState();
         _draggedDeskItem = deskItem;
         _draggedDeskContainer = noteContainer;
         _draggedDeskPointer = e.Pointer;
@@ -841,6 +865,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isDraggingDeskItem = false;
         _draggedDeskContainer.RenderTransform = new TranslateTransform();
         _draggedDeskPointer.Capture(control);
+        e.Handled = true;
+    }
+
+    private void DeskResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control || control.DataContext is not DeskItem deskItem)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        ClearDeskDragState();
+        _resizedDeskItem = deskItem;
+        _resizedDeskPointer = e.Pointer;
+        _deskResizeStartPointerPosition = GetDeskLogicalPointerPosition(e);
+        _deskResizeStartItemSize = new Vector(deskItem.Width, deskItem.Height);
+        _deskResizeCurrentDelta = default;
+        _isResizingDeskItem = false;
+        _resizedDeskPointer.Capture(control);
         e.Handled = true;
     }
 
@@ -965,6 +1012,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         e.Handled = true;
     }
 
+    private void DeskResizeGrip_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_resizedDeskItem is null ||
+            _resizedDeskPointer is null ||
+            e.Pointer != _resizedDeskPointer)
+        {
+            return;
+        }
+
+        var currentPosition = GetDeskLogicalPointerPosition(e);
+        var deltaX = currentPosition.X - _deskResizeStartPointerPosition.X;
+        var deltaY = currentPosition.Y - _deskResizeStartPointerPosition.Y;
+
+        if (Math.Abs(deltaX) > 0.5 || Math.Abs(deltaY) > 0.5)
+        {
+            _isResizingDeskItem = true;
+        }
+
+        _deskResizeCurrentDelta = new Vector(deltaX, deltaY);
+        ApplyDeskResizeDelta(_resizedDeskItem, _deskResizeStartItemSize, _deskResizeCurrentDelta);
+        e.Handled = true;
+    }
+
     private void DeskNoteHeader_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_draggedDeskItem is null || _draggedDeskContainer is null || _draggedDeskPointer is null)
@@ -974,6 +1044,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         CommitDeskDrag();
         ClearDeskDragState();
+        e.Handled = true;
+    }
+
+    private void DeskResizeGrip_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_resizedDeskItem is null || _resizedDeskPointer is null || e.Pointer != _resizedDeskPointer)
+        {
+            return;
+        }
+
+        CommitDeskResize();
+        ClearDeskResizeState();
         e.Handled = true;
     }
 
@@ -1009,6 +1091,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         CommitDeskDrag();
         ClearDeskDragState();
+    }
+
+    private void DeskResizeGrip_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CommitDeskResize();
+        ClearDeskResizeState();
+    }
+
+    private void DeskResizeGrip_OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        e.Handled = true;
     }
 
     private void DeskFileCard_OnDoubleTapped(object? sender, TappedEventArgs e)
@@ -1074,7 +1167,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DeskItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_isLoadingDeskItems || _isApplyingDeskDrag || sender is not DeskItem deskItem)
+        if (_isLoadingDeskItems || _isApplyingDeskDrag || _isApplyingDeskResize || sender is not DeskItem deskItem)
         {
             return;
         }
@@ -1219,13 +1312,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _draggedDeskItem.X = Math.Max(0, _deskDragStartItemPosition.X + _deskDragCurrentDelta.X);
             _draggedDeskItem.Y = Math.Max(0, _deskDragStartItemPosition.Y + _deskDragCurrentDelta.Y);
+            _draggedDeskItem.UpdatedAt = DateTime.Now;
         }
         finally
         {
             _isApplyingDeskDrag = false;
         }
 
-        _draggedDeskItem.UpdatedAt = DateTime.Now;
         _repository.SaveDeskItem(_draggedDeskItem);
         UpdateDeskSurfaceBounds();
     }
@@ -1690,6 +1783,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             foreach (var item in _repository.GetDeskItems())
             {
+                var normalizedSize = NormalizeDeskItemSize(item);
+                if (Math.Abs(item.Width - normalizedSize.Width) > 0.5 ||
+                    Math.Abs(item.Height - normalizedSize.Height) > 0.5)
+                {
+                    item.Width = normalizedSize.Width;
+                    item.Height = normalizedSize.Height;
+                    _repository.SaveDeskItem(item);
+                }
+
                 SubscribeDeskItem(item);
                 DeskItems.Add(item);
             }
@@ -1821,7 +1923,137 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return (240, 210);
         }
 
-        return (220, 160);
+        return (DeskFileDefaultWidth, DeskFileDefaultHeight);
+    }
+
+    private static (double Width, double Height) GetDeskItemDefaultSize(DeskItem deskItem)
+    {
+        if (deskItem.IsNoteCard)
+        {
+            return (DeskNoteDefaultWidth, DeskNoteDefaultHeight);
+        }
+
+        if (deskItem.IsPdfCard)
+        {
+            return (DeskPdfDefaultWidth, DeskPdfDefaultHeight);
+        }
+
+        if (deskItem.IsImageCard)
+        {
+            return (DeskImageDefaultWidth, DeskImageDefaultHeight);
+        }
+
+        var fileName = !string.IsNullOrWhiteSpace(deskItem.FileName)
+            ? deskItem.FileName
+            : deskItem.FilePath;
+        var extension = Path.GetExtension(fileName);
+        if (string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(extension, ".md", StringComparison.OrdinalIgnoreCase))
+        {
+            return (DeskTextFileDefaultWidth, DeskTextFileDefaultHeight);
+        }
+
+        return (DeskFileDefaultWidth, DeskFileDefaultHeight);
+    }
+
+    private static (double Width, double Height) NormalizeDeskItemSize(DeskItem deskItem)
+    {
+        var (defaultWidth, defaultHeight) = GetDeskItemDefaultSize(deskItem);
+        var width = deskItem.Width;
+        var height = deskItem.Height;
+
+        if (width <= 0 || height <= 0)
+        {
+            width = defaultWidth;
+            height = defaultHeight;
+        }
+
+        return ClampDeskItemSize(deskItem, width, height);
+    }
+
+    private static (double Width, double Height) ClampDeskItemSize(DeskItem deskItem, double width, double height)
+    {
+        var minWidth = deskItem.IsNoteCard ? DeskItemMinNoteWidth : DeskItemMinFileWidth;
+        var minHeight = deskItem.IsNoteCard ? DeskItemMinNoteHeight : DeskItemMinFileHeight;
+
+        return (
+            Math.Clamp(width, minWidth, DeskItemMaxWidth),
+            Math.Clamp(height, minHeight, DeskItemMaxHeight));
+    }
+
+    private void ApplyDeskResizeDelta(DeskItem deskItem, Vector startSize, Vector delta)
+    {
+        if (!_isResizingDeskItem)
+        {
+            return;
+        }
+
+        var (width, height) = deskItem.IsPdfCard
+            ? GetDeskPdfResizeSize(startSize, delta)
+            : (startSize.X + delta.X, startSize.Y + delta.Y);
+
+        (width, height) = ClampDeskItemSize(deskItem, width, height);
+
+        _isApplyingDeskResize = true;
+        try
+        {
+            deskItem.Width = width;
+            deskItem.Height = height;
+        }
+        finally
+        {
+            _isApplyingDeskResize = false;
+        }
+
+        UpdateDeskSurfaceBounds();
+    }
+
+    private static (double Width, double Height) GetDeskPdfResizeSize(Vector startSize, Vector delta)
+    {
+        var widthScale = startSize.X <= 0 ? 1.0 : (startSize.X + delta.X) / startSize.X;
+        var heightScale = startSize.Y <= 0 ? 1.0 : (startSize.Y + delta.Y) / startSize.Y;
+        var scale = Math.Max(widthScale, heightScale);
+        if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+        {
+            scale = 1.0;
+        }
+
+        return (startSize.X * scale, startSize.Y * scale);
+    }
+
+    private void CommitDeskResize()
+    {
+        if (_resizedDeskItem is null)
+        {
+            return;
+        }
+
+        if (!_isResizingDeskItem &&
+            Math.Abs(_deskResizeCurrentDelta.X) <= 0.5 &&
+            Math.Abs(_deskResizeCurrentDelta.Y) <= 0.5)
+        {
+            return;
+        }
+
+        var (width, height) = ClampDeskItemSize(
+            _resizedDeskItem,
+            _resizedDeskItem.Width,
+            _resizedDeskItem.Height);
+
+        _isApplyingDeskResize = true;
+        try
+        {
+            _resizedDeskItem.Width = width;
+            _resizedDeskItem.Height = height;
+            _resizedDeskItem.UpdatedAt = DateTime.Now;
+        }
+        finally
+        {
+            _isApplyingDeskResize = false;
+        }
+
+        _repository.SaveDeskItem(_resizedDeskItem);
+        UpdateDeskSurfaceBounds();
     }
 
     private Point GetDeskDropLogicalPosition(Point positionOnViewer, double width, double height)
@@ -2009,8 +2241,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Text = string.Empty,
             X = 40 + (offset % 320),
             Y = 40 + (offset % 220),
-            Width = 300,
-            Height = 210,
+            Width = DeskNoteDefaultWidth,
+            Height = DeskNoteDefaultHeight,
             IsImportant = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -4396,6 +4628,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ClearDeskDragState();
         }
 
+        if (_resizedDeskItem == deskItem)
+        {
+            ClearDeskResizeState();
+        }
+
         UnsubscribeDeskItem(deskItem);
         _repository.DeleteDeskItem(deskItem.Id);
         if (deskItem.IsFileCard)
@@ -4424,6 +4661,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _draggedDeskPointer = null;
         _isDraggingDeskItem = false;
         _deskDragCurrentDelta = default;
+    }
+
+    private void ClearDeskResizeState()
+    {
+        if (_resizedDeskPointer is not null)
+        {
+            _resizedDeskPointer.Capture(null);
+        }
+
+        _resizedDeskItem = null;
+        _resizedDeskPointer = null;
+        _isResizingDeskItem = false;
+        _deskResizeCurrentDelta = default;
     }
 
     private void ClearDeskPanState()

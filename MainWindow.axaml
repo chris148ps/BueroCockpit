@@ -529,73 +529,96 @@
                                         Click="DeleteDeskItem_OnClick" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <Grid RowDefinitions="Auto,*,Auto">
-                            <Border Grid.Row="0"
-                                    Background="{Binding NoteHeaderBackground}"
-                                    CornerRadius="18,18,10,10"
-                                    Padding="12,10"
-                                    PointerPressed="DeskNoteHeader_OnPointerPressed"
-                                    PointerMoved="DeskNoteHeader_OnPointerMoved"
-                                    PointerReleased="DeskNoteHeader_OnPointerReleased"
-                                    PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost">
-                              <Grid ColumnDefinitions="*,Auto"
-                                    ColumnSpacing="12">
-                                <Grid>
-                                  <TextBlock Text="{Binding DisplayName}"
+                          <Grid>
+                            <Grid RowDefinitions="Auto,*,Auto">
+                              <Border Grid.Row="0"
+                                      Background="{Binding NoteHeaderBackground}"
+                                      CornerRadius="18,18,10,10"
+                                      Padding="12,10"
+                                      PointerPressed="DeskNoteHeader_OnPointerPressed"
+                                      PointerMoved="DeskNoteHeader_OnPointerMoved"
+                                      PointerReleased="DeskNoteHeader_OnPointerReleased"
+                                      PointerCaptureLost="DeskNoteHeader_OnPointerCaptureLost">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="12">
+                                  <Grid>
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               FontWeight="SemiBold"
+                                               Foreground="#111827"
+                                               IsVisible="{Binding IsDisplayNameVisible}"
+                                               IsHitTestVisible="False" />
+                                    <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Classes="DeskNoteEditor DeskItemNameEditor"
+                                             IsVisible="{Binding IsRenaming}"
+                                             HorizontalAlignment="Stretch"
+                                             VerticalAlignment="Center"
+                                             Background="{Binding NoteHeaderBackground}"
+                                             Foreground="#1F2937"
                                              FontWeight="SemiBold"
-                                             Foreground="#111827"
-                                             IsVisible="{Binding IsDisplayNameVisible}"
-                                             IsHitTestVisible="False" />
-                                  <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                           Classes="DeskNoteEditor DeskItemNameEditor"
-                                           IsVisible="{Binding IsRenaming}"
-                                           HorizontalAlignment="Stretch"
-                                           VerticalAlignment="Center"
-                                           Background="{Binding NoteHeaderBackground}"
-                                           Foreground="#1F2937"
-                                           FontWeight="SemiBold"
-                                           FontSize="14"
-                                           LostFocus="DeskItemNameEditor_OnLostFocus"
-                                           KeyDown="DeskItemNameEditor_OnKeyDown" />
+                                             FontSize="14"
+                                             LostFocus="DeskItemNameEditor_OnLostFocus"
+                                             KeyDown="DeskItemNameEditor_OnKeyDown" />
+                                  </Grid>
+                                  <TextBlock Grid.Column="1"
+                                             Text="Ziehen"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                             FontSize="12" />
                                 </Grid>
-                                <TextBlock Grid.Column="1"
-                                           Text="Ziehen"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="12" />
-                              </Grid>
-                            </Border>
+                              </Border>
 
-                            <TextBox Grid.Row="1"
-                                     Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     Classes="DeskNoteEditor"
-                                     Background="Transparent"
-                                     Foreground="#1F2937"
-                                     CaretBrush="#1F2937"
-                                     SelectionBrush="#55D9B35C"
-                                     SelectionForegroundBrush="#1F2937"
-                                     BorderThickness="0"
-                                     Padding="12,10"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalContentAlignment="Top"
-                                     FontSize="14"
-                                     PlaceholderText="Notiztext eingeben">
-                              <TextBox.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="Umbenennen"
-                                            Click="BeginDeskItemRename_OnClick" />
-                                  <MenuItem Header="Löschen"
-                                            Click="DeleteDeskItem_OnClick" />
-                                </ContextMenu>
-                              </TextBox.ContextMenu>
-                            </TextBox>
+                              <TextBox Grid.Row="1"
+                                       Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                       Classes="DeskNoteEditor"
+                                       Background="Transparent"
+                                       Foreground="#1F2937"
+                                       CaretBrush="#1F2937"
+                                       SelectionBrush="#55D9B35C"
+                                       SelectionForegroundBrush="#1F2937"
+                                       BorderThickness="0"
+                                       Padding="12,10"
+                                       AcceptsReturn="True"
+                                       TextWrapping="Wrap"
+                                       VerticalContentAlignment="Top"
+                                       FontSize="14"
+                                       PlaceholderText="Notiztext eingeben">
+                                <TextBox.ContextMenu>
+                                  <ContextMenu>
+                                    <MenuItem Header="Umbenennen"
+                                              Click="BeginDeskItemRename_OnClick" />
+                                    <MenuItem Header="Löschen"
+                                              Click="DeleteDeskItem_OnClick" />
+                                  </ContextMenu>
+                                </TextBox.ContextMenu>
+                              </TextBox>
 
-                            <Border Grid.Row="2"
+                              <Border Grid.Row="2"
+                                      Background="Transparent"
+                                      Padding="12,0,12,10">
+                                <CheckBox Content="Wichtig"
+                                          IsChecked="{Binding IsImportant, Mode=TwoWay}"
+                                          HorizontalAlignment="Left" />
+                              </Border>
+                            </Grid>
+
+                            <Border Width="18"
+                                    Height="18"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Margin="0,0,0,0"
                                     Background="Transparent"
-                                    Padding="12,0,12,10">
-                              <CheckBox Content="Wichtig"
-                                        IsChecked="{Binding IsImportant, Mode=TwoWay}"
-                                        HorizontalAlignment="Left" />
+                                    Cursor="SizeAll"
+                                    PointerPressed="DeskResizeGrip_OnPointerPressed"
+                                    PointerMoved="DeskResizeGrip_OnPointerMoved"
+                                    PointerReleased="DeskResizeGrip_OnPointerReleased"
+                                    PointerCaptureLost="DeskResizeGrip_OnPointerCaptureLost"
+                                    DoubleTapped="DeskResizeGrip_OnDoubleTapped">
+                              <TextBlock Text="↘"
+                                         FontSize="10"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         IsHitTestVisible="False" />
                             </Border>
                           </Grid>
                         </Border>
@@ -622,91 +645,114 @@
                             </ContextMenu>
                           </Border.ContextMenu>
 
-                          <Grid RowDefinitions="*,Auto"
-                                Margin="0">
-                            <Border Grid.Row="0"
-                                    Margin="0,0,0,8"
-                                    Background="{Binding FileCardPreviewBackground}"
-                                    BorderBrush="{Binding FileCardBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="4"
-                                    ClipToBounds="True"
-                                    IsHitTestVisible="False">
-                              <Grid Margin="12">
-                                <Border HorizontalAlignment="Right"
-                                        VerticalAlignment="Top"
-                                        Background="#C94A3F"
-                                        BorderBrush="#A33930"
-                                        BorderThickness="1"
-                                        CornerRadius="0,12,0,12"
-                                        Padding="8,4"
-                                        IsVisible="{Binding IsImportant}">
-                                  <TextBlock Text="Wichtig"
-                                             FontSize="11"
-                                             FontWeight="SemiBold"
-                                             Foreground="#FFFFFF" />
-                                </Border>
-
-                                <Image IsVisible="{Binding HasPreviewThumbnail}"
-                                       Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
-                                       Stretch="Uniform"
-                                       HorizontalAlignment="Stretch"
-                                       VerticalAlignment="Stretch"
-                                       IsHitTestVisible="False"
-                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
-
-                                <TextBlock IsVisible="{Binding HasPreviewText}"
-                                           Text="{Binding PreviewText}"
-                                           FontSize="11"
-                                           TextWrapping="Wrap"
-                                           TextAlignment="Left"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           IsHitTestVisible="False" />
-
-                                <StackPanel IsVisible="{Binding HasSimplePreviewPlaceholder}"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            Spacing="10"
-                                            IsHitTestVisible="False">
-                                  <Border Background="{Binding FileCardBadgeBackground}"
-                                          BorderBrush="{Binding FileCardBadgeBorderBrush}"
+                          <Grid>
+                            <Grid RowDefinitions="*,Auto"
+                                  Margin="0">
+                              <Border Grid.Row="0"
+                                      Margin="0,0,0,8"
+                                      Background="{Binding FileCardPreviewBackground}"
+                                      BorderBrush="{Binding FileCardBorderBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="4"
+                                      ClipToBounds="True"
+                                      IsHitTestVisible="False">
+                                <Grid Margin="12">
+                                  <Border HorizontalAlignment="Right"
+                                          VerticalAlignment="Top"
+                                          Background="#C94A3F"
+                                          BorderBrush="#A33930"
                                           BorderThickness="1"
-                                          CornerRadius="12"
-                                          Padding="16,12">
-                                    <TextBlock Text="{Binding FileKindLabel}"
-                                               FontSize="28"
+                                          CornerRadius="0,12,0,12"
+                                          Padding="8,4"
+                                          IsVisible="{Binding IsImportant}">
+                                    <TextBlock Text="Wichtig"
+                                               FontSize="11"
                                                FontWeight="SemiBold"
-                                               HorizontalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                               Foreground="#FFFFFF" />
                                   </Border>
-                                  <TextBlock Text="{Binding FileBadgeText}"
-                                             HorizontalAlignment="Center"
-                                             Foreground="{DynamicResource TextSecondaryBrush}"
-                                             FontSize="12" />
-                                </StackPanel>
-                              </Grid>
-                            </Border>
 
-                            <Grid Grid.Row="1"
-                                  Margin="2,0,2,0">
-                              <TextBlock Text="{Binding DisplayName}"
-                                         HorizontalAlignment="Center"
+                                  <Image IsVisible="{Binding HasPreviewThumbnail}"
+                                         Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
+                                         Stretch="Uniform"
+                                         HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Stretch"
+                                         IsHitTestVisible="False"
+                                         RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+                                  <TextBlock IsVisible="{Binding HasPreviewText}"
+                                             Text="{Binding PreviewText}"
+                                             FontSize="11"
+                                             TextWrapping="Wrap"
+                                             TextAlignment="Left"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             IsHitTestVisible="False" />
+
+                                  <StackPanel IsVisible="{Binding HasSimplePreviewPlaceholder}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Spacing="10"
+                                              IsHitTestVisible="False">
+                                    <Border Background="{Binding FileCardBadgeBackground}"
+                                            BorderBrush="{Binding FileCardBadgeBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="16,12">
+                                      <TextBlock Text="{Binding FileKindLabel}"
+                                                 FontSize="28"
+                                                 FontWeight="SemiBold"
+                                                 HorizontalAlignment="Center"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding FileBadgeText}"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="12" />
+                                  </StackPanel>
+                                </Grid>
+                              </Border>
+
+                              <Grid Grid.Row="1"
+                                    Margin="2,0,2,0">
+                                <TextBlock Text="{Binding DisplayName}"
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontSize="10"
+                                           Foreground="#111827"
+                                           IsHitTestVisible="False" />
+                                <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Classes="DeskNoteEditor DeskItemNameEditor"
+                                         IsVisible="{Binding IsRenaming}"
+                                         HorizontalAlignment="Stretch"
+                                         Background="{DynamicResource WindowBackgroundBrush}"
                                          TextAlignment="Center"
-                                         TextWrapping="NoWrap"
-                                         TextTrimming="CharacterEllipsis"
                                          FontSize="10"
-                                         Foreground="#111827"
-                                         IsHitTestVisible="False" />
-                              <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                       Classes="DeskNoteEditor DeskItemNameEditor"
-                                       IsVisible="{Binding IsRenaming}"
-                                       HorizontalAlignment="Stretch"
-                                       Background="{DynamicResource WindowBackgroundBrush}"
-                                       TextAlignment="Center"
-                                       FontSize="10"
-                                       LostFocus="DeskItemNameEditor_OnLostFocus"
-                                       KeyDown="DeskItemNameEditor_OnKeyDown" />
+                                         LostFocus="DeskItemNameEditor_OnLostFocus"
+                                         KeyDown="DeskItemNameEditor_OnKeyDown" />
+                              </Grid>
                             </Grid>
+
+                            <Border Width="18"
+                                    Height="18"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Margin="0,0,-2,-2"
+                                    Background="Transparent"
+                                    Cursor="SizeAll"
+                                    PointerPressed="DeskResizeGrip_OnPointerPressed"
+                                    PointerMoved="DeskResizeGrip_OnPointerMoved"
+                                    PointerReleased="DeskResizeGrip_OnPointerReleased"
+                                    PointerCaptureLost="DeskResizeGrip_OnPointerCaptureLost"
+                                    DoubleTapped="DeskResizeGrip_OnDoubleTapped">
+                              <TextBlock Text="↘"
+                                         FontSize="10"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         IsHitTestVisible="False" />
+                            </Border>
                           </Grid>
                         </Border>
                       </Grid>
@@ -794,7 +840,7 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Classes="InlineCard" Margin="0,0,8,8" Padding="10" MinWidth="220" MaxWidth="280">
+                  <Border Classes="InlineCard" Margin="0,0,-2,-2" Padding="10" MinWidth="220" MaxWidth="280">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                       <TextBlock Grid.Column="0"
                                  Text="{Binding}"
@@ -824,12 +870,12 @@
                 <Button Content="OneDrive-Datenordner auswählen"
                         Click="MigrateStorageLocation_OnClick"
                         Classes="Primary"
-                        Margin="0,0,8,8" />
+                        Margin="0,0,-2,-2" />
                 <Button Content="Aktuellen Ordner öffnen"
                         Click="OpenDataFolder_OnClick"
                         FontSize="12"
                         Padding="10,6"
-                        Margin="0,0,8,8" />
+                        Margin="0,0,-2,-2" />
               </WrapPanel>
 
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2" Margin="0,4,0,0">
@@ -921,7 +967,7 @@
                         Click="OpenBackupFolder_OnClick"
                         FontSize="12"
                         Padding="10,6"
-                        Margin="0,0,8,8" />
+                        Margin="0,0,-2,-2" />
                 <Button Content="Standard-Datenordner öffnen"
                         Click="OpenDefaultDataFolder_OnClick"
                         FontSize="12"
@@ -1372,10 +1418,10 @@
                   <WrapPanel Orientation="Horizontal">
                     <Button Content="Für iPad bereitstellen"
                             Click="ExportAttachmentForIpad_OnClick"
-                            Margin="0,0,8,8" />
+                            Margin="0,0,-2,-2" />
                     <Button Content="Änderungen prüfen"
                             Click="CheckIpadChanges_OnClick"
-                            Margin="0,0,8,8" />
+                            Margin="0,0,-2,-2" />
                     <Button Content="Bearbeitung übernehmen"
                             Classes="Primary"
                             IsVisible="{Binding CanImportAttachmentEdit}"
