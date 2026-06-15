@@ -1766,6 +1766,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _selectedTask = null;
+        TaskList.SelectedItem = null;
         SelectedAttachment = null;
         SelectedTaskCategory = null;
         Materials.Clear();
@@ -2639,13 +2640,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var attachments = _repository.GetAttachments(task.Id);
+        var deskItemsToDelete = GetDeskItemsToDeleteForTask(task.Id);
+
         _repository.DeleteTask(task.Id);
+        DeleteDeskItemsForTask(deskItemsToDelete);
+        DeleteTaskFilesIfUnreferenced(task.Id, attachments, deskItemsToDelete);
         _tasksPendingDuplicateCheck.Remove(task.Id);
         AllTasks.Remove(task);
-        Materials.Clear();
-        Attachments.Clear();
-        SelectedAttachment = null;
-        SelectedTask = null;
+        ClearTaskSelectionAfterRemoval(task);
         OnPropertyChanged(nameof(HasNoMaterials));
         RefreshVisibleTasks();
         UpdateCategoryCounts();
@@ -2963,8 +2966,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var wasSelected = SelectedAttachment == item;
-        DeleteAttachmentFileIfUnreferenced(item.StoredPath);
-        DeleteAttachmentFileIfUnreferenced(item.ThumbnailPath);
+        DeleteDataFileIfUnreferenced(item.StoredPath);
+        DeleteDataFileIfUnreferenced(item.ThumbnailPath);
 
         if (wasSelected)
         {
@@ -2995,12 +2998,172 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DeleteAttachmentFileIfUnreferenced(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path) || _repository.HasAttachmentPathReference(path))
+        DeleteDataFileIfUnreferenced(path);
+    }
+
+    private void DeleteDataFileIfUnreferenced(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
             return;
         }
 
-        TryDeleteFile(ResolveAttachmentPath(path));
+        try
+        {
+            var resolvedPath = ResolveAttachmentPath(path);
+            if (string.IsNullOrWhiteSpace(resolvedPath) || !IsInsideDataFolder(resolvedPath))
+            {
+                return;
+            }
+
+            if (_repository.HasDataPathReference(resolvedPath))
+            {
+                return;
+            }
+
+            TryDeleteFile(resolvedPath);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not evaluate file cleanup for '{path}': {ex}");
+        }
+    }
+
+    private static bool IsInsideDataFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        return !Path.IsPathRooted(AppPaths.MakeRelativeToDataFolder(path));
+    }
+
+    private List<DeskItem> GetDeskItemsToDeleteForTask(string taskId)
+    {
+        return DeskItems
+            .Where(item => ShouldDeleteDeskItemForTask(item, taskId))
+            .ToList();
+    }
+
+    private static bool ShouldDeleteDeskItemForTask(DeskItem deskItem, string taskId)
+    {
+        return string.Equals(deskItem.LinkedTaskId, taskId, StringComparison.OrdinalIgnoreCase) ||
+               ReferencesTaskAttachmentFolder(deskItem.FilePath, taskId) ||
+               ReferencesTaskAttachmentFolder(deskItem.ReferencePath, taskId) ||
+               ReferencesTaskAttachmentFolder(deskItem.ThumbnailPath, taskId);
+    }
+
+    private static bool ReferencesTaskAttachmentFolder(string? path, string taskId)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            var relativePath = AppPaths.MakeRelativeToDataFolder(path).Replace('\\', '/');
+            return relativePath.StartsWith($"Tasks/{taskId}/Attachments/", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void DeleteDeskItemsForTask(IEnumerable<DeskItem> deskItems)
+    {
+        var removedAny = false;
+        foreach (var deskItem in deskItems)
+        {
+            if (_draggedDeskItem == deskItem)
+            {
+                ClearDeskDragState();
+            }
+
+            if (_resizedDeskItem == deskItem)
+            {
+                ClearDeskResizeState();
+            }
+
+            UnsubscribeDeskItem(deskItem);
+            _repository.DeleteDeskItem(deskItem.Id);
+            DeskItems.Remove(deskItem);
+            removedAny = true;
+        }
+
+        if (removedAny)
+        {
+            UpdateDeskSurfaceBounds();
+        }
+    }
+
+    private void DeleteTaskFilesIfUnreferenced(string taskId, IEnumerable<AttachmentItem> attachments, IEnumerable<DeskItem> deskItems)
+    {
+        foreach (var attachment in attachments)
+        {
+            DeleteDataFileIfUnreferenced(attachment.StoredPath);
+            DeleteDataFileIfUnreferenced(attachment.ThumbnailPath);
+        }
+
+        foreach (var deskItem in deskItems)
+        {
+            if (AppPaths.IsDeskFileStoragePath(deskItem.FilePath) ||
+                ReferencesTaskAttachmentFolder(deskItem.FilePath, taskId))
+            {
+                DeleteDataFileIfUnreferenced(deskItem.FilePath);
+            }
+
+            if (AppPaths.IsDeskFileStoragePath(deskItem.ThumbnailPath) ||
+                ReferencesTaskAttachmentFolder(deskItem.ThumbnailPath, taskId))
+            {
+                DeleteDataFileIfUnreferenced(deskItem.ThumbnailPath);
+            }
+
+            if (ReferencesTaskAttachmentFolder(deskItem.ReferencePath, taskId))
+            {
+                DeleteDataFileIfUnreferenced(deskItem.ReferencePath);
+            }
+        }
+
+        TryDeleteEmptyDirectory(AppPaths.GetAttachmentDirectory(taskId));
+        TryDeleteEmptyDirectory(AppPaths.GetAttachmentBackupDirectory(taskId));
+        TryDeleteEmptyDirectory(Path.Combine(AppPaths.TasksDirectory, taskId));
+    }
+
+    private static void TryDeleteEmptyDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            var resolvedPath = AppPaths.ResolveDataPath(path);
+            if (string.IsNullOrWhiteSpace(resolvedPath) || !IsInsideDataFolder(resolvedPath) || !Directory.Exists(resolvedPath))
+            {
+                return;
+            }
+
+            if (!Directory.EnumerateFileSystemEntries(resolvedPath).Any())
+            {
+                Directory.Delete(resolvedPath);
+            }
+        }
+        catch (IOException ex)
+        {
+            Debug.WriteLine($"Could not delete directory '{path}': {ex}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Debug.WriteLine($"Could not delete directory '{path}': {ex}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not delete directory '{path}': {ex}");
+        }
     }
 
     private void ImportAttachments(IEnumerable<string?> sourcePaths, string successSuffix, string? noneMessage = null)
@@ -4830,7 +4993,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 File.Delete(path);
             }
         }
-        catch (Exception ex)
+        catch (IOException ex)
+        {
+            Debug.WriteLine($"Could not delete file '{path}': {ex}");
+        }
+        catch (UnauthorizedAccessException ex)
         {
             Debug.WriteLine($"Could not delete file '{path}': {ex}");
         }
@@ -4845,16 +5012,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         Console.WriteLine(
             $"Attachment missing: FileName='{attachment.FileName}', StoredPathRaw='{attachment.StoredPath}', StoredPathResolved='{resolvedPath}', File.Exists={File.Exists(resolvedPath)}");
-    }
-
-    private static void TryDeleteDeskItemFile(string path)
-    {
-        if (!AppPaths.IsDeskFileStoragePath(path))
-        {
-            return;
-        }
-
-        TryDeleteFile(AppPaths.ResolveDeskItemPath(path));
     }
 
     private static string? TryGetLinkedTaskIdFromPath(string? path)
@@ -5014,11 +5171,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _repository.DeleteDeskItem(deskItem.Id);
         if (deskItem.IsFileCard)
         {
-            TryDeleteDeskItemFile(deskItem.ThumbnailPath);
-            TryDeleteDeskItemFile(deskItem.FilePath);
+            DeleteDeskItemStorageFileIfUnreferenced(deskItem.ThumbnailPath);
+            DeleteDeskItemStorageFileIfUnreferenced(deskItem.FilePath);
         }
         DeskItems.Remove(deskItem);
         UpdateDeskSurfaceBounds();
+    }
+
+    private void DeleteDeskItemStorageFileIfUnreferenced(string? path)
+    {
+        if (!AppPaths.IsDeskFileStoragePath(path))
+        {
+            return;
+        }
+
+        DeleteDataFileIfUnreferenced(path);
     }
 
     private void ClearDeskDragState()

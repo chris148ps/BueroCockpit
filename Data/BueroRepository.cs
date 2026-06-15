@@ -431,14 +431,26 @@ public sealed class BueroRepository
 
     public void DeleteTask(string taskId)
     {
+        if (string.IsNullOrWhiteSpace(taskId))
+        {
+            return;
+        }
+
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
 
-        foreach (var table in new[] { "Attachments", "Materials", "Tasks" })
+        foreach (var (table, column) in new[]
+        {
+            ("AttachmentEditSessions", "TaskId"),
+            ("Attachments", "TaskId"),
+            ("Materials", "TaskId"),
+            ("TaskCategories", "TaskId"),
+            ("Tasks", "Id")
+        })
         {
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
-            command.CommandText = $"DELETE FROM {table} WHERE {(table == "Tasks" ? "Id" : "TaskId")} = $taskId;";
+            command.CommandText = $"DELETE FROM {table} WHERE {column} = $taskId;";
             command.Parameters.AddWithValue("$taskId", taskId);
             command.ExecuteNonQuery();
         }
@@ -507,6 +519,11 @@ public sealed class BueroRepository
 
     public bool HasAttachmentPathReference(string path)
     {
+        return HasDataPathReference(path);
+    }
+
+    public bool HasDataPathReference(string path)
+    {
         if (string.IsNullOrWhiteSpace(path))
         {
             return false;
@@ -515,15 +532,21 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT StoredPath, ThumbnailPath
-            FROM Attachments;
+            SELECT StoredPath AS Path FROM Attachments
+            UNION ALL
+            SELECT ThumbnailPath FROM Attachments
+            UNION ALL
+            SELECT PdfPath FROM DeskItems
+            UNION ALL
+            SELECT ReferencePath FROM DeskItems
+            UNION ALL
+            SELECT PdfThumbnailPath FROM DeskItems;
             """;
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            if (AppPaths.PathsEqual(path, reader.GetString(0)) ||
-                AppPaths.PathsEqual(path, reader.GetString(1)))
+            if (AppPaths.PathsEqual(path, reader.GetString(0)))
             {
                 return true;
             }
