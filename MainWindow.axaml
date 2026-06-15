@@ -749,13 +749,19 @@
             </Grid>
 
             <ItemsControl ItemsSource="{Binding TechnicianOptions}" Margin="0,8,0,0">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
-                    <Grid ColumnDefinitions="*,Auto">
+                  <Border Classes="InlineCard" Margin="0,0,8,8" Padding="10" MinWidth="220" MaxWidth="280">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                       <TextBlock Grid.Column="0"
                                  Text="{Binding}"
-                                 VerticalAlignment="Center" />
+                                 VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
                       <Button Grid.Column="1"
                               Content="Entfernen"
                               Classes="Secondary"
