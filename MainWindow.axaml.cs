@@ -4428,13 +4428,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static readonly HashSet<string> DuplicatePlaceholderTokens =
+    [
+        "neu",
+        "neue",
+        "neuer",
+        "neues",
+        "kunde",
+        "kundenname",
+        "auftrag",
+        "aufgabe",
+        "angebot",
+        "termin",
+        "test",
+        "haus",
+        "leer",
+        "null",
+        "ohne",
+        "titel"
+    ];
+
     private async Task<DuplicateTaskChoice> ShowSimilarTaskDialogAsync(SimilarTaskMatch duplicate, string targetCategoryName)
     {
         var dialog = new DuplicateTaskDialog(
-            duplicate.Task,
+            duplicate.Headline,
             GetTaskCategoryNames(duplicate.Task),
             targetCategoryName,
-            duplicate.Score);
+            duplicate.MatchPoints);
         return await dialog.ShowDialog<DuplicateTaskChoice>(this);
     }
 
@@ -4469,62 +4489,83 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(candidate => !string.Equals(candidate.Id, task.Id, StringComparison.OrdinalIgnoreCase))
             .Where(candidate => string.IsNullOrWhiteSpace(excludedCategoryId) ||
                 !TaskBelongsToCategory(candidate, excludedCategoryId))
-            .Select(candidate => new SimilarTaskMatch(candidate, CalculateSimilarityScore(task, candidate)))
-            .Where(match => match.Score >= minimumScore)
+            .Select(candidate =>
+            {
+                var similarity = CalculateTaskSimilarityScore(task, candidate);
+                return new SimilarTaskMatch(
+                    candidate,
+                    similarity.Score,
+                    similarity.IsPlausible,
+                    similarity.MatchPoints,
+                    FormatDuplicateTaskHeadline(candidate));
+            })
+            .Where(match => match.Score >= minimumScore && match.IsPlausible)
             .OrderByDescending(match => match.Score)
             .ThenByDescending(match => match.Task.UpdatedAt)
             .FirstOrDefault();
     }
 
-    private static int CalculateSimilarityScore(TaskItem left, TaskItem right)
+    private static TaskSimilarityEvaluation CalculateTaskSimilarityScore(TaskItem left, TaskItem right)
     {
-        var customerNameScore = CompareNormalizedText(left.CustomerName, right.CustomerName, exactScore: 55, containsScore: 35);
-        var titleScore = CompareNormalizedText(left.Title, right.Title, exactScore: 45, containsScore: 25);
-        var addressScore = CompareNormalizedText(left.CustomerAddress, right.CustomerAddress, exactScore: 50, containsScore: 30);
+        var customerNameMatch = CompareNormalizedText("Kunde", left.CustomerName, right.CustomerName, exactScore: 55, containsScore: 35);
+        var titleMatch = CompareNormalizedText("Titel", left.Title, right.Title, exactScore: 45, containsScore: 25);
+        var addressMatch = CompareNormalizedText("Adresse", left.CustomerAddress, right.CustomerAddress, exactScore: 50, containsScore: 30);
 
-        if (customerNameScore == 0 && titleScore == 0 && addressScore == 0)
+        var matches = new[] { customerNameMatch, titleMatch, addressMatch }
+            .Where(match => match.Score > 0)
+            .ToList();
+        if (matches.Count == 0)
         {
-            return 0;
+            return TaskSimilarityEvaluation.None;
         }
 
-        var score = customerNameScore + titleScore + addressScore;
-        var matchedFieldCount = new[] { customerNameScore, titleScore, addressScore }.Count(match => match > 0);
-        if (matchedFieldCount > 1)
+        var score = matches.Sum(match => match.Score);
+        if (matches.Count > 1)
         {
-            score += 10 * (matchedFieldCount - 1);
+            score += 10 * (matches.Count - 1);
         }
 
-        return score;
+        var isPlausible =
+            (customerNameMatch.Score > 0 && addressMatch.Score > 0) ||
+            (customerNameMatch.Score > 0 && titleMatch.Score > 0) ||
+            (addressMatch.Score > 0 && titleMatch.Score > 0) ||
+            IsStrongSingleDuplicateMatch(customerNameMatch) ||
+            IsStrongSingleDuplicateMatch(addressMatch);
+
+        return new TaskSimilarityEvaluation(
+            score,
+            isPlausible,
+            BuildDuplicateMatchPoints(matches, score));
     }
 
-    private static int CompareNormalizedText(string? left, string? right, int exactScore, int containsScore)
+    private static DuplicateFieldMatch CompareNormalizedText(string fieldName, string? left, string? right, int exactScore, int containsScore)
     {
-        var normalizedLeft = NormalizeDuplicateText(left);
-        var normalizedRight = NormalizeDuplicateText(right);
-        if (normalizedLeft.Length == 0 || normalizedRight.Length == 0)
+        var normalizedLeft = NormalizeDuplicateValue(left);
+        var normalizedRight = NormalizeDuplicateValue(right);
+        if (!IsMeaningfulNormalizedDuplicateValue(normalizedLeft) ||
+            !IsMeaningfulNormalizedDuplicateValue(normalizedRight))
         {
-            return 0;
-        }
-
-        if (IsDuplicatePlaceholder(normalizedLeft) || IsDuplicatePlaceholder(normalizedRight))
-        {
-            return 0;
+            return DuplicateFieldMatch.None(fieldName);
         }
 
         if (string.Equals(normalizedLeft, normalizedRight, StringComparison.Ordinal))
         {
-            return exactScore;
+            return new DuplicateFieldMatch(fieldName, exactScore, true, normalizedLeft);
         }
 
-        if (normalizedLeft.Length >= 5 &&
-            normalizedRight.Length >= 5 &&
+        if (normalizedLeft.Length >= 6 &&
+            normalizedRight.Length >= 6 &&
             (normalizedLeft.Contains(normalizedRight, StringComparison.Ordinal) ||
              normalizedRight.Contains(normalizedLeft, StringComparison.Ordinal)))
         {
-            return containsScore;
+            return new DuplicateFieldMatch(
+                fieldName,
+                containsScore,
+                false,
+                normalizedLeft.Length <= normalizedRight.Length ? normalizedLeft : normalizedRight);
         }
 
-        return 0;
+        return DuplicateFieldMatch.None(fieldName);
     }
 
     private static bool HasMeaningfulDuplicateInput(TaskItem task)
@@ -4536,19 +4577,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsMeaningfulDuplicateValue(string? value)
     {
-        var normalized = NormalizeDuplicateText(value);
-        return normalized.Length > 0 && !IsDuplicatePlaceholder(normalized);
+        return IsMeaningfulNormalizedDuplicateValue(NormalizeDuplicateValue(value));
+    }
+
+    private static bool IsMeaningfulNormalizedDuplicateValue(string normalizedValue)
+    {
+        return normalizedValue.Length >= 4 && !IsDuplicatePlaceholder(normalizedValue);
     }
 
     private static bool IsDuplicatePlaceholder(string normalizedValue)
     {
-        return normalizedValue.Equals("neuer kunde", StringComparison.Ordinal) ||
-               normalizedValue.Equals("neue aufgabe", StringComparison.Ordinal) ||
-               normalizedValue.Equals("ohne kundenname", StringComparison.Ordinal) ||
-               normalizedValue.Equals("ohne titel", StringComparison.Ordinal);
+        if (normalizedValue.Length == 0)
+        {
+            return true;
+        }
+
+        if (normalizedValue.Equals("ohne kundenname", StringComparison.Ordinal) ||
+            normalizedValue.Equals("ohne titel", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var tokens = normalizedValue.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return tokens.Length > 0 && tokens.All(token =>
+            DuplicatePlaceholderTokens.Contains(token) ||
+            token.All(char.IsDigit));
     }
 
-    private static string NormalizeDuplicateText(string? value)
+    private static string NormalizeDuplicateValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -4584,6 +4640,70 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return Regex.Replace(builder.ToString(), @"\s+", " ").Trim();
+    }
+
+    private static bool IsStrongSingleDuplicateMatch(DuplicateFieldMatch match)
+    {
+        if (match.Score == 0 || !match.IsExact)
+        {
+            return false;
+        }
+
+        return match.FieldName switch
+        {
+            "Kunde" => IsStrongSingleCustomerValue(match.NormalizedValue),
+            "Adresse" => IsStrongSingleAddressValue(match.NormalizedValue),
+            _ => false
+        };
+    }
+
+    private static bool IsStrongSingleCustomerValue(string normalizedValue)
+    {
+        var wordCount = CountDuplicateWords(normalizedValue);
+        return normalizedValue.Length >= 10 && (wordCount >= 2 || normalizedValue.Length >= 12);
+    }
+
+    private static bool IsStrongSingleAddressValue(string normalizedValue)
+    {
+        return normalizedValue.Length >= 10 &&
+               CountDuplicateWords(normalizedValue) >= 2 &&
+               normalizedValue.Any(char.IsDigit);
+    }
+
+    private static int CountDuplicateWords(string normalizedValue)
+    {
+        return normalizedValue.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private static string BuildDuplicateMatchPoints(IEnumerable<DuplicateFieldMatch> matches, int score)
+    {
+        var parts = matches.Select(match =>
+            match.IsExact
+                ? $"{match.FieldName} exakt"
+                : $"{match.FieldName} teilweise");
+        return $"{string.Join(", ", parts)} ({score} Punkte)";
+    }
+
+    private static string FormatDuplicateTaskHeadline(TaskItem task)
+    {
+        var parts = new List<string>();
+
+        if (IsMeaningfulDuplicateValue(task.CustomerName))
+        {
+            parts.Add(task.CustomerName.Trim());
+        }
+
+        if (IsMeaningfulDuplicateValue(task.Title))
+        {
+            parts.Add(task.Title.Trim());
+        }
+
+        return parts.Count switch
+        {
+            0 => "Unbenannter Auftrag",
+            1 => parts[0],
+            _ => $"{parts[0]} / {parts[1]}"
+        };
     }
 
     private void AddTaskToCategory(TaskItem task, string categoryId)
@@ -5509,37 +5629,47 @@ public enum DuplicateTaskChoice
     CreateAnyway
 }
 
-public sealed record SimilarTaskMatch(TaskItem Task, int Score);
+public sealed record SimilarTaskMatch(TaskItem Task, int Score, bool IsPlausible, string MatchPoints, string Headline);
+
+public sealed record TaskSimilarityEvaluation(int Score, bool IsPlausible, string MatchPoints)
+{
+    public static readonly TaskSimilarityEvaluation None = new(0, false, string.Empty);
+}
+
+public sealed record DuplicateFieldMatch(string FieldName, int Score, bool IsExact, string NormalizedValue)
+{
+    public static DuplicateFieldMatch None(string fieldName) => new(fieldName, 0, false, string.Empty);
+}
 
 public sealed class DuplicateTaskDialog : Window
 {
-    public DuplicateTaskDialog(TaskItem existingTask, string existingCategories, string targetCategory, int score)
+    public DuplicateTaskDialog(string existingTaskHeadline, string existingCategories, string targetCategory, string matchPoints)
     {
         Title = "Ähnlicher Auftrag gefunden";
-        Width = 540;
-        MinWidth = 460;
+        Width = 500;
+        MinWidth = 420;
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = false;
 
         var content = new StackPanel
         {
-            Margin = new Thickness(20),
-            Spacing = 12
+            Margin = new Thickness(18),
+            Spacing = 10
         };
 
         content.Children.Add(new TextBlock
         {
-            Text = $"Es gibt bereits einen ähnlichen Auftrag: {FormatTaskHeadline(existingTask)}. Was soll passieren?",
-            FontSize = 18,
+            Text = $"Es gibt bereits einen ähnlichen Auftrag: {existingTaskHeadline}. Was soll passieren?",
+            FontSize = 16,
             FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
         });
 
-        content.Children.Add(CreateInfoText($"Bestehender Auftrag: {FormatTaskHeadline(existingTask)}"));
+        content.Children.Add(CreateInfoText($"Bestehender Auftrag: {existingTaskHeadline}"));
         content.Children.Add(CreateInfoText($"Bestehende Kategorie(n): {existingCategories}"));
         content.Children.Add(CreateInfoText($"Neue gewünschte Kategorie: {targetCategory}"));
-        content.Children.Add(CreateInfoText($"Übereinstimmung: {score} Punkte"));
+        content.Children.Add(CreateInfoText($"Übereinstimmungspunkte: {matchPoints}"));
 
         var buttonPanel = new StackPanel
         {
@@ -5574,30 +5704,6 @@ public sealed class DuplicateTaskDialog : Window
         };
     }
 
-    private static string FormatTaskHeadline(TaskItem task)
-    {
-        var parts = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(task.CustomerName) &&
-            !task.CustomerName.Equals("Neuer Kunde", StringComparison.OrdinalIgnoreCase))
-        {
-            parts.Add(task.CustomerName.Trim());
-        }
-
-        if (!string.IsNullOrWhiteSpace(task.Title) &&
-            !task.Title.Equals("Neue Aufgabe", StringComparison.OrdinalIgnoreCase))
-        {
-            parts.Add(task.Title.Trim());
-        }
-
-        return parts.Count switch
-        {
-            0 => "Unbenannter Auftrag",
-            1 => parts[0],
-            _ => $"{parts[0]} / {parts[1]}"
-        };
-    }
-
     private Button CreateChoiceButton(string text, DuplicateTaskChoice choice)
     {
         var button = new Button
@@ -5605,7 +5711,8 @@ public sealed class DuplicateTaskDialog : Window
             Content = text,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
-            Padding = new Thickness(12, 8)
+            Padding = new Thickness(12, 8),
+            IsCancel = choice == DuplicateTaskChoice.Cancel
         };
         button.Click += (_, _) => Close(choice);
         return button;
