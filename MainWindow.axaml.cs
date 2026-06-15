@@ -120,7 +120,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
 
-    public string[] SortModeOptions { get; } = ["Manuell", "Termin", "Wiedervorlage", "Gesendet am", "Geändert am"];
+    public string[] SortModeOptions { get; } = ["Manuell", "Name", "Termin", "Erstellt am", "Wiedervorlage", "Gesendet am", "Geändert am"];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public ObservableCollection<string> TechnicianOptions { get; } = new();
     private string _newTechnicianName = string.Empty;
@@ -1249,7 +1249,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var selected = SelectedCategory;
             IEnumerable<TaskItem> tasks = selected is null
                 ? AllTasks
-                : AllTasks.Where(t => TaskBelongsToCategory(t, selected.Id));
+                : SortTasksForCategory(AllTasks.Where(t => TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
@@ -2036,6 +2036,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var visibleCategoryIdBeforeChange = SelectedCategory?.Id;
         var wasAlreadyAssigned = SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase);
 
         if (checkBox.IsChecked == true)
@@ -2059,20 +2060,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         case DuplicateTaskChoice.AddToCategory:
                             AddTaskToCategory(duplicate.Task, categoryId);
                             _repository.SaveTask(duplicate.Task);
-                            NavigateToTask(duplicate.Task, fromGlobalSearch: false);
+                            SelectCategoryAndTask(selection.Category, duplicate.Task);
                             RefreshTaskCategorySelections();
-                            RefreshVisibleTasks();
-                            UpdateCategoryCounts();
                             return;
 
                         case DuplicateTaskChoice.MoveToCategory:
                             duplicate.Task.CategoryIds = [categoryId];
                             duplicate.Task.CategoryId = categoryId;
                             _repository.SaveTask(duplicate.Task);
-                            NavigateToTask(duplicate.Task, fromGlobalSearch: false);
+                            SelectCategoryAndTask(selection.Category, duplicate.Task);
                             RefreshTaskCategorySelections();
-                            RefreshVisibleTasks();
-                            UpdateCategoryCounts();
                             return;
 
                         case DuplicateTaskChoice.Cancel:
@@ -2120,9 +2117,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SelectedTaskCategory = Categories.FirstOrDefault(c => string.Equals(c.Id, SelectedTask.CategoryId, StringComparison.OrdinalIgnoreCase));
+        var currentVisibleCategoryWasRemoved =
+            !string.IsNullOrWhiteSpace(visibleCategoryIdBeforeChange) &&
+            !SelectedTask.CategoryIds.Contains(visibleCategoryIdBeforeChange, StringComparer.OrdinalIgnoreCase);
+
+        var targetCategory = Categories.FirstOrDefault(category =>
+            string.Equals(category.Id, SelectedTask.CategoryId, StringComparison.OrdinalIgnoreCase));
+
+        _isUpdatingSelection = true;
+        try
+        {
+            SelectedTaskCategory = targetCategory;
+        }
+        finally
+        {
+            _isUpdatingSelection = false;
+        }
+
         _repository.SaveTask(SelectedTask);
         RefreshTaskCategorySelections();
+
+        if (currentVisibleCategoryWasRemoved)
+        {
+            if (targetCategory is not null)
+            {
+                SelectCategoryAndTask(targetCategory, SelectedTask);
+                return;
+            }
+        }
+
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -2184,9 +2207,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         return mode switch
         {
+            "Name" => tasks
+                .OrderBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.CreatedAt),
+
             "Termin" => tasks
                 .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
                 .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+
+            "Erstellt am" => tasks
+                .OrderBy(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
                 .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
 
@@ -3476,6 +3509,45 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isUpdatingSelection = false;
             _selectionNavigationDepth--;
         }
+    }
+
+    private void SelectCategoryAndTask(CategoryItem category, TaskItem task)
+    {
+        if (_selectionNavigationDepth > 0)
+        {
+            return;
+        }
+
+        _selectionNavigationDepth++;
+        _isUpdatingSelection = true;
+        _suppressTaskListSelectionChanged = true;
+        _suppressCategorySelectionChanged = true;
+        _suppressStatusSelectionChanged = true;
+        _suppressSavingDuringSelection = true;
+        try
+        {
+            SelectedCategory = category;
+            if (CategoryList is not null)
+            {
+                CategoryList.SelectedItem = category;
+            }
+
+            SelectedTaskCategory = category;
+            RefreshVisibleTasks();
+            SelectedTask = VisibleTasks.FirstOrDefault(item => item.Id == task.Id);
+            TaskList.SelectedItem = SelectedTask;
+        }
+        finally
+        {
+            _suppressSavingDuringSelection = false;
+            _suppressStatusSelectionChanged = false;
+            _suppressCategorySelectionChanged = false;
+            _suppressTaskListSelectionChanged = false;
+            _isUpdatingSelection = false;
+            _selectionNavigationDepth--;
+        }
+
+        UpdateCategoryCounts();
     }
 
     private void SaveCurrentMaterials()
