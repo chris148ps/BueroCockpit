@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
@@ -2423,43 +2424,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (!wasAlreadyAssigned)
             {
-                var duplicate = FindSimilarTask(SelectedTask, categoryId);
-
-                if (duplicate is not null)
+                if (await HandleSimilarCategoryAssignmentAsync(SelectedTask, selection.Category))
                 {
-                    var dialog = new DuplicateTaskDialog(
-                        duplicate.Task,
-                        GetTaskCategoryNames(duplicate.Task),
-                        selection.Category.Name,
-                        duplicate.Score);
-
-                    var choice = await dialog.ShowDialog<DuplicateTaskChoice>(this);
-
-                    switch (choice)
-                    {
-                        case DuplicateTaskChoice.AddToCategory:
-                            AddTaskToCategory(duplicate.Task, categoryId);
-                            _repository.SaveTask(duplicate.Task);
-                            SelectCategoryAndTask(selection.Category, duplicate.Task);
-                            RefreshTaskCategorySelections();
-                            return;
-
-                        case DuplicateTaskChoice.MoveToCategory:
-                            duplicate.Task.CategoryIds = [categoryId];
-                            duplicate.Task.CategoryId = categoryId;
-                            _repository.SaveTask(duplicate.Task);
-                            SelectCategoryAndTask(selection.Category, duplicate.Task);
-                            RefreshTaskCategorySelections();
-                            return;
-
-                        case DuplicateTaskChoice.Cancel:
-                            RefreshTaskCategorySelections();
-                            return;
-
-                        case DuplicateTaskChoice.CreateAnyway:
-                        default:
-                            break;
-                    }
+                    return;
                 }
 
                 SelectedTask.CategoryIds.Add(categoryId);
@@ -3381,7 +3348,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CategoryMessage = "Kategorie ausgeblendet.";
     }
 
-    private void DuplicateTask_OnClick(object? sender, RoutedEventArgs e)
+    private async void DuplicateTask_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedTask is null)
         {
@@ -3430,8 +3397,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         AllTasks.Insert(0, copy);
+        _tasksPendingDuplicateCheck.Add(copy.Id);
         RefreshVisibleTasks();
         SelectedTask = copy;
+
+        if (await HandleNewTaskDuplicateAsync(copy))
+        {
+            return;
+        }
+
+        _tasksPendingDuplicateCheck.Remove(copy.Id);
         UpdateCategoryCounts();
     }
 
@@ -4374,18 +4349,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return false;
         }
 
-        var duplicate = FindSimilarTask(newTask, minimumScore: 30);
+        var duplicate = FindSimilarTaskCandidate(newTask, minimumScore: 50);
         if (duplicate is null)
         {
             return false;
         }
 
-        var dialog = new DuplicateTaskDialog(
-            duplicate.Task,
-            GetTaskCategoryNames(duplicate.Task),
-            targetCategory.Name,
-            duplicate.Score);
-        var choice = await dialog.ShowDialog<DuplicateTaskChoice>(this);
+        var choice = await ShowSimilarTaskDialogAsync(duplicate, targetCategory.Name);
 
         switch (choice)
         {
@@ -4398,8 +4368,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return true;
 
             case DuplicateTaskChoice.MoveToCategory:
-                duplicate.Task.CategoryIds = [targetCategory.Id];
-                duplicate.Task.CategoryId = targetCategory.Id;
+                MoveTaskToCategory(duplicate.Task, targetCategory.Id);
                 _repository.SaveTask(duplicate.Task);
                 RemovePendingNewTask(newTask);
                 NavigateToTask(duplicate.Task, fromGlobalSearch: false);
@@ -4416,6 +4385,57 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 UpdateCategoryCounts();
                 return true;
         }
+    }
+
+    private async Task<bool> HandleSimilarCategoryAssignmentAsync(TaskItem currentTask, CategoryItem targetCategory)
+    {
+        if (!HasMeaningfulDuplicateInput(currentTask))
+        {
+            return false;
+        }
+
+        var duplicate = FindSimilarTaskCandidate(currentTask, excludedCategoryId: targetCategory.Id, minimumScore: 50);
+        if (duplicate is null)
+        {
+            return false;
+        }
+
+        var choice = await ShowSimilarTaskDialogAsync(duplicate, targetCategory.Name);
+
+        switch (choice)
+        {
+            case DuplicateTaskChoice.AddToCategory:
+                AddTaskToCategory(duplicate.Task, targetCategory.Id);
+                _repository.SaveTask(duplicate.Task);
+                SelectCategoryAndTask(targetCategory, duplicate.Task);
+                RefreshTaskCategorySelections();
+                return true;
+
+            case DuplicateTaskChoice.MoveToCategory:
+                MoveTaskToCategory(duplicate.Task, targetCategory.Id);
+                _repository.SaveTask(duplicate.Task);
+                SelectCategoryAndTask(targetCategory, duplicate.Task);
+                RefreshTaskCategorySelections();
+                return true;
+
+            case DuplicateTaskChoice.Cancel:
+                RefreshTaskCategorySelections();
+                return true;
+
+            case DuplicateTaskChoice.CreateAnyway:
+            default:
+                return false;
+        }
+    }
+
+    private async Task<DuplicateTaskChoice> ShowSimilarTaskDialogAsync(SimilarTaskMatch duplicate, string targetCategoryName)
+    {
+        var dialog = new DuplicateTaskDialog(
+            duplicate.Task,
+            GetTaskCategoryNames(duplicate.Task),
+            targetCategoryName,
+            duplicate.Score);
+        return await dialog.ShowDialog<DuplicateTaskChoice>(this);
     }
 
     private CategoryItem? GetTaskTargetCategory(TaskItem task)
@@ -4443,14 +4463,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : null;
     }
 
-    private SimilarTaskMatch? FindSimilarTask(TaskItem newTask, string? targetCategoryId = null, int minimumScore = 70)
+    private SimilarTaskMatch? FindSimilarTaskCandidate(TaskItem task, string? excludedCategoryId = null, int minimumScore = 50)
     {
         return AllTasks
-            .Where(task => !string.Equals(task.Id, newTask.Id, StringComparison.OrdinalIgnoreCase))
-            .Where(task => string.IsNullOrWhiteSpace(targetCategoryId) ||
-                task.CategoryIds.Contains(targetCategoryId, StringComparer.OrdinalIgnoreCase) ||
-                string.Equals(task.CategoryId, targetCategoryId, StringComparison.OrdinalIgnoreCase))
-            .Select(task => new SimilarTaskMatch(task, CalculateSimilarityScore(newTask, task)))
+            .Where(candidate => !string.Equals(candidate.Id, task.Id, StringComparison.OrdinalIgnoreCase))
+            .Where(candidate => string.IsNullOrWhiteSpace(excludedCategoryId) ||
+                !TaskBelongsToCategory(candidate, excludedCategoryId))
+            .Select(candidate => new SimilarTaskMatch(candidate, CalculateSimilarityScore(task, candidate)))
             .Where(match => match.Score >= minimumScore)
             .OrderByDescending(match => match.Score)
             .ThenByDescending(match => match.Task.UpdatedAt)
@@ -4459,17 +4478,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static int CalculateSimilarityScore(TaskItem left, TaskItem right)
     {
-        var score = 0;
-        var customerNameScore = CompareNormalizedText(left.CustomerName, right.CustomerName, exactScore: 45, containsScore: 30);
-        var titleScore = CompareNormalizedText(left.Title, right.Title, exactScore: 45, containsScore: 30);
-        score += customerNameScore;
-        score += titleScore;
-        score += CompareNormalizedText(left.CustomerAddress, right.CustomerAddress, exactScore: 25, containsScore: 15);
-        score += CompareNormalizedText(left.Description, right.Description, exactScore: 10, containsScore: 5);
+        var customerNameScore = CompareNormalizedText(left.CustomerName, right.CustomerName, exactScore: 55, containsScore: 35);
+        var titleScore = CompareNormalizedText(left.Title, right.Title, exactScore: 45, containsScore: 25);
+        var addressScore = CompareNormalizedText(left.CustomerAddress, right.CustomerAddress, exactScore: 50, containsScore: 30);
 
-        if (customerNameScore == 0 && titleScore == 0)
+        if (customerNameScore == 0 && titleScore == 0 && addressScore == 0)
         {
             return 0;
+        }
+
+        var score = customerNameScore + titleScore + addressScore;
+        var matchedFieldCount = new[] { customerNameScore, titleScore, addressScore }.Count(match => match > 0);
+        if (matchedFieldCount > 1)
+        {
+            score += 10 * (matchedFieldCount - 1);
         }
 
         return score;
@@ -4508,7 +4530,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool HasMeaningfulDuplicateInput(TaskItem task)
     {
         return IsMeaningfulDuplicateValue(task.CustomerName) ||
-               IsMeaningfulDuplicateValue(task.Title);
+               IsMeaningfulDuplicateValue(task.Title) ||
+               IsMeaningfulDuplicateValue(task.CustomerAddress);
     }
 
     private static bool IsMeaningfulDuplicateValue(string? value)
@@ -4532,7 +4555,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return string.Empty;
         }
 
-        return Regex.Replace(value.Trim().ToLowerInvariant(), @"\s+", " ");
+        var normalized = value.Trim()
+            .ToLowerInvariant()
+            .Replace("ß", "ss", StringComparison.Ordinal)
+            .Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        var previousWasSpace = false;
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(character);
+                previousWasSpace = false;
+                continue;
+            }
+
+            if (!previousWasSpace && builder.Length > 0)
+            {
+                builder.Append(' ');
+                previousWasSpace = true;
+            }
+        }
+
+        return Regex.Replace(builder.ToString(), @"\s+", " ").Trim();
     }
 
     private void AddTaskToCategory(TaskItem task, string categoryId)
@@ -4559,6 +4610,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             task.CategoryId = categoryId;
         }
 
+        EnsureTaskCategoryState(task);
+    }
+
+    private static void MoveTaskToCategory(TaskItem task, string categoryId)
+    {
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return;
+        }
+
+        task.CategoryIds = [categoryId];
+        task.CategoryId = categoryId;
         EnsureTaskCategoryState(task);
     }
 
@@ -5467,13 +5530,13 @@ public sealed class DuplicateTaskDialog : Window
 
         content.Children.Add(new TextBlock
         {
-            Text = "Dieser Auftrag scheint bereits vorhanden zu sein.",
+            Text = $"Es gibt bereits einen ähnlichen Auftrag: {FormatTaskHeadline(existingTask)}. Was soll passieren?",
             FontSize = 18,
             FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
         });
 
-        content.Children.Add(CreateInfoText($"Bestehender Auftrag: {existingTask.CustomerName} – {existingTask.Title}"));
+        content.Children.Add(CreateInfoText($"Bestehender Auftrag: {FormatTaskHeadline(existingTask)}"));
         content.Children.Add(CreateInfoText($"Bestehende Kategorie(n): {existingCategories}"));
         content.Children.Add(CreateInfoText($"Neue gewünschte Kategorie: {targetCategory}"));
         content.Children.Add(CreateInfoText($"Übereinstimmung: {score} Punkte"));
@@ -5486,13 +5549,13 @@ public sealed class DuplicateTaskDialog : Window
         };
 
         buttonPanel.Children.Add(CreateChoiceButton(
+            "Bestehenden Auftrag verschieben",
+            DuplicateTaskChoice.MoveToCategory));
+        buttonPanel.Children.Add(CreateChoiceButton(
             "Zusätzlich zuordnen",
             DuplicateTaskChoice.AddToCategory));
         buttonPanel.Children.Add(CreateChoiceButton(
-            "In neue Kategorie verschieben",
-            DuplicateTaskChoice.MoveToCategory));
-        buttonPanel.Children.Add(CreateChoiceButton(
-            "Trotzdem neu erstellen",
+            "Neuen Auftrag trotzdem behalten",
             DuplicateTaskChoice.CreateAnyway));
         buttonPanel.Children.Add(CreateChoiceButton(
             "Abbrechen",
@@ -5508,6 +5571,30 @@ public sealed class DuplicateTaskDialog : Window
         {
             Text = text,
             TextWrapping = TextWrapping.Wrap
+        };
+    }
+
+    private static string FormatTaskHeadline(TaskItem task)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(task.CustomerName) &&
+            !task.CustomerName.Equals("Neuer Kunde", StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add(task.CustomerName.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(task.Title) &&
+            !task.Title.Equals("Neue Aufgabe", StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add(task.Title.Trim());
+        }
+
+        return parts.Count switch
+        {
+            0 => "Unbenannter Auftrag",
+            1 => parts[0],
+            _ => $"{parts[0]} / {parts[1]}"
         };
     }
 
