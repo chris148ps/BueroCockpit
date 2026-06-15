@@ -7,7 +7,7 @@
         Height="780"
         MinWidth="1080"
         MinHeight="680"
-        WindowState="Maximized"
+        WindowState="Normal"
         Background="{DynamicResource WindowBackgroundBrush}"
         Icon="/Assets/BueroCockpit.ico"
         Title="BüroCockpit">
@@ -624,7 +624,8 @@
                                        Stretch="Uniform"
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Stretch"
-                                       IsHitTestVisible="False" />
+                                       IsHitTestVisible="False"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
 
                                 <TextBlock IsVisible="{Binding HasPreviewText}"
                                            Text="{Binding PreviewText}"
@@ -1290,7 +1291,8 @@
                          MaxWidth="420"
                          MaxHeight="520"
                          HorizontalAlignment="Center"
-                         VerticalAlignment="Center" />
+                         VerticalAlignment="Center"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
                   <TextBlock IsVisible="{Binding HasPreviewPlaceholder}"
                              Text="{Binding SelectedAttachment.FileTypeBadge}"
                              HorizontalAlignment="Center"
@@ -1389,7 +1391,8 @@
                                Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
+                               VerticalAlignment="Center"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
                         <TextBlock IsVisible="{Binding HasNoThumbnail}"
                                    Text="{Binding FileTypeBadge}"
                                    HorizontalAlignment="Center"

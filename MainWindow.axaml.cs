@@ -104,7 +104,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const double DeskBaseSurfaceWidth = 2400;
     private const double DeskBaseSurfaceHeight = 1600;
     private const double DeskMinZoom = 0.2;
-    private const double DeskMaxZoom = 3.0;
+    private const double DeskMaxZoom = 10.0;
     private const double DeskFitMargin = 120;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
@@ -144,7 +144,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
     public string[] AppearanceModeOptions { get; } = [LightMode, DarkMode];
 
-    public string DeskZoomLabel => $"{Math.Round(_deskUserZoom * 100):0} %";
+    public string DeskZoomLabel => $"{Math.Min(Math.Round(_deskUserZoom * 100), 300):0} %";
 
     public double DeskZoom => _deskFitZoom * _deskUserZoom;
 
@@ -710,6 +710,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _repository.Initialize();
         LoadData();
+        CleanupNavigationCategories();
+        SelectStartupTaskCategory();
     }
 
     private static string FormatAppInstanceLockStatus(AppInstanceLockResult lockResult)
@@ -747,6 +749,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void CleanupNavigationCategories()
+    {
+        var categoriesToRemove = Categories
+            .Where(category =>
+                string.Equals(category.Name, OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category.Name, "Übersicht", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        foreach (var category in categoriesToRemove)
+        {
+            Categories.Remove(category);
+        }
+
+        var duplicateDeskCategories = Categories
+            .Where(category => string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase))
+            .Skip(1)
+            .ToList();
+
+        foreach (var category in duplicateDeskCategories)
+        {
+            Categories.Remove(category);
+        }
+    }
+
+    private void SelectStartupTaskCategory()
+    {
+        var startupCategory = Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
+
+        if (startupCategory is null)
+        {
+            return;
+        }
+
+        SelectedCategory = startupCategory;
+
+        if (CategoryList is not null)
+        {
+            CategoryList.SelectedItem = startupCategory;
+        }
+
+        ApplySelectedCategoryContent();
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+    }
+
     private void MainWindow_OnLoaded(object? sender, RoutedEventArgs e)
     {
         if (_deskInitialViewApplied)
@@ -754,7 +808,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        Dispatcher.UIThread.Post(FitDeskToViewport, DispatcherPriority.Loaded);
+        if (IsDeskSelected)
+        {
+            Dispatcher.UIThread.Post(FitDeskToViewport, DispatcherPriority.Loaded);
+        }
     }
 
     private void DeskNoteHeader_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -2475,8 +2532,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         InsertBeforeSettings(category);
         RefreshTaskCategories();
         SelectedCategory = category;
+        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
+        {
+            SelectedCategory = GetDefaultStartupCategory();
+        }
+
         ApplySelectedCategoryContent();
         UpdateCategoryCounts();
+
+        ForceStartupTaskCategory();
         CategoryMessage = "Kategorie angelegt.";
     }
 
@@ -2559,7 +2623,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ReorderVisibleCategories(string selectedCategoryId)
     {
         var deskCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId);
-        var overviewCategory = Categories.FirstOrDefault(category => category.Name == OverviewCategoryName);
         var settingsCategory = Categories.FirstOrDefault(category => category.Id == SettingsCategoryId);
 
         var orderedCategories = Categories
@@ -2575,11 +2638,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Categories.Add(deskCategory);
         }
 
-        if (overviewCategory is not null)
-        {
-            Categories.Add(overviewCategory);
-        }
-
         foreach (var category in orderedCategories)
         {
             Categories.Add(category);
@@ -2590,10 +2648,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Categories.Add(settingsCategory);
         }
 
-        SelectedCategory = Categories.FirstOrDefault(category => category.Id == selectedCategoryId)
-            ?? deskCategory
-            ?? overviewCategory
+        var selectedCategory = Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
+            ?? GetDefaultStartupCategory()
             ?? Categories.FirstOrDefault();
+
+        SelectedCategory = selectedCategory;
 
         ApplySelectedCategoryContent();
         UpdateCategoryCounts();
@@ -3855,6 +3915,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return !string.IsNullOrWhiteSpace(task.CategoryId);
+    }
+
+    private CategoryItem? GetDefaultStartupCategory()
+    {
+        return Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category))
+            ?? Categories.FirstOrDefault();
+    }
+
+    private CategoryItem? GetStartupTaskCategory()
+    {
+        return Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category =>
+                !IsSpecialCategory(category) && category.IsVisible)
+            ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
+    }
+
+    private void ForceStartupTaskCategory()
+    {
+        var startupCategory = GetStartupTaskCategory();
+        Console.WriteLine($"STARTDIAG: startupCategory={startupCategory?.Name} id={startupCategory?.Id}");
+        Console.WriteLine($"STARTDIAG: before SelectedCategory={SelectedCategory?.Name} id={SelectedCategory?.Id} IsDeskSelected={IsDeskSelected}");
+
+        if (startupCategory is null)
+        {
+            return;
+        }
+
+        SelectedCategory = startupCategory;
+
+        if (CategoryList is not null)
+        {
+            CategoryList.SelectedItem = startupCategory;
+        }
+
+        ApplySelectedCategoryContent();
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+
+        Console.WriteLine($"STARTDIAG: after SelectedCategory={SelectedCategory?.Name} id={SelectedCategory?.Id} IsDeskSelected={IsDeskSelected}");
     }
 
     private static CategoryItem CreateSettingsCategory()

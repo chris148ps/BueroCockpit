@@ -10,9 +10,9 @@ namespace BueroCockpit.Services;
 
 public sealed class ThumbnailService
 {
-    private const int ThumbnailWidth = 160;
-    private const int ThumbnailHeight = 110;
-    private const int PdfPreviewWidth = 420;
+    private const int ThumbnailWidth = 1200;
+    private const int ThumbnailHeight = 850;
+    private const int PdfPreviewWidth = 2400;
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
