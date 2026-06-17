@@ -532,8 +532,9 @@
                                         IsEnabled="{Binding HasLinkedTask}"
                                         Click="OpenDeskItemDetailView_OnClick" />
                               <MenuItem Header="Extern öffnen"
-                                        IsVisible="{Binding IsFileCard}"
                                         Click="OpenDeskFileExternal_OnClick" />
+                              <MenuItem Header="Datei neu zuordnen"
+                                        Click="ReassignDeskFile_OnClick" />
                               <MenuItem Header="Umbenennen"
                                         Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
@@ -653,6 +654,10 @@
                               <MenuItem Header="Zur Detailansicht"
                                         IsEnabled="{Binding HasLinkedTask}"
                                         Click="OpenDeskItemDetailView_OnClick" />
+                              <MenuItem Header="Extern öffnen"
+                                        Click="OpenDeskFileExternal_OnClick" />
+                              <MenuItem Header="Datei neu zuordnen"
+                                        Click="ReassignDeskFile_OnClick" />
                               <MenuItem Header="Umbenennen"
                                         Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
@@ -1493,6 +1498,17 @@
                         Background="{DynamicResource SurfaceBackgroundBrush}"
                         BorderBrush="{DynamicResource BorderBrushDark}"
                         PointerPressed="AttachmentCard_OnPointerPressed">
+                  <Border.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Extern öffnen"
+                                Click="OpenAttachmentExternal_OnClick" />
+                      <MenuItem Header="Datei neu zuordnen"
+                                Click="ReassignAttachmentFile_OnClick" />
+                      <MenuItem Header="Entfernen"
+                                Click="DeleteAttachment_OnClick"
+                                Tag="{Binding}" />
+                    </ContextMenu>
+                  </Border.ContextMenu>
                   <Grid ColumnDefinitions="170,*,Auto" ColumnSpacing="12">
                     <Border Grid.Column="0" Width="160" Height="110" CornerRadius="10" Background="{DynamicResource InputBackgroundBrush}" ClipToBounds="True">
                       <Grid>

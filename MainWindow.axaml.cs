@@ -1167,6 +1167,56 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TryOpenDeskFileExternal(deskItem);
     }
 
+    private async void ReassignDeskFile_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            DeskStatus = "Dateiauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Schreibtisch-Datei neu zuordnen",
+            AllowMultiple = false
+        });
+
+        var newPath = files.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(newPath))
+        {
+            return;
+        }
+
+        if (!File.Exists(newPath))
+        {
+            DeskStatus = $"Datei nicht gefunden: {newPath}";
+            return;
+        }
+
+        deskItem.FilePath = newPath;
+        deskItem.ReferencePath = newPath;
+        deskItem.FileName = Path.GetFileName(newPath);
+        deskItem.ThumbnailPath = string.Empty;
+        deskItem.ContentHash = string.Empty;
+        deskItem.UpdatedAt = DateTime.Now;
+
+        var resolvedLinkedTaskId = TryResolveDeskItemLinkedTaskIdFromPath(deskItem);
+        if (!string.IsNullOrWhiteSpace(resolvedLinkedTaskId))
+        {
+            deskItem.LinkedTaskId = resolvedLinkedTaskId;
+        }
+
+        RefreshDeskFileCard(deskItem);
+        _repository.SaveDeskItem(deskItem);
+        DeskStatus = $"Datei neu zugeordnet: {newPath}";
+    }
+
     private void TryOpenDeskFileExternal(DeskItem deskItem, string? resolvedPath = null)
     {
         var filePath = resolvedPath ?? AppPaths.ResolveDeskItemPath(deskItem.FilePath);
@@ -2976,6 +3026,71 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void OpenAttachmentExternal_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: AttachmentItem item })
+        {
+            return;
+        }
+
+        var storedPath = ResolveAttachmentPath(item.StoredPath);
+        if (!TryOpenExternalFile(storedPath, out var errorMessage))
+        {
+            AttachmentEditStatus = errorMessage ?? $"Datei nicht gefunden: {storedPath}";
+        }
+    }
+
+    private async void ReassignAttachmentFile_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: AttachmentItem item })
+        {
+            return;
+        }
+
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            AttachmentEditStatus = "Dateiauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Anhang neu zuordnen",
+            AllowMultiple = false
+        });
+
+        var newPath = files.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(newPath))
+        {
+            return;
+        }
+
+        if (!File.Exists(newPath))
+        {
+            AttachmentEditStatus = $"Datei nicht gefunden: {newPath}";
+            return;
+        }
+
+        item.StoredPath = AppPaths.MakeRelativeToDataFolder(newPath);
+        item.FileName = Path.GetFileName(newPath);
+        item.ThumbnailPath = string.Empty;
+        item.ContentHash = string.Empty;
+        EnsureAttachmentThumbnail(item);
+        _repository.SaveAttachment(item);
+
+        if (SelectedAttachment?.Id == item.Id)
+        {
+            OnPropertyChanged(nameof(PreviewImagePath));
+            OnPropertyChanged(nameof(HasPreviewImage));
+            OnPropertyChanged(nameof(HasPreviewPlaceholder));
+            OnPropertyChanged(nameof(AttachmentPreviewTitle));
+            OnPropertyChanged(nameof(AttachmentPreviewInfo));
+        }
+
+        AttachmentEditStatus = $"Datei neu zugeordnet: {item.FileName}";
+    }
+
     private void PlaceAttachmentOnDesk_OnClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: AttachmentItem item })
@@ -3004,7 +3119,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DeleteAttachment_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: AttachmentItem item })
+        var item = sender switch
+        {
+            Button { Tag: AttachmentItem buttonItem } => buttonItem,
+            MenuItem { Tag: AttachmentItem menuItemTag } => menuItemTag,
+            MenuItem { DataContext: AttachmentItem menuItemDataContext } => menuItemDataContext,
+            _ => null
+        };
+
+        if (item is null)
         {
             return;
         }
