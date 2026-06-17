@@ -92,6 +92,17 @@ public sealed class StorageLocationService
             Directory.CreateDirectory(targetDirectory);
             EnsureWritable(targetDirectory);
 
+            var targetDatabasePath = Path.Combine(targetDirectory, "buerocockpit.db");
+            if (File.Exists(targetDatabasePath))
+            {
+                WriteBootstrapSettings(targetDirectory);
+
+                return StorageLocationMigrationResult.Success(
+                    targetDirectory,
+                    string.Empty,
+                    "Vorhandene BüroCockpit-Datenbank wird verwendet. Bitte BüroCockpit neu starten.");
+            }
+
             var preflightError = ValidateMigrationTarget(targetDirectory);
             if (preflightError is not null)
             {
