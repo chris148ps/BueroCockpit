@@ -98,6 +98,7 @@ public sealed class DeskItem : ObservableObject
             if (SetProperty(ref _displayName, value))
             {
                 OnPropertyChanged(nameof(FileDisplayName));
+                OnPropertyChanged(nameof(FileStatusText));
             }
         }
     }
@@ -111,8 +112,10 @@ public sealed class DeskItem : ObservableObject
                 OnPropertyChanged(nameof(PdfPath));
                 OnPropertyChanged(nameof(DisplayName));
                 OnPropertyChanged(nameof(FileDisplayName));
+                OnPropertyChanged(nameof(FileStatusText));
                 OnPropertyChanged(nameof(HasFileReference));
                 OnPropertyChanged(nameof(HasFile));
+                OnPropertyChanged(nameof(HasMissingFile));
                 OnPropertyChanged(nameof(HasPreviewText));
                 OnPropertyChanged(nameof(HasSimplePreviewPlaceholder));
                 OnPropertyChanged(nameof(FileBadgeText));
@@ -136,6 +139,7 @@ public sealed class DeskItem : ObservableObject
                 OnPropertyChanged(nameof(HasFileName));
                 OnPropertyChanged(nameof(DisplayName));
                 OnPropertyChanged(nameof(FileDisplayName));
+                OnPropertyChanged(nameof(FileStatusText));
                 OnPropertyChanged(nameof(FileBadgeText));
                 OnPropertyChanged(nameof(FileKindLabel));
                 OnPropertyChanged(nameof(PreviewText));
@@ -151,6 +155,7 @@ public sealed class DeskItem : ObservableObject
             {
                 OnPropertyChanged(nameof(HasReferencePath));
                 OnPropertyChanged(nameof(HasLinkedTask));
+                OnPropertyChanged(nameof(FileStatusText));
             }
         }
     }
@@ -248,6 +253,7 @@ public sealed class DeskItem : ObservableObject
     public bool IsFileCard => !IsNoteCard;
     public bool HasFileReference => IsFileCard && !string.IsNullOrWhiteSpace(FilePath);
     public bool HasFile => HasFileReference && File.Exists(FilePath);
+    public bool HasMissingFile => HasFileReference && !HasFile;
     public bool HasFileName => !string.IsNullOrWhiteSpace(FileName);
     public bool HasReferencePath => !string.IsNullOrWhiteSpace(ReferencePath);
     public bool HasLinkedTask =>
@@ -258,7 +264,8 @@ public sealed class DeskItem : ObservableObject
     public bool HasPreviewThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(ThumbnailPath);
     public bool HasPdfThumbnail => HasPreviewThumbnail;
     public bool HasSimplePreviewPlaceholder => IsFileCard && !HasPreviewThumbnail && !HasPreviewText;
-    public string FileDisplayName => DisplayName;
+    public string FileDisplayName => HasMissingFile ? "Datei nicht gefunden" : DisplayName;
+    public string FileStatusText => HasMissingFile ? $"Datei nicht gefunden: {FilePath}" : string.Empty;
     public string PreviewText => HasPreviewText ? Text.Trim() : string.Empty;
     public string FileBadgeText
     {

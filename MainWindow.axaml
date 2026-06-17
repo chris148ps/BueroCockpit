@@ -441,6 +441,11 @@
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="0,5,0,0"
                        TextWrapping="Wrap" />
+            <TextBlock Text="{Binding DeskStatus}"
+                       IsVisible="{Binding HasDeskStatus}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       Margin="0,8,0,0"
+                       TextWrapping="Wrap" />
           </StackPanel>
           <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
             <Button Content="Notizzettel hinzufügen"
@@ -526,6 +531,9 @@
                               <MenuItem Header="Zur Detailansicht"
                                         IsEnabled="{Binding HasLinkedTask}"
                                         Click="OpenDeskItemDetailView_OnClick" />
+                              <MenuItem Header="Extern öffnen"
+                                        IsVisible="{Binding IsFileCard}"
+                                        Click="OpenDeskFileExternal_OnClick" />
                               <MenuItem Header="Umbenennen"
                                         Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
@@ -722,7 +730,7 @@
 
                               <Grid Grid.Row="1"
                                     Margin="2,0,2,0">
-                                <TextBlock Text="{Binding DisplayName}"
+                                <TextBlock Text="{Binding FileDisplayName}"
                                            HorizontalAlignment="Center"
                                            TextAlignment="Center"
                                            TextWrapping="NoWrap"
@@ -1503,16 +1511,20 @@
                       </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="#111827" />
+                      <TextBlock Text="{Binding FileDisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="#111827" />
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
+                      <TextBlock Text="{Binding FileStatusText}"
+                                 IsVisible="{Binding HasMissingFile}"
+                                 Foreground="{DynamicResource DangerBrush}"
+                                 FontSize="12"
+                                 Margin="0,4,0,0"
+                                 TextWrapping="Wrap" />
                     </StackPanel>
 	                    <StackPanel Grid.Column="2" Spacing="8">
 	                      <Button Content="Extern öffnen"
-	                              Click="OpenAttachmentExternalFromList_OnClick"
-	                              IsEnabled="{Binding HasFile}" />
+	                              Click="OpenAttachmentExternalFromList_OnClick" />
 	                      <Button Content="Auf Schreibtisch legen"
-	                              Click="PlaceAttachmentOnDesk_OnClick"
-	                              IsEnabled="{Binding HasFile}" />
+	                              Click="PlaceAttachmentOnDesk_OnClick" />
 	                      <Button Content="Entfernen" Click="DeleteAttachment_OnClick" Tag="{Binding}" />
 	                      <CheckBox IsChecked="{Binding IsSelectedForPrint, Mode=TwoWay}"
 	                                Content="Auswählen"

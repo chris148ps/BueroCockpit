@@ -74,6 +74,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _backupStatus = "Noch kein Backup erstellt.";
     private string _storageLocationStatus = "Speicherort nicht geändert.";
     private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
+    private string _deskStatus = string.Empty;
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -657,6 +658,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasLastBackup => !string.IsNullOrWhiteSpace(LastBackupPath);
+    public string DeskStatus
+    {
+        get => _deskStatus;
+        set
+        {
+            if (_deskStatus != value)
+            {
+                _deskStatus = value;
+                OnPropertyChanged(nameof(DeskStatus));
+                OnPropertyChanged(nameof(HasDeskStatus));
+            }
+        }
+    }
+
+    public bool HasDeskStatus => !string.IsNullOrWhiteSpace(DeskStatus);
+
     public string UpdateStatus
     {
         get => _updateStatus;
@@ -1124,13 +1141,45 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!deskItem.IsFileCard || !deskItem.HasFile)
+        if (!deskItem.IsFileCard)
         {
             return;
         }
 
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            DeskStatus = $"Datei nicht gefunden: {filePath}";
+            return;
+        }
+
         e.Handled = true;
-        OpenDeskFileExternal(deskItem);
+        TryOpenDeskFileExternal(deskItem, filePath);
+    }
+
+    private void OpenDeskFileExternal_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: DeskItem deskItem })
+        {
+            return;
+        }
+
+        TryOpenDeskFileExternal(deskItem);
+    }
+
+    private void TryOpenDeskFileExternal(DeskItem deskItem, string? resolvedPath = null)
+    {
+        var filePath = resolvedPath ?? AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            DeskStatus = $"Datei nicht gefunden: {filePath}";
+            return;
+        }
+
+        if (!TryOpenExternalFile(filePath, out var errorMessage))
+        {
+            DeskStatus = errorMessage ?? $"Datei konnte nicht geöffnet werden: {filePath}";
+        }
     }
 
     private void OpenDeskItemDetailView_OnClick(object? sender, RoutedEventArgs e)
@@ -2920,7 +2969,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        OpenAttachmentExternal(item);
+        var storedPath = ResolveAttachmentPath(item.StoredPath);
+        if (!TryOpenExternalFile(storedPath, out var errorMessage))
+        {
+            AttachmentEditStatus = errorMessage ?? $"Datei nicht gefunden: {storedPath}";
+        }
     }
 
     private void PlaceAttachmentOnDesk_OnClick(object? sender, RoutedEventArgs e)
@@ -4155,8 +4208,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return true;
             }
 
-            OpenAttachmentExternal(item);
-            return true;
+            return TryOpenExternalFile(storedPath, out _);
         }
         catch (Exception ex)
         {
@@ -4165,38 +4217,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static void OpenAttachmentExternal(AttachmentItem item)
+    private static bool TryOpenExternalFile(string path, out string? errorMessage)
     {
-        var storedPath = AppPaths.ResolveDataPath(item.StoredPath);
-        if (!File.Exists(storedPath))
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            return;
+            errorMessage = $"Datei nicht gefunden: {path}";
+            return false;
         }
 
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+        try
         {
-            FileName = storedPath,
-            UseShellExecute = true
-        };
-        process.Start();
-    }
-
-    private static void OpenDeskFileExternal(DeskItem deskItem)
-    {
-        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
-        if (!File.Exists(filePath))
-        {
-            return;
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            };
+            process.Start();
+            return true;
         }
-
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+        catch (Exception ex)
         {
-            FileName = filePath,
-            UseShellExecute = true
-        };
-        process.Start();
+            Debug.WriteLine($"Could not open file '{path}': {ex}");
+            errorMessage = $"Datei konnte nicht geöffnet werden: {path}";
+            return false;
+        }
     }
 
     private void CategoryList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)

@@ -13,7 +13,17 @@ public sealed class AttachmentItem : ObservableObject
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string TaskId { get; set; } = string.Empty;
-    public string FileName { get => _fileName; set => SetProperty(ref _fileName, value); }
+    public string FileName
+    {
+        get => _fileName;
+        set
+        {
+            if (SetProperty(ref _fileName, value))
+            {
+                OnPropertyChanged(nameof(FileDisplayName));
+            }
+        }
+    }
     public string StoredPath
     {
         get => _storedPath;
@@ -23,6 +33,9 @@ public sealed class AttachmentItem : ObservableObject
             {
                 OnPropertyChanged(nameof(HasFile));
                 OnPropertyChanged(nameof(HasNoFile));
+                OnPropertyChanged(nameof(HasMissingFile));
+                OnPropertyChanged(nameof(FileDisplayName));
+                OnPropertyChanged(nameof(FileStatusText));
             }
         }
     }
@@ -46,6 +59,10 @@ public sealed class AttachmentItem : ObservableObject
         !string.IsNullOrWhiteSpace(StoredPath) &&
         File.Exists(AppPaths.ResolveDataPath(StoredPath));
     public bool HasNoFile => !HasFile;
+    public bool HasMissingFile => !string.IsNullOrWhiteSpace(StoredPath) && !HasFile;
+    public string FileDisplayName => HasMissingFile ? "Datei nicht gefunden" : FileName;
+    public string FileStatusText =>
+        HasMissingFile ? $"Datei nicht gefunden: {AppPaths.ResolveDataPath(StoredPath)}" : string.Empty;
     public bool HasThumbnail =>
         !string.IsNullOrWhiteSpace(ThumbnailPath) &&
         File.Exists(AppPaths.ResolveDataPath(ThumbnailPath));
