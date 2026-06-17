@@ -2927,10 +2927,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var attachmentDirectory = AppPaths.GetAttachmentDirectory(SelectedTask.Id);
             Directory.CreateDirectory(attachmentDirectory);
 
-            var originalName = Path.GetFileName(sourcePath);
+            var normalizedSourcePath = Path.GetFullPath(sourcePath);
+            var originalName = Path.GetFileName(normalizedSourcePath);
             var storedName = CreateStoredFileName(originalName);
             var destinationPath = Path.Combine(attachmentDirectory, storedName);
-            File.Copy(sourcePath, destinationPath, overwrite: false);
+            if (!IsInsideDataFolder(normalizedSourcePath))
+            {
+                File.Copy(normalizedSourcePath, destinationPath, overwrite: false);
+            }
+            else
+            {
+                destinationPath = normalizedSourcePath;
+            }
 
             var attachment = new AttachmentItem
             {
