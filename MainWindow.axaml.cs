@@ -2263,6 +2263,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return deskFilePath;
     }
 
+    private string ResolveDeskFileStoragePath(string sourcePath, string deskItemId)
+    {
+        var normalizedSourcePath = Path.GetFullPath(sourcePath);
+        if (IsInsideDataFolder(normalizedSourcePath))
+        {
+            return normalizedSourcePath;
+        }
+
+        var targetPath = CreateDeskFileStoredPath(Path.GetFileName(normalizedSourcePath), deskItemId);
+        File.Copy(normalizedSourcePath, targetPath, overwrite: false);
+        return targetPath;
+    }
+
     private void RefreshDeskFileCard(DeskItem deskItem)
     {
         EnsureDeskFilePreview(deskItem);
@@ -2381,16 +2394,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var now = DateTime.Now;
-        var fileName = Path.GetFileName(sourcePath);
-        var cardSize = GetDeskFileCardSize(sourcePath);
+        var normalizedSourcePath = Path.GetFullPath(sourcePath);
+        var fileName = Path.GetFileName(normalizedSourcePath);
+        var cardSize = GetDeskFileCardSize(normalizedSourcePath);
+        var deskItemId = Guid.NewGuid().ToString("N");
+        var resolvedLinkedTaskId = !string.IsNullOrWhiteSpace(linkedTaskId)
+            ? linkedTaskId
+            : TryGetLinkedTaskIdFromPath(normalizedSourcePath);
+        var stablePath = ResolveDeskFileStoragePath(normalizedSourcePath, deskItemId);
         var deskItem = new DeskItem
         {
-            Id = Guid.NewGuid().ToString("N"),
-            Type = GetDeskItemTypeForFile(sourcePath),
-            FilePath = string.Empty,
+            Id = deskItemId,
+            Type = GetDeskItemTypeForFile(normalizedSourcePath),
+            FilePath = stablePath,
             FileName = fileName,
             DisplayName = fileName,
-            ReferencePath = sourcePath,
+            ReferencePath = stablePath,
             ThumbnailPath = string.Empty,
             Text = string.Empty,
             Width = cardSize.Width,
@@ -2400,14 +2419,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             UpdatedAt = now
         };
 
-        var storedPath = CreateDeskFileStoredPath(fileName, deskItem.Id);
-        File.Copy(sourcePath, storedPath, overwrite: false);
-        deskItem.FilePath = storedPath;
-        deskItem.Text = BuildDeskFilePreviewText(storedPath) ?? string.Empty;
-
-        var resolvedLinkedTaskId = !string.IsNullOrWhiteSpace(linkedTaskId)
-            ? linkedTaskId
-            : TryResolveDeskItemLinkedTaskIdFromPath(deskItem);
+        deskItem.Text = BuildDeskFilePreviewText(stablePath) ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(resolvedLinkedTaskId))
         {

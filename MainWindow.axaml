@@ -531,10 +531,6 @@
                               <MenuItem Header="Zur Detailansicht"
                                         IsEnabled="{Binding HasLinkedTask}"
                                         Click="OpenDeskItemDetailView_OnClick" />
-                              <MenuItem Header="Extern öffnen"
-                                        Click="OpenDeskFileExternal_OnClick" />
-                              <MenuItem Header="Datei neu zuordnen"
-                                        Click="ReassignDeskFile_OnClick" />
                               <MenuItem Header="Umbenennen"
                                         Click="BeginDeskItemRename_OnClick" />
                               <MenuItem Header="Löschen"
