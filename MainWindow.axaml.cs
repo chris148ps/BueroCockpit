@@ -3748,6 +3748,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static bool AreSameResolvedDirectory(string firstPath, string secondPath)
+    {
+        try
+        {
+            var firstResolvedPath = Path.GetFullPath(ResolveDisplayDirectory(firstPath))
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var secondResolvedPath = Path.GetFullPath(ResolveDisplayDirectory(secondPath))
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
+            return string.Equals(firstResolvedPath, secondResolvedPath, comparison);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private void OpenDataFolder_OnClick(object? sender, RoutedEventArgs e)
     {
         OpenFolder(ResolveDisplayDirectory(AppPaths.AppDataDirectory));
@@ -3806,6 +3826,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
         if (string.IsNullOrWhiteSpace(folderPath))
         {
+            return;
+        }
+
+        if (AreSameResolvedDirectory(folderPath, AppPaths.AppDataDirectory))
+        {
+            StorageLocationStatus = "Dieser Datenordner wird bereits verwendet.";
             return;
         }
 
