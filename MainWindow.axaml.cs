@@ -376,12 +376,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
-    public string AppDataDirectory => AppPaths.AppDataDirectory;
-    public string DefaultAppDataDirectory => AppPaths.DefaultAppDataDirectory;
-    public string DatabasePath => AppPaths.DatabasePath;
-    public string TasksDirectory => AppPaths.TasksDirectory;
-    public string BackupDirectory => AppPaths.BackupDirectory;
-    public string LockPath => AppPaths.LockPath;
+    public string AppDataDirectory => ResolveDisplayDirectory(AppPaths.AppDataDirectory);
+    public string DefaultAppDataDirectory => ResolveDisplayDirectory(AppPaths.DefaultAppDataDirectory);
+    public string DatabasePath => ResolveDisplayPath(AppPaths.DatabasePath);
+    public string TasksDirectory => ResolveDisplayPath(AppPaths.TasksDirectory);
+    public string BackupDirectory => ResolveDisplayPath(AppPaths.BackupDirectory);
+    public string LockPath => ResolveDisplayPath(AppPaths.LockPath);
     public string StorageLocationStatus
     {
         get => _storageLocationStatus;
@@ -3678,14 +3678,84 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static string ResolveDisplayPath(string path)
+    {
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            var appDataPath = Path.GetFullPath(AppPaths.AppDataDirectory);
+            var resolvedAppDataPath = ResolveDisplayDirectory(appDataPath);
+
+            if (!string.Equals(appDataPath, resolvedAppDataPath, StringComparison.Ordinal) &&
+                (string.Equals(fullPath, appDataPath, StringComparison.Ordinal) ||
+                 fullPath.StartsWith(appDataPath + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
+            {
+                var relativePath = Path.GetRelativePath(appDataPath, fullPath);
+                return relativePath == "."
+                    ? resolvedAppDataPath
+                    : Path.Combine(resolvedAppDataPath, relativePath);
+            }
+
+            var directoryPath = Directory.Exists(fullPath)
+                ? fullPath
+                : Path.GetDirectoryName(fullPath);
+
+            if (!string.IsNullOrWhiteSpace(directoryPath))
+            {
+                var directoryInfo = new DirectoryInfo(directoryPath);
+                if (directoryInfo.Exists)
+                {
+                    var target = directoryInfo.ResolveLinkTarget(returnFinalTarget: true);
+                    if (target is DirectoryInfo targetDirectory && targetDirectory.Exists)
+                    {
+                        var fileName = Directory.Exists(fullPath) ? string.Empty : Path.GetFileName(fullPath);
+                        return string.IsNullOrWhiteSpace(fileName)
+                            ? targetDirectory.FullName
+                            : Path.Combine(targetDirectory.FullName, fileName);
+                    }
+                }
+            }
+
+            return fullPath;
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
+    private static string ResolveDisplayDirectory(string path)
+    {
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            var directoryInfo = new DirectoryInfo(fullPath);
+
+            if (directoryInfo.Exists)
+            {
+                var target = directoryInfo.ResolveLinkTarget(returnFinalTarget: true);
+                if (target is DirectoryInfo targetDirectory && targetDirectory.Exists)
+                {
+                    return targetDirectory.FullName;
+                }
+            }
+
+            return fullPath;
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
     private void OpenDataFolder_OnClick(object? sender, RoutedEventArgs e)
     {
-        OpenFolder(AppPaths.AppDataDirectory);
+        OpenFolder(ResolveDisplayDirectory(AppPaths.AppDataDirectory));
     }
 
     private void OpenDefaultDataFolder_OnClick(object? sender, RoutedEventArgs e)
     {
-        OpenFolder(AppPaths.DefaultAppDataDirectory);
+        OpenFolder(ResolveDisplayDirectory(AppPaths.DefaultAppDataDirectory));
     }
 
     private void OpenBackupFolder_OnClick(object? sender, RoutedEventArgs e)
