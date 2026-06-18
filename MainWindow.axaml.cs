@@ -75,6 +75,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _storageLocationStatus = "Speicherort nicht geändert.";
     private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
     private string _deskStatus = string.Empty;
+    private string _filePathCheckStatus = string.Empty;
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -673,6 +674,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasDeskStatus => !string.IsNullOrWhiteSpace(DeskStatus);
+
+    public string FilePathCheckStatus
+    {
+        get => _filePathCheckStatus;
+        set
+        {
+            if (_filePathCheckStatus != value)
+            {
+                _filePathCheckStatus = value;
+                OnPropertyChanged(nameof(FilePathCheckStatus));
+                OnPropertyChanged(nameof(HasFilePathCheckStatus));
+            }
+        }
+    }
+
+    public bool HasFilePathCheckStatus => !string.IsNullOrWhiteSpace(FilePathCheckStatus);
 
     public string UpdateStatus
     {
@@ -4041,6 +4058,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void CheckLegacyFilePaths_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var migratedCount = 0;
+        var missingCount = 0;
+        var failedCount = 0;
+
+        foreach (var deskItem in _repository.GetDeskItems())
+        {
+            if (TryMigrateDeskItemFile(deskItem, out var wasMissing, out var wasFailed))
+            {
+                migratedCount++;
+            }
+            else if (wasMissing)
+            {
+                missingCount++;
+            }
+            else if (wasFailed)
+            {
+                failedCount++;
+            }
+
+            if (TryUpdateLoadedDeskItem(deskItem))
+            {
+                _repository.SaveDeskItem(deskItem);
+            }
+        }
+
+        foreach (var task in _repository.GetTasks())
+        {
+            foreach (var attachment in _repository.GetAttachments(task.Id))
+            {
+                if (TryMigrateAttachmentFile(attachment, out var wasMissing, out var wasFailed))
+                {
+                    migratedCount++;
+                }
+                else if (wasMissing)
+                {
+                    missingCount++;
+                }
+                else if (wasFailed)
+                {
+                    failedCount++;
+                }
+
+                if (TryUpdateLoadedAttachment(attachment))
+                {
+                    _repository.SaveAttachment(attachment);
+                }
+            }
+        }
+
+        FilePathCheckStatus = BuildFilePathCheckStatus(migratedCount, missingCount, failedCount);
+    }
+
     private void UpdateFeed_OnTextChanged(object? sender, TextChangedEventArgs e)
     {
         if (sender is TextBox textBox)
@@ -4060,6 +4131,160 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateStatus = string.IsNullOrWhiteSpace(_appSettings.UpdateFeedUrl)
             ? "Standard-Updatekanal wird verwendet."
             : "Update-Kanal gespeichert.";
+    }
+
+    private bool TryMigrateDeskItemFile(DeskItem deskItem, out bool wasMissing, out bool wasFailed)
+    {
+        wasMissing = false;
+        wasFailed = false;
+
+        if (!deskItem.IsFileCard || !deskItem.HasReferencePath)
+        {
+            return false;
+        }
+
+        try
+        {
+            var sourcePath = AppPaths.ResolveDeskItemPath(deskItem.ReferencePath);
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            {
+                wasMissing = true;
+                return false;
+            }
+
+            if (IsInsideDataFolder(sourcePath))
+            {
+                return false;
+            }
+
+            var targetDirectory = AppPaths.GetDeskFileDirectory(deskItem.Id);
+            Directory.CreateDirectory(targetDirectory);
+
+            var targetPath = Path.Combine(targetDirectory, CreateStoredFileName(Path.GetFileName(sourcePath)));
+            File.Copy(sourcePath, targetPath, overwrite: false);
+
+            var stablePath = AppPaths.MakeRelativeToDataFolder(targetPath);
+            deskItem.ReferencePath = stablePath;
+
+            var currentFilePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+            if (string.IsNullOrWhiteSpace(currentFilePath) ||
+                !File.Exists(currentFilePath) ||
+                !IsInsideDataFolder(currentFilePath) ||
+                AppPaths.PathsEqual(currentFilePath, sourcePath))
+            {
+                deskItem.FilePath = stablePath;
+            }
+
+            deskItem.ThumbnailPath = string.Empty;
+            deskItem.UpdatedAt = DateTime.Now;
+            RefreshDeskFileCard(deskItem);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            wasFailed = true;
+            Debug.WriteLine($"Could not migrate desk item '{deskItem.Id}': {ex}");
+            return false;
+        }
+    }
+
+    private bool TryMigrateAttachmentFile(AttachmentItem attachment, out bool wasMissing, out bool wasFailed)
+    {
+        wasMissing = false;
+        wasFailed = false;
+
+        if (string.IsNullOrWhiteSpace(attachment.StoredPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            var sourcePath = ResolveAttachmentPath(attachment.StoredPath);
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            {
+                wasMissing = true;
+                return false;
+            }
+
+            if (IsInsideDataFolder(sourcePath))
+            {
+                return false;
+            }
+
+            var targetDirectory = AppPaths.GetAttachmentDirectory(attachment.TaskId);
+            Directory.CreateDirectory(targetDirectory);
+
+            var targetPath = Path.Combine(targetDirectory, CreateStoredFileName(Path.GetFileName(sourcePath)));
+            File.Copy(sourcePath, targetPath, overwrite: false);
+
+            attachment.StoredPath = AppPaths.MakeRelativeToDataFolder(targetPath);
+            attachment.ThumbnailPath = string.Empty;
+            EnsureAttachmentThumbnail(attachment);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            wasFailed = true;
+            Debug.WriteLine($"Could not migrate attachment '{attachment.Id}': {ex}");
+            return false;
+        }
+    }
+
+    private bool TryUpdateLoadedDeskItem(DeskItem sourceItem)
+    {
+        var loadedItem = DeskItems.FirstOrDefault(item => item.Id == sourceItem.Id);
+        if (loadedItem is null || ReferenceEquals(loadedItem, sourceItem))
+        {
+            return false;
+        }
+
+        loadedItem.Type = sourceItem.Type;
+        loadedItem.Text = sourceItem.Text;
+        loadedItem.FilePath = sourceItem.FilePath;
+        loadedItem.FileName = sourceItem.FileName;
+        loadedItem.DisplayName = sourceItem.DisplayName;
+        loadedItem.ReferencePath = sourceItem.ReferencePath;
+        loadedItem.ThumbnailPath = sourceItem.ThumbnailPath;
+        loadedItem.LinkedTaskId = sourceItem.LinkedTaskId;
+        loadedItem.ContentHash = sourceItem.ContentHash;
+        loadedItem.X = sourceItem.X;
+        loadedItem.Y = sourceItem.Y;
+        loadedItem.Width = sourceItem.Width;
+        loadedItem.Height = sourceItem.Height;
+        loadedItem.IsImportant = sourceItem.IsImportant;
+        loadedItem.CreatedAt = sourceItem.CreatedAt;
+        loadedItem.UpdatedAt = sourceItem.UpdatedAt;
+        return true;
+    }
+
+    private bool TryUpdateLoadedAttachment(AttachmentItem sourceItem)
+    {
+        var loadedItem = Attachments.FirstOrDefault(item => item.Id == sourceItem.Id);
+        if (loadedItem is null || ReferenceEquals(loadedItem, sourceItem))
+        {
+            return false;
+        }
+
+        loadedItem.FileName = sourceItem.FileName;
+        loadedItem.StoredPath = sourceItem.StoredPath;
+        loadedItem.ThumbnailPath = sourceItem.ThumbnailPath;
+        loadedItem.FileType = sourceItem.FileType;
+        loadedItem.ContentHash = sourceItem.ContentHash;
+        loadedItem.AddedAt = sourceItem.AddedAt;
+        loadedItem.TaskId = sourceItem.TaskId;
+        return true;
+    }
+
+    private static string BuildFilePathCheckStatus(int migratedCount, int missingCount, int failedCount)
+    {
+        var status = $"Prüfung abgeschlossen: {migratedCount} Datei(en) übernommen, {missingCount} fehlende Datei(en) gefunden.";
+        if (failedCount > 0)
+        {
+            status += $" {failedCount} Datei(en) konnten nicht verarbeitet werden.";
+        }
+
+        return status;
     }
 
     private async void SelectOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)

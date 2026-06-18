@@ -894,7 +894,17 @@
                         FontSize="12"
                         Padding="10,6"
                         Margin="0,0,-2,-2" />
+                <Button Content="Dateien in gemeinsamen Datenordner übernehmen"
+                        Click="CheckLegacyFilePaths_OnClick"
+                        FontSize="12"
+                        Padding="10,6"
+                        Margin="0,0,0,-2" />
               </WrapPanel>
+
+              <TextBlock Text="{Binding FilePathCheckStatus}"
+                         IsVisible="{Binding HasFilePathCheckStatus}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         TextWrapping="Wrap" />
 
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2" Margin="0,4,0,0">
                 <TextBlock Grid.Row="0"
