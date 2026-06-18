@@ -82,6 +82,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _updateFeedUrl = string.Empty;
     private string _appearanceMode = DarkMode;
     private bool _isUpdateAvailable;
+    private bool _startupUpdateCheckCompleted;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
     private bool _isUpdatingSelection;
@@ -412,7 +413,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string UpdateSource => _updateService.UpdateSource;
     public string AutoUpdateInstallStatus => _updateService.IsVelopackAvailable()
         ? "Diese laufende Instanz: installierte Version. Auto-Update aktiv."
-        : "Diese laufende Instanz: Entwicklungsstart. Auto-Update ist nur in der installierten Windows-Version aktiv.";
+        : OperatingSystem.IsWindows()
+            ? "Diese laufende Instanz: Entwicklungsstart. Auto-Update ist nur in der installierten Windows-Version aktiv."
+            : "Diese laufende Instanz: Auto-Update wird auf dieser Plattform nicht unterstützt.";
     public string UpdateFeedUrl
     {
         get => _updateFeedUrl;
@@ -873,8 +876,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private void MainWindow_OnLoaded(object? sender, RoutedEventArgs e)
+    private async void MainWindow_OnLoaded(object? sender, RoutedEventArgs e)
     {
+        if (!_startupUpdateCheckCompleted)
+        {
+            _startupUpdateCheckCompleted = true;
+            var shouldStopStartup = await RunStartupUpdateCheckAsync();
+            if (shouldStopStartup)
+            {
+                return;
+            }
+        }
+
         if (_deskInitialViewApplied)
         {
             return;
@@ -4469,9 +4482,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void CheckUpdates_OnClick(object? sender, RoutedEventArgs e)
     {
-        UpdateStatus = "Updateprüfung läuft...";
-        IsUpdateAvailable = await _updateService.CheckForUpdatesAsync();
-        UpdateStatus = _updateService.GetUpdateStatusText();
+        await RunManualUpdateCheckAsync();
     }
 
     private async void InstallUpdate_OnClick(object? sender, RoutedEventArgs e)
@@ -4480,6 +4491,207 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var started = await _updateService.DownloadAndApplyUpdateAsync();
         UpdateStatus = _updateService.GetUpdateStatusText();
         IsUpdateAvailable = started && _updateService.HasPendingUpdate;
+
+        if (started)
+        {
+            Close();
+        }
+    }
+
+    private async Task<bool> RunStartupUpdateCheckAsync()
+    {
+        UpdateStatus = "Updateprüfung läuft...";
+        IsUpdateAvailable = await _updateService.CheckForUpdatesAsync();
+        UpdateStatus = _updateService.GetUpdateStatusText();
+
+        if (_updateService.LastCheckFailed)
+        {
+            await ShowUpdateCheckFailureDialogAsync();
+            return false;
+        }
+
+        if (!IsUpdateAvailable)
+        {
+            return false;
+        }
+
+        await ShowRequiredUpdateDialogAsync();
+        Close();
+
+        return true;
+    }
+
+    private async Task RunManualUpdateCheckAsync()
+    {
+        UpdateStatus = "Updateprüfung läuft...";
+        IsUpdateAvailable = await _updateService.CheckForUpdatesAsync();
+        UpdateStatus = _updateService.GetUpdateStatusText();
+    }
+
+    private async Task ShowUpdateCheckFailureDialogAsync()
+    {
+        var okButton = new Button
+        {
+            Content = "OK",
+            IsCancel = true,
+            MinWidth = 90
+        };
+
+        var dialog = new Window
+        {
+            Title = "Updateprüfung fehlgeschlagen",
+            Width = 520,
+            MinWidth = 420,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Margin = new Thickness(18),
+                Child = new StackPanel
+                {
+                    Spacing = 10,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Updateprüfung konnte nicht durchgeführt werden.",
+                            FontSize = 18,
+                            FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "Die App kann weiterverwendet werden. Bitte später erneut prüfen.",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Margin = new Thickness(0, 8, 0, 0),
+                            Children = { okButton }
+                        }
+                    }
+                }
+            }
+        };
+
+        okButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
+    }
+
+    private async Task<RequiredUpdateDialogResult> ShowRequiredUpdateDialogAsync()
+    {
+        var result = RequiredUpdateDialogResult.Closed;
+        var isInstalling = false;
+
+        var statusText = new TextBlock
+        {
+            Text = "Es ist eine neue Version verfügbar. BüroCockpit muss aktualisiert werden, bevor weitergearbeitet werden kann.",
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        var installButton = new Button
+        {
+            Content = "Update installieren",
+            Classes = { "Primary" },
+            MinWidth = 150
+        };
+
+        var quitButton = new Button
+        {
+            Content = "Beenden",
+            MinWidth = 90,
+            IsCancel = true
+        };
+
+        var dialog = new Window
+        {
+            Title = "Update erforderlich",
+            Width = 560,
+            MinWidth = 460,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Margin = new Thickness(18),
+                Child = new StackPanel
+                {
+                    Spacing = 12,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Update erforderlich",
+                            FontSize = 20,
+                            FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        statusText,
+                        new TextBlock
+                        {
+                            Text = "Ohne Installation des Updates kann die App nicht weiter normal benutzt werden.",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Children =
+                            {
+                                installButton,
+                                quitButton
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        installButton.Click += async (_, _) =>
+        {
+            if (isInstalling)
+            {
+                return;
+            }
+
+            isInstalling = true;
+            installButton.IsEnabled = false;
+            quitButton.IsEnabled = false;
+            statusText.Text = "Update wird installiert...";
+
+            var started = await _updateService.DownloadAndApplyUpdateAsync();
+            statusText.Text = _updateService.GetUpdateStatusText();
+
+            if (started)
+            {
+                result = RequiredUpdateDialogResult.InstallStarted;
+                dialog.Close();
+                return;
+            }
+
+            isInstalling = false;
+            installButton.IsEnabled = true;
+            quitButton.IsEnabled = true;
+        };
+
+        quitButton.Click += (_, _) =>
+        {
+            result = RequiredUpdateDialogResult.Closed;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
+    }
+
+    private enum RequiredUpdateDialogResult
+    {
+        Closed,
+        InstallStarted
     }
 
     private void ExportAttachmentForIpad_OnClick(object? sender, RoutedEventArgs e)

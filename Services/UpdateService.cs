@@ -13,6 +13,7 @@ public sealed class UpdateService
     private UpdateInfo? _pendingUpdate;
     private string _updateFeedUrl = string.Empty;
     private string _statusText = "Update-Kanal: GitHub Releases.";
+    private bool _lastCheckFailed;
 
     public string UpdateFeedUrl
     {
@@ -38,6 +39,8 @@ public sealed class UpdateService
         : UpdateFeedUrl;
     public bool HasPendingUpdate => _pendingUpdate is not null;
 
+    public bool LastCheckFailed => _lastCheckFailed;
+
     public string GetCurrentVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();
@@ -54,6 +57,11 @@ public sealed class UpdateService
     {
         try
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return false;
+            }
+
             _updateManager ??= CreateUpdateManager();
             if (_updateManager is null)
             {
@@ -71,8 +79,17 @@ public sealed class UpdateService
 
     public async Task<bool> CheckForUpdatesAsync()
     {
+        _lastCheckFailed = false;
+
         try
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                _pendingUpdate = null;
+                _statusText = "Auto-Update wird auf dieser Plattform nicht unterstützt.";
+                return false;
+            }
+
             _updateManager ??= CreateUpdateManager();
             if (_updateManager is null)
             {
@@ -97,7 +114,8 @@ public sealed class UpdateService
         catch (Exception ex)
         {
             _pendingUpdate = null;
-            _statusText = $"Updateprüfung konnte nicht ausgeführt werden: {ex.GetType().Name}: {ex.Message}";
+            _lastCheckFailed = true;
+            _statusText = "Updateprüfung konnte nicht durchgeführt werden.";
             Debug.WriteLine($"Update check failed: {ex}");
             return false;
         }
@@ -107,6 +125,12 @@ public sealed class UpdateService
     {
         try
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                _statusText = "Update-Installation wird auf dieser Plattform nicht unterstützt.";
+                return false;
+            }
+
             if (_updateManager is null || _pendingUpdate is null)
             {
                 _statusText = "Kein Update zum Installieren vorhanden.";
