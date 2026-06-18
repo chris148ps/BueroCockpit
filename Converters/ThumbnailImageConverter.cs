@@ -9,7 +9,7 @@ public sealed class ThumbnailImageConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        var path = AppPaths.ResolveDataPath(value as string);
+        var path = AppPaths.ResolveStoredPath(value as string);
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
             return null;

@@ -359,11 +359,11 @@ public sealed class BueroRepository
                 Id = reader.GetString(0),
                 Type = reader.GetString(1),
                 Text = reader.GetString(2),
-                FilePath = AppPaths.ResolveDeskItemPath(reader.GetString(3)),
+                FilePath = AppPaths.ResolveStoredPath(reader.GetString(3)),
                 FileName = reader.GetString(4),
                 DisplayName = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
-                ReferencePath = AppPaths.ResolveDeskItemPath(reader.GetString(6)),
-                ThumbnailPath = AppPaths.ResolveDeskItemPath(reader.GetString(7)),
+                ReferencePath = AppPaths.ResolveStoredPath(reader.GetString(6)),
+                ThumbnailPath = AppPaths.ResolveStoredPath(reader.GetString(7)),
                 LinkedTaskId = reader.GetString(8),
                 ContentHash = reader.GetString(9),
                 X = reader.GetDouble(10),
@@ -574,8 +574,8 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$id", item.Id);
         command.Parameters.AddWithValue("$taskId", item.TaskId);
         command.Parameters.AddWithValue("$fileName", item.FileName);
-        command.Parameters.AddWithValue("$storedPath", AppPaths.MakeRelativeToDataFolder(item.StoredPath));
-        command.Parameters.AddWithValue("$thumbnailPath", AppPaths.MakeRelativeToDataFolder(item.ThumbnailPath));
+        command.Parameters.AddWithValue("$storedPath", AppPaths.ToStoredPath(item.StoredPath));
+        command.Parameters.AddWithValue("$thumbnailPath", AppPaths.ToStoredPath(item.ThumbnailPath));
         command.Parameters.AddWithValue("$fileType", item.FileType);
         command.Parameters.AddWithValue("$contentHash", item.ContentHash);
         command.Parameters.AddWithValue("$addedAt", ToDb(item.AddedAt));
@@ -613,11 +613,11 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$id", item.Id);
         command.Parameters.AddWithValue("$type", item.Type);
         command.Parameters.AddWithValue("$text", item.Text);
-        command.Parameters.AddWithValue("$pdfPath", AppPaths.MakeRelativeToDataFolder(item.FilePath));
+        command.Parameters.AddWithValue("$pdfPath", AppPaths.ToStoredPath(item.FilePath));
         command.Parameters.AddWithValue("$fileName", item.FileName);
         command.Parameters.AddWithValue("$displayName", item.DisplayName);
-        command.Parameters.AddWithValue("$referencePath", AppPaths.MakeRelativeToDataFolder(item.ReferencePath));
-        command.Parameters.AddWithValue("$pdfThumbnailPath", AppPaths.MakeRelativeToDataFolder(item.ThumbnailPath));
+        command.Parameters.AddWithValue("$referencePath", AppPaths.ToStoredPath(item.ReferencePath));
+        command.Parameters.AddWithValue("$pdfThumbnailPath", AppPaths.ToStoredPath(item.ThumbnailPath));
         command.Parameters.AddWithValue("$linkedTaskId", item.LinkedTaskId);
         command.Parameters.AddWithValue("$contentHash", item.ContentHash);
         command.Parameters.AddWithValue("$x", item.X);
@@ -660,7 +660,7 @@ public sealed class BueroRepository
             using var reader = readCommand.ExecuteReader();
             if (reader.Read())
             {
-                storedPath = AppPaths.MakeRelativeToDataFolder(reader.GetString(0));
+                storedPath = AppPaths.ToStoredPath(reader.GetString(0));
             }
         }
 
@@ -673,7 +673,7 @@ public sealed class BueroRepository
             """;
         command.Parameters.AddWithValue("$id", attachmentId);
         command.Parameters.AddWithValue("$storedPath", storedPath);
-        command.Parameters.AddWithValue("$thumbnailPath", AppPaths.MakeRelativeToDataFolder(thumbnailPath));
+        command.Parameters.AddWithValue("$thumbnailPath", AppPaths.ToStoredPath(thumbnailPath));
         command.ExecuteNonQuery();
     }
 

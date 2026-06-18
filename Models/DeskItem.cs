@@ -90,7 +90,7 @@ public sealed class DeskItem : ObservableObject
                 return FileName;
             }
 
-            var fileName = Path.GetFileName(FilePath);
+            var fileName = Path.GetFileName(AppPaths.ResolveStoredPath(FilePath));
             return string.IsNullOrWhiteSpace(fileName) ? "Datei" : fileName;
         }
         set
@@ -252,7 +252,7 @@ public sealed class DeskItem : ObservableObject
     public bool IsImageCard => string.Equals(Type, "Image", StringComparison.OrdinalIgnoreCase);
     public bool IsFileCard => !IsNoteCard;
     public bool HasFileReference => IsFileCard && !string.IsNullOrWhiteSpace(FilePath);
-    public bool HasFile => HasFileReference && File.Exists(FilePath);
+    public bool HasFile => HasFileReference && File.Exists(AppPaths.ResolveStoredPath(FilePath));
     public bool HasMissingFile => HasFileReference && !HasFile;
     public bool HasFileName => !string.IsNullOrWhiteSpace(FileName);
     public bool HasReferencePath => !string.IsNullOrWhiteSpace(ReferencePath);
@@ -261,17 +261,17 @@ public sealed class DeskItem : ObservableObject
         TryGetLinkedTaskId(ReferencePath) is not null ||
         TryGetLinkedTaskId(FilePath) is not null;
     public bool HasPreviewText => IsFileCard && !string.IsNullOrWhiteSpace(Text);
-    public bool HasPreviewThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(ThumbnailPath);
+    public bool HasPreviewThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(AppPaths.ResolveStoredPath(ThumbnailPath));
     public bool HasPdfThumbnail => HasPreviewThumbnail;
     public bool HasSimplePreviewPlaceholder => IsFileCard && !HasPreviewThumbnail && !HasPreviewText;
     public string FileDisplayName => HasMissingFile ? "Datei nicht gefunden" : DisplayName;
-    public string FileStatusText => HasMissingFile ? $"Datei nicht gefunden: {FilePath}" : string.Empty;
+    public string FileStatusText => HasMissingFile ? $"Datei nicht gefunden: {AppPaths.ResolveStoredPath(FilePath)}" : string.Empty;
     public string PreviewText => HasPreviewText ? Text.Trim() : string.Empty;
     public string FileBadgeText
     {
         get
         {
-            var fileName = HasFileName ? FileName : Path.GetFileName(FilePath);
+            var fileName = HasFileName ? FileName : Path.GetFileName(AppPaths.ResolveStoredPath(FilePath));
             var extension = Path.GetExtension(fileName);
             if (string.IsNullOrWhiteSpace(extension))
             {
@@ -299,7 +299,7 @@ public sealed class DeskItem : ObservableObject
             return null;
         }
 
-        var relativePath = AppPaths.MakeRelativeToDataFolder(path).Replace('\\', '/');
+        var relativePath = AppPaths.ToStoredPath(path).Replace('\\', '/');
         if (!relativePath.StartsWith("Tasks/", StringComparison.OrdinalIgnoreCase))
         {
             return null;

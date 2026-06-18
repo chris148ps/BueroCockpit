@@ -24,7 +24,7 @@ public sealed class ThumbnailService
 
     public string? EnsureThumbnail(AttachmentItem attachment)
     {
-        var storedPath = AppPaths.ResolveDataPath(attachment.StoredPath);
+        var storedPath = AppPaths.ResolveTaskAttachmentPath(attachment.TaskId, attachment.StoredPath);
         try
         {
             if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
@@ -77,7 +77,7 @@ public sealed class ThumbnailService
 
     private static string? EnsurePdfThumbnail(AttachmentItem attachment, string storedPath)
     {
-        var currentThumbnailPath = AppPaths.ResolveDataPath(attachment.ThumbnailPath);
+        var currentThumbnailPath = AppPaths.ResolveTaskAttachmentPath(attachment.TaskId, attachment.ThumbnailPath);
         if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
         {
             return IsCurrent(storedPath, currentThumbnailPath) ? currentThumbnailPath : null;

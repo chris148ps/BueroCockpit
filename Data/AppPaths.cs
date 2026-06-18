@@ -95,6 +95,11 @@ public static class AppPaths
         return NormalizeFullPath(trimmedPath);
     }
 
+    public static string ResolveStoredPath(string? path)
+    {
+        return ResolveDataPath(path);
+    }
+
     public static string ResolveTaskAttachmentPath(string taskId, string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -163,7 +168,12 @@ public static class AppPaths
         return ResolveDataPath(path);
     }
 
-    public static string MakeRelativeToDataFolder(string? path)
+    public static string MakeRelativeToAppDataDirectory(string? path)
+    {
+        return ToStoredPath(path);
+    }
+
+    public static string ToStoredPath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -172,25 +182,27 @@ public static class AppPaths
 
         var trimmedPath = path.Trim();
 
-        // Alte Windows-Pfade aus Firmen-PC/AppData auch auf macOS/Linux korrekt
-        // als BueroCockpit-Datenpfade erkennen. Unter macOS gilt "C:\\..." sonst
-        // nicht als rooted path und würde fälschlich als relativer Pfad behandelt.
         if (TryGetRelativeLegacyBueroCockpitPath(trimmedPath, out var legacyRelativePath))
         {
-            return legacyRelativePath;
+            return NormalizeRelativePath(legacyRelativePath).Replace('\\', '/');
         }
 
         if (!Path.IsPathRooted(trimmedPath))
         {
-            return NormalizeRelativePath(trimmedPath);
+            return NormalizeRelativePath(trimmedPath).Replace('\\', '/');
         }
 
         if (TryGetRelativeToCurrentAppData(trimmedPath, out var relativePath))
         {
-            return relativePath;
+            return NormalizeRelativePath(relativePath).Replace('\\', '/');
         }
 
         return NormalizeFullPath(trimmedPath);
+    }
+
+    public static string MakeRelativeToDataFolder(string? path)
+    {
+        return ToStoredPath(path);
     }
 
     public static bool PathsEqual(string? firstPath, string? secondPath)
@@ -207,10 +219,26 @@ public static class AppPaths
 
     public static bool IsDeskFileStoragePath(string? path)
     {
-        var relativePath = MakeRelativeToDataFolder(path);
+        var relativePath = ToStoredPath(path);
         return !string.IsNullOrWhiteSpace(relativePath) &&
                !Path.IsPathRooted(relativePath) &&
                relativePath.StartsWith($"{DeskFilesRelativeDirectory}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsPathInsideAppDataDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var resolvedPath = ResolveStoredPath(path);
+        if (string.IsNullOrWhiteSpace(resolvedPath))
+        {
+            return false;
+        }
+
+        return IsSameOrChildPath(NormalizeFullPath(resolvedPath), NormalizeFullPath(AppDataDirectory));
     }
 
     public static void EnsureBaseDirectories()

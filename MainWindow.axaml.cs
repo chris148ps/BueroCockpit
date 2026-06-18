@@ -466,9 +466,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasSelectedAttachment => SelectedAttachment is not null;
-    public string PreviewImagePath => ResolveAttachmentPath(SelectedAttachment?.ThumbnailPath);
+    public string PreviewImagePath => SelectedAttachment is null
+        ? string.Empty
+        : ResolveAttachmentPath(SelectedAttachment.ThumbnailPath, SelectedAttachment.TaskId);
     public bool HasPreviewImage => SelectedAttachment is not null &&
-                                   File.Exists(ResolveAttachmentPath(SelectedAttachment.StoredPath)) &&
+                                   File.Exists(ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId)) &&
                                    !string.IsNullOrWhiteSpace(PreviewImagePath) &&
                                    File.Exists(PreviewImagePath);
     public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
@@ -481,7 +483,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return string.Empty;
             }
 
-            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
             if (File.Exists(storedPath))
             {
                 return SelectedAttachment.FileName;
@@ -500,7 +502,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return string.Empty;
             }
 
-            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
             if (!File.Exists(storedPath))
             {
                 return "Datei nicht gefunden.";
@@ -1216,8 +1218,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        deskItem.FilePath = newPath;
-        deskItem.ReferencePath = newPath;
+        var storedPath = ResolveDeskFileStoragePath(newPath, deskItem.Id);
+        deskItem.FilePath = storedPath;
+        deskItem.ReferencePath = storedPath;
         deskItem.FileName = Path.GetFileName(newPath);
         deskItem.ThumbnailPath = string.Empty;
         deskItem.ContentHash = string.Empty;
@@ -1960,6 +1963,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var item in _repository.GetDeskItems())
             {
                 var needsSave = false;
+                if (TryMigrateDeskItemFile(item, out _, out _))
+                {
+                    needsSave = true;
+                }
+
                 var normalizedSize = NormalizeDeskItemSize(item);
                 if (Math.Abs(item.Width - normalizedSize.Width) > 0.5 ||
                     Math.Abs(item.Height - normalizedSize.Height) > 0.5)
@@ -2280,10 +2288,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return deskFilePath;
     }
 
+    private string ResolveAttachmentStoragePath(string sourcePath, string taskId)
+    {
+        var normalizedSourcePath = Path.GetFullPath(sourcePath);
+        if (AppPaths.IsPathInsideAppDataDirectory(normalizedSourcePath))
+        {
+            return normalizedSourcePath;
+        }
+
+        var attachmentDirectory = AppPaths.GetAttachmentDirectory(taskId);
+        Directory.CreateDirectory(attachmentDirectory);
+
+        var targetPath = Path.Combine(attachmentDirectory, CreateStoredFileName(Path.GetFileName(normalizedSourcePath)));
+        File.Copy(normalizedSourcePath, targetPath, overwrite: false);
+        return targetPath;
+    }
+
     private string ResolveDeskFileStoragePath(string sourcePath, string deskItemId)
     {
         var normalizedSourcePath = Path.GetFullPath(sourcePath);
-        if (IsInsideDataFolder(normalizedSourcePath))
+        if (AppPaths.IsPathInsideAppDataDirectory(normalizedSourcePath))
         {
             return normalizedSourcePath;
         }
@@ -2291,6 +2315,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var targetPath = CreateDeskFileStoredPath(Path.GetFileName(normalizedSourcePath), deskItemId);
         File.Copy(normalizedSourcePath, targetPath, overwrite: false);
         return targetPath;
+    }
+
+    private static string ResolveDeskItemSourcePath(DeskItem deskItem)
+    {
+        var referencePath = AppPaths.ResolveStoredPath(deskItem.ReferencePath);
+        if (!string.IsNullOrWhiteSpace(referencePath) && File.Exists(referencePath))
+        {
+            return referencePath;
+        }
+
+        var filePath = AppPaths.ResolveStoredPath(deskItem.FilePath);
+        if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
+        {
+            return filePath;
+        }
+
+        return referencePath;
     }
 
     private void RefreshDeskFileCard(DeskItem deskItem)
@@ -2334,6 +2375,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var item in _repository.GetAttachments(SelectedTask.Id))
             {
+                if (TryMigrateAttachmentFile(item, out _, out _))
+                {
+                    _repository.SaveAttachment(item);
+                }
+
                 EnsureAttachmentThumbnail(item);
                 Attachments.Insert(0, item);
             }
@@ -2941,28 +2987,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             _repository.SaveTask(SelectedTask);
-            var attachmentDirectory = AppPaths.GetAttachmentDirectory(SelectedTask.Id);
-            Directory.CreateDirectory(attachmentDirectory);
-
             var normalizedSourcePath = Path.GetFullPath(sourcePath);
             var originalName = Path.GetFileName(normalizedSourcePath);
-            var storedName = CreateStoredFileName(originalName);
-            var destinationPath = Path.Combine(attachmentDirectory, storedName);
-            if (!IsInsideDataFolder(normalizedSourcePath))
-            {
-                File.Copy(normalizedSourcePath, destinationPath, overwrite: false);
-            }
-            else
-            {
-                destinationPath = normalizedSourcePath;
-            }
+            var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, SelectedTask.Id);
 
             var attachment = new AttachmentItem
             {
                 Id = Guid.NewGuid().ToString("N"),
                 TaskId = SelectedTask.Id,
                 FileName = originalName,
-                StoredPath = AppPaths.MakeRelativeToDataFolder(destinationPath),
+                StoredPath = AppPaths.ToStoredPath(destinationPath),
                 ThumbnailPath = string.Empty,
                 FileType = Path.GetExtension(originalName),
                 AddedAt = DateTime.Now
@@ -3031,7 +3065,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var attachment in selectedAttachments)
         {
-            var storedPath = ResolveAttachmentPath(attachment.StoredPath);
+            var storedPath = ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId);
             if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 missingCount++;
@@ -3056,7 +3090,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var storedPath = ResolveAttachmentPath(item.StoredPath);
+        var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
         if (!TryOpenExternalFile(storedPath, out var errorMessage))
         {
             AttachmentEditStatus = errorMessage ?? $"Datei nicht gefunden: {storedPath}";
@@ -3070,7 +3104,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var storedPath = ResolveAttachmentPath(item.StoredPath);
+        var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
         if (!TryOpenExternalFile(storedPath, out var errorMessage))
         {
             AttachmentEditStatus = errorMessage ?? $"Datei nicht gefunden: {storedPath}";
@@ -3109,7 +3143,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        item.StoredPath = AppPaths.MakeRelativeToDataFolder(newPath);
+        var storedPath = ResolveAttachmentStoragePath(newPath, item.TaskId);
+        item.StoredPath = AppPaths.ToStoredPath(storedPath);
         item.FileName = Path.GetFileName(newPath);
         item.ThumbnailPath = string.Empty;
         item.ContentHash = string.Empty;
@@ -3135,7 +3170,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var sourcePath = ResolveAttachmentPath(item.StoredPath);
+        var sourcePath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
             AttachmentEditStatus = $"Die gespeicherte Anhangdatei wurde nicht gefunden: {item.FileName}";
@@ -3181,8 +3216,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var wasSelected = SelectedAttachment == item;
-        DeleteDataFileIfUnreferenced(item.StoredPath);
-        DeleteDataFileIfUnreferenced(item.ThumbnailPath);
+        DeleteDataFileIfUnreferenced(item.StoredPath, item.TaskId);
+        DeleteDataFileIfUnreferenced(item.ThumbnailPath, item.TaskId);
 
         if (wasSelected)
         {
@@ -3216,7 +3251,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DeleteDataFileIfUnreferenced(path);
     }
 
-    private void DeleteDataFileIfUnreferenced(string? path)
+    private void DeleteDataFileIfUnreferenced(string? path, string? taskId = null)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -3225,7 +3260,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var resolvedPath = ResolveAttachmentPath(path);
+            var resolvedPath = ResolveAttachmentPath(path, taskId);
             if (string.IsNullOrWhiteSpace(resolvedPath) || !IsInsideDataFolder(resolvedPath))
             {
                 return;
@@ -3246,12 +3281,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsInsideDataFolder(string path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        return !Path.IsPathRooted(AppPaths.MakeRelativeToDataFolder(path));
+        return AppPaths.IsPathInsideAppDataDirectory(path);
     }
 
     private List<DeskItem> GetDeskItemsToDeleteForTask(string taskId)
@@ -3278,7 +3308,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var relativePath = AppPaths.MakeRelativeToDataFolder(path).Replace('\\', '/');
+            var relativePath = AppPaths.ToStoredPath(path).Replace('\\', '/');
             return relativePath.StartsWith($"Tasks/{taskId}/Attachments/", StringComparison.OrdinalIgnoreCase);
         }
         catch
@@ -3318,8 +3348,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         foreach (var attachment in attachments)
         {
-            DeleteDataFileIfUnreferenced(attachment.StoredPath);
-            DeleteDataFileIfUnreferenced(attachment.ThumbnailPath);
+            DeleteDataFileIfUnreferenced(attachment.StoredPath, attachment.TaskId);
+            DeleteDataFileIfUnreferenced(attachment.ThumbnailPath, attachment.TaskId);
         }
 
         foreach (var deskItem in deskItems)
@@ -3356,8 +3386,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var resolvedPath = AppPaths.ResolveDataPath(path);
-            if (string.IsNullOrWhiteSpace(resolvedPath) || !IsInsideDataFolder(resolvedPath) || !Directory.Exists(resolvedPath))
+            var resolvedPath = AppPaths.ResolveStoredPath(path);
+            if (string.IsNullOrWhiteSpace(resolvedPath) || !AppPaths.IsPathInsideAppDataDirectory(resolvedPath) || !Directory.Exists(resolvedPath))
             {
                 return;
             }
@@ -4138,41 +4168,102 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         wasMissing = false;
         wasFailed = false;
 
-        if (!deskItem.IsFileCard || !deskItem.HasReferencePath)
+        if (!deskItem.IsFileCard)
         {
             return false;
         }
 
         try
         {
-            var sourcePath = AppPaths.ResolveDeskItemPath(deskItem.ReferencePath);
+            var sourcePath = ResolveDeskItemSourcePath(deskItem);
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
                 wasMissing = true;
                 return false;
             }
 
-            if (IsInsideDataFolder(sourcePath))
+            var changed = false;
+            var normalizedSourcePath = Path.GetFullPath(sourcePath);
+            if (AppPaths.IsPathInsideAppDataDirectory(normalizedSourcePath))
             {
-                return false;
+                var storedSourcePath = AppPaths.ToStoredPath(normalizedSourcePath);
+                if (!string.Equals(deskItem.ReferencePath, storedSourcePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    deskItem.ReferencePath = storedSourcePath;
+                    changed = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(deskItem.FilePath))
+                {
+                    var resolvedFilePath = AppPaths.ResolveStoredPath(deskItem.FilePath);
+                    if (AppPaths.IsPathInsideAppDataDirectory(resolvedFilePath))
+                    {
+                        var storedFilePath = AppPaths.ToStoredPath(resolvedFilePath);
+                        if (!string.Equals(deskItem.FilePath, storedFilePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            deskItem.FilePath = storedFilePath;
+                            changed = true;
+                        }
+                    }
+                    else if (!string.Equals(deskItem.FilePath, storedSourcePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        deskItem.FilePath = storedSourcePath;
+                        changed = true;
+                    }
+                }
+                else
+                {
+                    deskItem.FilePath = storedSourcePath;
+                    changed = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(deskItem.ThumbnailPath))
+                {
+                    var resolvedThumbnailPath = AppPaths.ResolveStoredPath(deskItem.ThumbnailPath);
+                    if (File.Exists(resolvedThumbnailPath))
+                    {
+                        if (AppPaths.IsPathInsideAppDataDirectory(resolvedThumbnailPath))
+                        {
+                            var storedThumbnailPath = AppPaths.ToStoredPath(resolvedThumbnailPath);
+                            if (!string.Equals(deskItem.ThumbnailPath, storedThumbnailPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                deskItem.ThumbnailPath = storedThumbnailPath;
+                                changed = true;
+                            }
+                        }
+                        else
+                        {
+                            deskItem.ThumbnailPath = string.Empty;
+                            changed = true;
+                        }
+                    }
+                }
+
+                if (changed)
+                {
+                    deskItem.UpdatedAt = DateTime.Now;
+                    RefreshDeskFileCard(deskItem);
+                }
+
+                return changed;
             }
 
-            var targetDirectory = AppPaths.GetDeskFileDirectory(deskItem.Id);
-            Directory.CreateDirectory(targetDirectory);
+            var targetPath = ResolveDeskFileStoragePath(normalizedSourcePath, deskItem.Id);
+            var stablePath = AppPaths.ToStoredPath(targetPath);
+            if (!string.Equals(deskItem.ReferencePath, stablePath, StringComparison.OrdinalIgnoreCase))
+            {
+                deskItem.ReferencePath = stablePath;
+                changed = true;
+            }
 
-            var targetPath = Path.Combine(targetDirectory, CreateStoredFileName(Path.GetFileName(sourcePath)));
-            File.Copy(sourcePath, targetPath, overwrite: false);
-
-            var stablePath = AppPaths.MakeRelativeToDataFolder(targetPath);
-            deskItem.ReferencePath = stablePath;
-
-            var currentFilePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+            var currentFilePath = AppPaths.ResolveStoredPath(deskItem.FilePath);
             if (string.IsNullOrWhiteSpace(currentFilePath) ||
                 !File.Exists(currentFilePath) ||
-                !IsInsideDataFolder(currentFilePath) ||
-                AppPaths.PathsEqual(currentFilePath, sourcePath))
+                !AppPaths.IsPathInsideAppDataDirectory(currentFilePath) ||
+                AppPaths.PathsEqual(currentFilePath, normalizedSourcePath))
             {
                 deskItem.FilePath = stablePath;
+                changed = true;
             }
 
             deskItem.ThumbnailPath = string.Empty;
@@ -4200,25 +4291,56 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var sourcePath = ResolveAttachmentPath(attachment.StoredPath);
+            var sourcePath = ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId);
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
                 wasMissing = true;
                 return false;
             }
 
-            if (IsInsideDataFolder(sourcePath))
+            var changed = false;
+            var normalizedSourcePath = Path.GetFullPath(sourcePath);
+            if (AppPaths.IsPathInsideAppDataDirectory(normalizedSourcePath))
             {
-                return false;
+                var storedSourcePath = AppPaths.ToStoredPath(normalizedSourcePath);
+                if (!string.Equals(attachment.StoredPath, storedSourcePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    attachment.StoredPath = storedSourcePath;
+                    changed = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(attachment.ThumbnailPath))
+                {
+                    var resolvedThumbnailPath = ResolveAttachmentPath(attachment.ThumbnailPath, attachment.TaskId);
+                    if (File.Exists(resolvedThumbnailPath))
+                    {
+                        if (AppPaths.IsPathInsideAppDataDirectory(resolvedThumbnailPath))
+                        {
+                            var storedThumbnailPath = AppPaths.ToStoredPath(resolvedThumbnailPath);
+                            if (!string.Equals(attachment.ThumbnailPath, storedThumbnailPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                attachment.ThumbnailPath = storedThumbnailPath;
+                                changed = true;
+                            }
+                        }
+                        else
+                        {
+                            attachment.ThumbnailPath = string.Empty;
+                            changed = true;
+                        }
+                    }
+                }
+
+                if (changed)
+                {
+                    EnsureAttachmentThumbnail(attachment);
+                }
+
+                return changed;
             }
 
-            var targetDirectory = AppPaths.GetAttachmentDirectory(attachment.TaskId);
-            Directory.CreateDirectory(targetDirectory);
-
-            var targetPath = Path.Combine(targetDirectory, CreateStoredFileName(Path.GetFileName(sourcePath)));
-            File.Copy(sourcePath, targetPath, overwrite: false);
-
-            attachment.StoredPath = AppPaths.MakeRelativeToDataFolder(targetPath);
+            var targetPath = ResolveAttachmentStoragePath(normalizedSourcePath, attachment.TaskId);
+            attachment.StoredPath = AppPaths.ToStoredPath(targetPath);
             attachment.ThumbnailPath = string.Empty;
             EnsureAttachmentThumbnail(attachment);
             return true;
@@ -4373,7 +4495,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
+        var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
         if (!File.Exists(storedPath))
         {
             AttachmentEditStatus = "Die gespeicherte Anhangdatei wurde nicht gefunden.";
@@ -4469,7 +4591,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var currentOriginalHash = _hashService.ComputeSha256(ResolveAttachmentPath(SelectedAttachment.StoredPath));
+        var currentOriginalHash = _hashService.ComputeSha256(ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId));
         var hasConflict = !string.IsNullOrWhiteSpace(currentOriginalHash) &&
                           currentOriginalHash != session.OriginalHashAtExport;
         session.Status = hasConflict ? "Conflict" : "Changed";
@@ -4509,8 +4631,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var backupDirectory = AppPaths.GetAttachmentBackupDirectory(SelectedAttachment.TaskId);
             Directory.CreateDirectory(backupDirectory);
             var backupPath = CreateBackupPath(backupDirectory, SelectedAttachment.FileName);
-            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath);
-            var thumbnailPath = ResolveAttachmentPath(SelectedAttachment.ThumbnailPath);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
+            var thumbnailPath = ResolveAttachmentPath(SelectedAttachment.ThumbnailPath, SelectedAttachment.TaskId);
 
             if (File.Exists(storedPath))
             {
@@ -4558,7 +4680,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         try
         {
-            var storedPath = AppPaths.ResolveDataPath(item.StoredPath);
+            var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
             if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 return false;
@@ -5732,9 +5854,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static string ResolveAttachmentPath(string? path)
+    private static string ResolveAttachmentPath(string? path, string? taskId = null)
     {
-        return AppPaths.ResolveDataPath(path);
+        return string.IsNullOrWhiteSpace(taskId)
+            ? AppPaths.ResolveStoredPath(path)
+            : AppPaths.ResolveTaskAttachmentPath(taskId, path);
     }
 
     private static void LogMissingAttachment(AttachmentItem attachment, string resolvedPath)
@@ -5750,7 +5874,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return null;
         }
 
-        var relativePath = AppPaths.MakeRelativeToDataFolder(path).Replace('\\', '/');
+        var relativePath = AppPaths.ToStoredPath(path).Replace('\\', '/');
         if (!relativePath.StartsWith("Tasks/", StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -5798,7 +5922,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return attachment.ContentHash;
         }
 
-        var contentHash = _hashService.ComputeSha256(ResolveAttachmentPath(attachment.StoredPath));
+        var contentHash = _hashService.ComputeSha256(ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId));
         if (string.IsNullOrWhiteSpace(contentHash))
         {
             return null;
