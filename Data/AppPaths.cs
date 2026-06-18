@@ -3,6 +3,7 @@ namespace BueroCockpit.Data;
 public static class AppPaths
 {
     private const string AppFolderName = "BueroCockpit";
+    private const string LocalConfigFolderName = "BueroCockpitLocal";
     private const string DeskItemsRelativeDirectory = "DeskItems";
     private const string DeskFilesRelativeDirectory = "DeskItems/Files";
 
@@ -10,8 +11,11 @@ public static class AppPaths
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         AppFolderName);
 
+    public static string LocalConfigDirectory { get; } = GetLocalConfigDirectory();
+
     public static string AppDataDirectory { get; private set; } = DefaultAppDataDirectory;
-    public static string BootstrapSettingsPath => Path.Combine(DefaultAppDataDirectory, "storage-location.json");
+    public static string BootstrapSettingsPath => Path.Combine(LocalConfigDirectory, "storage-location.local.json");
+    public static string LegacyBootstrapSettingsPath => Path.Combine(DefaultAppDataDirectory, "storage-location.json");
     public static string DatabasePath => Path.Combine(AppDataDirectory, "buerocockpit.db");
     public static string SettingsPath => Path.Combine(AppDataDirectory, "settings.json");
     public static string LockPath => Path.Combine(AppDataDirectory, "buerocockpit.lock");
@@ -212,6 +216,7 @@ public static class AppPaths
     public static void EnsureBaseDirectories()
     {
         Directory.CreateDirectory(DefaultAppDataDirectory);
+        Directory.CreateDirectory(LocalConfigDirectory);
         Directory.CreateDirectory(AppDataDirectory);
         Directory.CreateDirectory(TasksDirectory);
         Directory.CreateDirectory(BackupDirectory);
@@ -233,6 +238,16 @@ public static class AppPaths
         }
 
         return path;
+    }
+
+    private static string GetLocalConfigDirectory()
+    {
+        var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var folderName = OperatingSystem.IsMacOS()
+            ? LocalConfigFolderName
+            : AppFolderName;
+
+        return Path.Combine(localApplicationData, folderName);
     }
 
     private static string GetAbsolutePathFromRelative(string relativePath)

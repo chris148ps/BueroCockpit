@@ -14,15 +14,23 @@ public sealed class StorageLocationService
         try
         {
             Directory.CreateDirectory(AppPaths.DefaultAppDataDirectory);
-            if (!File.Exists(AppPaths.BootstrapSettingsPath))
+            Directory.CreateDirectory(AppPaths.LocalConfigDirectory);
+
+            var loadedLocalSettings = TryLoadConfiguredDataDirectory(AppPaths.BootstrapSettingsPath, out var configuredDirectory);
+            if (loadedLocalSettings)
             {
-                AppPaths.UseDefaultAppDataDirectory();
+                AppPaths.UseAppDataDirectory(configuredDirectory);
                 return;
             }
 
-            var json = File.ReadAllText(AppPaths.BootstrapSettingsPath);
-            var settings = JsonSerializer.Deserialize<StorageLocationSettings>(json, Options);
-            AppPaths.UseAppDataDirectory(settings?.CustomDataDirectory);
+            if (TryLoadConfiguredDataDirectory(AppPaths.LegacyBootstrapSettingsPath, out configuredDirectory))
+            {
+                AppPaths.UseAppDataDirectory(configuredDirectory);
+                WriteBootstrapSettings(configuredDirectory);
+                return;
+            }
+
+            AppPaths.UseDefaultAppDataDirectory();
         }
         catch (Exception ex)
         {
@@ -267,10 +275,117 @@ public sealed class StorageLocationService
 
     private static void WriteBootstrapSettings(string targetDirectory)
     {
-        Directory.CreateDirectory(AppPaths.DefaultAppDataDirectory);
+        Directory.CreateDirectory(AppPaths.LocalConfigDirectory);
         var settings = new StorageLocationSettings { CustomDataDirectory = targetDirectory };
         var json = JsonSerializer.Serialize(settings, Options);
         File.WriteAllText(AppPaths.BootstrapSettingsPath, json);
+    }
+
+    private static bool TryLoadConfiguredDataDirectory(string settingsPath, out string directory)
+    {
+        directory = string.Empty;
+
+        if (!File.Exists(settingsPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(settingsPath);
+            var settings = JsonSerializer.Deserialize<StorageLocationSettings>(json, Options);
+            if (!TryNormalizeConfiguredDirectory(settings?.CustomDataDirectory, out var normalizedDirectory))
+            {
+                return false;
+            }
+
+            directory = normalizedDirectory;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Storage location could not be read from {settingsPath}: {ex}");
+            return false;
+        }
+    }
+
+    private static bool TryNormalizeConfiguredDirectory(string? directory, out string normalizedDirectory)
+    {
+        normalizedDirectory = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return false;
+        }
+
+        var expandedDirectory = ExpandHomeDirectory(Environment.ExpandEnvironmentVariables(directory.Trim()));
+        if (IsObviouslyForeignPlatformPath(expandedDirectory))
+        {
+            return false;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(expandedDirectory);
+            if (!Directory.Exists(fullPath))
+            {
+                return false;
+            }
+
+            EnsureWritable(fullPath);
+            normalizedDirectory = fullPath;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Configured storage location is not usable: {ex}");
+            return false;
+        }
+    }
+
+    private static string ExpandHomeDirectory(string path)
+    {
+        if (path == "~")
+        {
+            return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        }
+
+        if (path.StartsWith($"~{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
+            path.StartsWith($"~{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..]);
+        }
+
+        return path;
+    }
+
+    private static bool IsObviouslyForeignPlatformPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return true;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return path.StartsWith("/", StringComparison.Ordinal) ||
+                   path.StartsWith("~", StringComparison.Ordinal) ||
+                   path.Contains("/Users/", StringComparison.OrdinalIgnoreCase) ||
+                   path.Contains("/Library/", StringComparison.OrdinalIgnoreCase) ||
+                   path.Contains("/Volumes/", StringComparison.OrdinalIgnoreCase) ||
+                   path.Contains("/Applications/", StringComparison.OrdinalIgnoreCase) ||
+                   path.Contains("/System/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return LooksLikeWindowsPath(path);
+    }
+
+    private static bool LooksLikeWindowsPath(string path)
+    {
+        return (path.Length >= 2 &&
+                char.IsLetter(path[0]) &&
+                path[1] == ':') ||
+               path.StartsWith(@"\\", StringComparison.Ordinal);
     }
 }
 
