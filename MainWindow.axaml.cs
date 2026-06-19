@@ -3175,6 +3175,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!await EnsureSafetyBackupBeforeRiskyActionAsync("den Auftrag in den Papierkorb zu verschieben"))
+        {
+            return;
+        }
+
         CaptureTaskUndoState(task);
         _repository.DeleteTask(task.Id);
         if (!task.IsDeleted)
@@ -3188,9 +3193,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private void RestoreTask_OnClick(object? sender, RoutedEventArgs e)
+    private async void RestoreTask_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedTask is null || !SelectedTask.IsDeleted)
+        {
+            return;
+        }
+
+        if (!await EnsureSafetyBackupBeforeRiskyActionAsync("den Auftrag wiederherzustellen"))
         {
             return;
         }
@@ -3235,6 +3245,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!await EnsureSafetyBackupBeforeRiskyActionAsync("den Papierkorb zu leeren"))
+        {
+            return;
+        }
+
         if (SelectedTask?.IsDeleted == true)
         {
             ClearSelectedTask();
@@ -3250,6 +3265,151 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ClearTaskUndoState();
         RefreshVisibleTasks();
         UpdateCategoryCounts();
+    }
+
+    private async Task<bool> EnsureSafetyBackupBeforeRiskyActionAsync(string actionDescription)
+    {
+        try
+        {
+            var result = await Task.Run(() => _backupService.CreateBackup());
+            LastBackupPath = result.BackupPath;
+            LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+            BackupStatus = "Sicherung vor der Aktion erstellt.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Safety backup failed before {actionDescription}: {ex}");
+            var continueWithoutBackup = await ShowBackupFailureConfirmationDialogAsync(actionDescription);
+            if (!continueWithoutBackup)
+            {
+                BackupStatus = "Sicherung vor der Aktion fehlgeschlagen. Aktion abgebrochen.";
+                return false;
+            }
+
+            BackupStatus = "Sicherung vor der Aktion fehlgeschlagen. Aktion wird trotzdem ausgeführt.";
+            return true;
+        }
+    }
+
+    private async Task<bool> ShowBackupFailureConfirmationDialogAsync(string actionDescription)
+    {
+        var dialog = new Window
+        {
+            Title = "Datensicherung fehlgeschlagen",
+            Width = 460,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14),
+                Child = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Datensicherung vor der Aktion konnte nicht erstellt werden.",
+                            FontSize = 18,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = $"Vor dem Schritt „{actionDescription}“ ist die automatische Sicherung fehlgeschlagen. Ohne Sicherung fortfahren?",
+                            FontSize = 13,
+                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 4, 0, 0),
+                            Children =
+                            {
+                                CreateDialogAction("Abbrechen", false),
+                                CreateDialogAction("Trotzdem fortfahren", true)
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
+        var cancelAction = (Border)buttonsPanel.Children[0];
+        var proceedAction = (Border)buttonsPanel.Children[1];
+
+        var result = false;
+
+        cancelAction.PointerReleased += (_, _) =>
+        {
+            result = false;
+            dialog.Close();
+        };
+
+        proceedAction.PointerReleased += (_, _) =>
+        {
+            result = true;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
+
+        static Border CreateDialogAction(string text, bool isDanger)
+        {
+            var normalBackground = isDanger ? "#DC2626" : "#F3F4F6";
+            var hoverBackground = isDanger ? "#B91C1C" : "#DBEAFE";
+            var normalBorder = isDanger ? "#B91C1C" : "#D1D5DB";
+            var hoverBorder = isDanger ? "#991B1B" : "#93C5FD";
+            IBrush foreground = isDanger ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+
+            var label = new TextBlock
+            {
+                Text = text,
+                Foreground = foreground,
+                FontWeight = FontWeight.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var action = new Border
+            {
+                MinWidth = isDanger ? 145 : 105,
+                Height = 34,
+                Background = new SolidColorBrush(Color.Parse(normalBackground)),
+                BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 6),
+                Child = label
+            };
+
+            action.PointerEntered += (_, _) =>
+            {
+                action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
+                action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+                label.Foreground = foreground;
+            };
+
+            action.PointerExited += (_, _) =>
+            {
+                action.Background = new SolidColorBrush(Color.Parse(normalBackground));
+                action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+                label.Foreground = foreground;
+            };
+
+            return action;
+        }
     }
 
 
@@ -5049,16 +5209,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OpenFolder(OneDriveEditDirectory);
     }
 
-    private void CreateBackup_OnClick(object? sender, RoutedEventArgs e)
+    private async void CreateBackup_OnClick(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var result = _backupService.CreateBackup();
+            var result = await Task.Run(() => _backupService.CreateBackup());
             LastBackupPath = result.BackupPath;
             LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            BackupStatus = result.SkippedFiles == 0
-                ? "Backup wurde erstellt."
-                : $"Backup wurde erstellt. {result.SkippedFiles} Datei(en) konnten nicht gelesen werden.";
+            BackupStatus = "Backup wurde erstellt.";
         }
         catch (Exception ex)
         {

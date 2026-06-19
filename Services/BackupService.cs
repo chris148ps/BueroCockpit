@@ -1,87 +1,98 @@
 using System.Diagnostics;
-using System.IO.Compression;
 using BueroCockpit.Data;
 
 namespace BueroCockpit.Services;
 
 public sealed class BackupService
 {
+    private const int RetainedBackupCount = 20;
+    private const string BackupFilePrefix = "buerocockpit-backup-";
+    private const string BackupFileExtension = ".db";
+
     public BackupResult CreateBackup()
     {
         AppPaths.EnsureBaseDirectories();
+        Directory.CreateDirectory(AppPaths.BackupDirectory);
 
-        var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        var backupPath = Path.Combine(AppPaths.BackupDirectory, $"buerocockpit_backup_{timestamp}.zip");
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"BueroCockpitBackup_{Guid.NewGuid():N}");
+        var backupPath = CreateUniqueBackupPath();
+        var tempPath = Path.Combine(AppPaths.BackupDirectory, $".{Path.GetFileNameWithoutExtension(backupPath)}-{Guid.NewGuid():N}.tmp");
 
         try
         {
-            Directory.CreateDirectory(tempRoot);
-            var skippedFiles = 0;
-
-            if (File.Exists(AppPaths.DatabasePath))
-            {
-                var targetDb = Path.Combine(tempRoot, Path.GetFileName(AppPaths.DatabasePath));
-                CopyFileBestEffort(AppPaths.DatabasePath, targetDb, ref skippedFiles);
-            }
-
-            if (Directory.Exists(AppPaths.TasksDirectory))
-            {
-                CopyDirectoryBestEffort(AppPaths.TasksDirectory, Path.Combine(tempRoot, "Tasks"), ref skippedFiles);
-            }
-
-            ZipFile.CreateFromDirectory(tempRoot, backupPath, CompressionLevel.Optimal, includeBaseDirectory: false);
-            return new BackupResult(backupPath, skippedFiles);
+            CopyDatabaseFile(tempPath);
+            File.Move(tempPath, backupPath);
+            TrimOldBackups();
+            return new BackupResult(backupPath, 0);
         }
         finally
         {
-            TryDeleteDirectory(tempRoot);
+            TryDeleteFile(tempPath);
         }
     }
 
-    private static void CopyDirectoryBestEffort(string sourceDirectory, string targetDirectory, ref int skippedFiles)
+    private static string CreateUniqueBackupPath()
     {
-        Directory.CreateDirectory(targetDirectory);
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        var attempt = 0;
+        string backupPath;
 
-        foreach (var directory in Directory.EnumerateDirectories(sourceDirectory))
+        do
         {
-            CopyDirectoryBestEffort(directory, Path.Combine(targetDirectory, Path.GetFileName(directory)), ref skippedFiles);
+            attempt++;
+            var suffix = attempt == 1 ? string.Empty : $"_{attempt}";
+            backupPath = Path.Combine(AppPaths.BackupDirectory, $"{BackupFilePrefix}{timestamp}{suffix}{BackupFileExtension}");
         }
+        while (File.Exists(backupPath));
 
-        foreach (var file in Directory.EnumerateFiles(sourceDirectory))
-        {
-            CopyFileBestEffort(file, Path.Combine(targetDirectory, Path.GetFileName(file)), ref skippedFiles);
-        }
+        return backupPath;
     }
 
-    private static void CopyFileBestEffort(string sourcePath, string targetPath, ref int skippedFiles)
+    private static void CopyDatabaseFile(string targetPath)
+    {
+        if (!File.Exists(AppPaths.DatabasePath))
+        {
+            throw new FileNotFoundException("Die Datenbank konnte nicht gesichert werden, weil sie nicht gefunden wurde.", AppPaths.DatabasePath);
+        }
+
+        using var source = new FileStream(AppPaths.DatabasePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var target = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        source.CopyTo(target);
+        target.Flush(flushToDisk: true);
+    }
+
+    private static void TrimOldBackups()
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var target = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            source.CopyTo(target);
-        }
-        catch (Exception ex)
-        {
-            skippedFiles++;
-            Debug.WriteLine($"Backup skipped file '{sourcePath}': {ex}");
-        }
-    }
+            var backupsToDelete = Directory.EnumerateFiles(AppPaths.BackupDirectory, $"{BackupFilePrefix}*{BackupFileExtension}")
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .Skip(RetainedBackupCount)
+                .ToList();
 
-    private static void TryDeleteDirectory(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path))
+            foreach (var backupFile in backupsToDelete)
             {
-                Directory.Delete(path, recursive: true);
+                TryDeleteFile(backupFile.FullName);
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Could not delete temporary backup directory '{path}': {ex}");
+            Debug.WriteLine($"Could not trim old backups: {ex}");
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not delete temporary backup file '{path}': {ex}");
         }
     }
 }
