@@ -5257,6 +5257,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!CanReadBackupFile(backup.FilePath, out var validationError))
+        {
+            BackupStatus = validationError;
+            LoadBackupEntries();
+            return;
+        }
+
         var selectedCategoryId = SelectedCategory?.Id;
         var selectedTaskId = SelectedTask?.Id;
 
@@ -5267,9 +5274,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _repository.SaveTask(SelectedTask);
             }
 
-            ClearSelectedTask();
-            SqliteConnection.ClearAllPools();
-
             BackupResult safetyBackup;
             try
             {
@@ -5278,32 +5282,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             catch (Exception ex)
             {
                 Debug.WriteLine($"Safety backup before restore failed: {ex}");
-                BackupStatus = "Sicherheitsbackup vor der Wiederherstellung fehlgeschlagen.";
+                BackupStatus = "Wiederherstellung abgebrochen: Sicherheitsbackup des aktuellen Stands konnte nicht erstellt werden.";
                 return;
             }
 
             if (safetyBackup.SkippedFiles > 0)
             {
-                BackupStatus = "Sicherheitsbackup vor der Wiederherstellung war unvollständig.";
+                BackupStatus = "Wiederherstellung abgebrochen: Das Sicherheitsbackup des aktuellen Stands war unvollständig.";
                 return;
             }
 
             LastBackupPath = safetyBackup.BackupPath;
             LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            LoadBackupEntries();
-
+            ClearSelectedTask();
+            SqliteConnection.ClearAllPools();
             await Task.Run(() => RestoreBackupDatabase(backup.FilePath));
             SqliteConnection.ClearAllPools();
 
-            _repository.Initialize();
-            LoadData(selectedCategoryId, selectedTaskId);
-            LoadBackupEntries();
-            BackupStatus = "Backup wurde wiederhergestellt.";
+            try
+            {
+                _repository.Initialize();
+                LoadData(selectedCategoryId, selectedTaskId);
+                RefreshGlobalSearchResults();
+                BackupStatus = "Backup wurde wiederhergestellt. Die Daten wurden neu geladen.";
+            }
+            catch (Exception reloadEx)
+            {
+                Debug.WriteLine($"Backup restore reload failed: {reloadEx}");
+                BackupStatus = "Backup wurde wiederhergestellt. Bitte die App neu starten, damit alle Ansichten sicher neu geladen werden.";
+            }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Backup restore failed: {ex}");
-            BackupStatus = "Backup konnte nicht wiederhergestellt werden.";
+            BackupStatus = ex.Message;
+        }
+        finally
+        {
+            LoadBackupEntries();
         }
     }
 
@@ -5340,7 +5356,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             fileInfo.FullName,
             fileInfo.Name,
             fileInfo.LastWriteTime.ToString("dd.MM.yyyy HH:mm:ss"),
-            FormatBackupFileSize(fileInfo.Length));
+            FormatBackupFileSize(fileInfo.Length),
+            string.Empty);
     }
 
     private static string FormatBackupFileSize(long bytes)
@@ -5365,9 +5382,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var result = false;
         var confirmButton = new Button
         {
-            Content = "Backup wiederherstellen",
+            Content = "Ja, aktuellen Stand ersetzen",
             Classes = { "Primary" },
-            MinWidth = 170
+            MinWidth = 210
         };
 
         var cancelButton = new Button
@@ -5395,19 +5412,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     {
                         new TextBlock
                         {
-                            Text = "Die aktuelle Datenbank wird durch dieses Backup ersetzt.",
+                            Text = "Der aktuelle Datenstand wird durch dieses Backup ersetzt.",
                             FontSize = 18,
                             FontWeight = FontWeight.SemiBold,
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
-                            Text = $"Ausgewählt: {backup.FileName}",
+                            Text = $"Ausgewählt: {backup.TimestampText} · {backup.SizeText}",
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
-                            Text = "Vorher wird automatisch noch ein Sicherheitsbackup des aktuellen Stands erstellt. Anhänge, PDFs und Bilder werden nicht gelöscht.",
+                            Text = backup.FileName,
+                            Foreground = new SolidColorBrush(Color.Parse("#6B7280")),
+                            FontSize = 12,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "Vorher wird automatisch ein Sicherheitsbackup des aktuellen Stands erstellt. Anhänge und Dateien werden nicht gelöscht.",
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -5449,7 +5473,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var tempPath = Path.Combine(AppPaths.AppDataDirectory, $".restore-{Guid.NewGuid():N}.db");
         try
         {
-            File.Copy(backupPath, tempPath, overwrite: true);
+            using var source = new FileStream(backupPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var target = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            source.CopyTo(target);
+            target.Flush(flushToDisk: true);
 
             if (File.Exists(AppPaths.DatabasePath))
             {
@@ -5466,6 +5493,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 File.Delete(tempPath);
             }
+        }
+    }
+
+    private static bool CanReadBackupFile(string backupPath, out string errorMessage)
+    {
+        errorMessage = string.Empty;
+
+        if (!File.Exists(backupPath))
+        {
+            errorMessage = "Wiederherstellung abgebrochen: Das ausgewählte Backup wurde nicht gefunden.";
+            return false;
+        }
+
+        try
+        {
+            var fileInfo = new FileInfo(backupPath);
+            if (fileInfo.Length <= 0)
+            {
+                errorMessage = "Wiederherstellung abgebrochen: Das ausgewählte Backup ist leer.";
+                return false;
+            }
+
+            using var stream = new FileStream(backupPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return stream.CanRead;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Backup file could not be read: {ex}");
+            errorMessage = "Wiederherstellung abgebrochen: Das ausgewählte Backup konnte nicht gelesen werden.";
+            return false;
         }
     }
 

@@ -1042,7 +1042,7 @@
                          FontSize="12"
                          FontWeight="SemiBold"
                          Foreground="{DynamicResource TextTertiaryBrush}" />
-              <TextBlock Text="Keine Backups gefunden."
+              <TextBlock Text="Noch keine Backups vorhanden. Mit „Backup jetzt erstellen“ legen Sie das erste Sicherheitsbackup an."
                          IsVisible="{Binding HasNoBackupEntries}"
                          Foreground="{DynamicResource TextSecondaryBrush}" />
               <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBackupEntries}">
@@ -1059,6 +1059,11 @@
                             <TextBlock Text="{Binding TimestampText}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding FileName}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding HintText}"
+                                       IsVisible="{Binding HasHintText}"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
                                        FontSize="12"
                                        TextWrapping="Wrap" />
                           </StackPanel>
