@@ -990,6 +990,11 @@
 
               <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding StorageLocationStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LiveDataStatus}"
+                         IsVisible="{Binding HasLiveDataStatus}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
               <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
                 <Button Content="Backup-Ordner öffnen"
                         Click="OpenBackupFolder_OnClick"
@@ -1559,6 +1564,37 @@
           </ItemsControl>
         </StackPanel>
       </ScrollViewer>
+    </Border>
+    <Border Grid.Column="1"
+            Grid.ColumnSpan="2"
+            Margin="26,18,26,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Top"
+            IsVisible="{Binding HasLiveDataStatus}"
+            Background="#FFF7D1"
+            BorderBrush="#C89B00"
+            BorderThickness="1"
+            CornerRadius="14"
+            Padding="12,10"
+            IsHitTestVisible="False">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <Border Width="28"
+                Height="28"
+                CornerRadius="14"
+                Background="#C89B00"
+                VerticalAlignment="Top">
+          <TextBlock Text="!"
+                     Foreground="#FFFFFF"
+                     FontWeight="Bold"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
+        </Border>
+        <TextBlock Grid.Column="1"
+                   Text="{Binding LiveDataStatus}"
+                   Foreground="#3A2B00"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap" />
+      </Grid>
     </Border>
   </Grid>
 </Window>
