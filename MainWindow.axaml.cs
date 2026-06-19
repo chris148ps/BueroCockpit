@@ -116,8 +116,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isApplyingDeskDrag;
     private bool _isApplyingDeskResize;
     private bool _deskInitialViewApplied;
+    private bool _startupWindowBoundsApplied;
     private double _deskFitZoom = 1.0;
     private double _deskUserZoom = 1.0;
+    private const double StartupWindowTargetMinWidth = 1500;
+    private const double StartupWindowTargetMaxWidth = 1600;
+    private const double StartupWindowTargetMinHeight = 900;
+    private const double StartupWindowTargetMaxHeight = 950;
+    private const double StartupWindowPreferredWidthFactor = 0.94;
+    private const double StartupWindowPreferredHeightFactor = 0.88;
     private double _deskSurfaceWidth = 2400;
     private double _deskSurfaceHeight = 1600;
     private const double DeskBaseSurfaceWidth = 2400;
@@ -878,6 +885,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectStartupTaskCategory();
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        ApplyResponsiveStartupBounds();
+        base.OnOpened(e);
+    }
+
     private static string FormatAppInstanceLockStatus(AppInstanceLockResult lockResult)
     {
         if (lockResult.IsAcquired)
@@ -997,6 +1010,76 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Dispatcher.UIThread.Post(FitDeskToViewport, DispatcherPriority.Loaded);
         }
+    }
+
+    private void ApplyResponsiveStartupBounds()
+    {
+        if (_startupWindowBoundsApplied)
+        {
+            return;
+        }
+
+        var screen = Screens?.ScreenFromWindow(this) ?? Screens?.Primary;
+        if (screen is null)
+        {
+            Dispatcher.UIThread.Post(ApplyResponsiveStartupBounds, DispatcherPriority.Loaded);
+            return;
+        }
+
+        var desktopScaling = DesktopScaling;
+        if (desktopScaling <= 0)
+        {
+            desktopScaling = 1.0;
+        }
+
+        var workingArea = screen.WorkingArea;
+        var workingAreaLogical = workingArea.ToRect(desktopScaling);
+        var desiredWidth = GetResponsiveStartupWidth(workingAreaLogical.Width);
+        var desiredHeight = GetResponsiveStartupHeight(workingAreaLogical.Height);
+
+        Width = desiredWidth;
+        Height = desiredHeight;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+
+        var desiredWidthPixels = (int)Math.Round(desiredWidth * desktopScaling);
+        var desiredHeightPixels = (int)Math.Round(desiredHeight * desktopScaling);
+        var left = workingArea.X + Math.Max(0, (workingArea.Width - desiredWidthPixels) / 2);
+        var top = workingArea.Y + Math.Max(0, (workingArea.Height - desiredHeightPixels) / 2);
+        Position = new PixelPoint(left, top);
+
+        _startupWindowBoundsApplied = true;
+    }
+
+    private static double GetResponsiveStartupWidth(double workingAreaWidth)
+    {
+        if (workingAreaWidth <= 0)
+        {
+            return 1280;
+        }
+
+        if (workingAreaWidth < StartupWindowTargetMinWidth)
+        {
+            return workingAreaWidth;
+        }
+
+        var preferredWidth = workingAreaWidth * StartupWindowPreferredWidthFactor;
+        return Math.Min(workingAreaWidth, Math.Clamp(preferredWidth, StartupWindowTargetMinWidth, StartupWindowTargetMaxWidth));
+    }
+
+    private static double GetResponsiveStartupHeight(double workingAreaHeight)
+    {
+        if (workingAreaHeight <= 0)
+        {
+            return 780;
+        }
+
+        if (workingAreaHeight < StartupWindowTargetMinHeight)
+        {
+            return workingAreaHeight;
+        }
+
+        var preferredHeight = workingAreaHeight * StartupWindowPreferredHeightFactor;
+        return Math.Min(workingAreaHeight, Math.Clamp(preferredHeight, StartupWindowTargetMinHeight, StartupWindowTargetMaxHeight));
     }
 
     private void DeskNoteHeader_OnPointerPressed(object? sender, PointerPressedEventArgs e)
