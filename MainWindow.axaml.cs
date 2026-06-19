@@ -95,10 +95,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _startupUpdateCheckCompleted;
     private string _attachmentEditStatus = string.Empty;
     private bool _isLoadingSelection;
+    private bool _isLoadingData;
     private bool _isUpdatingSelection;
     private bool _isRefreshingVisibleTasks;
+    private bool _isSavingCategorySnapshot;
     private bool _suppressTaskListSelectionChanged;
     private bool _suppressCategorySelectionChanged;
+    private bool _suppressCategorySortModeSave;
     private bool _suppressStatusSelectionChanged;
     private bool _suppressSavingDuringSelection;
     private bool _isUpdatingDateFields;
@@ -1719,50 +1722,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void LoadData(string? selectedCategoryId = null, string? selectedTaskId = null)
     {
-        Categories.Clear();
-        Categories.Add(CreateOverviewCategory());
-        Categories.Add(CreateDeskCategory());
-        foreach (var category in _repository.GetCategories())
+        _isLoadingData = true;
+        try
         {
-            if (IsSpecialCategory(category) ||
-                string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
-                (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
-                 !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
+            Categories.Clear();
+            Categories.Add(CreateOverviewCategory());
+            Categories.Add(CreateDeskCategory());
+            foreach (var category in _repository.GetCategories())
             {
-                continue;
+                if (IsSpecialCategory(category) ||
+                    string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
+                    (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                Categories.Add(category);
+            }
+            Categories.Add(CreateTrashCategory());
+            Categories.Add(CreateSettingsCategory());
+            RefreshTaskCategories();
+
+            AllTasks.Clear();
+            foreach (var task in _repository.GetTasks())
+            {
+                AllTasks.Add(task);
             }
 
-            Categories.Add(category);
-        }
-        Categories.Add(CreateTrashCategory());
-        Categories.Add(CreateSettingsCategory());
-        RefreshTaskCategories();
+            LoadDeskItems();
+            UpdateCategoryCounts();
+            SelectedCategory = !string.IsNullOrWhiteSpace(selectedCategoryId)
+                ? Categories.FirstOrDefault(c => string.Equals(c.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
+                : null;
+            SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
+                ?? Categories.FirstOrDefault(c => c.Id == OverviewCategoryId)
+                ?? Categories.FirstOrDefault();
+            ApplySelectedCategoryContent();
 
-        AllTasks.Clear();
-        foreach (var task in _repository.GetTasks())
-        {
-            AllTasks.Add(task);
-        }
-
-        LoadDeskItems();
-        UpdateCategoryCounts();
-        SelectedCategory = !string.IsNullOrWhiteSpace(selectedCategoryId)
-            ? Categories.FirstOrDefault(c => string.Equals(c.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
-            : null;
-        SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
-            ?? Categories.FirstOrDefault(c => c.Id == OverviewCategoryId)
-            ?? Categories.FirstOrDefault();
-        ApplySelectedCategoryContent();
-
-        if (!string.IsNullOrWhiteSpace(selectedTaskId) &&
-            SelectedCategory is not null &&
-            !IsSpecialCategory(SelectedCategory))
-        {
-            var selectedTask = AllTasks.FirstOrDefault(task => string.Equals(task.Id, selectedTaskId, StringComparison.OrdinalIgnoreCase));
-            if (selectedTask is not null)
+            if (!string.IsNullOrWhiteSpace(selectedTaskId) &&
+                SelectedCategory is not null &&
+                !IsSpecialCategory(SelectedCategory))
             {
-                SelectCategoryAndTask(SelectedCategory, selectedTask);
+                var selectedTask = AllTasks.FirstOrDefault(task => string.Equals(task.Id, selectedTaskId, StringComparison.OrdinalIgnoreCase));
+                if (selectedTask is not null)
+                {
+                    SelectCategoryAndTask(SelectedCategory, selectedTask);
+                }
             }
+        }
+        finally
+        {
+            _isLoadingData = false;
         }
     }
 
@@ -3354,7 +3365,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategorySortMode_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_isRefreshingVisibleTasks || SelectedCategory is not { } category)
+        if (_isLoadingData ||
+            _suppressCategorySortModeSave ||
+            _isRefreshingVisibleTasks ||
+            _isUpdatingSelection ||
+            _selectionNavigationDepth > 0 ||
+            SelectedCategory is not { } category)
         {
             return;
         }
@@ -5545,37 +5561,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
     {
-        SaveTaskAndQueueIpadSnapshot(task);
+        _repository.SaveTask(task);
         QueueIpadSnapshotExport();
     }
 
     private void SaveCategoryAndQueueIpadSnapshot(CategoryItem category)
     {
-        SaveCategoryAndQueueIpadSnapshot(category);
+        if (_isSavingCategorySnapshot)
+        {
+            return;
+        }
+
+        _isSavingCategorySnapshot = true;
+        try
+        {
+            _repository.SaveCategory(category);
+        }
+        finally
+        {
+            _isSavingCategorySnapshot = false;
+        }
+
         QueueIpadSnapshotExport();
     }
 
     private void SaveAttachmentAndQueueIpadSnapshot(AttachmentItem attachment)
     {
-        SaveAttachmentAndQueueIpadSnapshot(attachment);
+        _repository.SaveAttachment(attachment);
         QueueIpadSnapshotExport();
     }
 
     private void DeleteTaskAndQueueIpadSnapshot(string taskId)
     {
-        DeleteTaskAndQueueIpadSnapshot(taskId);
+        _repository.DeleteTask(taskId);
         QueueIpadSnapshotExport();
     }
 
     private void DeleteAttachmentAndQueueIpadSnapshot(string attachmentId)
     {
-        DeleteAttachmentAndQueueIpadSnapshot(attachmentId);
+        _repository.DeleteAttachment(attachmentId);
         QueueIpadSnapshotExport();
     }
 
     private void EmptyTrashAndQueueIpadSnapshot()
     {
-        EmptyTrashAndQueueIpadSnapshot();
+        _repository.EmptyTrash();
         QueueIpadSnapshotExport();
     }
 
@@ -6424,6 +6454,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isUpdatingSelection = true;
         _suppressTaskListSelectionChanged = true;
         _suppressCategorySelectionChanged = true;
+        _suppressCategorySortModeSave = true;
         _suppressStatusSelectionChanged = true;
         _suppressSavingDuringSelection = true;
         try
@@ -6447,6 +6478,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _suppressSavingDuringSelection = false;
             _suppressStatusSelectionChanged = false;
+            _suppressCategorySortModeSave = false;
             _suppressCategorySelectionChanged = false;
             _suppressTaskListSelectionChanged = false;
             _isUpdatingSelection = false;
@@ -6509,6 +6541,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isUpdatingSelection = true;
         _suppressTaskListSelectionChanged = true;
         _suppressCategorySelectionChanged = true;
+        _suppressCategorySortModeSave = true;
         _suppressStatusSelectionChanged = true;
         _suppressSavingDuringSelection = true;
         try
@@ -6528,6 +6561,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _suppressSavingDuringSelection = false;
             _suppressStatusSelectionChanged = false;
+            _suppressCategorySortModeSave = false;
             _suppressCategorySelectionChanged = false;
             _suppressTaskListSelectionChanged = false;
             _isUpdatingSelection = false;
