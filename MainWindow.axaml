@@ -363,167 +363,219 @@
             Padding="26"
             Background="{DynamicResource WindowBackgroundBrush}"
             IsVisible="{Binding IsOverviewSelected}">
-      <ScrollViewer>
-        <Grid RowDefinitions="Auto,*"
-              ColumnDefinitions="2*,*"
-              RowSpacing="18"
-              ColumnSpacing="18">
-          <StackPanel Grid.Row="0"
-                      Grid.ColumnSpan="2">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="18">
+          <StackPanel>
             <TextBlock Text="Übersicht" FontSize="28" FontWeight="SemiBold" />
             <TextBlock Text="{Binding DashboardDateText}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
           </StackPanel>
 
-          <ItemsControl Grid.Row="1"
-                        Grid.Column="0"
-                        ItemsSource="{Binding DashboardSections}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel Orientation="Horizontal" />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Border Classes="Card"
-                        Width="365"
-                        MinHeight="230"
-                        Margin="0,0,14,14">
-                  <StackPanel Spacing="10">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
-                      <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
-                        <TextBlock Text="{Binding Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <StackPanel Orientation="Horizontal" Spacing="18">
+            <Border Classes="Card"
+                    Width="365"
+                    MinHeight="230">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding DashboardThisWeekSection.Title}" FontSize="16" FontWeight="SemiBold" />
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                    <TextBlock Text="{Binding DashboardThisWeekSection.Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </Border>
+                </Grid>
+
+                <TextBlock Text="{Binding DashboardThisWeekSection.EmptyText}"
+                           IsVisible="{Binding DashboardThisWeekSection.HasNoTasks}"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           Margin="0,10,0,0" />
+
+                <ItemsControl ItemsSource="{Binding DashboardThisWeekSection.Tasks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                              BorderBrush="{DynamicResource BorderBrushDark}"
+                              BorderThickness="1"
+                              CornerRadius="10"
+                              Padding="10"
+                              Margin="0,0,0,8"
+                              PointerPressed="DashboardTask_OnPointerPressed">
+                        <StackPanel Spacing="5">
+                          <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                          <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                          <ItemsControl ItemsSource="{Binding CategoryNameChips}"
+                                        IsVisible="{Binding ShowCategoryHint}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Border Background="{DynamicResource AccentSoftBrush}"
+                                        BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="7"
+                                        Padding="6,2"
+                                        Margin="0,0,4,4">
+                                  <TextBlock Text="{Binding}"
+                                             FontSize="11"
+                                             Foreground="{DynamicResource AccentBrush}" />
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Status}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" />
+                          </Grid>
+                        </StackPanel>
                       </Border>
-                    </Grid>
-
-                    <TextBlock Text="{Binding EmptyText}"
-                               IsVisible="{Binding HasNoTasks}"
-                               Foreground="{DynamicResource TextTertiaryBrush}"
-                               Margin="0,10,0,0" />
-
-                    <ItemsControl ItemsSource="{Binding Tasks}">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Background="{DynamicResource SurfaceElevatedBrush}"
-                                  BorderBrush="{DynamicResource BorderBrushDark}"
-                                  BorderThickness="1"
-                                  CornerRadius="10"
-                                  Padding="10"
-                                  Margin="0,0,0,8"
-                                  PointerPressed="DashboardTask_OnPointerPressed">
-                            <StackPanel Spacing="5">
-                              <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                              <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-                              <ItemsControl ItemsSource="{Binding CategoryNameChips}"
-                                            IsVisible="{Binding ShowCategoryHint}">
-                                <ItemsControl.ItemsPanel>
-                                  <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                  </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                  <DataTemplate>
-                                    <Border Background="{DynamicResource AccentSoftBrush}"
-                                            BorderBrush="{DynamicResource AccentSoftBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="7"
-                                            Padding="6,2"
-                                            Margin="0,0,4,4">
-                                      <TextBlock Text="{Binding}"
-                                                 FontSize="11"
-                                                 Foreground="{DynamicResource AccentBrush}" />
-                                    </Border>
-                                  </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                              </ItemsControl>
-                              <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="12" />
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding Status}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="12" />
-                              </Grid>
-                            </StackPanel>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-
-          <Border Grid.Row="1"
-                  Grid.Column="1"
-                  Classes="Card"
-                  Padding="18">
-            <StackPanel Spacing="10">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
-                <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
-                  <TextBlock Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                </Border>
-              </Grid>
-
-              <ItemsControl ItemsSource="{Binding FollowUpTasks}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Border Background="{Binding ReminderCardBackground}"
-                            BorderBrush="{Binding ReminderCardBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="10"
-                            Margin="0,0,0,8"
-                            PointerPressed="DashboardTask_OnPointerPressed">
-                      <StackPanel Spacing="5">
-                        <TextBlock Text="{Binding CustomerName}"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding Title}"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   TextWrapping="Wrap" />
-                        <ItemsControl ItemsSource="{Binding CategoryNameChips}"
-                                      IsVisible="{Binding ShowCategoryHint}">
-                          <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                              <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                          </ItemsControl.ItemsPanel>
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                              <Border Background="{DynamicResource AccentSoftBrush}"
-                                      BorderBrush="{DynamicResource AccentSoftBorderBrush}"
-                                      BorderThickness="1"
-                                      CornerRadius="7"
-                                      Padding="6,2"
-                                      Margin="0,0,4,4">
-                                <TextBlock Text="{Binding}"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource AccentBrush}" />
-                              </Border>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <Grid ColumnDefinitions="*,Auto">
-                          <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
-                                     Foreground="{DynamicResource TextSecondaryBrush}"
-                                     FontSize="12" />
-                          <TextBlock Grid.Column="1"
-                                     Text="{Binding Status}"
-                                     Foreground="{DynamicResource TextSecondaryBrush}"
-                                     FontSize="12" />
-                        </Grid>
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </StackPanel>
             </Border>
-        </Grid>
+
+            <Border Classes="Card"
+                    Width="365"
+                    MinHeight="230">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding DashboardNextWeekSection.Title}" FontSize="16" FontWeight="SemiBold" />
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                    <TextBlock Text="{Binding DashboardNextWeekSection.Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </Border>
+                </Grid>
+
+                <TextBlock Text="{Binding DashboardNextWeekSection.EmptyText}"
+                           IsVisible="{Binding DashboardNextWeekSection.HasNoTasks}"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           Margin="0,10,0,0" />
+
+                <ItemsControl ItemsSource="{Binding DashboardNextWeekSection.Tasks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                              BorderBrush="{DynamicResource BorderBrushDark}"
+                              BorderThickness="1"
+                              CornerRadius="10"
+                              Padding="10"
+                              Margin="0,0,0,8"
+                              PointerPressed="DashboardTask_OnPointerPressed">
+                        <StackPanel Spacing="5">
+                          <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                          <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                          <ItemsControl ItemsSource="{Binding CategoryNameChips}"
+                                        IsVisible="{Binding ShowCategoryHint}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Border Background="{DynamicResource AccentSoftBrush}"
+                                        BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="7"
+                                        Padding="6,2"
+                                        Margin="0,0,4,4">
+                                  <TextBlock Text="{Binding}"
+                                             FontSize="11"
+                                             Foreground="{DynamicResource AccentBrush}" />
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Status}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" />
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="Card"
+                    Width="365"
+                    MinHeight="230"
+                    Padding="18">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                    <TextBlock Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </Border>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding FollowUpTasks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{Binding ReminderCardBackground}"
+                              BorderBrush="{Binding ReminderCardBorderBrush}"
+                              BorderThickness="1"
+                              CornerRadius="10"
+                              Padding="10"
+                              Margin="0,0,0,8"
+                              PointerPressed="DashboardTask_OnPointerPressed">
+                        <StackPanel Spacing="5">
+                          <TextBlock Text="{Binding CustomerName}"
+                                     FontWeight="SemiBold"
+                                     TextWrapping="Wrap" />
+                          <TextBlock Text="{Binding Title}"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     TextWrapping="Wrap" />
+                          <ItemsControl ItemsSource="{Binding CategoryNameChips}"
+                                        IsVisible="{Binding ShowCategoryHint}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Border Background="{DynamicResource AccentSoftBrush}"
+                                        BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="7"
+                                        Padding="6,2"
+                                        Margin="0,0,4,4">
+                                  <TextBlock Text="{Binding}"
+                                             FontSize="11"
+                                             Foreground="{DynamicResource AccentBrush}" />
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Status}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" />
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </StackPanel>
       </ScrollViewer>
     </Border>
 

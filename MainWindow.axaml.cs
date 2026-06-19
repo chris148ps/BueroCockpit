@@ -157,6 +157,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
     public ObservableCollection<BackupListItem> BackupEntries { get; } = new();
 
+    private DashboardSection _dashboardThisWeekSection = new(
+        "Diese Woche",
+        "Keine Termine für diese Woche.",
+        0,
+        Array.Empty<TaskItem>());
+
+    public DashboardSection DashboardThisWeekSection
+    {
+        get => _dashboardThisWeekSection;
+        private set
+        {
+            if (ReferenceEquals(_dashboardThisWeekSection, value))
+            {
+                return;
+            }
+
+            _dashboardThisWeekSection = value;
+            OnPropertyChanged(nameof(DashboardThisWeekSection));
+        }
+    }
+
+    private DashboardSection _dashboardNextWeekSection = new(
+        "Nächste Woche",
+        "Keine Termine für nächste Woche.",
+        0,
+        Array.Empty<TaskItem>());
+
+    public DashboardSection DashboardNextWeekSection
+    {
+        get => _dashboardNextWeekSection;
+        private set
+        {
+            if (ReferenceEquals(_dashboardNextWeekSection, value))
+            {
+                return;
+            }
+
+            _dashboardNextWeekSection = value;
+            OnPropertyChanged(nameof(DashboardNextWeekSection));
+        }
+    }
+
     public string[] SortModeOptions { get; } = ["Manuell", "Name", "Termin", "Erstellt am", "Wiedervorlage", "Gesendet am", "Geändert am"];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public ObservableCollection<string> TechnicianOptions { get; } = new();
@@ -2335,17 +2377,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshDashboard()
     {
-        DashboardSections.Clear();
         RefreshFollowUpTasks();
         var weekStart = GetWeekStart(DateTime.Today);
-        DashboardSections.Add(CreateDashboardSection(
+
+        DashboardThisWeekSection = CreateDashboardSection(
             "Diese Woche",
             "Keine Termine für diese Woche.",
-            GetOverviewTasks(weekStart, weekStart.AddDays(7))));
-        DashboardSections.Add(CreateDashboardSection(
+            GetOverviewTasks(weekStart, weekStart.AddDays(7)));
+        DashboardNextWeekSection = CreateDashboardSection(
             "Nächste Woche",
             "Keine Termine für nächste Woche.",
-            GetOverviewTasks(weekStart.AddDays(7), weekStart.AddDays(14))));
+            GetOverviewTasks(weekStart.AddDays(7), weekStart.AddDays(14)));
+
+        DashboardSections.Clear();
+        DashboardSections.Add(DashboardThisWeekSection);
+        DashboardSections.Add(DashboardNextWeekSection);
     }
 
     private void RefreshFollowUpTasks()
