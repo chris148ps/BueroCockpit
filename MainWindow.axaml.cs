@@ -299,23 +299,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _selectedTaskCategory = value;
             OnPropertyChanged(nameof(SelectedTaskCategory));
-            if (!_isLoadingSelection &&
-                !_isUpdatingSelection &&
-                !_isRefreshingVisibleTasks &&
-                _selectionNavigationDepth == 0 &&
-                SelectedTask is not null &&
-                value is not null)
-            {
-                SelectedTask.CategoryId = value.Id;
-                if (!SelectedTask.CategoryIds.Contains(value.Id, StringComparer.OrdinalIgnoreCase))
-                {
-                    SelectedTask.CategoryIds.Add(value.Id);
-                }
-                _repository.SaveTask(SelectedTask);
-                RefreshTaskCategorySelections();
-                RefreshVisibleTasks();
-                UpdateCategoryCounts();
-            }
         }
     }
 
@@ -5038,17 +5021,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         var matchingCategories = new List<CategoryItem>();
 
-        if (!string.IsNullOrWhiteSpace(task.CategoryId))
-        {
-            var primaryCategory = Categories.FirstOrDefault(category =>
-                string.Equals(category.Id, task.CategoryId, StringComparison.OrdinalIgnoreCase));
-            if (primaryCategory is not null && !IsSpecialCategory(primaryCategory))
-            {
-                matchingCategories.Add(primaryCategory);
-            }
-        }
-
-        foreach (var categoryId in task.CategoryIds)
+        foreach (var categoryId in GetTaskCategoryIds(task))
         {
             var category = Categories.FirstOrDefault(item =>
                 string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
@@ -5344,16 +5317,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private CategoryItem? GetTaskTargetCategory(TaskItem task)
     {
-        if (!string.IsNullOrWhiteSpace(task.CategoryId))
-        {
-            var category = Categories.FirstOrDefault(item => string.Equals(item.Id, task.CategoryId, StringComparison.OrdinalIgnoreCase));
-            if (category is not null && !IsSpecialCategory(category))
-            {
-                return category;
-            }
-        }
-
-        foreach (var categoryId in task.CategoryIds)
+        foreach (var categoryId in GetTaskCategoryIds(task))
         {
             var category = Categories.FirstOrDefault(item => string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
             if (category is not null && !IsSpecialCategory(category))
@@ -5631,12 +5595,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private List<string> GetTaskCategoryNameList(TaskItem task)
     {
-        var ids = task.CategoryIds
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Concat(new[] { task.CategoryId })
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var ids = GetTaskCategoryIds(task);
 
         return ids
             .Select(id => Categories.FirstOrDefault(category => string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase))?.Name)
@@ -5648,11 +5607,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private string GetTaskCategoryNames(TaskItem task)
     {
-        var categoryIds = task.CategoryIds
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Append(task.CategoryId)
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var categoryIds = GetTaskCategoryIds(task);
         var names = categoryIds
             .Select(id => Categories.FirstOrDefault(category => string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase))?.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -5849,12 +5804,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return false;
         }
 
-        if (string.Equals(task.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase))
+        return GetTaskCategoryIds(task).Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static List<string> GetTaskCategoryIds(TaskItem task)
+    {
+        var categoryIds = new List<string>();
+
+        void AddCategoryId(string? categoryId)
         {
-            return true;
+            if (string.IsNullOrWhiteSpace(categoryId))
+            {
+                return;
+            }
+
+            if (categoryIds.Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            categoryIds.Add(categoryId);
         }
 
-        return task.CategoryIds.Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+        AddCategoryId(task.CategoryId);
+        foreach (var categoryId in task.CategoryIds)
+        {
+            AddCategoryId(categoryId);
+        }
+
+        return categoryIds;
     }
 
     private static bool IsSpecialCategory(CategoryItem category)
@@ -6030,7 +6008,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SelectedTask.CategoryId = SelectedTaskCategory?.Id ?? SelectedTask.CategoryId;
+        EnsureTaskCategoryState(SelectedTask);
         if (SelectedTask.Status == "Erledigt" && SelectedTask.CompletedAt is null)
         {
             SelectedTask.CompletedAt = DateTime.Now;
@@ -6046,6 +6024,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (archive is not null)
             {
                 SelectedTask.CategoryId = archive.Id;
+                if (!SelectedTask.CategoryIds.Contains(archive.Id, StringComparer.OrdinalIgnoreCase))
+                {
+                    SelectedTask.CategoryIds.Insert(0, archive.Id);
+                }
                 SelectedTaskCategory = archive;
             }
         }

@@ -387,7 +387,10 @@ public sealed class BueroRepository
             return;
         }
 
-        if (!EnsureTaskCategoryState(task))
+        using var connection = OpenConnection();
+        var validCategoryIds = LoadCategoryIds(connection);
+
+        if (!EnsureTaskCategoryState(task, validCategoryIds))
         {
             return;
         }
@@ -398,7 +401,6 @@ public sealed class BueroRepository
             task.CreatedAt = task.UpdatedAt;
         }
 
-        using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, Priority,
@@ -427,7 +429,7 @@ public sealed class BueroRepository
         AddTaskParameters(command, task);
         command.ExecuteNonQuery();
 
-        SaveTaskCategories(task);
+        SaveTaskCategories(task, validCategoryIds);
     }
 
     public void DeleteTask(string taskId)
@@ -848,6 +850,7 @@ public sealed class BueroRepository
 
         using var connection = OpenConnection();
         connection.Open();
+        var validCategoryIds = LoadCategoryIds(connection);
 
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -865,7 +868,8 @@ public sealed class BueroRepository
             var categoryId = reader.GetString(1);
 
             if (byTaskId.TryGetValue(taskId, out var task) &&
-                !task.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
+                !task.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase) &&
+                validCategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
             {
                 task.CategoryIds.Add(categoryId);
             }
@@ -873,23 +877,25 @@ public sealed class BueroRepository
 
         foreach (var task in tasks)
         {
-            if (task.CategoryIds.Count == 0 && !string.IsNullOrWhiteSpace(task.CategoryId))
+            if (task.CategoryIds.Count == 0 &&
+                !string.IsNullOrWhiteSpace(task.CategoryId) &&
+                validCategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
             {
                 task.CategoryIds.Add(task.CategoryId);
             }
 
-            EnsureTaskCategoryState(task);
+            EnsureTaskCategoryState(task, validCategoryIds);
         }
     }
 
-    private void SaveTaskCategories(TaskItem task)
+    private void SaveTaskCategories(TaskItem task, IReadOnlyCollection<string>? validCategoryIds = null)
     {
         if (task is null)
         {
             return;
         }
 
-        if (!EnsureTaskCategoryState(task))
+        if (!EnsureTaskCategoryState(task, validCategoryIds))
         {
             return;
         }
@@ -917,7 +923,30 @@ public sealed class BueroRepository
         }
     }
 
-    private static bool EnsureTaskCategoryState(TaskItem task)
+    private static List<string> LoadCategoryIds(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Id
+            FROM Categories
+            ORDER BY SortOrder, Name;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var categoryIds = new List<string>();
+        while (reader.Read())
+        {
+            var categoryId = reader.GetString(0);
+            if (!string.IsNullOrWhiteSpace(categoryId))
+            {
+                categoryIds.Add(categoryId);
+            }
+        }
+
+        return categoryIds;
+    }
+
+    private static bool EnsureTaskCategoryState(TaskItem task, IReadOnlyCollection<string>? validCategoryIds = null)
     {
         task.CategoryIds ??= new List<string>();
         task.CategoryIds = task.CategoryIds
@@ -925,10 +954,27 @@ public sealed class BueroRepository
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (validCategoryIds is not null)
+        {
+            task.CategoryIds = task.CategoryIds
+                .Where(id => validCategoryIds.Contains(id, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         if (!string.IsNullOrWhiteSpace(task.CategoryId) &&
+            (validCategoryIds is null || validCategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase)) &&
             !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
         {
             task.CategoryIds.Insert(0, task.CategoryId);
+        }
+
+        if (task.CategoryIds.Count == 0 && validCategoryIds is not null)
+        {
+            var fallbackCategoryId = validCategoryIds.FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+            if (!string.IsNullOrWhiteSpace(fallbackCategoryId))
+            {
+                task.CategoryIds.Add(fallbackCategoryId);
+            }
         }
 
         if (task.CategoryIds.Count == 0)
