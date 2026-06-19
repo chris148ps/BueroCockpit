@@ -8,16 +8,11 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $X64Publish = Join-Path $ProjectRoot "publish\windows-x64"
-$Arm64Publish = Join-Path $ProjectRoot "publish\windows-arm64"
 $InstallerScript = Join-Path $ProjectRoot "installer\BueroCockpit.iss"
 $SetupExe = Join-Path $ProjectRoot "publish\installer\BueroCockpitSetup.exe"
 
 if (-not (Test-Path $X64Publish)) {
     throw "Publish-Ordner fehlt: $X64Publish. Bitte zuerst publish/windows-x64 erzeugen."
-}
-
-if (-not (Test-Path $Arm64Publish)) {
-    throw "Publish-Ordner fehlt: $Arm64Publish. Bitte zuerst publish/windows-arm64 erzeugen."
 }
 
 if (-not (Test-Path $InstallerScript)) {

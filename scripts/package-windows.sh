@@ -30,8 +30,6 @@ package_runtime() {
 }
 
 package_runtime "x64"
-package_runtime "arm64"
 
 echo "Alle Windows-ZIP-Pakete wurden erstellt:"
 echo "$PUBLISH_ROOT/BueroCockpit-windows-x64.zip"
-echo "$PUBLISH_ROOT/BueroCockpit-windows-arm64.zip"

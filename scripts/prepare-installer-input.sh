@@ -8,17 +8,14 @@ cd "$PROJECT_ROOT"
 
 ./scripts/publish-windows.sh
 
-for dir in "$PROJECT_ROOT/publish/windows-x64" "$PROJECT_ROOT/publish/windows-arm64"; do
-  if [ ! -d "$dir" ]; then
-    echo "Publish-Ordner fehlt: $dir"
-    exit 1
-  fi
-done
+if [ ! -d "$PROJECT_ROOT/publish/windows-x64" ]; then
+  echo "Publish-Ordner fehlt: $PROJECT_ROOT/publish/windows-x64"
+  exit 1
+fi
 
 echo
 echo "Installer-Eingabedateien sind vorbereitet:"
 echo "$PROJECT_ROOT/publish/windows-x64"
-echo "$PROJECT_ROOT/publish/windows-arm64"
 echo
 echo "Diese Ordner auf Windows kopieren oder Repository auf Windows auschecken"
 echo "und dort ausführen:"

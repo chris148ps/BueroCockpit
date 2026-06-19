@@ -90,13 +90,7 @@ Dieses Release enthält nur fertige Updatepakete. Der Quellcode liegt weiterhin 
   publish/velopack/win-x64/BueroCockpit-"$VERSION"-win-x64-full.nupkg \
   publish/velopack/win-x64/RELEASES-win-x64 \
   publish/velopack/win-x64/releases.win-x64.json \
-  publish/velopack/win-x64/assets.win-x64.json \
-  publish/velopack/win-arm64/BueroCockpit-win-arm64-Setup.exe \
-  publish/velopack/win-arm64/BueroCockpit-win-arm64-Portable.zip \
-  publish/velopack/win-arm64/BueroCockpit-"$VERSION"-win-arm64-full.nupkg \
-  publish/velopack/win-arm64/RELEASES-win-arm64 \
-  publish/velopack/win-arm64/releases.win-arm64.json \
-  publish/velopack/win-arm64/assets.win-arm64.json
+  publish/velopack/win-x64/assets.win-x64.json
 
 echo
 echo "=== Öffentlichen Release prüfen ==="

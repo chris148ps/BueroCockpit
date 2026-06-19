@@ -61,8 +61,6 @@ pack_runtime() {
 }
 
 pack_runtime "win-x64" "win-x64"
-pack_runtime "win-arm64" "win-arm64"
 
 echo "Velopack-Pakete wurden erstellt:"
 echo "$VELOPACK_ROOT/win-x64"
-echo "$VELOPACK_ROOT/win-arm64"

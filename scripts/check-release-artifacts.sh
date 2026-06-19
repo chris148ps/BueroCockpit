@@ -66,7 +66,6 @@ echo
 check_file "Inno-Setup-Installer" "$PUBLISH_ROOT/installer/BueroCockpitSetup.exe"
 
 check_velopack_runtime "win-x64"
-check_velopack_runtime "win-arm64"
 
 echo
 if [ "$missing" -ne 0 ]; then

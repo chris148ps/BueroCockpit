@@ -30,8 +30,6 @@ publish_runtime() {
 }
 
 publish_runtime "win-x64"
-publish_runtime "win-arm64"
 
 echo "Alle Windows-Publish-Ordner wurden erstellt:"
 echo "$PUBLISH_ROOT/windows-x64"
-echo "$PUBLISH_ROOT/windows-arm64"
