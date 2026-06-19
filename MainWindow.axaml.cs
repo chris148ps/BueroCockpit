@@ -1180,7 +1180,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             DeskStatus = $"Datei nicht gefunden: {filePath}";
@@ -1254,7 +1254,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void TryOpenDeskFileExternal(DeskItem deskItem, string? resolvedPath = null)
     {
-        var filePath = resolvedPath ?? AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        var filePath = !string.IsNullOrWhiteSpace(resolvedPath) && File.Exists(resolvedPath)
+            ? resolvedPath
+            : AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             DeskStatus = $"Datei nicht gefunden: {filePath}";
@@ -2049,7 +2051,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void EnsureDeskFilePreview(DeskItem deskItem)
     {
-        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
         if (!deskItem.IsFileCard || !File.Exists(filePath))
         {
             return;
@@ -2334,13 +2336,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static string ResolveDeskItemSourcePath(DeskItem deskItem)
     {
-        var referencePath = AppPaths.ResolveStoredPath(deskItem.ReferencePath);
+        var referencePath = AppPaths.ResolveDeskItemPath(deskItem.ReferencePath, deskItem.FileName);
         if (!string.IsNullOrWhiteSpace(referencePath) && File.Exists(referencePath))
         {
             return referencePath;
         }
 
-        var filePath = AppPaths.ResolveStoredPath(deskItem.FilePath);
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
         if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
         {
             return filePath;
@@ -4210,7 +4212,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
                 if (!string.IsNullOrWhiteSpace(deskItem.FilePath))
                 {
-                    var resolvedFilePath = AppPaths.ResolveStoredPath(deskItem.FilePath);
+                    var resolvedFilePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
                     if (AppPaths.IsPathInsideAppDataDirectory(resolvedFilePath))
                     {
                         var storedFilePath = AppPaths.ToStoredPath(resolvedFilePath);
@@ -4234,7 +4236,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
                 if (!string.IsNullOrWhiteSpace(deskItem.ThumbnailPath))
                 {
-                    var resolvedThumbnailPath = AppPaths.ResolveStoredPath(deskItem.ThumbnailPath);
+                    var resolvedThumbnailPath = AppPaths.ResolveDeskItemPath(deskItem.ThumbnailPath);
                     if (File.Exists(resolvedThumbnailPath))
                     {
                         if (AppPaths.IsPathInsideAppDataDirectory(resolvedThumbnailPath))
@@ -4271,7 +4273,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 changed = true;
             }
 
-            var currentFilePath = AppPaths.ResolveStoredPath(deskItem.FilePath);
+            var currentFilePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
             if (string.IsNullOrWhiteSpace(currentFilePath) ||
                 !File.Exists(currentFilePath) ||
                 !AppPaths.IsPathInsideAppDataDirectory(currentFilePath) ||
@@ -6119,7 +6121,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return deskItem.ContentHash;
         }
 
-        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath);
+        var filePath = AppPaths.ResolveDeskItemPath(deskItem.FilePath, deskItem.FileName);
         var contentHash = _hashService.ComputeSha256(filePath);
         if (!string.IsNullOrWhiteSpace(contentHash))
         {

@@ -13,6 +13,7 @@
         Title="BüroCockpit">
   <Window.Resources>
     <converters:ThumbnailImageConverter x:Key="ThumbnailImageConverter" />
+    <converters:DeskThumbnailImageConverter x:Key="DeskThumbnailImageConverter" />
   </Window.Resources>
 
   <Window.Styles>
@@ -690,7 +691,7 @@
                                   </Border>
 
                                   <Image IsVisible="{Binding HasPreviewThumbnail}"
-                                         Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
+                                         Source="{Binding ThumbnailPath, Converter={StaticResource DeskThumbnailImageConverter}}"
                                          Stretch="Uniform"
                                          HorizontalAlignment="Stretch"
                                          VerticalAlignment="Stretch"

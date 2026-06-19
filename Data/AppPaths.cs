@@ -207,9 +207,20 @@ public static class AppPaths
         return CombineRelativePath(DeskItemsRelativeDirectory, "Files", deskItemId, "Thumbnails", $"{deskItemId}.png");
     }
 
-    public static string ResolveDeskItemPath(string? path)
+    public static string ResolveDeskItemPath(string? path, string? fileName = null)
     {
-        return ResolveDataPath(path);
+        var resolvedPath = ResolveDataPath(path);
+        if (File.Exists(resolvedPath) || Directory.Exists(resolvedPath))
+        {
+            return resolvedPath;
+        }
+
+        if (TryResolveDeskItemFallbackPath(path, fileName, out var fallbackPath))
+        {
+            return fallbackPath;
+        }
+
+        return resolvedPath;
     }
 
     public static string MakeRelativeToAppDataDirectory(string? path)
@@ -516,6 +527,40 @@ public static class AppPaths
             var matches = Directory.EnumerateFiles(attachmentDirectory, $"*{extension}")
                 .Where(candidatePath =>
                     Path.GetFileNameWithoutExtension(candidatePath).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+
+            if (matches.Count == 1)
+            {
+                resolvedPath = matches[0];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveDeskItemFallbackPath(string? path, string? fileName, out string resolvedPath)
+    {
+        resolvedPath = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(path) && string.IsNullOrWhiteSpace(fileName))
+        {
+            return false;
+        }
+
+        var candidateNames = new List<string>();
+        AddCandidateName(candidateNames, path);
+        AddCandidateName(candidateNames, fileName);
+
+        if (candidateNames.Count == 0 || !Directory.Exists(DeskFilesDirectory))
+        {
+            return false;
+        }
+
+        foreach (var candidateName in candidateNames)
+        {
+            var matches = Directory.EnumerateFiles(DeskFilesDirectory, candidateName, SearchOption.AllDirectories)
                 .Take(2)
                 .ToList();
 
