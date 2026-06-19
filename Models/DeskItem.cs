@@ -286,11 +286,11 @@ public sealed class DeskItem : ObservableObject
     public string NoteBackground => IsImportant ? "#FFD8D4" : "#FFF3B5";
     public string NoteBorderBrush => IsImportant ? "#CB5B53" : "#C9B760";
     public string NoteHeaderBackground => IsImportant ? "#F7BBB5" : "#F7E28B";
-    public string FileCardBackground => IsImportant ? "#FFF7F4" : "#FCFBF8";
-    public string FileCardBorderBrush => IsImportant ? "#CB5B53" : "#DAD4C7";
-    public string FileCardPreviewBackground => IsImportant ? "#FFFDFC" : "#FFFFFF";
-    public string FileCardBadgeBackground => IsImportant ? "#F6DDD9" : "#E4E0D8";
-    public string FileCardBadgeBorderBrush => IsImportant ? "#D98A82" : "#CFC9BB";
+    public string FileCardBackground => IsImportant ? "#FFF1EE" : "#FCFBF8";
+    public string FileCardBorderBrush => IsImportant ? "#B42318" : "#DAD4C7";
+    public string FileCardPreviewBackground => IsImportant ? "#FFF7F5" : "#FFFFFF";
+    public string FileCardBadgeBackground => IsImportant ? "#FFD9D4" : "#E4E0D8";
+    public string FileCardBadgeBorderBrush => IsImportant ? "#D92D20" : "#CFC9BB";
 
     private static string? TryGetLinkedTaskId(string? path)
     {

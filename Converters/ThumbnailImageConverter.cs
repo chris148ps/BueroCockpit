@@ -10,19 +10,7 @@ public sealed class ThumbnailImageConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var path = AppPaths.ResolveStoredPath(value as string);
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            return new Bitmap(path);
-        }
-        catch
-        {
-            return null;
-        }
+        return ThumbnailBitmapCache.Load(path);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

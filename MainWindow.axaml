@@ -640,7 +640,8 @@
                         HorizontalScrollBarVisibility="Hidden"
                         VerticalScrollBarVisibility="Hidden">
             <LayoutTransformControl x:Name="DeskZoomHost"
-                                    LayoutTransform="{Binding DeskZoomTransform}">
+                                    LayoutTransform="{Binding DeskZoomTransform}"
+                                    UseRenderTransform="True">
                 <Grid x:Name="DeskSurface"
                       Width="{Binding DeskSurfaceWidth}"
                       Height="{Binding DeskSurfaceHeight}"
@@ -788,7 +789,10 @@
 
                         <Border Width="{Binding Width}"
                                 Height="{Binding Height}"
-                                Background="Transparent"
+                                Background="{Binding FileCardBackground}"
+                                BorderBrush="{Binding FileCardBorderBrush}"
+                                BorderThickness="1.2"
+                                CornerRadius="18"
                                 Tag="DeskFileRoot"
                                 ClipToBounds="False"
                                 IsVisible="{Binding IsFileCard}"
@@ -829,15 +833,15 @@
                                 <Grid Margin="12">
                                   <Border HorizontalAlignment="Right"
                                           VerticalAlignment="Top"
-                                          Background="#C94A3F"
-                                          BorderBrush="#A33930"
+                                          Background="#B42318"
+                                          BorderBrush="#7A271A"
                                           BorderThickness="1"
                                           CornerRadius="0,12,0,12"
-                                          Padding="8,4"
+                                          Padding="9,5"
                                           IsVisible="{Binding IsImportant}">
                                     <TextBlock Text="Wichtig"
-                                               FontSize="11"
-                                               FontWeight="SemiBold"
+                                               FontSize="12"
+                                               FontWeight="Bold"
                                                Foreground="#FFFFFF" />
                                   </Border>
 
@@ -847,7 +851,7 @@
                                          HorizontalAlignment="Stretch"
                                          VerticalAlignment="Stretch"
                                          IsHitTestVisible="False"
-                                         RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                         RenderOptions.BitmapInterpolationMode="MediumQuality" />
 
                                   <TextBlock IsVisible="{Binding HasPreviewText}"
                                              Text="{Binding PreviewText}"
@@ -871,11 +875,11 @@
                                                  FontSize="28"
                                                  FontWeight="SemiBold"
                                                  HorizontalAlignment="Center"
-                                                 Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                 Foreground="#050505" />
                                     </Border>
                                     <TextBlock Text="{Binding FileBadgeText}"
                                                HorizontalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               Foreground="#111111"
                                                FontSize="12" />
                                   </StackPanel>
                                 </Grid>
@@ -888,8 +892,9 @@
                                            TextAlignment="Center"
                                            TextWrapping="NoWrap"
                                            TextTrimming="CharacterEllipsis"
-                                           FontSize="10"
-                                           Foreground="#111827"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#050505"
                                            IsHitTestVisible="False" />
                                 <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          Classes="DeskNoteEditor DeskItemNameEditor"
@@ -897,7 +902,7 @@
                                          HorizontalAlignment="Stretch"
                                          Background="{DynamicResource WindowBackgroundBrush}"
                                          TextAlignment="Center"
-                                         FontSize="10"
+                                         FontSize="12"
                                          LostFocus="DeskItemNameEditor_OnLostFocus"
                                          KeyDown="DeskItemNameEditor_OnKeyDown" />
                               </Grid>

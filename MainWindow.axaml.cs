@@ -1307,19 +1307,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void DeskScrollViewer_OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         var pointerPosition = e.GetPosition(DeskScrollViewer);
-        var zoomFactor = e.Delta.Y > 0 ? 1.12 : 1 / 1.12;
+        var zoomFactor = e.Delta.Y > 0 ? 1.08 : 1 / 1.08;
         SetDeskUserZoom(_deskUserZoom * zoomFactor, pointerPosition);
         e.Handled = true;
     }
 
     private void DeskZoomIn_OnClick(object? sender, RoutedEventArgs e)
     {
-        SetDeskUserZoom(_deskUserZoom * 1.15, GetDeskViewportCenter());
+        SetDeskUserZoom(_deskUserZoom * 1.08, GetDeskViewportCenter());
     }
 
     private void DeskZoomOut_OnClick(object? sender, RoutedEventArgs e)
     {
-        SetDeskUserZoom(_deskUserZoom / 1.15, GetDeskViewportCenter());
+        SetDeskUserZoom(_deskUserZoom / 1.08, GetDeskViewportCenter());
     }
 
     private void DeskZoomReset_OnClick(object? sender, RoutedEventArgs e)
