@@ -152,6 +152,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
+    public ObservableCollection<BackupListItem> BackupEntries { get; } = new();
 
     public string[] SortModeOptions { get; } = ["Manuell", "Name", "Termin", "Erstellt am", "Wiedervorlage", "Gesendet am", "Geändert am"];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
@@ -698,6 +699,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasLastBackup => !string.IsNullOrWhiteSpace(LastBackupPath);
+    public bool HasBackupEntries => BackupEntries.Count > 0;
+    public bool HasNoBackupEntries => !HasBackupEntries;
     public string DeskStatus
     {
         get => _deskStatus;
@@ -810,6 +813,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _repository.Initialize();
         LoadData();
+        LoadBackupEntries();
         CleanupNavigationCategories();
         SelectStartupTaskCategory();
     }
@@ -1551,7 +1555,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
 
-    private void LoadData()
+    private void LoadData(string? selectedCategoryId = null, string? selectedTaskId = null)
     {
         Categories.Clear();
         Categories.Add(CreateDeskCategory());
@@ -1571,10 +1575,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         LoadDeskItems();
         UpdateCategoryCounts();
-        SelectedCategory = Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
+        SelectedCategory = !string.IsNullOrWhiteSpace(selectedCategoryId)
+            ? Categories.FirstOrDefault(c => string.Equals(c.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
+            : null;
+        SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
             ?? Categories.FirstOrDefault(c => c.Name == OverviewCategoryName)
             ?? Categories.FirstOrDefault();
         ApplySelectedCategoryContent();
+
+        if (!string.IsNullOrWhiteSpace(selectedTaskId) &&
+            SelectedCategory is not null &&
+            !IsSpecialCategory(SelectedCategory))
+        {
+            var selectedTask = AllTasks.FirstOrDefault(task => string.Equals(task.Id, selectedTaskId, StringComparison.OrdinalIgnoreCase));
+            if (selectedTask is not null)
+            {
+                SelectCategoryAndTask(SelectedCategory, selectedTask);
+            }
+        }
     }
 
     private void RefreshVisibleTasks()
@@ -1938,6 +1956,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         VisibleTasks.Clear();
         TaskListCaption = "Einstellungen";
         ClearSearchTextWithoutRefresh();
+        LoadBackupEntries();
     }
 
     private void ClearSearchTextWithoutRefresh()
@@ -5216,12 +5235,237 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var result = await Task.Run(() => _backupService.CreateBackup());
             LastBackupPath = result.BackupPath;
             LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            BackupStatus = "Backup wurde erstellt.";
+            BackupStatus = "Backup jetzt erstellt.";
+            LoadBackupEntries();
         }
         catch (Exception ex)
         {
             BackupStatus = "Backup konnte nicht erstellt werden.";
             Debug.WriteLine($"Backup failed: {ex}");
+        }
+    }
+
+    private async void RestoreBackup_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: BackupListItem backup })
+        {
+            return;
+        }
+
+        if (!await ShowRestoreBackupConfirmationDialogAsync(backup))
+        {
+            return;
+        }
+
+        var selectedCategoryId = SelectedCategory?.Id;
+        var selectedTaskId = SelectedTask?.Id;
+
+        try
+        {
+            if (SelectedTask is not null && !IsUnsavedPlaceholderTask(SelectedTask))
+            {
+                _repository.SaveTask(SelectedTask);
+            }
+
+            ClearSelectedTask();
+            SqliteConnection.ClearAllPools();
+
+            BackupResult safetyBackup;
+            try
+            {
+                safetyBackup = await Task.Run(() => _backupService.CreateBackup());
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Safety backup before restore failed: {ex}");
+                BackupStatus = "Sicherheitsbackup vor der Wiederherstellung fehlgeschlagen.";
+                return;
+            }
+
+            if (safetyBackup.SkippedFiles > 0)
+            {
+                BackupStatus = "Sicherheitsbackup vor der Wiederherstellung war unvollständig.";
+                return;
+            }
+
+            LastBackupPath = safetyBackup.BackupPath;
+            LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+            LoadBackupEntries();
+
+            await Task.Run(() => RestoreBackupDatabase(backup.FilePath));
+            SqliteConnection.ClearAllPools();
+
+            _repository.Initialize();
+            LoadData(selectedCategoryId, selectedTaskId);
+            LoadBackupEntries();
+            BackupStatus = "Backup wurde wiederhergestellt.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Backup restore failed: {ex}");
+            BackupStatus = "Backup konnte nicht wiederhergestellt werden.";
+        }
+    }
+
+    private void LoadBackupEntries()
+    {
+        AppPaths.EnsureBaseDirectories();
+        BackupEntries.Clear();
+
+        try
+        {
+            if (Directory.Exists(AppPaths.BackupDirectory))
+            {
+                foreach (var fileInfo in Directory.EnumerateFiles(AppPaths.BackupDirectory, "*.db")
+                             .Select(path => new FileInfo(path))
+                             .OrderByDescending(file => file.LastWriteTimeUtc)
+                             .ThenByDescending(file => file.Length))
+                {
+                    BackupEntries.Add(CreateBackupListItem(fileInfo));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Backup list could not be loaded: {ex}");
+        }
+
+        OnPropertyChanged(nameof(HasBackupEntries));
+        OnPropertyChanged(nameof(HasNoBackupEntries));
+    }
+
+    private static BackupListItem CreateBackupListItem(FileInfo fileInfo)
+    {
+        return new BackupListItem(
+            fileInfo.FullName,
+            fileInfo.Name,
+            fileInfo.LastWriteTime.ToString("dd.MM.yyyy HH:mm:ss"),
+            FormatBackupFileSize(fileInfo.Length));
+    }
+
+    private static string FormatBackupFileSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double size = bytes;
+        var unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? $"{(long)size} {units[unitIndex]}"
+            : $"{size:0.#} {units[unitIndex]}";
+    }
+
+    private async Task<bool> ShowRestoreBackupConfirmationDialogAsync(BackupListItem backup)
+    {
+        var result = false;
+        var confirmButton = new Button
+        {
+            Content = "Backup wiederherstellen",
+            Classes = { "Primary" },
+            MinWidth = 170
+        };
+
+        var cancelButton = new Button
+        {
+            Content = "Abbrechen",
+            IsCancel = true,
+            MinWidth = 100
+        };
+
+        var dialog = new Window
+        {
+            Title = "Backup wiederherstellen?",
+            Width = 620,
+            MinWidth = 500,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Margin = new Thickness(18),
+                Child = new StackPanel
+                {
+                    Spacing = 10,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Die aktuelle Datenbank wird durch dieses Backup ersetzt.",
+                            FontSize = 18,
+                            FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = $"Ausgewählt: {backup.FileName}",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "Vorher wird automatisch noch ein Sicherheitsbackup des aktuellen Stands erstellt. Anhänge, PDFs und Bilder werden nicht gelöscht.",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 8, 0, 0),
+                            Children =
+                            {
+                                cancelButton,
+                                confirmButton
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        confirmButton.Click += (_, _) =>
+        {
+            result = true;
+            dialog.Close();
+        };
+        cancelButton.Click += (_, _) => dialog.Close();
+
+        await dialog.ShowDialog(this);
+        return result;
+    }
+
+    private static void RestoreBackupDatabase(string backupPath)
+    {
+        if (!File.Exists(backupPath))
+        {
+            throw new FileNotFoundException("Das ausgewählte Backup wurde nicht gefunden.", backupPath);
+        }
+
+        AppPaths.EnsureBaseDirectories();
+        var tempPath = Path.Combine(AppPaths.AppDataDirectory, $".restore-{Guid.NewGuid():N}.db");
+        try
+        {
+            File.Copy(backupPath, tempPath, overwrite: true);
+
+            if (File.Exists(AppPaths.DatabasePath))
+            {
+                File.Replace(tempPath, AppPaths.DatabasePath, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, AppPaths.DatabasePath);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
         }
     }
 

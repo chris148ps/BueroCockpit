@@ -1028,7 +1028,7 @@
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="Backup" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Backup erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
+                <Button Grid.Column="1" Content="Backup jetzt erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
               </Grid>
               <TextBlock Text="{Binding BackupStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}"
@@ -1038,6 +1038,47 @@
                          IsVisible="{Binding HasLastBackup}"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
+              <TextBlock Text="Verfügbare Backups"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextTertiaryBrush}" />
+              <TextBlock Text="Keine Backups gefunden."
+                         IsVisible="{Binding HasNoBackupEntries}"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBackupEntries}">
+                <ItemsControl ItemsSource="{Binding BackupEntries}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border BorderBrush="{DynamicResource BorderBrush}"
+                              BorderThickness="1"
+                              CornerRadius="10"
+                              Padding="10"
+                              Margin="0,0,0,8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding TimestampText}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding FileName}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1"
+                                      Spacing="6"
+                                      HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding SizeText}"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       FontSize="12"
+                                       HorizontalAlignment="Right" />
+                            <Button Content="Backup wiederherstellen"
+                                    Click="RestoreBackup_OnClick"
+                                    HorizontalAlignment="Right" />
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
             </StackPanel>
           </Border>
 
