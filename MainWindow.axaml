@@ -449,6 +449,71 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+
+          <Border Classes="Card" Padding="18">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
+                <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                  <TextBlock Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Border>
+              </Grid>
+
+              <ItemsControl ItemsSource="{Binding FollowUpTasks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Background="{Binding ReminderCardBackground}"
+                            BorderBrush="{Binding ReminderCardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="10"
+                            Margin="0,0,0,8"
+                            PointerPressed="DashboardTask_OnPointerPressed">
+                      <StackPanel Spacing="5">
+                        <TextBlock Text="{Binding CustomerName}"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Title}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding CategoryNameChips}"
+                                      IsVisible="{Binding ShowCategoryHint}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Border Background="{DynamicResource AccentSoftBrush}"
+                                      BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="7"
+                                      Padding="6,2"
+                                      Margin="0,0,4,4">
+                                <TextBlock Text="{Binding}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     FontSize="12" />
+                          <TextBlock Grid.Column="1"
+                                     Text="{Binding Status}"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     FontSize="12" />
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </ScrollViewer>
     </Border>

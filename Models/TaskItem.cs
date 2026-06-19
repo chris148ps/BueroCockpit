@@ -63,6 +63,10 @@ public sealed class TaskItem : ObservableObject
             if (SetProperty(ref _followUpDate, value))
             {
                 OnPropertyChanged(nameof(FollowUpDateText));
+                OnPropertyChanged(nameof(HasFollowUpDate));
+                OnPropertyChanged(nameof(IsFollowUpOverdue));
+                OnPropertyChanged(nameof(ReminderCardBackground));
+                OnPropertyChanged(nameof(ReminderCardBorderBrush));
             }
         }
     }
@@ -138,11 +142,15 @@ public sealed class TaskItem : ObservableObject
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
     public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
     public string MaterialOrderedAtText => MaterialOrderedAt?.ToString("dd.MM.yyyy") ?? "-";
+    public bool HasFollowUpDate => FollowUpDate.HasValue;
+    public bool IsFollowUpOverdue => FollowUpDate.HasValue && FollowUpDate.Value.Date < DateTime.Today;
     public bool HasTechnician => !string.IsNullOrWhiteSpace(Technician);
     public bool HasCustomerAddress => !string.IsNullOrWhiteSpace(CustomerAddress);
     public bool HasSentAt => SentAt.HasValue;
     public string CardBackground => "#FFFFFF";
     public string CardBorderBrush => IsSelected ? "#000000" : "#00000000";
+    public string ReminderCardBackground => IsFollowUpOverdue ? "#FFF6EAEA" : "#FFFFFF";
+    public string ReminderCardBorderBrush => IsFollowUpOverdue ? "#E48A8A" : "#00000000";
 
     public TaskItem Clone()
     {

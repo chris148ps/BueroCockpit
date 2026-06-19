@@ -153,6 +153,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<MaterialItem> Materials { get; } = new();
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
+    public ObservableCollection<TaskItem> FollowUpTasks { get; } = new();
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
     public ObservableCollection<BackupListItem> BackupEntries { get; } = new();
 
@@ -399,6 +400,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasVisibleTasks => VisibleTasks.Count > 0;
     public bool IsTrashEmpty => IsTrashSelected && !HasVisibleTasks;
     public bool HasTrashItems => AllTasks.Any(task => task.IsDeleted);
+    public bool HasFollowUpTasks => FollowUpTasks.Count > 0;
+    public int FollowUpTaskCount => FollowUpTasks.Count;
     public bool CanUndoTaskChange => _hasPendingTaskUndo && _taskUndoSnapshot is not null;
     public string UndoTaskChangeText => CanUndoTaskChange
         ? $"Rückgängig: {GetUndoTaskChangeActionText(_taskUndoSnapshot!)}"
@@ -2325,6 +2328,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshDashboard()
     {
         DashboardSections.Clear();
+        RefreshFollowUpTasks();
         var weekStart = GetWeekStart(DateTime.Today);
         DashboardSections.Add(CreateDashboardSection(
             "Diese Woche",
@@ -2334,6 +2338,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "Nächste Woche",
             "Keine Termine für nächste Woche.",
             GetOverviewTasks(weekStart.AddDays(7), weekStart.AddDays(14))));
+    }
+
+    private void RefreshFollowUpTasks()
+    {
+        FollowUpTasks.Clear();
+
+        foreach (var task in GetFollowUpTasks())
+        {
+            UpdateTaskCategoryPresentation(task);
+            FollowUpTasks.Add(task);
+        }
+
+        OnPropertyChanged(nameof(HasFollowUpTasks));
+        OnPropertyChanged(nameof(FollowUpTaskCount));
     }
 
     private static DashboardSection CreateDashboardSection(string title, string emptyText, IEnumerable<TaskItem> tasks)
@@ -2346,6 +2364,39 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .ToList();
 
         return new DashboardSection(title, emptyText, ordered.Count, ordered);
+    }
+
+    private IEnumerable<TaskItem> GetFollowUpTasks()
+    {
+        return AllTasks
+            .Where(task => !task.IsDeleted && task.FollowUpDate.HasValue)
+            .OrderBy(task => GetFollowUpSortGroup(task))
+            .ThenBy(task => task.FollowUpDate!.Value.Date)
+            .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int GetFollowUpSortGroup(TaskItem task)
+    {
+        if (!task.FollowUpDate.HasValue)
+        {
+            return 3;
+        }
+
+        var reminderDate = task.FollowUpDate.Value.Date;
+        var today = DateTime.Today;
+        if (reminderDate < today)
+        {
+            return 0;
+        }
+
+        if (reminderDate == today)
+        {
+            return 1;
+        }
+
+        return 2;
     }
 
     private static DateTime GetWeekStart(DateTime date)
@@ -3210,8 +3261,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Wiedervorlage" => tasks
-                .OrderBy(task => task.FollowUpDate.HasValue ? 0 : 1)
-                .ThenBy(task => task.FollowUpDate ?? DateTime.MaxValue)
+                .Where(task => task.FollowUpDate.HasValue)
+                .OrderBy(task => GetFollowUpSortGroup(task))
+                .ThenBy(task => task.FollowUpDate!.Value.Date)
                 .ThenByDescending(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
                 .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
