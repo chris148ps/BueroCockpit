@@ -73,6 +73,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _followUpDateText = string.Empty;
     private string _sentAtText = string.Empty;
     private string _dateInputMessage = string.Empty;
+    private string _taskUndoMessage = string.Empty;
     private bool _isGlobalSearchEnabled;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
@@ -288,9 +289,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             if (_selectedTask is not null)
             {
-                SetTaskUndoBaseline(_selectedTask);
+                if (!_hasPendingTaskUndo ||
+                    _taskUndoSnapshot is null ||
+                    string.Equals(_taskUndoSnapshot.Task.Id, _selectedTask.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    SetTaskUndoBaseline(_selectedTask);
+                }
             }
-            else
+            else if (!_hasPendingTaskUndo)
             {
                 ClearTaskUndoState();
             }
@@ -377,10 +383,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasVisibleTasks => VisibleTasks.Count > 0;
     public bool IsTrashEmpty => IsTrashSelected && !HasVisibleTasks;
     public bool HasTrashItems => AllTasks.Any(task => task.IsDeleted);
-    public bool CanUndoTaskChange => _hasPendingTaskUndo &&
-                                     _taskUndoSnapshot is not null &&
-                                     _selectedTask is not null &&
-                                     string.Equals(_taskUndoSnapshot.Task.Id, _selectedTask.Id, StringComparison.OrdinalIgnoreCase);
+    public bool CanUndoTaskChange => _hasPendingTaskUndo && _taskUndoSnapshot is not null;
+    public string UndoTaskChangeText => CanUndoTaskChange
+        ? $"Rückgängig: {GetUndoTaskChangeActionText(_taskUndoSnapshot!)}"
+        : "Rückgängig";
+    public string UndoTaskChangeToolTip => CanUndoTaskChange
+        ? $"Letzte Änderung zurücknehmen: {GetUndoTaskChangeActionText(_taskUndoSnapshot!)}"
+        : "Letzte Änderung zurücknehmen";
+    public string TaskUndoMessage
+    {
+        get => _taskUndoMessage;
+        set
+        {
+            if (_taskUndoMessage != value)
+            {
+                _taskUndoMessage = value;
+                OnPropertyChanged(nameof(TaskUndoMessage));
+                OnPropertyChanged(nameof(HasTaskUndoMessage));
+                OnPropertyChanged(nameof(IsTaskUndoPanelVisible));
+            }
+        }
+    }
+    public bool HasTaskUndoMessage => !string.IsNullOrWhiteSpace(TaskUndoMessage);
+    public bool IsTaskUndoPanelVisible => CanUndoTaskChange || HasTaskUndoMessage;
     public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
     public bool IsDeskSelected => SelectedCategory?.Id == DeskCategoryId;
     public bool IsTrashSelected => SelectedCategory?.Id == TrashCategoryId;
@@ -1967,7 +1992,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         _taskUndoSnapshot = CreateTaskUndoSnapshot(task);
         _hasPendingTaskUndo = false;
-        OnPropertyChanged(nameof(CanUndoTaskChange));
+        TaskUndoMessage = string.Empty;
+        NotifyTaskUndoStateChanged();
     }
 
     private void CaptureTaskUndoState(TaskItem? task, bool preserveExistingSnapshot = false)
@@ -1987,31 +2013,55 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _taskUndoSnapshot = CreateTaskUndoSnapshot(task);
         _hasPendingTaskUndo = true;
-        OnPropertyChanged(nameof(CanUndoTaskChange));
+        TaskUndoMessage = string.Empty;
+        NotifyTaskUndoStateChanged();
     }
 
     private void ClearTaskUndoState()
     {
         _taskUndoSnapshot = null;
         _hasPendingTaskUndo = false;
-        OnPropertyChanged(nameof(CanUndoTaskChange));
+        TaskUndoMessage = string.Empty;
+        NotifyTaskUndoStateChanged();
     }
 
     private void UndoTaskChange_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (!CanUndoTaskChange || _taskUndoSnapshot is null || _selectedTask is null)
+        if (!CanUndoTaskChange || _taskUndoSnapshot is null)
         {
+            TaskUndoMessage = "Rückgängig ist derzeit nicht verfügbar.";
             return;
         }
 
-        RestoreTaskSnapshot(_taskUndoSnapshot);
+        try
+        {
+            if (!RestoreTaskSnapshot(_taskUndoSnapshot))
+            {
+                ClearTaskUndoState();
+                TaskUndoMessage = "Rückgängig konnte nicht ausgeführt werden.";
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"UndoTaskChange failed: {ex}");
+            ClearTaskUndoState();
+            TaskUndoMessage = "Rückgängig konnte nicht ausgeführt werden.";
+            return;
+        }
+
         ClearTaskUndoState();
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
 
-    private void RestoreTaskSnapshot(TaskUndoSnapshot snapshot)
+    private bool RestoreTaskSnapshot(TaskUndoSnapshot snapshot)
     {
+        if (string.IsNullOrWhiteSpace(snapshot.Task.Id))
+        {
+            return false;
+        }
+
         var task = AllTasks.FirstOrDefault(item => string.Equals(item.Id, snapshot.Task.Id, StringComparison.OrdinalIgnoreCase));
         if (task is null)
         {
@@ -2041,6 +2091,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             RefreshVisibleTasks();
         }
+
+        return true;
+    }
+
+    private void NotifyTaskUndoStateChanged()
+    {
+        OnPropertyChanged(nameof(CanUndoTaskChange));
+        OnPropertyChanged(nameof(UndoTaskChangeText));
+        OnPropertyChanged(nameof(UndoTaskChangeToolTip));
+        OnPropertyChanged(nameof(IsTaskUndoPanelVisible));
+    }
+
+    private string GetUndoTaskChangeActionText(TaskUndoSnapshot snapshot)
+    {
+        var currentTask = AllTasks.FirstOrDefault(item => string.Equals(item.Id, snapshot.Task.Id, StringComparison.OrdinalIgnoreCase));
+        if (currentTask is null)
+        {
+            return "Änderung an Auftrag";
+        }
+
+        if (snapshot.Task.IsDeleted != currentTask.IsDeleted)
+        {
+            return snapshot.Task.IsDeleted ? "Wiederherstellung" : "Löschung";
+        }
+
+        return "Änderung an Auftrag";
     }
 
     private void SyncTaskMaterials(string taskId, IReadOnlyList<MaterialItem> snapshotMaterials)
@@ -3108,18 +3184,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         task.UpdatedAt = DateTime.Now;
         _tasksPendingDuplicateCheck.Remove(task.Id);
-        var trashCategory = Categories.FirstOrDefault(category => category.Id == TrashCategoryId);
-        if (trashCategory is not null)
-        {
-            ClearSearchTextWithoutRefresh();
-            SelectCategoryAndTask(trashCategory, task);
-            LoadTaskDetails();
-        }
-        else
-        {
-            RefreshVisibleTasks();
-        }
-
+        RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
 
