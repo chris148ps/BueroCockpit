@@ -3166,16 +3166,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
+    private static int GetNameSortGroup(TaskItem task)
+    {
+        if (!string.IsNullOrWhiteSpace(task.CustomerName))
+        {
+            return 0;
+        }
+
+        if (!string.IsNullOrWhiteSpace(task.AssignedTo))
+        {
+            return 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(task.Title))
+        {
+            return 2;
+        }
+
+        return 3;
+    }
+
+    private static string GetNameSortValue(TaskItem task)
+    {
+        return GetNameSortGroup(task) switch
+        {
+            0 => task.CustomerName.Trim(),
+            1 => task.AssignedTo.Trim(),
+            2 => task.Title.Trim(),
+            _ => task.Id
+        };
+    }
+
     private static IEnumerable<TaskItem> SortTasksForCategory(IEnumerable<TaskItem> tasks, string? sortMode)
     {
         var mode = string.IsNullOrWhiteSpace(sortMode) ? "Erstellt am" : sortMode.Trim();
 
         return mode switch
         {
-            "Name" => tasks
-                .OrderBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ThenByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.SortPosition)
+            "Name" or "Name A-Z" or "Kunde" or "Kunde A-Z" => tasks
+                .OrderBy(GetNameSortGroup)
+                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Termin" => tasks
