@@ -3128,44 +3128,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshVisibleTasks();
     }
 
-    private void AutoSortTasks_OnClick(object? sender, RoutedEventArgs e)
-    {
-        if (SelectedCategory is null)
-        {
-            return;
-        }
-
-        AutoSortCurrentCategory();
-    }
-
-    private void AutoSortCurrentCategory()
-    {
-        if (SelectedCategory is null)
-        {
-            return;
-        }
-
-        var categoryTasks = AllTasks
-            .Where(task => TaskBelongsToCategory(task, SelectedCategory.Id))
-            .ToList();
-
-        if (categoryTasks.Count == 0)
-        {
-            return;
-        }
-
-        var sortedTasks = SortTasksForCategory(categoryTasks, SelectedCategory.SortMode).ToList();
-
-        for (var index = 0; index < sortedTasks.Count; index++)
-        {
-            sortedTasks[index].SortPosition = index + 1;
-            _repository.SaveTask(sortedTasks[index]);
-        }
-
-        RefreshVisibleTasks();
-        UpdateCategoryCounts();
-    }
-
     private static int GetNameSortGroup(TaskItem task)
     {
         if (!string.IsNullOrWhiteSpace(task.CustomerName))
