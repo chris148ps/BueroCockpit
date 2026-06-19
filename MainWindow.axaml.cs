@@ -472,9 +472,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasSelectedAttachment => SelectedAttachment is not null;
     public string PreviewImagePath => SelectedAttachment is null
         ? string.Empty
-        : ResolveAttachmentPath(SelectedAttachment.ThumbnailPath, SelectedAttachment.TaskId);
+        : ResolveAttachmentPath(SelectedAttachment.ThumbnailPath, SelectedAttachment.TaskId, SelectedAttachment.FileName);
     public bool HasPreviewImage => SelectedAttachment is not null &&
-                                   File.Exists(ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId)) &&
+                                   File.Exists(ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName)) &&
                                    !string.IsNullOrWhiteSpace(PreviewImagePath) &&
                                    File.Exists(PreviewImagePath);
     public bool HasPreviewPlaceholder => HasSelectedAttachment && !HasPreviewImage;
@@ -487,7 +487,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return string.Empty;
             }
 
-            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName);
             if (File.Exists(storedPath))
             {
                 return SelectedAttachment.FileName;
@@ -506,7 +506,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return string.Empty;
             }
 
-            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName);
             if (!File.Exists(storedPath))
             {
                 return "Datei nicht gefunden.";
@@ -3080,7 +3080,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var attachment in selectedAttachments)
         {
-            var storedPath = ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId);
+            var storedPath = ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId, attachment.FileName);
             if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 missingCount++;
@@ -3105,7 +3105,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
+        var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId, item.FileName);
         if (!TryOpenExternalFile(storedPath, out var errorMessage))
         {
             AttachmentEditStatus = errorMessage ?? $"Datei nicht gefunden: {storedPath}";
@@ -3119,7 +3119,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
+        var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId, item.FileName);
         if (!TryOpenExternalFile(storedPath, out var errorMessage))
         {
             AttachmentEditStatus = errorMessage ?? $"Datei nicht gefunden: {storedPath}";
@@ -3185,7 +3185,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var sourcePath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
+        var sourcePath = ResolveAttachmentPath(item.StoredPath, item.TaskId, item.FileName);
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
             AttachmentEditStatus = $"Die gespeicherte Anhangdatei wurde nicht gefunden: {item.FileName}";
@@ -4306,7 +4306,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var sourcePath = ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId);
+            var sourcePath = ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId, attachment.FileName);
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
                 wasMissing = true;
@@ -4709,7 +4709,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
+        var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName);
         if (!File.Exists(storedPath))
         {
             AttachmentEditStatus = "Die gespeicherte Anhangdatei wurde nicht gefunden.";
@@ -4805,7 +4805,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var currentOriginalHash = _hashService.ComputeSha256(ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId));
+        var currentOriginalHash = _hashService.ComputeSha256(ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName));
         var hasConflict = !string.IsNullOrWhiteSpace(currentOriginalHash) &&
                           currentOriginalHash != session.OriginalHashAtExport;
         session.Status = hasConflict ? "Conflict" : "Changed";
@@ -4845,7 +4845,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var backupDirectory = AppPaths.GetAttachmentBackupDirectory(SelectedAttachment.TaskId);
             Directory.CreateDirectory(backupDirectory);
             var backupPath = CreateBackupPath(backupDirectory, SelectedAttachment.FileName);
-            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId);
+            var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName);
             var thumbnailPath = ResolveAttachmentPath(SelectedAttachment.ThumbnailPath, SelectedAttachment.TaskId);
 
             if (File.Exists(storedPath))
@@ -4894,7 +4894,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         try
         {
-            var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId);
+            var storedPath = ResolveAttachmentPath(item.StoredPath, item.TaskId, item.FileName);
             if (string.IsNullOrWhiteSpace(storedPath) || !File.Exists(storedPath))
             {
                 return false;
@@ -6068,11 +6068,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static string ResolveAttachmentPath(string? path, string? taskId = null)
+    private static string ResolveAttachmentPath(string? path, string? taskId = null, string? fileName = null)
     {
         return string.IsNullOrWhiteSpace(taskId)
             ? AppPaths.ResolveStoredPath(path)
-            : AppPaths.ResolveTaskAttachmentPath(taskId, path);
+            : AppPaths.ResolveTaskAttachmentPath(taskId, path, fileName);
     }
 
     private static void LogMissingAttachment(AttachmentItem attachment, string resolvedPath)
@@ -6136,7 +6136,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return attachment.ContentHash;
         }
 
-        var contentHash = _hashService.ComputeSha256(ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId));
+        var contentHash = _hashService.ComputeSha256(ResolveAttachmentPath(attachment.StoredPath, attachment.TaskId, attachment.FileName));
         if (string.IsNullOrWhiteSpace(contentHash))
         {
             return null;

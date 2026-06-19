@@ -20,7 +20,11 @@ public sealed class AttachmentItem : ObservableObject
         {
             if (SetProperty(ref _fileName, value))
             {
+                OnPropertyChanged(nameof(HasFile));
+                OnPropertyChanged(nameof(HasNoFile));
+                OnPropertyChanged(nameof(HasMissingFile));
                 OnPropertyChanged(nameof(FileDisplayName));
+                OnPropertyChanged(nameof(FileStatusText));
             }
         }
     }
@@ -57,12 +61,12 @@ public sealed class AttachmentItem : ObservableObject
     public string FileTypeBadge => string.IsNullOrWhiteSpace(FileType) ? "FILE" : FileType.TrimStart('.').ToUpperInvariant();
     public bool HasFile =>
         !string.IsNullOrWhiteSpace(StoredPath) &&
-        File.Exists(AppPaths.ResolveTaskAttachmentPath(TaskId, StoredPath));
+        File.Exists(AppPaths.ResolveTaskAttachmentPath(TaskId, StoredPath, FileName));
     public bool HasNoFile => !HasFile;
     public bool HasMissingFile => !string.IsNullOrWhiteSpace(StoredPath) && !HasFile;
     public string FileDisplayName => HasMissingFile ? "Datei nicht gefunden" : FileName;
     public string FileStatusText =>
-        HasMissingFile ? $"Datei nicht gefunden: {AppPaths.ResolveTaskAttachmentPath(TaskId, StoredPath)}" : string.Empty;
+        HasMissingFile ? $"Datei nicht gefunden: {AppPaths.ResolveTaskAttachmentPath(TaskId, StoredPath, FileName)}" : string.Empty;
     public bool HasThumbnail =>
         !string.IsNullOrWhiteSpace(ThumbnailPath) &&
         File.Exists(AppPaths.ResolveTaskAttachmentPath(TaskId, ThumbnailPath));

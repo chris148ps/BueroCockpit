@@ -100,7 +100,7 @@ public static class AppPaths
         return ResolveDataPath(path);
     }
 
-    public static string ResolveTaskAttachmentPath(string taskId, string? path)
+    public static string ResolveTaskAttachmentPath(string taskId, string? path, string? fileName = null)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -116,21 +116,65 @@ public static class AppPaths
 
         if (Path.IsPathRooted(trimmedPath))
         {
-            return ResolveDataPath(trimmedPath);
+            var resolvedPath = ResolveDataPath(trimmedPath);
+            if (File.Exists(resolvedPath) || Directory.Exists(resolvedPath))
+            {
+                return resolvedPath;
+            }
+
+            if (TryResolveAttachmentFallbackPath(taskId, trimmedPath, fileName, out var fallbackPath))
+            {
+                return fallbackPath;
+            }
+
+            return resolvedPath;
         }
 
         var relativePath = NormalizeRelativePath(trimmedPath);
         if (relativePath.StartsWith("Tasks/", StringComparison.OrdinalIgnoreCase))
         {
-            return ResolveDataPath(relativePath);
+            var resolvedPath = ResolveDataPath(relativePath);
+            if (File.Exists(resolvedPath) || Directory.Exists(resolvedPath))
+            {
+                return resolvedPath;
+            }
+
+            if (TryResolveAttachmentFallbackPath(taskId, trimmedPath, fileName, out var fallbackPath))
+            {
+                return fallbackPath;
+            }
+
+            return resolvedPath;
         }
 
         if (!string.IsNullOrWhiteSpace(taskId))
         {
-            return GetAbsolutePathFromRelative(CombineRelativePath("Tasks", taskId, "Attachments", relativePath));
+            var resolvedPath = GetAbsolutePathFromRelative(CombineRelativePath("Tasks", taskId, "Attachments", relativePath));
+            if (File.Exists(resolvedPath) || Directory.Exists(resolvedPath))
+            {
+                return resolvedPath;
+            }
+
+            if (TryResolveAttachmentFallbackPath(taskId, trimmedPath, fileName, out var fallbackPath))
+            {
+                return fallbackPath;
+            }
+
+            return resolvedPath;
         }
 
-        return ResolveDataPath(relativePath);
+        var fallbackResolvedPath = ResolveDataPath(relativePath);
+        if (File.Exists(fallbackResolvedPath) || Directory.Exists(fallbackResolvedPath))
+        {
+            return fallbackResolvedPath;
+        }
+
+        if (TryResolveAttachmentFallbackPath(taskId, trimmedPath, fileName, out var fallbackPathWithoutTask))
+        {
+            return fallbackPathWithoutTask;
+        }
+
+        return fallbackResolvedPath;
     }
 
     public static string GetDeskPdfDirectory(string deskItemId)
@@ -429,6 +473,79 @@ public static class AppPaths
         }
 
         return false;
+    }
+
+    private static bool TryResolveAttachmentFallbackPath(string taskId, string? path, string? fileName, out string resolvedPath)
+    {
+        resolvedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(taskId))
+        {
+            return false;
+        }
+
+        var attachmentDirectory = GetAttachmentDirectory(taskId);
+        if (!Directory.Exists(attachmentDirectory))
+        {
+            return false;
+        }
+
+        var candidateNames = new List<string>();
+        AddCandidateName(candidateNames, path);
+        AddCandidateName(candidateNames, fileName);
+
+        foreach (var candidateName in candidateNames)
+        {
+            var exactPath = Path.Combine(attachmentDirectory, candidateName);
+            if (File.Exists(exactPath))
+            {
+                resolvedPath = exactPath;
+                return true;
+            }
+        }
+
+        foreach (var candidateName in candidateNames)
+        {
+            var stem = Path.GetFileNameWithoutExtension(candidateName);
+            var extension = Path.GetExtension(candidateName);
+            if (string.IsNullOrWhiteSpace(stem) || string.IsNullOrWhiteSpace(extension))
+            {
+                continue;
+            }
+
+            var prefix = $"{stem}_";
+            var matches = Directory.EnumerateFiles(attachmentDirectory, $"*{extension}")
+                .Where(candidatePath =>
+                    Path.GetFileNameWithoutExtension(candidatePath).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+
+            if (matches.Count == 1)
+            {
+                resolvedPath = matches[0];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AddCandidateName(ICollection<string> candidateNames, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var candidateName = Path.GetFileName(path.Trim());
+        if (string.IsNullOrWhiteSpace(candidateName))
+        {
+            return;
+        }
+
+        if (!candidateNames.Contains(candidateName, StringComparer.OrdinalIgnoreCase))
+        {
+            candidateNames.Add(candidateName);
+        }
     }
 
     private static bool TryGetRelativeDeskItemPath(string absolutePath, out string relativePath)

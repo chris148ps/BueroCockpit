@@ -323,12 +323,13 @@ public sealed class BueroRepository
         while (reader.Read())
         {
             var attachmentTaskId = reader.GetString(1);
+            var fileName = reader.GetString(2);
             items.Add(new AttachmentItem
             {
                 Id = reader.GetString(0),
                 TaskId = attachmentTaskId,
-                FileName = reader.GetString(2),
-                StoredPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(3)),
+                FileName = fileName,
+                StoredPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(3), fileName),
                 ThumbnailPath = AppPaths.ResolveTaskAttachmentPath(attachmentTaskId, reader.GetString(4)),
                 FileType = reader.GetString(5),
                 ContentHash = reader.GetString(6),
