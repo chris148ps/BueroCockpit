@@ -3079,6 +3079,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _repository.SaveTask(task);
         _tasksPendingDuplicateCheck.Add(task.Id);
         AllTasks.Insert(0, task);
+
+        ClearSearchTextWithoutRefresh();
+        category.SortMode = "Erstellt am";
+        _repository.SaveCategory(category);
         SelectedCategory = category;
         RefreshVisibleTasks();
         SelectedTask = task;
