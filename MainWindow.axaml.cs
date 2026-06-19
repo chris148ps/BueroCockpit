@@ -109,22 +109,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isApplyingDeskDrag;
     private bool _isApplyingDeskResize;
     private bool _deskInitialViewApplied;
-    private const string LiveDataReloadSuccessMessage = "Daten wurden von einem anderen Gerät aktualisiert.";
-    private const string LiveDataReloadRetryMessage = "Daten werden gerade synchronisiert. Neuer Versuch folgt.";
-    private const string LiveDataReloadUnavailableMessage = "Live-Datenaktualisierung ist nicht verfügbar.";
-    private const string LiveDataReloadFailedMessage = "Daten konnten nicht automatisch aktualisiert werden.";
-    private const string LiveDataReloadWaitingMessage = "Live-Datenaktualisierung wartet auf den nächsten Versuch.";
-    private const int LiveDataReloadVisibleSeconds = 5;
-    private static readonly TimeSpan LiveDataStartupIgnoreDuration = TimeSpan.FromSeconds(12);
-    private static readonly TimeSpan LiveDataPollingInterval = TimeSpan.FromSeconds(3);
-    private readonly record struct LiveDataFingerprint(
-        FileFingerprint? Database,
-        DirectoryFingerprint? Tasks,
-        DirectoryFingerprint? DeskItems);
-
-    private readonly record struct FileFingerprint(DateTime LastWriteTimeUtc, long Length);
-
-    private readonly record struct DirectoryFingerprint(DateTime LastWriteTimeUtc, long FileCount);
     private double _deskFitZoom = 1.0;
     private double _deskUserZoom = 1.0;
     private double _deskSurfaceWidth = 2400;
@@ -327,7 +311,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 {
                     SelectedTask.CategoryIds.Add(value.Id);
                 }
-                SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
                 _repository.SaveTask(SelectedTask);
                 RefreshTaskCategorySelections();
                 RefreshVisibleTasks();
@@ -727,14 +710,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    public string LiveDataStatus
-    {
-        get => string.Empty;
-        set { }
-    }
-
-    public bool HasLiveDataStatus => false;
-
     public bool IsUpdateAvailable
     {
         get => _isUpdateAvailable;
@@ -785,7 +760,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Closed += (_, _) =>
         {
-            DisposeLiveDataWatcher();
             _appInstanceLockService.Release();
         };
         AppDomain.CurrentDomain.ProcessExit += (_, _) => _appInstanceLockService.Release();
@@ -821,372 +795,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var existing = lockResult.ExistingLock;
         return lockResult.Message;
-    }
-
-    private void InitializeLiveDataWatcher()
-    {
-        return;
-    }
-
-    private void InitializeLiveDataPolling()
-    {
-        return;
-    }
-
-    private void InitializeLiveDataStartupRefresh()
-    {
-        return;
-    }
-
-    private void DisposeLiveDataWatcher()
-    {
-        return;
-    }
-
-    private FileSystemWatcher CreateLiveDataWatcher(string directory, string filter, bool includeSubdirectories)
-    {
-        return new FileSystemWatcher(directory, filter)
-        {
-            IncludeSubdirectories = includeSubdirectories,
-            EnableRaisingEvents = false
-        };
-    }
-
-    private void LiveDataWatcher_OnChanged(object sender, FileSystemEventArgs e)
-    {
-        return;
-    }
-
-    private void LiveDataWatcher_OnRenamed(object sender, RenamedEventArgs e)
-    {
-        return;
-    }
-
-    private void LiveDataWatcher_OnError(object sender, ErrorEventArgs e)
-    {
-        return;
-    }
-
-    private bool QueueLiveDataReload(string? path, TimeSpan? delayOverride = null, bool force = false)
-    {
-        return false;
-    }
-
-    private async Task DebounceLiveDataReloadAsync(CancellationTokenSource cts, TimeSpan delay)
-    {
-        return;
-    }
-
-    private async Task RefreshLiveDataFingerprintAfterStartupAsync(CancellationToken token)
-    {
-        return;
-    }
-
-    private async Task RunLiveDataReloadAsync()
-    {
-        return;
-    }
-
-    private async Task ReloadDataAfterExternalChangeAsync()
-    {
-        return;
-    }
-
-    private async Task RunLiveDataPollingAsync(CancellationToken token)
-    {
-        return;
-    }
-
-    private void PollLiveDataChanges()
-    {
-        return;
-    }
-
-    private void LogLiveReloadEvent(WatcherChangeTypes changeType, string? fullPath)
-    {
-        return;
-    }
-
-    private void RestoreSelectionAfterLiveReload(
-        string? selectedCategoryId,
-        string? selectedTaskId,
-        bool wasDeskSelected,
-        bool wasOverviewSelected,
-        bool wasSettingsSelected)
-    {
-        if (wasOverviewSelected)
-        {
-            var overviewCategory = Categories.FirstOrDefault(category =>
-                string.Equals(category.Name, OverviewCategoryName, StringComparison.OrdinalIgnoreCase));
-            if (overviewCategory is not null)
-            {
-                SelectedCategory = overviewCategory;
-                if (CategoryList is not null)
-                {
-                    CategoryList.SelectedItem = overviewCategory;
-                }
-            }
-
-            ApplySelectedCategoryContent();
-            return;
-        }
-
-        if (wasDeskSelected)
-        {
-            var deskCategory = Categories.FirstOrDefault(category =>
-                string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase));
-            if (deskCategory is not null)
-            {
-                SelectedCategory = deskCategory;
-                if (CategoryList is not null)
-                {
-                    CategoryList.SelectedItem = deskCategory;
-                }
-            }
-
-            ApplySelectedCategoryContent();
-            return;
-        }
-
-        if (wasSettingsSelected)
-        {
-            var settingsCategory = Categories.FirstOrDefault(category =>
-                string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase));
-            if (settingsCategory is not null)
-            {
-                SelectedCategory = settingsCategory;
-                if (CategoryList is not null)
-                {
-                    CategoryList.SelectedItem = settingsCategory;
-                }
-            }
-
-            ApplySelectedCategoryContent();
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(selectedTaskId))
-        {
-            var selectedTask = AllTasks.FirstOrDefault(task =>
-                string.Equals(task.Id, selectedTaskId, StringComparison.OrdinalIgnoreCase));
-            if (selectedTask is not null)
-            {
-                var category = Categories.FirstOrDefault(item =>
-                        string.Equals(item.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
-                    ?? GetTaskNavigationCategory(selectedTask)
-                    ?? Categories.FirstOrDefault(item =>
-                        string.Equals(item.Id, selectedTask.CategoryId, StringComparison.OrdinalIgnoreCase));
-
-                if (category is not null && !IsSpecialCategory(category))
-                {
-                    SelectCategoryAndTask(category, selectedTask);
-                    return;
-                }
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(selectedCategoryId))
-        {
-            var category = Categories.FirstOrDefault(item =>
-                string.Equals(item.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase));
-            if (category is not null)
-            {
-                SelectedCategory = category;
-                if (CategoryList is not null)
-                {
-                    CategoryList.SelectedItem = category;
-                }
-                ApplySelectedCategoryContent();
-                return;
-            }
-        }
-
-        ApplySelectedCategoryContent();
-    }
-
-    private void SuppressLiveDataReloadForLocalWrites(TimeSpan duration)
-    {
-        return;
-    }
-
-    private void ScheduleLiveDataReload(TimeSpan? delayOverride = null)
-    {
-        return;
-    }
-
-    private void SetLiveDataStatus(string? message, TimeSpan? clearAfter = null)
-    {
-        return;
-    }
-
-    private void UpdateLiveDataFingerprintBaseline()
-    {
-        return;
-    }
-
-    private LiveDataFingerprint? CaptureLiveDataFingerprint()
-    {
-        return null;
-    }
-
-    private static FileFingerprint? TryCaptureFileFingerprint(string path)
-    {
-        try
-        {
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-
-            var info = new FileInfo(path);
-            info.Refresh();
-            return info.Exists ? new FileFingerprint(info.LastWriteTimeUtc, info.Length) : null;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    private static DirectoryFingerprint? TryCaptureDirectoryFingerprint(string path)
-    {
-        try
-        {
-            if (!Directory.Exists(path))
-            {
-                return null;
-            }
-
-            var latestWriteTimeUtc = DateTime.MinValue;
-            var fileCount = 0L;
-
-            foreach (var filePath in EnumerateFingerprintFiles(path))
-            {
-                try
-                {
-                    if (IsThumbnailPath(filePath))
-                    {
-                        continue;
-                    }
-
-                    var info = new FileInfo(filePath);
-                    info.Refresh();
-                    if (!info.Exists)
-                    {
-                        continue;
-                    }
-
-                    fileCount++;
-                    if (info.LastWriteTimeUtc > latestWriteTimeUtc)
-                    {
-                        latestWriteTimeUtc = info.LastWriteTimeUtc;
-                    }
-                }
-                catch (IOException)
-                {
-                }
-                catch (UnauthorizedAccessException)
-                {
-                }
-            }
-
-            return new DirectoryFingerprint(latestWriteTimeUtc, fileCount);
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    private static IEnumerable<string> EnumerateFingerprintFiles(string rootPath)
-    {
-        try
-        {
-            return Directory.EnumerateFiles(
-                rootPath,
-                "*",
-                new EnumerationOptions
-                {
-                    RecurseSubdirectories = true,
-                    IgnoreInaccessible = true,
-                    ReturnSpecialDirectories = false
-                });
-        }
-        catch (IOException)
-        {
-            return Array.Empty<string>();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Array.Empty<string>();
-        }
-    }
-
-    private static bool IsThumbnailPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        try
-        {
-            return PathContainsSegment(Path.GetFullPath(path), "Thumbnails");
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool PathContainsSegment(string path, string segment)
-    {
-        var normalizedPath = Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        var parts = normalizedPath.Split(
-            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-            StringSplitOptions.RemoveEmptyEntries);
-
-        return parts.Any(part => string.Equals(part, segment, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool IsTransientLiveDataStatus(string message)
-    {
-        return false;
-    }
-
-    private async Task ClearLiveDataStatusAfterDelayAsync(CancellationTokenSource cts, TimeSpan delay)
-    {
-        return;
-    }
-
-    private bool IsLiveDataChangeRelevant(string? path)
-    {
-        return false;
-    }
-
-    private static bool IsPathInsideDirectory(string path, string directory)
-    {
-        try
-        {
-            var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var normalizedDirectory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return normalizedPath.StartsWith(normalizedDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(normalizedPath, normalizedDirectory, StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static void ApplyTaskCardVisual(Border border, bool isHovered)
@@ -1640,7 +1248,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         RefreshDeskFileCard(deskItem);
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveDeskItem(deskItem);
         DeskStatus = $"Datei neu zugeordnet: {newPath}";
     }
@@ -1683,7 +1290,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (!hadDeskContentHash && !string.IsNullOrWhiteSpace(deskItem.ContentHash))
             {
-                SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
                 _repository.SaveDeskItem(deskItem);
             }
 
@@ -1773,7 +1379,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             e.PropertyName == nameof(DeskItem.Type))
         {
             deskItem.UpdatedAt = DateTime.Now;
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveDeskItem(deskItem);
             UpdateDeskSurfaceBounds();
         }
@@ -1906,7 +1511,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isApplyingDeskDrag = false;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveDeskItem(_draggedDeskItem);
         UpdateDeskSurfaceBounds();
     }
@@ -2162,7 +1766,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         setValue(parsedDate);
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(SelectedTask);
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
@@ -2678,7 +2281,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isApplyingDeskResize = false;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveDeskItem(_resizedDeskItem);
         UpdateDeskSurfaceBounds();
     }
@@ -2836,7 +2438,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             UpdatedAt = now
         };
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(task);
         _tasksPendingDuplicateCheck.Add(task.Id);
         AllTasks.Insert(0, task);
@@ -2920,7 +2521,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         deskItem.X = logicalPosition.X;
         deskItem.Y = logicalPosition.Y;
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveDeskItem(deskItem);
         SubscribeDeskItem(deskItem);
         DeskItems.Add(deskItem);
@@ -2979,7 +2579,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(SelectedTask);
         _tasksPendingDuplicateCheck.Remove(SelectedTask.Id);
         SaveCurrentMaterials();
@@ -3071,7 +2670,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isUpdatingSelection = false;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(SelectedTask);
         RefreshTaskCategorySelections();
 
@@ -3097,7 +2695,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveCategory(category);
         RefreshVisibleTasks();
     }
@@ -3129,7 +2726,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var sortedTasks = SortTasksForCategory(categoryTasks, SelectedCategory.SortMode).ToList();
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
 
         for (var index = 0; index < sortedTasks.Count; index++)
         {
@@ -3203,7 +2799,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var attachments = _repository.GetAttachments(task.Id);
         var deskItemsToDelete = GetDeskItemsToDeleteForTask(task.Id);
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.DeleteTask(task.Id);
         DeleteDeskItemsForTask(deskItemsToDelete);
         DeleteTaskFilesIfUnreferenced(task.Id, attachments, deskItemsToDelete);
@@ -3359,7 +2954,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Materials.Insert(0, item);
         OnPropertyChanged(nameof(HasNoMaterials));
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveMaterial(item);
     }
 
@@ -3370,7 +2964,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.DeleteMaterial(item.Id);
         Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
@@ -3383,7 +2976,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(SelectedTask);
         var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
         if (storageProvider is null)
@@ -3409,7 +3001,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveTask(SelectedTask);
             var normalizedSourcePath = Path.GetFullPath(sourcePath);
             var originalName = Path.GetFileName(normalizedSourcePath);
@@ -3428,7 +3019,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             attachment.ContentHash = EnsureAttachmentContentHash(attachment, persist: false) ?? string.Empty;
             EnsureAttachmentThumbnail(attachment);
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachment(attachment);
             Attachments.Insert(0, attachment);
 
@@ -3573,7 +3163,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         item.FileName = Path.GetFileName(newPath);
         item.ThumbnailPath = string.Empty;
         item.ContentHash = string.Empty;
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         EnsureAttachmentThumbnail(item);
         _repository.SaveAttachment(item);
 
@@ -3632,7 +3221,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.DeleteAttachment(item.Id);
         }
         catch (Exception ex)
@@ -3930,7 +3518,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SelectedCategory.Name = name;
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveCategory(SelectedCategory);
         OnPropertyChanged(nameof(SelectedCategory));
         CategoryMessage = "Kategorie umbenannt.";
@@ -3982,7 +3569,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         (current.SortOrder, target.SortOrder) = (target.SortOrder, current.SortOrder);
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveCategory(current);
         _repository.SaveCategory(target);
 
@@ -4046,7 +3632,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var category = SelectedCategory;
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.HideCategory(category.Id);
         Categories.Remove(category);
         RefreshTaskCategories();
@@ -4087,7 +3672,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CompletedAt = source.Status == "Erledigt" ? now : null
         };
 
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(copy);
         foreach (var material in _repository.GetMaterials(source.Id))
         {
@@ -4139,7 +3723,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SelectedTask.Status = status;
         ApplySelectedTaskStatusRules();
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveTask(SelectedTask);
         RefreshVisibleTasks();
         UpdateCategoryCounts();
@@ -4522,7 +4105,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CheckLegacyFilePaths_OnClick(object? sender, RoutedEventArgs e)
     {
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         var migratedCount = 0;
         var missingCount = 0;
         var failedCount = 0;
@@ -5174,7 +4756,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ExportedFileHashAtExport = exportedHash,
                 Status = "Exported"
             };
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachmentEditSession(session);
             SetSelectedAttachmentEditSession(session, $"Für iPad bereitgestellt: {exportPath}");
         }
@@ -5203,7 +4784,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!File.Exists(session.ExportPath))
         {
             session.Status = "Missing";
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachmentEditSession(session);
             SetSelectedAttachmentEditSession(session, "Die bereitgestellte iPad-Datei wurde nicht gefunden.");
             return;
@@ -5220,7 +4800,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (exportedHash == session.ExportedFileHashAtExport)
         {
             session.Status = "Exported";
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachmentEditSession(session);
             SetSelectedAttachmentEditSession(session, "Keine Änderung gefunden.");
             return;
@@ -5230,7 +4809,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var hasConflict = !string.IsNullOrWhiteSpace(currentOriginalHash) &&
                           currentOriginalHash != session.OriginalHashAtExport;
         session.Status = hasConflict ? "Conflict" : "Changed";
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.SaveAttachmentEditSession(session);
 
         var message = hasConflict
@@ -5257,7 +4835,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!File.Exists(session.ExportPath))
         {
             session.Status = "Missing";
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachmentEditSession(session);
             SetSelectedAttachmentEditSession(session, "Die bereitgestellte iPad-Datei wurde nicht gefunden.");
             return;
@@ -5289,7 +4866,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             EnsureAttachmentThumbnail(SelectedAttachment);
             session.Status = "Imported";
             session.ImportedAt = DateTime.Now;
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachmentEditSession(session);
             var moveMessage = MoveImportedEditFileToDoneFolder(session.ExportPath);
             var statusMessage = "iPad-Bearbeitung übernommen. Alte Version wurde gesichert.";
@@ -5537,7 +5113,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SaveCurrentMaterials()
     {
         MergeDuplicateMaterials();
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)))
         {
             _repository.SaveMaterial(item);
@@ -6088,7 +5663,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RemovePendingNewTask(TaskItem task)
     {
         _tasksPendingDuplicateCheck.Remove(task.Id);
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.DeleteTask(task.Id);
         AllTasks.Remove(task);
         ClearTaskSelectionAfterRemoval(task);
@@ -6571,7 +6145,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         attachment.ContentHash = contentHash;
         if (persist)
         {
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
             _repository.SaveAttachment(attachment);
         }
 
@@ -6624,7 +6197,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         attachment.ThumbnailPath = thumbnailPath;
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.UpdateAttachmentThumbnail(attachment.Id, thumbnailPath);
     }
 
@@ -6663,7 +6235,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         UnsubscribeDeskItem(deskItem);
-        SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
         _repository.DeleteDeskItem(deskItem.Id);
         if (deskItem.IsFileCard)
         {
