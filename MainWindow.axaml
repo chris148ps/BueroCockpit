@@ -1283,7 +1283,7 @@
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
             <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="Rückgängig" Click="UndoTaskChange_OnClick" IsEnabled="{Binding CanUndoTaskChange}" Margin="0,0,8,0" />
+            <Button Grid.Column="2" Content="Rückgängig" Click="UndoTaskChange_OnClick" IsVisible="{Binding CanUndoTaskChange}" IsEnabled="{Binding CanUndoTaskChange}" Margin="0,0,8,0" />
             <Button Grid.Column="3" Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,0" />
             <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" />
           </Grid>
@@ -1298,24 +1298,26 @@
           <Border Classes="Card" Padding="14">
             <StackPanel Spacing="8">
               <TextBlock Text="Kunde" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBox Text="{Binding SelectedTask.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kundenname" />
+              <TextBox Text="{Binding SelectedTask.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kundenname" GotFocus="TaskDetailEditor_OnGotFocus" />
 
               <TextBlock Text="Kundenadresse" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.CustomerAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Adresse"
                        AcceptsReturn="True"
                        TextWrapping="Wrap"
-                       MinHeight="64" />
+                       MinHeight="64"
+                       GotFocus="TaskDetailEditor_OnGotFocus" />
 
               <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
-              <TextBox Text="{Binding SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kurzer Aufgabentitel" />
+              <TextBox Text="{Binding SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kurzer Aufgabentitel" GotFocus="TaskDetailEditor_OnGotFocus" />
 
               <TextBlock Text="Beschreibung / Notiz" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Notizen, Verlauf, offene Punkte"
                        AcceptsReturn="True"
                        TextWrapping="Wrap"
-                       MinHeight="110" />
+                       MinHeight="110"
+                       GotFocus="TaskDetailEditor_OnGotFocus" />
             </StackPanel>
           </Border>
 
@@ -1329,19 +1331,23 @@
               <ComboBox Grid.Row="1" Grid.Column="0"
                         ItemsSource="{Binding StatusOptions}"
                         SelectedItem="{Binding SelectedTask.Status}"
+                        GotFocus="TaskDetailEditor_OnGotFocus"
                         SelectionChanged="StatusCombo_OnSelectionChanged" />
 
               <ComboBox Grid.Row="1"
                         Grid.Column="1"
                         ItemsSource="{Binding TechnicianOptions}"
                         SelectedItem="{Binding SelectedTask.Technician, Mode=TwoWay}"
-                        HorizontalAlignment="Stretch" />
+                        HorizontalAlignment="Stretch"
+                        GotFocus="TaskDetailEditor_OnGotFocus"
+                        SelectionChanged="TechnicianCombo_OnSelectionChanged" />
 
               <TextBox Grid.Row="1"
                        Grid.Column="2"
                        Text="{Binding SentAtInputText}"
                        Tag="SentAt"
                        PlaceholderText="TT.MM.JJJJ"
+                       GotFocus="TaskDetailEditor_OnGotFocus"
                        LostFocus="SentAtTextBox_OnLostFocus"
                        TextChanged="DateTextBox_OnTextChanged"
                            KeyDown="DateTextBox_OnKeyDown" />
@@ -1407,6 +1413,7 @@
                   <TextBox Text="{Binding DueDateInputText}"
                            Tag="DueDate"
                            PlaceholderText="TT.MM.JJJJ"
+                           GotFocus="TaskDetailEditor_OnGotFocus"
                            LostFocus="DueDateTextBox_OnLostFocus"
                            TextChanged="DateTextBox_OnTextChanged"
                            KeyDown="DateTextBox_OnKeyDown" />
@@ -1415,6 +1422,7 @@
                   <TextBox Text="{Binding FollowUpDateInputText}"
                            Tag="FollowUpDate"
                            PlaceholderText="TT.MM.JJJJ"
+                           GotFocus="TaskDetailEditor_OnGotFocus"
                            LostFocus="FollowUpDateTextBox_OnLostFocus"
                            TextChanged="DateTextBox_OnTextChanged"
                            KeyDown="DateTextBox_OnKeyDown" />

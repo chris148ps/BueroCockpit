@@ -1736,6 +1736,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void TaskDetailEditor_OnGotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
+    }
+
     private void ApplyDueDateText()
     {
         ApplyDateText(
@@ -1803,7 +1813,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        CaptureTaskUndoState(SelectedTask);
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
         setValue(parsedDate);
         _repository.SaveTask(SelectedTask);
         DateInputMessage = string.Empty;
@@ -1960,9 +1970,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CanUndoTaskChange));
     }
 
-    private void CaptureTaskUndoState(TaskItem? task)
+    private void CaptureTaskUndoState(TaskItem? task, bool preserveExistingSnapshot = false)
     {
         if (task is null)
+        {
+            return;
+        }
+
+        if (preserveExistingSnapshot &&
+            _hasPendingTaskUndo &&
+            _taskUndoSnapshot is not null &&
+            string.Equals(_taskUndoSnapshot.Task.Id, task.Id, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -2133,36 +2151,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         target.IsDeleted = source.IsDeleted;
         target.DeletedAt = source.DeletedAt;
         target.SortPosition = source.SortPosition;
+        target.CategoryHint = source.CategoryHint;
+        target.CategoryNameChips = source.CategoryNameChips.ToList();
+        target.ShowCategoryHint = source.ShowCategoryHint;
     }
 
     private static TaskItem CloneTaskItem(TaskItem source)
     {
-        return new TaskItem
-        {
-            Id = source.Id,
-            Title = source.Title,
-            CustomerName = source.CustomerName,
-            CustomerAddress = source.CustomerAddress,
-            Description = source.Description,
-            CategoryId = source.CategoryId,
-            CategoryIds = source.CategoryIds.ToList(),
-            Status = source.Status,
-            Priority = source.Priority,
-            DueDate = source.DueDate,
-            FollowUpDate = source.FollowUpDate,
-            SentAt = source.SentAt,
-            AssignedTo = source.AssignedTo,
-            Technician = source.Technician,
-            CreatedAt = source.CreatedAt,
-            UpdatedAt = source.UpdatedAt,
-            CompletedAt = source.CompletedAt,
-            IsDeleted = source.IsDeleted,
-            DeletedAt = source.DeletedAt,
-            SortPosition = source.SortPosition,
-            CategoryHint = source.CategoryHint,
-            CategoryNameChips = source.CategoryNameChips.ToList(),
-            ShowCategoryHint = source.ShowCategoryHint
-        };
+        return source.Clone();
     }
 
     private static MaterialItem CloneMaterialItem(MaterialItem source)
@@ -2874,7 +2870,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        CaptureTaskUndoState(SelectedTask);
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
         ApplySelectedTaskStatusRules();
 
         if (_tasksPendingDuplicateCheck.Contains(SelectedTask.Id) &&
@@ -4230,12 +4226,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        CaptureTaskUndoState(SelectedTask);
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
         SelectedTask.Status = status;
         ApplySelectedTaskStatusRules();
         _repository.SaveTask(SelectedTask);
         RefreshVisibleTasks();
         UpdateCategoryCounts();
+    }
+
+    private void TechnicianCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSelection ||
+            _isUpdatingSelection ||
+            _isRefreshingVisibleTasks ||
+            _selectionNavigationDepth > 0 ||
+            SelectedTask is null)
+        {
+            return;
+        }
+
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
     }
 
     private void DashboardTask_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)

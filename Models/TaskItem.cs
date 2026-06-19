@@ -130,4 +130,34 @@ public sealed class TaskItem : ObservableObject
     public bool HasSentAt => SentAt.HasValue;
     public string CardBackground => "#FFFFFF";
     public string CardBorderBrush => IsSelected ? "#000000" : "#00000000";
+
+    public TaskItem Clone()
+    {
+        return new TaskItem
+        {
+            Id = Id,
+            Title = Title,
+            CustomerName = CustomerName,
+            CustomerAddress = CustomerAddress,
+            Description = Description,
+            CategoryId = CategoryId,
+            CategoryIds = new List<string>(CategoryIds),
+            Status = Status,
+            Priority = Priority,
+            DueDate = DueDate,
+            FollowUpDate = FollowUpDate,
+            SentAt = SentAt,
+            AssignedTo = AssignedTo,
+            Technician = Technician,
+            CreatedAt = CreatedAt,
+            UpdatedAt = UpdatedAt,
+            CompletedAt = CompletedAt,
+            IsDeleted = IsDeleted,
+            DeletedAt = DeletedAt,
+            SortPosition = SortPosition,
+            CategoryHint = CategoryHint,
+            CategoryNameChips = new List<string>(CategoryNameChips),
+            ShowCategoryHint = ShowCategoryHint
+        };
+    }
 }
