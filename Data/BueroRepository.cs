@@ -176,6 +176,34 @@ public sealed class BueroRepository
         return items;
     }
 
+    public List<CategoryItem> GetAllCategories()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Id, Name, SortOrder, SortMode, Color, IsVisible
+            FROM Categories
+            ORDER BY SortOrder, Name;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var items = new List<CategoryItem>();
+        while (reader.Read())
+        {
+            items.Add(new CategoryItem
+            {
+                Id = reader.GetString(0),
+                Name = reader.GetString(1),
+                SortOrder = reader.GetInt32(2),
+                SortMode = reader.GetString(3),
+                Color = reader.GetString(4),
+                IsVisible = reader.GetInt32(5) == 1
+            });
+        }
+
+        return items;
+    }
+
     public List<TaskItem> GetTasks()
     {
         using var connection = OpenConnection();

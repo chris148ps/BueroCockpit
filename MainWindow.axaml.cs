@@ -53,6 +53,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly UpdateService _updateService;
     private readonly AppSettingsService _settingsService;
     private readonly FileHashService _hashService;
+    private readonly IpadSnapshotExportService _ipadSnapshotExportService;
     private readonly HashSet<string> _tasksPendingDuplicateCheck = new(StringComparer.OrdinalIgnoreCase);
     private AppSettings _appSettings = new();
     private TaskUndoSnapshot? _taskUndoSnapshot;
@@ -84,6 +85,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
     private string _deskStatus = string.Empty;
     private string _filePathCheckStatus = string.Empty;
+    private string _ipadSnapshotStatus = string.Empty;
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -624,6 +626,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string OneDriveEditDirectory => _appSettings.OneDriveEditDirectory;
     public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
     public bool HasNoOneDriveEditDirectory => !HasOneDriveEditDirectory;
+    public string IpadSnapshotStatus
+    {
+        get => _ipadSnapshotStatus;
+        set
+        {
+            if (_ipadSnapshotStatus != value)
+            {
+                _ipadSnapshotStatus = value;
+                OnPropertyChanged(nameof(IpadSnapshotStatus));
+                OnPropertyChanged(nameof(HasIpadSnapshotStatus));
+            }
+        }
+    }
+
+    public bool HasIpadSnapshotStatus => !string.IsNullOrWhiteSpace(IpadSnapshotStatus);
     public string AttachmentEditStatus
     {
         get => _attachmentEditStatus;
@@ -851,6 +868,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _updateService = new UpdateService();
         _settingsService = new AppSettingsService();
         _hashService = new FileHashService();
+        _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
         LoadTechnicianOptions();
@@ -2027,7 +2045,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
         setValue(parsedDate);
-        _repository.SaveTask(SelectedTask);
+        SaveTaskAndQueueIpadSnapshot(SelectedTask);
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
     }
@@ -2261,7 +2279,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ApplyTaskState(task, snapshot.Task);
         }
 
-        _repository.SaveTask(task);
+        SaveTaskAndQueueIpadSnapshot(task);
         SyncTaskMaterials(task.Id, snapshot.Materials);
         SyncTaskAttachments(task.Id, snapshot.Attachments);
         _tasksPendingDuplicateCheck.Remove(task.Id);
@@ -2351,14 +2369,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var attachment in currentAttachments.Where(item => !snapshotAttachmentIds.Contains(item.Id)).ToList())
         {
-            _repository.DeleteAttachment(attachment.Id);
+            DeleteAttachmentAndQueueIpadSnapshot(attachment.Id);
         }
 
         foreach (var attachment in snapshotAttachments)
         {
             var copy = CloneAttachmentItem(attachment);
             copy.TaskId = taskId;
-            _repository.SaveAttachment(copy);
+            SaveAttachmentAndQueueIpadSnapshot(copy);
         }
 
         if (SelectedTask?.Id == taskId)
@@ -3026,7 +3044,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 if (TryMigrateAttachmentFile(item, out _, out _))
                 {
-                    _repository.SaveAttachment(item);
+                    SaveAttachmentAndQueueIpadSnapshot(item);
                 }
 
                 EnsureAttachmentThumbnail(item);
@@ -3076,13 +3094,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             UpdatedAt = now
         };
 
-        _repository.SaveTask(task);
+        SaveTaskAndQueueIpadSnapshot(task);
         _tasksPendingDuplicateCheck.Add(task.Id);
         AllTasks.Insert(0, task);
 
         ClearSearchTextWithoutRefresh();
         category.SortMode = "Erstellt am";
-        _repository.SaveCategory(category);
+        SaveCategoryAndQueueIpadSnapshot(category);
         SelectedCategory = category;
         RefreshVisibleTasks();
         SelectedTask = task;
@@ -3222,7 +3240,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _repository.SaveTask(SelectedTask);
+        SaveTaskAndQueueIpadSnapshot(SelectedTask);
         _tasksPendingDuplicateCheck.Remove(SelectedTask.Id);
         SaveCurrentMaterials();
         RefreshVisibleTasks();
@@ -3315,7 +3333,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isUpdatingSelection = false;
         }
 
-        _repository.SaveTask(SelectedTask);
+        SaveTaskAndQueueIpadSnapshot(SelectedTask);
         UpdateTaskCategoryPresentation(SelectedTask);
         RefreshTaskCategorySelections();
 
@@ -3341,7 +3359,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _repository.SaveCategory(category);
+        SaveCategoryAndQueueIpadSnapshot(category);
         RefreshVisibleTasks();
     }
 
@@ -3468,7 +3486,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CaptureTaskUndoState(task);
-        _repository.DeleteTask(task.Id);
+        DeleteTaskAndQueueIpadSnapshot(task.Id);
         if (!task.IsDeleted)
         {
             task.IsDeleted = true;
@@ -3497,7 +3515,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         task.IsDeleted = false;
         task.DeletedAt = null;
         task.UpdatedAt = DateTime.Now;
-        _repository.SaveTask(task);
+        SaveTaskAndQueueIpadSnapshot(task);
 
         var targetCategory = GetTaskNavigationCategory(task) ?? GetDefaultStartupCategory() ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
         if (targetCategory is not null)
@@ -3542,7 +3560,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ClearSelectedTask();
         }
 
-        _repository.EmptyTrash();
+        EmptyTrashAndQueueIpadSnapshot();
 
         foreach (var task in AllTasks.Where(task => task.IsDeleted).ToList())
         {
@@ -4013,7 +4031,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            _repository.SaveTask(SelectedTask);
+            SaveTaskAndQueueIpadSnapshot(SelectedTask);
             var normalizedSourcePath = Path.GetFullPath(sourcePath);
             var originalName = Path.GetFileName(normalizedSourcePath);
             var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, SelectedTask.Id);
@@ -4031,7 +4049,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             attachment.ContentHash = EnsureAttachmentContentHash(attachment, persist: false) ?? string.Empty;
             EnsureAttachmentThumbnail(attachment);
-            _repository.SaveAttachment(attachment);
+            SaveAttachmentAndQueueIpadSnapshot(attachment);
             Attachments.Insert(0, attachment);
 
             return true;
@@ -4177,7 +4195,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         item.ThumbnailPath = string.Empty;
         item.ContentHash = string.Empty;
         EnsureAttachmentThumbnail(item);
-        _repository.SaveAttachment(item);
+        SaveAttachmentAndQueueIpadSnapshot(item);
 
         if (SelectedAttachment?.Id == item.Id)
         {
@@ -4235,7 +4253,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
         try
         {
-            _repository.DeleteAttachment(item.Id);
+            DeleteAttachmentAndQueueIpadSnapshot(item.Id);
         }
         catch (Exception ex)
         {
@@ -4503,7 +4521,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             IsVisible = true
         };
 
-        _repository.SaveCategory(category);
+        SaveCategoryAndQueueIpadSnapshot(category);
         InsertBeforeSettings(category);
         RefreshTaskCategories();
         SelectedCategory = category;
@@ -4535,7 +4553,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SelectedCategory.Name = name;
-        _repository.SaveCategory(SelectedCategory);
+        SaveCategoryAndQueueIpadSnapshot(SelectedCategory);
         OnPropertyChanged(nameof(SelectedCategory));
         CategoryMessage = "Kategorie umbenannt.";
     }
@@ -4586,8 +4604,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         (current.SortOrder, target.SortOrder) = (target.SortOrder, current.SortOrder);
 
-        _repository.SaveCategory(current);
-        _repository.SaveCategory(target);
+        SaveCategoryAndQueueIpadSnapshot(current);
+        SaveCategoryAndQueueIpadSnapshot(target);
 
         ReorderVisibleCategories(current.Id);
         RefreshTaskCategories();
@@ -4690,7 +4708,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CompletedAt = source.Status == "Erledigt" ? now : null
         };
 
-        _repository.SaveTask(copy);
+        SaveTaskAndQueueIpadSnapshot(copy);
         foreach (var material in _repository.GetMaterials(source.Id))
         {
             _repository.SaveMaterial(new MaterialItem
@@ -4742,7 +4760,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
         SelectedTask.Status = status;
         ApplySelectedTaskStatusRules();
-        _repository.SaveTask(SelectedTask);
+        SaveTaskAndQueueIpadSnapshot(SelectedTask);
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -5195,7 +5213,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
                 if (TryUpdateLoadedAttachment(attachment))
                 {
-                    _repository.SaveAttachment(attachment);
+                    SaveAttachmentAndQueueIpadSnapshot(attachment);
                 }
             }
         }
@@ -5497,6 +5515,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(HasOneDriveEditDirectory));
         OnPropertyChanged(nameof(HasNoOneDriveEditDirectory));
         BackupStatus = $"OneDrive-Bearbeitungsordner gesetzt: {folderPath}";
+        QueueIpadSnapshotExport();
     }
 
     private void OpenOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)
@@ -5508,6 +5527,83 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         OpenFolder(OneDriveEditDirectory);
+    }
+
+    private void QueueIpadSnapshotExport()
+    {
+        if (!HasOneDriveEditDirectory)
+        {
+            return;
+        }
+
+        _ipadSnapshotExportService.RequestExport(
+            _repository,
+            OneDriveEditDirectory,
+            _updateService.GetCurrentVersion(),
+            Environment.MachineName);
+    }
+
+    private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
+    {
+        SaveTaskAndQueueIpadSnapshot(task);
+        QueueIpadSnapshotExport();
+    }
+
+    private void SaveCategoryAndQueueIpadSnapshot(CategoryItem category)
+    {
+        SaveCategoryAndQueueIpadSnapshot(category);
+        QueueIpadSnapshotExport();
+    }
+
+    private void SaveAttachmentAndQueueIpadSnapshot(AttachmentItem attachment)
+    {
+        SaveAttachmentAndQueueIpadSnapshot(attachment);
+        QueueIpadSnapshotExport();
+    }
+
+    private void DeleteTaskAndQueueIpadSnapshot(string taskId)
+    {
+        DeleteTaskAndQueueIpadSnapshot(taskId);
+        QueueIpadSnapshotExport();
+    }
+
+    private void DeleteAttachmentAndQueueIpadSnapshot(string attachmentId)
+    {
+        DeleteAttachmentAndQueueIpadSnapshot(attachmentId);
+        QueueIpadSnapshotExport();
+    }
+
+    private void EmptyTrashAndQueueIpadSnapshot()
+    {
+        EmptyTrashAndQueueIpadSnapshot();
+        QueueIpadSnapshotExport();
+    }
+
+    private async void RefreshIpadSnapshot_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!HasOneDriveEditDirectory)
+        {
+            IpadSnapshotStatus = "Noch kein OneDrive-Bearbeitungsordner gewählt.";
+            return;
+        }
+
+        try
+        {
+            var result = await _ipadSnapshotExportService.ExportNowAsync(
+                _repository,
+                OneDriveEditDirectory,
+                _updateService.GetCurrentVersion(),
+                Environment.MachineName);
+
+            IpadSnapshotStatus = result.Success
+                ? $"iPad-Snapshot aktualisiert: {result.OutputDirectory}"
+                : result.ErrorMessage ?? "iPad-Snapshot konnte nicht aktualisiert werden.";
+        }
+        catch (Exception ex)
+        {
+            IpadSnapshotStatus = "iPad-Snapshot konnte nicht aktualisiert werden.";
+            Debug.WriteLine($"Manual iPad snapshot export failed: {ex}");
+        }
     }
 
     private async void CreateBackup_OnClick(object? sender, RoutedEventArgs e)
@@ -5553,7 +5649,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (SelectedTask is not null && !IsUnsavedPlaceholderTask(SelectedTask))
             {
-                _repository.SaveTask(SelectedTask);
+                SaveTaskAndQueueIpadSnapshot(SelectedTask);
             }
 
             BackupResult safetyBackup;
@@ -6604,7 +6700,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             case DuplicateTaskChoice.AddToCategory:
                 AddTaskToCategory(duplicate.Task, targetCategory.Id);
-                _repository.SaveTask(duplicate.Task);
+                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
                 RemovePendingNewTask(newTask);
                 NavigateToTask(duplicate.Task, fromGlobalSearch: false);
                 UpdateCategoryCounts();
@@ -6612,7 +6708,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             case DuplicateTaskChoice.MoveToCategory:
                 MoveTaskToCategory(duplicate.Task, targetCategory.Id);
-                _repository.SaveTask(duplicate.Task);
+                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
                 RemovePendingNewTask(newTask);
                 NavigateToTask(duplicate.Task, fromGlobalSearch: false);
                 UpdateCategoryCounts();
@@ -6649,14 +6745,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             case DuplicateTaskChoice.AddToCategory:
                 AddTaskToCategory(duplicate.Task, targetCategory.Id);
-                _repository.SaveTask(duplicate.Task);
+                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
                 SelectCategoryAndTask(targetCategory, duplicate.Task);
                 RefreshTaskCategorySelections();
                 return true;
 
             case DuplicateTaskChoice.MoveToCategory:
                 MoveTaskToCategory(duplicate.Task, targetCategory.Id);
-                _repository.SaveTask(duplicate.Task);
+                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
                 SelectCategoryAndTask(targetCategory, duplicate.Task);
                 RefreshTaskCategorySelections();
                 return true;
@@ -7015,7 +7111,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RemovePendingNewTask(TaskItem task)
     {
         _tasksPendingDuplicateCheck.Remove(task.Id);
-        _repository.DeleteTask(task.Id);
+        DeleteTaskAndQueueIpadSnapshot(task.Id);
         AllTasks.Remove(task);
         ClearTaskSelectionAfterRemoval(task);
         UpdateCategoryCounts();
@@ -7550,7 +7646,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         attachment.ContentHash = contentHash;
         if (persist)
         {
-            _repository.SaveAttachment(attachment);
+            SaveAttachmentAndQueueIpadSnapshot(attachment);
         }
 
         return contentHash;

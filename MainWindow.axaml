@@ -1177,6 +1177,13 @@
                 <Button Content="OneDrive-Ordner auswählen" Click="SelectOneDriveFolder_OnClick" />
                 <Button Grid.Column="1" Content="OneDrive-Ordner öffnen" Click="OpenOneDriveFolder_OnClick" />
               </Grid>
+              <Button Content="iPad-Snapshot jetzt aktualisieren"
+                      Click="RefreshIpadSnapshot_OnClick"
+                      HorizontalAlignment="Left" />
+              <TextBlock Text="{Binding IpadSnapshotStatus}"
+                         IsVisible="{Binding HasIpadSnapshotStatus}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         TextWrapping="Wrap" />
             </StackPanel>
           </Border>
 
