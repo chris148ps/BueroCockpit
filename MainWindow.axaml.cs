@@ -5304,12 +5304,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _repository.Initialize();
                 LoadData(selectedCategoryId, selectedTaskId);
                 RefreshGlobalSearchResults();
-                BackupStatus = "Backup wurde wiederhergestellt. Die Daten wurden neu geladen.";
+                BackupStatus = "Backup wurde wiederhergestellt. Der Datenstand wurde neu geladen. Ein Neustart ist nicht erforderlich.";
             }
             catch (Exception reloadEx)
             {
                 Debug.WriteLine($"Backup restore reload failed: {reloadEx}");
-                BackupStatus = "Backup wurde wiederhergestellt. Bitte die App neu starten, damit alle Ansichten sicher neu geladen werden.";
+                BackupStatus = "Backup wurde wiederhergestellt. Bitte BüroCockpit neu starten, damit alle Daten vollständig neu geladen werden.";
             }
         }
         catch (Exception ex)
