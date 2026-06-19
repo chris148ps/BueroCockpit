@@ -23,6 +23,7 @@ namespace BueroCockpit;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private bool _dateTextFormattingActive;
+    private const string OverviewCategoryId = "__overview";
     private const string DeskCategoryId = "__desk";
     private const string DeskCategoryName = "Schreibtisch";
     private const string OverviewCategoryName = "Übersicht";
@@ -421,13 +422,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public bool HasTaskUndoMessage => !string.IsNullOrWhiteSpace(TaskUndoMessage);
     public bool IsTaskUndoPanelVisible => CanUndoTaskChange || HasTaskUndoMessage;
-    public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
+    public bool IsOverviewSelected => SelectedCategory?.Id == OverviewCategoryId;
     public bool IsDeskSelected => SelectedCategory?.Id == DeskCategoryId;
     public bool IsTrashSelected => SelectedCategory?.Id == TrashCategoryId;
     public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
-    public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
+    public string DashboardDateText => $"Termine für die aktuelle und nächste Woche ab {GetWeekStart(DateTime.Today):dd.MM.yyyy}";
     public string AppDataDirectory => ResolveDisplayDirectory(AppPaths.AppDataDirectory);
     public string DefaultAppDataDirectory => ResolveDisplayDirectory(AppPaths.DefaultAppDataDirectory);
     public string DatabasePath => ResolveDisplayPath(AppPaths.DatabasePath);
@@ -881,11 +882,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         var categoriesToRemove = Categories
             .Where(category =>
-                string.Equals(category.Name, OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(category.Id, OverviewCategoryId, StringComparison.OrdinalIgnoreCase) &&
+                (string.Equals(category.Name, OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category.Name, "Übersicht", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
                 (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
-                 !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
+                 !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase))))
             .ToList();
 
         foreach (var category in categoriesToRemove)
@@ -1572,6 +1574,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void LoadData(string? selectedCategoryId = null, string? selectedTaskId = null)
     {
         Categories.Clear();
+        Categories.Add(CreateOverviewCategory());
         Categories.Add(CreateDeskCategory());
         foreach (var category in _repository.GetCategories())
         {
@@ -1593,7 +1596,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ? Categories.FirstOrDefault(c => string.Equals(c.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
             : null;
         SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
-            ?? Categories.FirstOrDefault(c => c.Name == OverviewCategoryName)
+            ?? Categories.FirstOrDefault(c => c.Id == OverviewCategoryId)
             ?? Categories.FirstOrDefault();
         ApplySelectedCategoryContent();
 
@@ -1967,7 +1970,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         ClearSelectedTask();
         VisibleTasks.Clear();
-        TaskListCaption = "Tagesübersicht";
+        TaskListCaption = "Anstehende Termine";
         ClearSearchTextWithoutRefresh();
         RefreshDashboard();
     }
@@ -2322,48 +2325,70 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshDashboard()
     {
         DashboardSections.Clear();
-        var today = DateTime.Today;
-        var activeTasks = AllTasks.Where(task => !task.IsDeleted && !IsDoneOrArchived(task)).ToList();
-
+        var weekStart = GetWeekStart(DateTime.Today);
         DashboardSections.Add(CreateDashboardSection(
-            "Heute fällig",
-            activeTasks.Where(task => task.DueDate?.Date == today)));
-
+            "Diese Woche",
+            "Keine Termine für diese Woche.",
+            GetOverviewTasks(weekStart, weekStart.AddDays(7))));
         DashboardSections.Add(CreateDashboardSection(
-            "Überfällig",
-            activeTasks.Where(task => task.DueDate?.Date < today)));
-
-        DashboardSections.Add(CreateDashboardSection(
-            "Wiedervorlage heute",
-            AllTasks.Where(task => !task.IsDeleted && task.FollowUpDate?.Date == today)));
-
-        DashboardSections.Add(CreateDashboardSection(
-            "Material offen",
-            activeTasks.Where(HasOpenMaterial)));
-
-        DashboardSections.Add(CreateDashboardSection(
-            "Angebote / offene Büroaufgaben",
-            activeTasks.Where(IsOfficeTask)));
+            "Nächste Woche",
+            "Keine Termine für nächste Woche.",
+            GetOverviewTasks(weekStart.AddDays(7), weekStart.AddDays(14))));
     }
 
-    private static DashboardSection CreateDashboardSection(string title, IEnumerable<TaskItem> tasks)
+    private static DashboardSection CreateDashboardSection(string title, string emptyText, IEnumerable<TaskItem> tasks)
     {
         var ordered = tasks
-            .OrderBy(task => task.DueDate ?? task.FollowUpDate ?? DateTime.MaxValue)
-            .ThenBy(task => task.CustomerName)
-            .ThenBy(task => task.Title)
+            .OrderBy(task => task.DueDate ?? DateTime.MaxValue)
+            .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return new DashboardSection(title, ordered.Count, ordered.Take(5));
+        return new DashboardSection(title, emptyText, ordered.Count, ordered);
+    }
+
+    private static DateTime GetWeekStart(DateTime date)
+    {
+        var dayOffset = ((int)date.DayOfWeek + 6) % 7;
+        return date.Date.AddDays(-dayOffset);
+    }
+
+    private IEnumerable<TaskItem> GetOverviewTasks(DateTime startInclusive, DateTime endExclusive)
+    {
+        return AllTasks
+            .Where(task =>
+                !task.IsDeleted &&
+                !IsDoneOrArchived(task) &&
+                task.DueDate.HasValue &&
+                task.DueDate.Value.Date >= startInclusive.Date &&
+                task.DueDate.Value.Date < endExclusive.Date)
+            .Select(task =>
+            {
+                UpdateTaskCategoryPresentation(task);
+                return task;
+            })
+            .OrderBy(task => task.DueDate ?? DateTime.MaxValue)
+            .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase);
     }
 
     private void UpdateCategoryCounts()
     {
+        var weekStart = GetWeekStart(DateTime.Today);
+        var overviewCount = AllTasks.Count(task =>
+            !task.IsDeleted &&
+            !IsDoneOrArchived(task) &&
+            task.DueDate.HasValue &&
+            task.DueDate.Value.Date >= weekStart &&
+            task.DueDate.Value.Date < weekStart.AddDays(14));
+
         foreach (var category in Categories)
         {
-            if (category.Name == OverviewCategoryName)
+            if (category.Id == OverviewCategoryId)
             {
-                category.TaskCount = AllTasks.Count(task => !task.IsDeleted);
+                category.TaskCount = overviewCount;
             }
             else if (category.Id == TrashCategoryId)
             {
@@ -4645,6 +4670,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (IsSpecialCategory(category))
+        {
+            return;
+        }
+
         var newName = await ShowRenameCategoryDialog(category.Name);
         if (string.IsNullOrWhiteSpace(newName))
         {
@@ -4743,7 +4773,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategoryDeleteFromMenu_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: CategoryItem category })
+        if (sender is MenuItem { DataContext: CategoryItem category } && !IsSpecialCategory(category))
         {
             SelectedCategory = category;
             CategoryEditorName = category.Name;
@@ -6944,6 +6974,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private static CategoryItem CreateOverviewCategory()
+    {
+        return new CategoryItem
+        {
+            Id = OverviewCategoryId,
+            Name = OverviewCategoryName,
+            SortOrder = int.MinValue,
+            Color = "#E6F0FF",
+            IsVisible = true
+        };
+    }
+
     private static CategoryItem CreateDeskCategory()
     {
         return new CategoryItem
@@ -7021,7 +7063,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsSpecialCategory(CategoryItem category)
     {
-        return category.Id == DeskCategoryId ||
+        return category.Id == OverviewCategoryId ||
+               category.Id == DeskCategoryId ||
                category.Id == TrashCategoryId ||
                category.Id == SettingsCategoryId ||
                category.Name == OverviewCategoryName;
@@ -7612,14 +7655,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
 public sealed class DashboardSection
 {
-    public DashboardSection(string title, int count, IEnumerable<TaskItem> tasks)
+    public DashboardSection(string title, string emptyText, int count, IEnumerable<TaskItem> tasks)
     {
         Title = title;
+        EmptyText = emptyText;
         Count = count;
         Tasks = new ObservableCollection<TaskItem>(tasks);
     }
 
     public string Title { get; }
+    public string EmptyText { get; }
     public int Count { get; }
     public ObservableCollection<TaskItem> Tasks { get; }
     public bool HasTasks => Tasks.Count > 0;
