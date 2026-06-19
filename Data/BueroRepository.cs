@@ -46,7 +46,9 @@ public sealed class BueroRepository
                 AssignedTo TEXT NOT NULL,
                 CreatedAt TEXT NOT NULL,
                 UpdatedAt TEXT NOT NULL,
-                CompletedAt TEXT NULL
+                CompletedAt TEXT NULL,
+                IsDeleted INTEGER NOT NULL DEFAULT 0,
+                DeletedAt TEXT NULL
             );
             """);
 
@@ -180,7 +182,7 @@ public sealed class BueroRepository
         command.CommandText = """
             SELECT Id, Title, CustomerName, Description, CategoryId, Status, Priority,
                    DueDate, FollowUpDate, SentAt, CustomerAddress, Technician, SortPosition,
-                   AssignedTo, CreatedAt, UpdatedAt, CompletedAt
+                   AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt
             FROM Tasks
             ORDER BY UpdatedAt DESC;
             """;
@@ -207,7 +209,9 @@ public sealed class BueroRepository
                 AssignedTo = reader.GetString(13),
                 CreatedAt = ReadDate(reader.GetString(14)),
                 UpdatedAt = ReadDate(reader.GetString(15)),
-                CompletedAt = ReadNullableDate(reader, 16)
+                CompletedAt = ReadNullableDate(reader, 16),
+                IsDeleted = reader.GetInt32(17) == 1,
+                DeletedAt = ReadNullableDate(reader, 18)
             });
         }
 
@@ -251,7 +255,7 @@ public sealed class BueroRepository
     {
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM Tasks WHERE CategoryId = $categoryId;";
+        command.CommandText = "SELECT COUNT(*) FROM Tasks WHERE CategoryId = $categoryId AND IFNULL(IsDeleted, 0) = 0;";
         command.Parameters.AddWithValue("$categoryId", categoryId);
         return Convert.ToInt32(command.ExecuteScalar());
     }
@@ -405,10 +409,10 @@ public sealed class BueroRepository
         command.CommandText = """
             INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, Priority,
                                DueDate, FollowUpDate, SentAt, CustomerAddress, Technician, SortPosition,
-                               AssignedTo, CreatedAt, UpdatedAt, CompletedAt)
+                               AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt)
             VALUES ($id, $title, $customerName, $description, $categoryId, $status, $priority,
                     $dueDate, $followUpDate, $sentAt, $customerAddress, $technician, $sortPosition,
-                    $assignedTo, $createdAt, $updatedAt, $completedAt)
+                    $assignedTo, $createdAt, $updatedAt, $completedAt, $isDeleted, $deletedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Title = excluded.Title,
                 CustomerName = excluded.CustomerName,
@@ -424,7 +428,9 @@ public sealed class BueroRepository
                 SortPosition = excluded.SortPosition,
                 AssignedTo = excluded.AssignedTo,
                 UpdatedAt = excluded.UpdatedAt,
-                CompletedAt = excluded.CompletedAt;
+                CompletedAt = excluded.CompletedAt,
+                IsDeleted = excluded.IsDeleted,
+                DeletedAt = excluded.DeletedAt;
             """;
         AddTaskParameters(command, task);
         command.ExecuteNonQuery();
@@ -440,25 +446,18 @@ public sealed class BueroRepository
         }
 
         using var connection = OpenConnection();
-        using var transaction = connection.BeginTransaction();
-
-        foreach (var (table, column) in new[]
-        {
-            ("AttachmentEditSessions", "TaskId"),
-            ("Attachments", "TaskId"),
-            ("Materials", "TaskId"),
-            ("TaskCategories", "TaskId"),
-            ("Tasks", "Id")
-        })
-        {
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = $"DELETE FROM {table} WHERE {column} = $taskId;";
-            command.Parameters.AddWithValue("$taskId", taskId);
-            command.ExecuteNonQuery();
-        }
-
-        transaction.Commit();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE Tasks
+            SET IsDeleted = 1,
+                DeletedAt = COALESCE(DeletedAt, $deletedAt),
+                UpdatedAt = $updatedAt
+            WHERE Id = $taskId;
+            """;
+        command.Parameters.AddWithValue("$taskId", taskId);
+        command.Parameters.AddWithValue("$deletedAt", DateTime.Now.ToString("O"));
+        command.Parameters.AddWithValue("$updatedAt", DateTime.Now.ToString("O"));
+        command.ExecuteNonQuery();
     }
 
     public void SaveMaterial(MaterialItem item)
@@ -754,6 +753,9 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "Technician", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Tasks", "CompletedAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Tasks", "IsDeleted", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Tasks", "DeletedAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Attachments", "ContentHash", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "DeskItems", "Type", "TEXT NOT NULL DEFAULT 'Note'");
         AddColumnIfMissing(connection, "DeskItems", "Text", "TEXT NOT NULL DEFAULT ''");
@@ -1011,6 +1013,8 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$createdAt", ToDb(task.CreatedAt));
         command.Parameters.AddWithValue("$updatedAt", ToDb(task.UpdatedAt));
         command.Parameters.AddWithValue("$completedAt", ToDb(task.CompletedAt));
+        command.Parameters.AddWithValue("$isDeleted", task.IsDeleted ? 1 : 0);
+        command.Parameters.AddWithValue("$deletedAt", ToDb(task.DeletedAt));
     }
 
     private static object ToDb(DateTime? value)

@@ -26,6 +26,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string DeskCategoryId = "__desk";
     private const string DeskCategoryName = "Schreibtisch";
     private const string OverviewCategoryName = "Übersicht";
+    private const string TrashCategoryId = "__trash";
+    private const string TrashCategoryName = "Papierkorb";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
     private const string DeskItemTypeNote = "Note";
@@ -237,6 +239,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedCategory));
             OnPropertyChanged(nameof(IsOverviewSelected));
             OnPropertyChanged(nameof(IsDeskSelected));
+            OnPropertyChanged(nameof(IsTrashSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
@@ -360,6 +363,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasSelectedTask => SelectedTask is not null;
     public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
     public bool IsDeskSelected => SelectedCategory?.Id == DeskCategoryId;
+    public bool IsTrashSelected => SelectedCategory?.Id == TrashCategoryId;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
@@ -1509,6 +1513,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Categories.Add(category);
         }
+        Categories.Add(CreateTrashCategory());
         Categories.Add(CreateSettingsCategory());
         RefreshTaskCategories();
 
@@ -1558,8 +1563,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (string.IsNullOrWhiteSpace(SearchText))
             {
                 tasks = selected is null
-                    ? AllTasks
-                    : SortTasksForCategory(AllTasks.Where(t => TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
+                    ? AllTasks.Where(t => !t.IsDeleted)
+                    : IsTrashSelected
+                        ? SortTasksForCategory(AllTasks.Where(t => t.IsDeleted), selected.SortMode)
+                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
             }
             else
             {
@@ -1574,7 +1581,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             TaskListCaption = string.IsNullOrWhiteSpace(SearchText)
-                ? (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
+                ? IsTrashSelected
+                    ? (VisibleTasks.Count == 1 ? "1 gelöschte Aufgabe" : $"{VisibleTasks.Count} gelöschte Aufgaben")
+                    : (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
                 : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
 
             var taskToSelect = selectedTaskId is null
@@ -1674,6 +1683,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private IEnumerable<TaskItem> GetSearchMatches(string query)
     {
         return AllTasks
+            .Where(task => IsTrashSelected ? task.IsDeleted : !task.IsDeleted)
             .Where(task => TaskMatchesSearch(task, query))
             .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First());
@@ -1918,11 +1928,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         DashboardSections.Clear();
         var today = DateTime.Today;
-        var activeTasks = AllTasks.Where(task => !IsDoneOrArchived(task)).ToList();
+        var activeTasks = AllTasks.Where(task => !task.IsDeleted && !IsDoneOrArchived(task)).ToList();
 
         DashboardSections.Add(CreateDashboardSection(
             "Heute fällig",
-            AllTasks.Where(task => task.DueDate?.Date == today)));
+            activeTasks.Where(task => task.DueDate?.Date == today)));
 
         DashboardSections.Add(CreateDashboardSection(
             "Überfällig",
@@ -1930,7 +1940,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         DashboardSections.Add(CreateDashboardSection(
             "Wiedervorlage heute",
-            AllTasks.Where(task => task.FollowUpDate?.Date == today)));
+            AllTasks.Where(task => !task.IsDeleted && task.FollowUpDate?.Date == today)));
 
         DashboardSections.Add(CreateDashboardSection(
             "Material offen",
@@ -1938,7 +1948,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         DashboardSections.Add(CreateDashboardSection(
             "Angebote / offene Büroaufgaben",
-            AllTasks.Where(IsOfficeTask)));
+            activeTasks.Where(IsOfficeTask)));
     }
 
     private static DashboardSection CreateDashboardSection(string title, IEnumerable<TaskItem> tasks)
@@ -1956,11 +1966,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         foreach (var category in Categories)
         {
-            category.TaskCount = category.Name == OverviewCategoryName
-                ? AllTasks.Count
-                : category.Id == DeskCategoryId || category.Id == SettingsCategoryId
-                    ? 0
-                : AllTasks.Count(t => TaskBelongsToCategory(t, category.Id));
+            if (category.Name == OverviewCategoryName)
+            {
+                category.TaskCount = AllTasks.Count(task => !task.IsDeleted);
+            }
+            else if (category.Id == TrashCategoryId)
+            {
+                category.TaskCount = AllTasks.Count(task => task.IsDeleted);
+            }
+            else if (category.Id == DeskCategoryId || category.Id == SettingsCategoryId)
+            {
+                category.TaskCount = 0;
+            }
+            else
+            {
+                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id));
+            }
         }
     }
 
@@ -2419,7 +2440,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ClearSelectedTask();
         }
 
-        var category = IsOverviewSelected || IsSettingsSelected ? Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") : SelectedCategory;
+        var category = !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected && !IsTrashSelected
+            ? SelectedCategory
+            : null;
+        category ??= Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben");
+        category ??= Categories.FirstOrDefault(c => !IsSpecialCategory(c));
         category ??= Categories.FirstOrDefault();
         if (category is null)
         {
@@ -2799,17 +2824,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var attachments = _repository.GetAttachments(task.Id);
-        var deskItemsToDelete = GetDeskItemsToDeleteForTask(task.Id);
-
         _repository.DeleteTask(task.Id);
-        DeleteDeskItemsForTask(deskItemsToDelete);
-        DeleteTaskFilesIfUnreferenced(task.Id, attachments, deskItemsToDelete);
+        if (!task.IsDeleted)
+        {
+            task.IsDeleted = true;
+            task.DeletedAt = DateTime.Now;
+        }
+        task.UpdatedAt = DateTime.Now;
         _tasksPendingDuplicateCheck.Remove(task.Id);
-        AllTasks.Remove(task);
-        ClearTaskSelectionAfterRemoval(task);
-        OnPropertyChanged(nameof(HasNoMaterials));
-        RefreshVisibleTasks();
+        var trashCategory = Categories.FirstOrDefault(category => category.Id == TrashCategoryId);
+        if (trashCategory is not null)
+        {
+            ClearSearchTextWithoutRefresh();
+            SelectCategoryAndTask(trashCategory, task);
+            LoadTaskDetails();
+        }
+        else
+        {
+            RefreshVisibleTasks();
+        }
+
         UpdateCategoryCounts();
     }
 
@@ -2840,7 +2874,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     {
                         new TextBlock
                         {
-                            Text = "Auftrag wirklich komplett löschen?",
+                            Text = "Auftrag in den Papierkorb verschieben?",
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
                             Foreground = new SolidColorBrush(Color.Parse("#111827")),
@@ -2848,7 +2882,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         },
                         new TextBlock
                         {
-                            Text = $"„{title}“ wird komplett gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+                            Text = $"„{title}“ wird aus den normalen Listen entfernt und in den Papierkorb verschoben. Anhänge bleiben erhalten.",
                             FontSize = 13,
                             Foreground = new SolidColorBrush(Color.Parse("#374151")),
                             TextWrapping = TextWrapping.Wrap
@@ -2862,7 +2896,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Children =
                             {
                                 CreateDialogAction("Abbrechen", false),
-                                CreateDialogAction("Endgültig löschen", true)
+                                CreateDialogAction("In Papierkorb verschieben", true)
                             }
                         }
                     }
@@ -5037,6 +5071,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private CategoryItem? GetTaskNavigationCategory(TaskItem task, string? preferredCategoryId = null)
     {
+        if (task.IsDeleted)
+        {
+            return Categories.FirstOrDefault(category => category.Id == TrashCategoryId);
+        }
+
         var matchingCategories = new List<CategoryItem>();
 
         foreach (var categoryId in GetTaskCategoryIds(task))
@@ -5169,6 +5208,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool TaskMatchesSearch(TaskItem task, string query)
     {
+        if (task.IsDeleted && !IsTrashSelected)
+        {
+            return false;
+        }
+
         var categoryNames = GetTaskCategoryNameList(task);
         if (Contains(task.CustomerName, query) ||
             Contains(task.CustomerAddress, query) ||
@@ -5188,6 +5232,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private string? GetSearchPreferredCategoryId(TaskItem task, string query)
     {
+        if (task.IsDeleted)
+        {
+            return TrashCategoryId;
+        }
+
         foreach (var categoryId in GetTaskCategoryIds(task))
         {
             var category = Categories.FirstOrDefault(item =>
@@ -5221,7 +5270,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool IsOfficeTask(TaskItem task)
     {
-        if (IsDoneOrArchived(task))
+        if (task.IsDeleted || IsDoneOrArchived(task))
         {
             return false;
         }
@@ -5383,6 +5432,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return AllTasks
             .Where(candidate => !string.Equals(candidate.Id, task.Id, StringComparison.OrdinalIgnoreCase))
+            .Where(candidate => !candidate.IsDeleted)
             .Where(candidate => string.IsNullOrWhiteSpace(excludedCategoryId) ||
                 !TaskBelongsToCategory(candidate, excludedCategoryId))
             .Select(candidate =>
@@ -5840,6 +5890,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private static CategoryItem CreateTrashCategory()
+    {
+        return new CategoryItem
+        {
+            Id = TrashCategoryId,
+            Name = TrashCategoryName,
+            SortOrder = int.MaxValue - 1,
+            Color = "#F2F3F5",
+            IsVisible = true
+        };
+    }
+
     private void InsertBeforeSettings(CategoryItem category)
     {
         var settingsIndex = Categories.ToList().FindIndex(item => item.Id == SettingsCategoryId);
@@ -5894,6 +5956,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool IsSpecialCategory(CategoryItem category)
     {
         return category.Id == DeskCategoryId ||
+               category.Id == TrashCategoryId ||
                category.Id == SettingsCategoryId ||
                category.Name == OverviewCategoryName;
     }

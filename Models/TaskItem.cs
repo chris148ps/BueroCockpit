@@ -15,6 +15,8 @@ public sealed class TaskItem : ObservableObject
     private string _assignedTo = string.Empty;
     private string _technician = string.Empty;
     private DateTime? _completedAt;
+    private bool _isDeleted;
+    private DateTime? _deletedAt;
     private double _sortPosition;
     private string _categoryHint = string.Empty;
     private List<string> _categoryNameChips = new();
@@ -90,6 +92,8 @@ public sealed class TaskItem : ObservableObject
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }
+    public bool IsDeleted { get => _isDeleted; set => SetProperty(ref _isDeleted, value); }
+    public DateTime? DeletedAt { get => _deletedAt; set => SetProperty(ref _deletedAt, value); }
     public double SortPosition { get => _sortPosition; set => SetProperty(ref _sortPosition, value); }
     public string CategoryHint { get => _categoryHint; set => SetProperty(ref _categoryHint, value); }
     public List<string> CategoryNameChips
