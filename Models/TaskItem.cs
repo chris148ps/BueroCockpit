@@ -17,6 +17,7 @@ public sealed class TaskItem : ObservableObject
     private DateTime? _completedAt;
     private double _sortPosition;
     private string _categoryHint = string.Empty;
+    private List<string> _categoryNameChips = new();
     private bool _showCategoryHint;
     private bool _isSelected;
 
@@ -91,7 +92,18 @@ public sealed class TaskItem : ObservableObject
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }
     public double SortPosition { get => _sortPosition; set => SetProperty(ref _sortPosition, value); }
     public string CategoryHint { get => _categoryHint; set => SetProperty(ref _categoryHint, value); }
-    public List<string> CategoryNameChips { get; set; } = new();
+    public List<string> CategoryNameChips
+    {
+        get => _categoryNameChips;
+        set
+        {
+            if (SetProperty(ref _categoryNameChips, value ?? new List<string>()))
+            {
+                OnPropertyChanged(nameof(HasCategoryNameChips));
+            }
+        }
+    }
+    public bool HasCategoryNameChips => CategoryNameChips.Count > 0;
     public bool ShowCategoryHint { get => _showCategoryHint; set => SetProperty(ref _showCategoryHint, value); }
     public bool IsSelected
     {

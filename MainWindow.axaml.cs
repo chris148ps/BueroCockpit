@@ -1569,9 +1569,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var task in tasks)
             {
-                task.CategoryNameChips = GetTaskCategoryNameList(task);
-                task.CategoryHint = string.Join(", ", task.CategoryNameChips);
-                task.ShowCategoryHint = task.CategoryNameChips.Count > 0;
+                UpdateTaskCategoryPresentation(task);
                 VisibleTasks.Add(task);
             }
 
@@ -2383,6 +2381,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             EnsureTaskCategoryState(SelectedTask);
             SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == SelectedTask.CategoryId);
+            UpdateTaskCategoryPresentation(SelectedTask);
             RefreshTaskCategorySelections();
 
             foreach (var item in _repository.GetMaterials(SelectedTask.Id))
@@ -2674,6 +2673,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _repository.SaveTask(SelectedTask);
+        UpdateTaskCategoryPresentation(SelectedTask);
         RefreshTaskCategorySelections();
 
         if (currentVisibleCategoryWasRemoved)
@@ -5651,6 +5651,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .Cast<string>()
             .ToList();
+    }
+
+    private void UpdateTaskCategoryPresentation(TaskItem task)
+    {
+        var categoryNames = GetTaskCategoryNameList(task);
+        task.CategoryNameChips = categoryNames;
+        task.CategoryHint = string.Join(", ", categoryNames);
+        task.ShowCategoryHint = categoryNames.Count > 0;
     }
 
     private string GetTaskCategoryNames(TaskItem task)
