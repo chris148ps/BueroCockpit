@@ -1553,14 +1553,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             VisibleTasks.Clear();
 
             var selected = SelectedCategory;
-            IEnumerable<TaskItem> tasks = selected is null
-                ? AllTasks
-                : SortTasksForCategory(AllTasks.Where(t => TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
+            IEnumerable<TaskItem> tasks;
 
-            if (!string.IsNullOrWhiteSpace(SearchText))
+            if (string.IsNullOrWhiteSpace(SearchText))
+            {
+                tasks = selected is null
+                    ? AllTasks
+                    : SortTasksForCategory(AllTasks.Where(t => TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
+            }
+            else
             {
                 var query = SearchText.Trim();
-                tasks = tasks.Where(task => TaskMatchesSearch(task, query));
+                tasks = SortTasksForCategory(GetSearchMatches(query), selected?.SortMode);
             }
 
             foreach (var task in tasks)
@@ -1571,7 +1575,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 VisibleTasks.Add(task);
             }
 
-            TaskListCaption = VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben";
+            TaskListCaption = string.IsNullOrWhiteSpace(SearchText)
+                ? (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
+                : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
 
             var taskToSelect = selectedTaskId is null
                 ? VisibleTasks.FirstOrDefault()
@@ -1601,7 +1607,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var query = SearchText.Trim();
-        foreach (var task in AllTasks.Where(task => TaskMatchesSearch(task, query)).Take(50))
+        foreach (var task in SortTasksForCategory(GetSearchMatches(query), SelectedCategory?.SortMode).Take(50))
         {
             GlobalSearchResults.Add(CreateSearchResult(task, query));
         }
@@ -1614,11 +1620,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private TaskSearchResult CreateSearchResult(TaskItem task, string query)
     {
-        var categoryName = GetTaskCategoryNames(task);
-        var matchInfo = GetSearchMatchInfo(task, categoryName, query);
+        var categoryNames = GetTaskCategoryNameList(task);
+        var categoryName = categoryNames.FirstOrDefault() ?? string.Empty;
+        var preferredCategoryId = GetSearchPreferredCategoryId(task, query);
+        var matchInfo = GetSearchMatchInfo(task, categoryNames, query);
         return new TaskSearchResult(
             task,
             categoryName,
+            categoryNames,
+            preferredCategoryId,
             task.CustomerName,
             task.Title,
             matchInfo,
@@ -1628,7 +1638,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             task.SentAt);
     }
 
-    private string GetSearchMatchInfo(TaskItem task, string categoryName, string query)
+    private string GetSearchMatchInfo(TaskItem task, IReadOnlyList<string> categoryNames, string query)
     {
         if (Contains(task.CustomerAddress, query))
         {
@@ -1645,7 +1655,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return "Treffer in Status";
         }
 
-        if (Contains(categoryName, query))
+        if (categoryNames.Any(categoryName => Contains(categoryName, query)))
         {
             return "Treffer in Bereich";
         }
@@ -1661,6 +1671,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return "Treffer in Aufgabe";
+    }
+
+    private IEnumerable<TaskItem> GetSearchMatches(string query)
+    {
+        return AllTasks
+            .Where(task => TaskMatchesSearch(task, query))
+            .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First());
     }
 
     private void UpdateDateTextFieldsFromSelectedTask()
@@ -4965,18 +4983,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (sender is Avalonia.StyledElement { DataContext: TaskSearchResult result })
         {
             e.Handled = true;
-            NavigateToTask(result.Task, fromGlobalSearch: true);
+            NavigateToTask(result.Task, fromGlobalSearch: true, result.PreferredCategoryId);
         }
     }
 
-    private void NavigateToTask(TaskItem? task, bool fromGlobalSearch)
+    private void NavigateToTask(TaskItem? task, bool fromGlobalSearch, string? preferredCategoryId = null)
     {
         if (task is null || _selectionNavigationDepth > 0)
         {
             return;
         }
 
-        var category = GetTaskNavigationCategory(task);
+        var category = GetTaskNavigationCategory(task, preferredCategoryId);
         if (category is null)
         {
             ClearSelectedTask();
@@ -5017,7 +5035,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private CategoryItem? GetTaskNavigationCategory(TaskItem task)
+    private CategoryItem? GetTaskNavigationCategory(TaskItem task, string? preferredCategoryId = null)
     {
         var matchingCategories = new List<CategoryItem>();
 
@@ -5033,6 +5051,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (!matchingCategories.Any(item => string.Equals(item.Id, category.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 matchingCategories.Add(category);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredCategoryId))
+        {
+            var preferredCategory = matchingCategories.FirstOrDefault(category =>
+                string.Equals(category.Id, preferredCategoryId, StringComparison.OrdinalIgnoreCase));
+            if (preferredCategory is not null)
+            {
+                return preferredCategory;
             }
         }
 
@@ -5141,7 +5169,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool TaskMatchesSearch(TaskItem task, string query)
     {
-        var categoryName = GetTaskCategoryNames(task);
+        var categoryNames = GetTaskCategoryNameList(task);
         if (Contains(task.CustomerName, query) ||
             Contains(task.CustomerAddress, query) ||
             Contains(task.Title, query) ||
@@ -5149,13 +5177,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Contains(task.AssignedTo, query) ||
             Contains(task.Technician, query) ||
             Contains(task.Status, query) ||
-            Contains(categoryName, query))
+            categoryNames.Any(categoryName => Contains(categoryName, query)))
         {
             return true;
         }
 
         return _repository.GetMaterials(task.Id).Any(material => Contains(material.Name, query)) ||
                _repository.GetAttachments(task.Id).Any(attachment => Contains(attachment.FileName, query));
+    }
+
+    private string? GetSearchPreferredCategoryId(TaskItem task, string query)
+    {
+        foreach (var categoryId in GetTaskCategoryIds(task))
+        {
+            var category = Categories.FirstOrDefault(item =>
+                string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+            if (category is null || IsSpecialCategory(category))
+            {
+                continue;
+            }
+
+            if (Contains(category.Name, query))
+            {
+                return category.Id;
+            }
+        }
+
+        return GetTaskNavigationCategory(task)?.Id;
     }
 
     private string GetCategoryName(string categoryId)
@@ -6446,6 +6494,8 @@ public sealed class TaskSearchResult
     public TaskSearchResult(
         TaskItem task,
         string categoryName,
+        IReadOnlyList<string> categoryNameChips,
+        string? preferredCategoryId,
         string customerName,
         string title,
         string matchInfo,
@@ -6456,6 +6506,8 @@ public sealed class TaskSearchResult
     {
         Task = task;
         CategoryName = categoryName;
+        CategoryNameChips = new List<string>(categoryNameChips);
+        PreferredCategoryId = preferredCategoryId ?? string.Empty;
         CustomerName = customerName;
         Title = title;
         MatchInfo = matchInfo;
@@ -6467,6 +6519,9 @@ public sealed class TaskSearchResult
 
     public TaskItem Task { get; }
     public string CategoryName { get; }
+    public IReadOnlyList<string> CategoryNameChips { get; }
+    public string PreferredCategoryId { get; }
+    public bool HasCategoryNameChips => CategoryNameChips.Count > 0;
     public string CustomerName { get; }
     public string Title { get; }
     public string MatchInfo { get; }

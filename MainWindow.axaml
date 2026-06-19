@@ -1142,6 +1142,27 @@
                         </Border>
                       </Grid>
                       <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                      <ItemsControl ItemsSource="{Binding CategoryNameChips}"
+                                    IsVisible="{Binding HasCategoryNameChips}"
+                                    Margin="0,0,8,0">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border Background="{DynamicResource AccentSoftBrush}"
+                                    BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="7"
+                                    Padding="6,2"
+                                    Margin="0,0,4,4">
+                              <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
                       <TextBlock Text="{Binding MatchInfo}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" />
                     </StackPanel>
                   </Border>
