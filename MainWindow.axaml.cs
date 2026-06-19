@@ -80,7 +80,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
-    private string _liveDataStatus = string.Empty;
     private string _updateFeedUrl = string.Empty;
     private string _appearanceMode = DarkMode;
     private bool _isUpdateAvailable;
@@ -110,17 +109,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isApplyingDeskDrag;
     private bool _isApplyingDeskResize;
     private bool _deskInitialViewApplied;
-    private readonly List<FileSystemWatcher> _liveDataWatchers = new();
-    private CancellationTokenSource? _liveDataStartupRefreshCts;
-    private CancellationTokenSource? _liveDataReloadDebounceCts;
-    private CancellationTokenSource? _liveDataStatusClearCts;
-    private CancellationTokenSource? _liveDataPollingCts;
-    private readonly object _liveDataWatcherLock = new();
-    private DateTimeOffset _ignoreLiveDataChangesUntilUtc = DateTimeOffset.MinValue;
-    private DateTimeOffset _liveDataStatusProtectedUntilUtc = DateTimeOffset.MinValue;
-    private bool _liveDataReloadQueued;
-    private bool _liveDataReloadRunning;
-    private LiveDataFingerprint? _liveDataFingerprint;
     private const string LiveDataReloadSuccessMessage = "Daten wurden von einem anderen Gerät aktualisiert.";
     private const string LiveDataReloadRetryMessage = "Daten werden gerade synchronisiert. Neuer Versuch folgt.";
     private const string LiveDataReloadUnavailableMessage = "Live-Datenaktualisierung ist nicht verfügbar.";
@@ -741,19 +729,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string LiveDataStatus
     {
-        get => _liveDataStatus;
-        set
-        {
-            if (_liveDataStatus != value)
-            {
-                _liveDataStatus = value;
-                OnPropertyChanged(nameof(LiveDataStatus));
-                OnPropertyChanged(nameof(HasLiveDataStatus));
-            }
-        }
+        get => string.Empty;
+        set { }
     }
 
-    public bool HasLiveDataStatus => !string.IsNullOrWhiteSpace(LiveDataStatus);
+    public bool HasLiveDataStatus => false;
 
     public bool IsUpdateAvailable
     {
@@ -822,11 +802,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             handledEventsToo: true);
 
         _repository.Initialize();
-        SuppressLiveDataReloadForLocalWrites(LiveDataStartupIgnoreDuration);
-        InitializeLiveDataWatcher();
         LoadData();
-        InitializeLiveDataPolling();
-        InitializeLiveDataStartupRefresh();
         CleanupNavigationCategories();
         SelectStartupTaskCategory();
     }
@@ -849,400 +825,86 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void InitializeLiveDataWatcher()
     {
-        DisposeLiveDataWatcher();
-
-        try
-        {
-            AppPaths.EnsureBaseDirectories();
-
-            var watchers = new[]
-            {
-                CreateLiveDataWatcher(AppPaths.AppDataDirectory, Path.GetFileName(AppPaths.DatabasePath), includeSubdirectories: false),
-                CreateLiveDataWatcher(AppPaths.TasksDirectory, "*", includeSubdirectories: true),
-                CreateLiveDataWatcher(AppPaths.DeskItemsDirectory, "*", includeSubdirectories: true)
-            };
-
-            lock (_liveDataWatcherLock)
-            {
-                _liveDataWatchers.AddRange(watchers);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LiveReload watcher init failed: {ex}");
-            Debug.WriteLine($"Live data watcher could not be started: {ex}");
-            SetLiveDataStatus(LiveDataReloadUnavailableMessage, clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
-        }
+        return;
     }
 
     private void InitializeLiveDataPolling()
     {
-        try
-        {
-            lock (_liveDataWatcherLock)
-            {
-                _liveDataFingerprint = CaptureLiveDataFingerprint();
-            }
-
-            _liveDataPollingCts?.Cancel();
-            _liveDataPollingCts?.Dispose();
-            _liveDataPollingCts = new CancellationTokenSource();
-            _ = RunLiveDataPollingAsync(_liveDataPollingCts.Token);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LiveReload polling init failed: {ex}");
-            Debug.WriteLine($"Live data polling could not be started: {ex}");
-        }
+        return;
     }
 
     private void InitializeLiveDataStartupRefresh()
     {
-        _liveDataStartupRefreshCts?.Cancel();
-        _liveDataStartupRefreshCts?.Dispose();
-        _liveDataStartupRefreshCts = new CancellationTokenSource();
-        _ = RefreshLiveDataFingerprintAfterStartupAsync(_liveDataStartupRefreshCts.Token);
+        return;
     }
 
     private void DisposeLiveDataWatcher()
     {
-        _liveDataStartupRefreshCts?.Cancel();
-        _liveDataStartupRefreshCts?.Dispose();
-        _liveDataStartupRefreshCts = null;
-
-        _liveDataPollingCts?.Cancel();
-        _liveDataPollingCts?.Dispose();
-        _liveDataPollingCts = null;
-
-        lock (_liveDataWatcherLock)
-        {
-            _liveDataReloadDebounceCts?.Cancel();
-            _liveDataReloadDebounceCts?.Dispose();
-            _liveDataReloadDebounceCts = null;
-
-            _liveDataStatusClearCts?.Cancel();
-            _liveDataStatusClearCts?.Dispose();
-            _liveDataStatusClearCts = null;
-
-            _liveDataStatusProtectedUntilUtc = DateTimeOffset.MinValue;
-            _liveDataReloadQueued = false;
-            _liveDataReloadRunning = false;
-            _liveDataFingerprint = null;
-
-            foreach (var watcher in _liveDataWatchers)
-            {
-                watcher.Changed -= LiveDataWatcher_OnChanged;
-                watcher.Created -= LiveDataWatcher_OnChanged;
-                watcher.Deleted -= LiveDataWatcher_OnChanged;
-                watcher.Renamed -= LiveDataWatcher_OnRenamed;
-                watcher.Error -= LiveDataWatcher_OnError;
-                watcher.Dispose();
-            }
-
-            _liveDataWatchers.Clear();
-        }
+        return;
     }
 
     private FileSystemWatcher CreateLiveDataWatcher(string directory, string filter, bool includeSubdirectories)
     {
-        var watcher = new FileSystemWatcher(directory, filter)
+        return new FileSystemWatcher(directory, filter)
         {
             IncludeSubdirectories = includeSubdirectories,
-            NotifyFilter = NotifyFilters.FileName |
-                           NotifyFilters.DirectoryName |
-                           NotifyFilters.LastWrite |
-                           NotifyFilters.Size |
-                           NotifyFilters.CreationTime,
             EnableRaisingEvents = false
         };
-
-        watcher.Changed += LiveDataWatcher_OnChanged;
-        watcher.Created += LiveDataWatcher_OnChanged;
-        watcher.Deleted += LiveDataWatcher_OnChanged;
-        watcher.Renamed += LiveDataWatcher_OnRenamed;
-        watcher.Error += LiveDataWatcher_OnError;
-        watcher.EnableRaisingEvents = true;
-
-        return watcher;
     }
 
     private void LiveDataWatcher_OnChanged(object sender, FileSystemEventArgs e)
     {
-        if (IsThumbnailPath(e.FullPath))
-        {
-            Debug.WriteLine($"LiveReload ignored thumbnail event: {e.ChangeType} {e.FullPath}");
-            return;
-        }
-
-        LogLiveReloadEvent(e.ChangeType, e.FullPath);
-        QueueLiveDataReload(e.FullPath);
+        return;
     }
 
     private void LiveDataWatcher_OnRenamed(object sender, RenamedEventArgs e)
     {
-        if (IsThumbnailPath(e.FullPath))
-        {
-            Debug.WriteLine($"LiveReload ignored thumbnail event: {e.ChangeType} {e.FullPath}");
-            return;
-        }
-
-        LogLiveReloadEvent(e.ChangeType, e.FullPath);
-        QueueLiveDataReload(e.FullPath);
+        return;
     }
 
     private void LiveDataWatcher_OnError(object sender, ErrorEventArgs e)
     {
-        Console.WriteLine($"LiveReload error: {e.GetException()}");
-        Debug.WriteLine($"Live data watcher error: {e.GetException()}");
-        SetLiveDataStatus(LiveDataReloadWaitingMessage, clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
+        return;
     }
 
     private bool QueueLiveDataReload(string? path, TimeSpan? delayOverride = null, bool force = false)
     {
-        if (!IsLiveDataChangeRelevant(path))
-        {
-            return false;
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        lock (_liveDataWatcherLock)
-        {
-            if (!force && now < _ignoreLiveDataChangesUntilUtc)
-            {
-                return false;
-            }
-
-            _liveDataReloadQueued = true;
-            _liveDataReloadDebounceCts?.Cancel();
-            _liveDataReloadDebounceCts?.Dispose();
-            _liveDataReloadDebounceCts = new CancellationTokenSource();
-            var cts = _liveDataReloadDebounceCts;
-            var delay = delayOverride ?? TimeSpan.FromMilliseconds(1200);
-            _ = DebounceLiveDataReloadAsync(cts, delay);
-            return true;
-        }
+        return false;
     }
 
     private async Task DebounceLiveDataReloadAsync(CancellationTokenSource cts, TimeSpan delay)
     {
-        try
-        {
-            await Task.Delay(delay, cts.Token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        if (cts.IsCancellationRequested)
-        {
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(RunLiveDataReloadAsync);
+        return;
     }
 
     private async Task RefreshLiveDataFingerprintAfterStartupAsync(CancellationToken token)
     {
-        try
-        {
-            await Task.Delay(LiveDataStartupIgnoreDuration, token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        if (token.IsCancellationRequested)
-        {
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (!token.IsCancellationRequested)
-            {
-                UpdateLiveDataFingerprintBaseline();
-            }
-        });
+        return;
     }
 
     private async Task RunLiveDataReloadAsync()
     {
-        lock (_liveDataWatcherLock)
-        {
-            if (!_liveDataReloadQueued || _liveDataReloadRunning)
-            {
-                return;
-            }
-
-            _liveDataReloadQueued = false;
-            _liveDataReloadRunning = true;
-        }
-
-        try
-        {
-            await ReloadDataAfterExternalChangeAsync();
-        }
-        finally
-        {
-            var rerun = false;
-            lock (_liveDataWatcherLock)
-            {
-                _liveDataReloadRunning = false;
-                rerun = _liveDataReloadQueued;
-            }
-
-            if (rerun)
-            {
-                QueueLiveDataReload(AppPaths.DatabasePath);
-            }
-        }
+        return;
     }
 
     private async Task ReloadDataAfterExternalChangeAsync()
     {
-        try
-        {
-            SuppressLiveDataReloadForLocalWrites(TimeSpan.FromSeconds(2));
-
-            var selectedCategoryId = SelectedCategory?.Id;
-            var selectedTaskId = SelectedTask?.Id;
-            var wasDeskSelected = IsDeskSelected;
-            var wasOverviewSelected = IsOverviewSelected;
-            var wasSettingsSelected = IsSettingsSelected;
-
-            LoadData();
-            CleanupNavigationCategories();
-            RestoreSelectionAfterLiveReload(
-                selectedCategoryId,
-                selectedTaskId,
-                wasDeskSelected,
-                wasOverviewSelected,
-                wasSettingsSelected);
-            UpdateLiveDataFingerprintBaseline();
-
-            SetLiveDataStatus(
-                LiveDataReloadSuccessMessage,
-                clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
-            await Task.CompletedTask;
-        }
-        catch (SqliteException ex)
-        {
-            Console.WriteLine($"LiveReload reload failed (SQLite): {ex}");
-            Debug.WriteLine($"Live data reload failed due to SQLite issue: {ex}");
-            SetLiveDataStatus(
-                LiveDataReloadRetryMessage,
-                clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
-            ScheduleLiveDataReload(TimeSpan.FromSeconds(2));
-        }
-        catch (IOException ex)
-        {
-            Console.WriteLine($"LiveReload reload failed (IO): {ex}");
-            Debug.WriteLine($"Live data reload failed due to IO issue: {ex}");
-            SetLiveDataStatus(
-                LiveDataReloadRetryMessage,
-                clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
-            ScheduleLiveDataReload(TimeSpan.FromSeconds(2));
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Console.WriteLine($"LiveReload reload failed (Access): {ex}");
-            Debug.WriteLine($"Live data reload failed due to access issue: {ex}");
-            SetLiveDataStatus(
-                LiveDataReloadRetryMessage,
-                clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
-            ScheduleLiveDataReload(TimeSpan.FromSeconds(2));
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LiveReload reload failed: {ex}");
-            Debug.WriteLine($"Live data reload failed: {ex}");
-            SetLiveDataStatus(
-                LiveDataReloadFailedMessage,
-                clearAfter: TimeSpan.FromSeconds(LiveDataReloadVisibleSeconds));
-        }
+        return;
     }
 
     private async Task RunLiveDataPollingAsync(CancellationToken token)
     {
-        using var timer = new PeriodicTimer(LiveDataPollingInterval);
-
-        try
-        {
-            while (await timer.WaitForNextTickAsync(token))
-            {
-                PollLiveDataChanges();
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LiveReload polling loop failed: {ex}");
-            Debug.WriteLine($"Live data polling loop failed: {ex}");
-        }
+        return;
     }
 
     private void PollLiveDataChanges()
     {
-        LiveDataFingerprint? currentFingerprint;
-        try
-        {
-            currentFingerprint = CaptureLiveDataFingerprint();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LiveReload polling snapshot failed: {ex}");
-            Debug.WriteLine($"Live data polling snapshot failed: {ex}");
-            return;
-        }
-
-        if (currentFingerprint is null)
-        {
-            return;
-        }
-
-        var shouldQueueReload = false;
-        lock (_liveDataWatcherLock)
-        {
-            if (_liveDataFingerprint is null)
-            {
-                _liveDataFingerprint = currentFingerprint;
-                return;
-            }
-
-            if (_liveDataFingerprint.Equals(currentFingerprint))
-            {
-                return;
-            }
-
-            if (DateTimeOffset.UtcNow < _ignoreLiveDataChangesUntilUtc)
-            {
-                return;
-            }
-
-            if (_liveDataReloadQueued || _liveDataReloadRunning)
-            {
-                return;
-            }
-
-            shouldQueueReload = true;
-        }
-
-        if (!shouldQueueReload)
-        {
-            return;
-        }
-
-        Console.WriteLine("LiveReload polling change detected");
-        QueueLiveDataReload(AppPaths.DatabasePath, TimeSpan.FromMilliseconds(500), force: true);
+        return;
     }
 
     private void LogLiveReloadEvent(WatcherChangeTypes changeType, string? fullPath)
     {
-        Console.WriteLine($"LiveReload event: {changeType} {fullPath}");
+        return;
     }
 
     private void RestoreSelectionAfterLiveReload(
@@ -1344,96 +1006,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SuppressLiveDataReloadForLocalWrites(TimeSpan duration)
     {
-        lock (_liveDataWatcherLock)
-        {
-            var candidate = DateTimeOffset.UtcNow.Add(duration);
-            if (candidate > _ignoreLiveDataChangesUntilUtc)
-            {
-                _ignoreLiveDataChangesUntilUtc = candidate;
-            }
-        }
+        return;
     }
 
     private void ScheduleLiveDataReload(TimeSpan? delayOverride = null)
     {
-        QueueLiveDataReload(AppPaths.DatabasePath, delayOverride, force: true);
+        return;
     }
 
     private void SetLiveDataStatus(string? message, TimeSpan? clearAfter = null)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => SetLiveDataStatus(message, clearAfter));
-            return;
-        }
-
-        var shouldUpdateStatus = true;
-        lock (_liveDataWatcherLock)
-        {
-            if (!string.IsNullOrWhiteSpace(message) &&
-                DateTimeOffset.UtcNow < _liveDataStatusProtectedUntilUtc &&
-                IsTransientLiveDataStatus(message))
-            {
-                shouldUpdateStatus = false;
-            }
-            else
-            {
-                if (string.Equals(message, LiveDataReloadSuccessMessage, StringComparison.Ordinal))
-                {
-                    _liveDataStatusProtectedUntilUtc = DateTimeOffset.UtcNow.AddSeconds(LiveDataReloadVisibleSeconds);
-                }
-                else if (string.IsNullOrWhiteSpace(message))
-                {
-                    _liveDataStatusProtectedUntilUtc = DateTimeOffset.MinValue;
-                }
-
-                _liveDataStatusClearCts?.Cancel();
-                _liveDataStatusClearCts?.Dispose();
-                _liveDataStatusClearCts = null;
-
-                if (clearAfter is { TotalMilliseconds: > 0 })
-                {
-                    _liveDataStatusClearCts = new CancellationTokenSource();
-                    var cts = _liveDataStatusClearCts;
-                    _ = ClearLiveDataStatusAfterDelayAsync(cts, clearAfter.Value);
-                }
-            }
-        }
-
-        if (shouldUpdateStatus)
-        {
-            LiveDataStatus = message ?? string.Empty;
-        }
+        return;
     }
 
     private void UpdateLiveDataFingerprintBaseline()
     {
-        try
-        {
-            lock (_liveDataWatcherLock)
-            {
-                _liveDataFingerprint = CaptureLiveDataFingerprint();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LiveReload fingerprint refresh failed: {ex}");
-            Debug.WriteLine($"Live data fingerprint refresh failed: {ex}");
-        }
+        return;
     }
 
     private LiveDataFingerprint? CaptureLiveDataFingerprint()
     {
-        var databaseFingerprint = TryCaptureFileFingerprint(AppPaths.DatabasePath);
-        var tasksFingerprint = TryCaptureDirectoryFingerprint(AppPaths.TasksDirectory);
-        var deskItemsFingerprint = TryCaptureDirectoryFingerprint(AppPaths.DeskItemsDirectory);
-
-        if (databaseFingerprint is null && tasksFingerprint is null && deskItemsFingerprint is null)
-        {
-            return null;
-        }
-
-        return new LiveDataFingerprint(databaseFingerprint, tasksFingerprint, deskItemsFingerprint);
+        return null;
     }
 
     private static FileFingerprint? TryCaptureFileFingerprint(string path)
@@ -1568,58 +1161,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsTransientLiveDataStatus(string message)
     {
-        return string.Equals(message, LiveDataReloadRetryMessage, StringComparison.Ordinal) ||
-               string.Equals(message, LiveDataReloadWaitingMessage, StringComparison.Ordinal);
+        return false;
     }
 
     private async Task ClearLiveDataStatusAfterDelayAsync(CancellationTokenSource cts, TimeSpan delay)
     {
-        try
-        {
-            await Task.Delay(delay, cts.Token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        if (cts.IsCancellationRequested)
-        {
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (ReferenceEquals(_liveDataStatusClearCts, cts))
-            {
-                SetLiveDataStatus(string.Empty);
-            }
-        });
+        return;
     }
 
     private bool IsLiveDataChangeRelevant(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        try
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (IsThumbnailPath(fullPath))
-            {
-                return false;
-            }
-
-            return AppPaths.PathsEqual(fullPath, AppPaths.DatabasePath) ||
-                   IsPathInsideDirectory(fullPath, AppPaths.TasksDirectory) ||
-                   IsPathInsideDirectory(fullPath, AppPaths.DeskItemsDirectory);
-        }
-        catch
-        {
-            return false;
-        }
+        return false;
     }
 
     private static bool IsPathInsideDirectory(string path, string directory)
