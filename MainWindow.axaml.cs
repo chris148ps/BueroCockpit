@@ -1581,6 +1581,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Categories.Add(CreateDeskCategory());
         foreach (var category in _repository.GetCategories())
         {
+            if (IsSpecialCategory(category) ||
+                string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
             Categories.Add(category);
         }
         Categories.Add(CreateTrashCategory());
