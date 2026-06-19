@@ -72,6 +72,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _dueDateText = string.Empty;
     private string _followUpDateText = string.Empty;
     private string _sentAtText = string.Empty;
+    private string _materialOrderedAtText = string.Empty;
     private string _dateInputMessage = string.Empty;
     private string _taskUndoMessage = string.Empty;
     private bool _isGlobalSearchEnabled;
@@ -360,6 +361,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _sentAtText = value;
                 OnPropertyChanged(nameof(SentAtInputText));
+            }
+        }
+    }
+
+    public string MaterialOrderedAtInputText
+    {
+        get => _materialOrderedAtText;
+        set
+        {
+            if (_materialOrderedAtText != value)
+            {
+                _materialOrderedAtText = value;
+                OnPropertyChanged(nameof(MaterialOrderedAtInputText));
             }
         }
     }
@@ -1629,7 +1643,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 tasks = selected is null
                     ? AllTasks.Where(t => !t.IsDeleted)
                     : IsTrashSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => t.IsDeleted), selected.SortMode)
+                        ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
                         : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
             }
             else
@@ -1772,6 +1786,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             DueDateInputText = FormatDateShort(SelectedTask?.DueDate);
             FollowUpDateInputText = FormatDateShort(SelectedTask?.FollowUpDate);
             SentAtInputText = FormatDateShort(SelectedTask?.SentAt);
+            MaterialOrderedAtInputText = FormatDateShort(SelectedTask?.MaterialOrderedAt);
         }
         finally
         {
@@ -1830,6 +1845,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (SelectedTask is not null)
                 {
                     SelectedTask.SentAt = value;
+                }
+            });
+    }
+
+    private void ApplyMaterialOrderedAtText()
+    {
+        ApplyDateText(
+            MaterialOrderedAtInputText,
+            "Material bestellt am",
+            () => SelectedTask?.MaterialOrderedAt,
+            value =>
+            {
+                if (SelectedTask is not null)
+                {
+                    SelectedTask.MaterialOrderedAt = value;
                 }
             });
     }
@@ -2238,6 +2268,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         target.DueDate = source.DueDate;
         target.FollowUpDate = source.FollowUpDate;
         target.SentAt = source.SentAt;
+        target.MaterialOrderedAt = source.MaterialOrderedAt;
         target.AssignedTo = source.AssignedTo;
         target.Technician = source.Technician;
         target.CreatedAt = source.CreatedAt;
@@ -2827,7 +2858,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = "Neue Aufgabe",
             Status = "Offen",
             Priority = "Normal",
-            SortPosition = _repository.GetNextTaskSortPosition(category.Id),
+            SortPosition = _repository.GetTopTaskSortPosition(category.Id),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -3137,47 +3168,74 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static IEnumerable<TaskItem> SortTasksForCategory(IEnumerable<TaskItem> tasks, string? sortMode)
     {
-        var mode = string.IsNullOrWhiteSpace(sortMode) ? "Geändert am" : sortMode.Trim();
+        var mode = string.IsNullOrWhiteSpace(sortMode) ? "Erstellt am" : sortMode.Trim();
 
         return mode switch
         {
             "Name" => tasks
                 .OrderBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenByDescending(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.CreatedAt),
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Termin" => tasks
                 .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
                 .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                .ThenByDescending(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Erstellt am" => tasks
-                .OrderBy(task => task.CreatedAt)
+                .OrderByDescending(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Wiedervorlage" => tasks
                 .OrderBy(task => task.FollowUpDate.HasValue ? 0 : 1)
                 .ThenBy(task => task.FollowUpDate ?? DateTime.MaxValue)
+                .ThenByDescending(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Gesendet am" => tasks
                 .OrderBy(task => task.SentAt.HasValue ? 0 : 1)
                 .ThenBy(task => task.SentAt ?? DateTime.MaxValue)
+                .ThenByDescending(task => task.CreatedAt)
                 .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase),
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Manuell" => tasks
-                .OrderBy(task => task.SortPosition)
-                .ThenBy(task => task.CreatedAt),
-
-            _ => tasks
+            "Geändert am" => tasks
                 .OrderByDescending(task => task.UpdatedAt)
                 .ThenBy(task => task.SortPosition)
                 .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+
+            "Manuell" => tasks
+                .OrderBy(task => task.SortPosition)
+                .ThenByDescending(task => task.CreatedAt)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+
+            _ => tasks
+                .OrderByDescending(task => task.CreatedAt)
+                .ThenBy(task => task.SortPosition)
+                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
         };
+    }
+
+    private static IEnumerable<TaskItem> SortTrashTasks(IEnumerable<TaskItem> tasks)
+    {
+        return tasks
+            .OrderBy(task => task.DeletedAt.HasValue ? 0 : 1)
+            .ThenByDescending(task => task.DeletedAt ?? DateTime.MinValue)
+            .ThenByDescending(task => task.CreatedAt)
+            .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase);
     }
 
     private async void DeleteTask_OnClick(object? sender, RoutedEventArgs e)
@@ -4230,7 +4288,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Id = Guid.NewGuid().ToString("N"),
             Name = name,
             SortOrder = _repository.GetNextCategorySortOrder(),
-            SortMode = "Geändert am",
+            SortMode = "Erstellt am",
             Color = "#F2F3F5",
             IsVisible = true
         };
@@ -4413,9 +4471,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             DueDate = source.DueDate,
             FollowUpDate = source.FollowUpDate,
             SentAt = source.SentAt,
+            MaterialOrderedAt = source.MaterialOrderedAt,
             AssignedTo = source.AssignedTo,
             Technician = source.Technician,
-            SortPosition = _repository.GetNextTaskSortPosition(source.CategoryId),
+            SortPosition = _repository.GetTopTaskSortPosition(source.CategoryId),
             CreatedAt = now,
             UpdatedAt = now,
             CompletedAt = source.Status == "Erledigt" ? now : null
@@ -4525,6 +4584,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ApplySentAtText();
     }
 
+    private void MaterialOrderedAtTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        ApplyMaterialOrderedAtText();
+    }
+
 
     private void DateTextBox_OnTextChanged(object? sender, TextChangedEventArgs e)
     {
@@ -4573,6 +4637,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 break;
             case "SentAt":
                 ApplySentAtText();
+                break;
+            case "MaterialOrderedAt":
+                ApplyMaterialOrderedAtText();
                 break;
         }
 

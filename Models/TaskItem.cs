@@ -12,6 +12,7 @@ public sealed class TaskItem : ObservableObject
     private DateTime? _dueDate;
     private DateTime? _followUpDate;
     private DateTime? _sentAt;
+    private DateTime? _materialOrderedAt;
     private string _assignedTo = string.Empty;
     private string _technician = string.Empty;
     private DateTime? _completedAt;
@@ -77,6 +78,17 @@ public sealed class TaskItem : ObservableObject
             }
         }
     }
+    public DateTime? MaterialOrderedAt
+    {
+        get => _materialOrderedAt;
+        set
+        {
+            if (SetProperty(ref _materialOrderedAt, value))
+            {
+                OnPropertyChanged(nameof(MaterialOrderedAtText));
+            }
+        }
+    }
     public string AssignedTo { get => _assignedTo; set => SetProperty(ref _assignedTo, value); }
     public string Technician
     {
@@ -125,6 +137,7 @@ public sealed class TaskItem : ObservableObject
     public string DueDateText => DueDate?.ToString("dd.MM.yyyy") ?? "-";
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
     public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
+    public string MaterialOrderedAtText => MaterialOrderedAt?.ToString("dd.MM.yyyy") ?? "-";
     public bool HasTechnician => !string.IsNullOrWhiteSpace(Technician);
     public bool HasCustomerAddress => !string.IsNullOrWhiteSpace(CustomerAddress);
     public bool HasSentAt => SentAt.HasValue;
@@ -147,6 +160,7 @@ public sealed class TaskItem : ObservableObject
             DueDate = DueDate,
             FollowUpDate = FollowUpDate,
             SentAt = SentAt,
+            MaterialOrderedAt = MaterialOrderedAt,
             AssignedTo = AssignedTo,
             Technician = Technician,
             CreatedAt = CreatedAt,

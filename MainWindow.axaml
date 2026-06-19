@@ -1383,10 +1383,11 @@
 
           <TextBlock Classes="SectionTitle" Text="Organisation" Margin="0,8,0,0" />
           <Border Classes="Card" Padding="12">
-            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextSecondaryBrush}" />
               <TextBlock Grid.Row="0" Grid.Column="1" Text="Monteur" Foreground="{DynamicResource TextSecondaryBrush}" />
               <TextBlock Grid.Row="0" Grid.Column="2" Text="Gesendet am" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="3" Text="Material bestellt am" Foreground="{DynamicResource TextSecondaryBrush}" />
 
               <ComboBox Grid.Row="1" Grid.Column="0"
                         ItemsSource="{Binding StatusOptions}"
@@ -1411,6 +1412,16 @@
                        LostFocus="SentAtTextBox_OnLostFocus"
                        TextChanged="DateTextBox_OnTextChanged"
                            KeyDown="DateTextBox_OnKeyDown" />
+
+              <TextBox Grid.Row="1"
+                       Grid.Column="3"
+                       Text="{Binding MaterialOrderedAtInputText}"
+                       Tag="MaterialOrderedAt"
+                       PlaceholderText="TT.MM.JJJJ"
+                       GotFocus="TaskDetailEditor_OnGotFocus"
+                       LostFocus="MaterialOrderedAtTextBox_OnLostFocus"
+                       TextChanged="DateTextBox_OnTextChanged"
+                       KeyDown="DateTextBox_OnKeyDown" />
             </Grid>
           </Border>
 

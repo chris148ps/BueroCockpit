@@ -22,7 +22,7 @@ public sealed class BueroRepository
                 Id TEXT PRIMARY KEY,
                 Name TEXT NOT NULL,
                 SortOrder INTEGER NOT NULL,
-                SortMode TEXT NOT NULL DEFAULT 'Geändert am',
+                SortMode TEXT NOT NULL DEFAULT 'Erstellt am',
                 Color TEXT NOT NULL,
                 IsVisible INTEGER NOT NULL
             );
@@ -40,6 +40,7 @@ public sealed class BueroRepository
                 DueDate TEXT NULL,
                 FollowUpDate TEXT NULL,
                 SentAt TEXT NULL,
+                MaterialOrderedAt TEXT NULL,
                 CustomerAddress TEXT NOT NULL DEFAULT '',
                 Technician TEXT NOT NULL DEFAULT '',
                 SortPosition REAL NOT NULL DEFAULT 0,
@@ -181,7 +182,7 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT Id, Title, CustomerName, Description, CategoryId, Status, Priority,
-                   DueDate, FollowUpDate, SentAt, CustomerAddress, Technician, SortPosition,
+                   DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, Technician, SortPosition,
                    AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt
             FROM Tasks
             ORDER BY UpdatedAt DESC;
@@ -203,15 +204,16 @@ public sealed class BueroRepository
                 DueDate = ReadNullableDate(reader, 7),
                 FollowUpDate = ReadNullableDate(reader, 8),
                 SentAt = ReadNullableDate(reader, 9),
-                CustomerAddress = reader.GetString(10),
-                Technician = reader.GetString(11),
-                SortPosition = reader.GetDouble(12),
-                AssignedTo = reader.GetString(13),
-                CreatedAt = ReadDate(reader.GetString(14)),
-                UpdatedAt = ReadDate(reader.GetString(15)),
-                CompletedAt = ReadNullableDate(reader, 16),
-                IsDeleted = reader.GetInt32(17) == 1,
-                DeletedAt = ReadNullableDate(reader, 18)
+                MaterialOrderedAt = ReadNullableDate(reader, 10),
+                CustomerAddress = reader.GetString(11),
+                Technician = reader.GetString(12),
+                SortPosition = reader.GetDouble(13),
+                AssignedTo = reader.GetString(14),
+                CreatedAt = ReadDateOrFallback(reader.GetString(15), ReadDate(reader.GetString(16))),
+                UpdatedAt = ReadDate(reader.GetString(16)),
+                CompletedAt = ReadNullableDate(reader, 17),
+                IsDeleted = reader.GetInt32(18) == 1,
+                DeletedAt = ReadNullableDate(reader, 19)
             });
         }
 
@@ -273,6 +275,15 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COALESCE(MAX(SortPosition), -1) + 1 FROM Tasks WHERE CategoryId = $categoryId;";
+        command.Parameters.AddWithValue("$categoryId", categoryId);
+        return Convert.ToDouble(command.ExecuteScalar());
+    }
+
+    public double GetTopTaskSortPosition(string categoryId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COALESCE(MIN(SortPosition), 0) - 1 FROM Tasks WHERE CategoryId = $categoryId;";
         command.Parameters.AddWithValue("$categoryId", categoryId);
         return Convert.ToDouble(command.ExecuteScalar());
     }
@@ -408,10 +419,10 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, Priority,
-                               DueDate, FollowUpDate, SentAt, CustomerAddress, Technician, SortPosition,
+                               DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, Technician, SortPosition,
                                AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt)
             VALUES ($id, $title, $customerName, $description, $categoryId, $status, $priority,
-                    $dueDate, $followUpDate, $sentAt, $customerAddress, $technician, $sortPosition,
+                    $dueDate, $followUpDate, $sentAt, $materialOrderedAt, $customerAddress, $technician, $sortPosition,
                     $assignedTo, $createdAt, $updatedAt, $completedAt, $isDeleted, $deletedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Title = excluded.Title,
@@ -424,6 +435,7 @@ public sealed class BueroRepository
                 DueDate = excluded.DueDate,
                 FollowUpDate = excluded.FollowUpDate,
                 SentAt = excluded.SentAt,
+                MaterialOrderedAt = excluded.MaterialOrderedAt,
                 Technician = excluded.Technician,
                 SortPosition = excluded.SortPosition,
                 AssignedTo = excluded.AssignedTo,
@@ -805,8 +817,9 @@ public sealed class BueroRepository
 
     private static void MigrateSchema(SqliteConnection connection)
     {
-        AddColumnIfMissing(connection, "Categories", "SortMode", "TEXT NOT NULL DEFAULT 'Geändert am'");
+        AddColumnIfMissing(connection, "Categories", "SortMode", "TEXT NOT NULL DEFAULT 'Erstellt am'");
         AddColumnIfMissing(connection, "Tasks", "SentAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Tasks", "MaterialOrderedAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "Technician", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
@@ -893,7 +906,7 @@ public sealed class BueroRepository
             command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
             command.Parameters.AddWithValue("$name", defaults[i]);
             command.Parameters.AddWithValue("$sortOrder", i);
-            command.Parameters.AddWithValue("$sortMode", "Geändert am");
+            command.Parameters.AddWithValue("$sortMode", "Erstellt am");
             command.Parameters.AddWithValue("$color", i == 0 ? "#E9EEF7" : "#F2F3F5");
             command.ExecuteNonQuery();
         }
@@ -1063,6 +1076,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$dueDate", ToDb(task.DueDate));
         command.Parameters.AddWithValue("$followUpDate", ToDb(task.FollowUpDate));
         command.Parameters.AddWithValue("$sentAt", ToDb(task.SentAt));
+        command.Parameters.AddWithValue("$materialOrderedAt", ToDb(task.MaterialOrderedAt));
         command.Parameters.AddWithValue("$customerAddress", task.CustomerAddress);
         command.Parameters.AddWithValue("$technician", task.Technician);
         command.Parameters.AddWithValue("$sortPosition", task.SortPosition);
@@ -1087,6 +1101,11 @@ public sealed class BueroRepository
     private static DateTime ReadDate(string value)
     {
         return DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
+    }
+
+    private static DateTime ReadDateOrFallback(string? value, DateTime fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : ReadDate(value);
     }
 
     private static AttachmentEditSession ReadAttachmentEditSession(SqliteDataReader reader)

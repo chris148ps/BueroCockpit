@@ -4,7 +4,7 @@ public sealed class CategoryItem : ObservableObject
 {
     private string _name = string.Empty;
     private int _sortOrder;
-    private string _sortMode = "Geändert am";
+    private string _sortMode = "Erstellt am";
     private string _color = "#E8EDF7";
     private bool _isVisible = true;
     private int _taskCount;
