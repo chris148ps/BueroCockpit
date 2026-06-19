@@ -460,6 +460,55 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
     }
 
+    public void EmptyTrash()
+    {
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        ExecuteNonQuery(connection, transaction, """
+            DELETE FROM AttachmentEditSessions
+            WHERE TaskId IN (
+                SELECT Id
+                FROM Tasks
+                WHERE IsDeleted = 1
+            );
+            """);
+
+        ExecuteNonQuery(connection, transaction, """
+            DELETE FROM Attachments
+            WHERE TaskId IN (
+                SELECT Id
+                FROM Tasks
+                WHERE IsDeleted = 1
+            );
+            """);
+
+        ExecuteNonQuery(connection, transaction, """
+            DELETE FROM Materials
+            WHERE TaskId IN (
+                SELECT Id
+                FROM Tasks
+                WHERE IsDeleted = 1
+            );
+            """);
+
+        ExecuteNonQuery(connection, transaction, """
+            DELETE FROM TaskCategories
+            WHERE TaskId IN (
+                SELECT Id
+                FROM Tasks
+                WHERE IsDeleted = 1
+            );
+            """);
+
+        ExecuteNonQuery(connection, transaction, """
+            DELETE FROM Tasks
+            WHERE IsDeleted = 1;
+            """);
+
+        transaction.Commit();
+    }
+
     public void SaveMaterial(MaterialItem item)
     {
         using var connection = OpenConnection();
@@ -742,6 +791,14 @@ public sealed class BueroRepository
     private static void ExecuteNonQuery(SqliteConnection connection, string sql)
     {
         using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    private static void ExecuteNonQuery(SqliteConnection connection, SqliteTransaction transaction, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = sql;
         command.ExecuteNonQuery();
     }

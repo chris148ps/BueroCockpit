@@ -1107,6 +1107,24 @@
                       Padding="10,2"
                       FontSize="12" />
             </StackPanel>
+            <Border Classes="Card"
+                    IsVisible="{Binding IsTrashSelected}"
+                    Margin="0,10,0,0"
+                    Padding="12">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Papierkorb"
+                           FontWeight="SemiBold"
+                           FontSize="14" />
+                <TextBlock Text="Gelöschte Aufgaben bleiben hier, bis sie wiederhergestellt oder endgültig entfernt werden."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <Button Content="Papierkorb leeren"
+                        Classes="Danger"
+                        Click="EmptyTrash_OnClick"
+                        HorizontalAlignment="Left"
+                        IsEnabled="{Binding HasTrashItems}" />
+              </StackPanel>
+            </Border>
           </StackPanel>
           <Button Grid.Column="1"
                   Classes="Primary"
@@ -1169,6 +1187,20 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="Card"
+                Padding="12"
+                Margin="0,0,0,14"
+                IsVisible="{Binding IsTrashEmpty}">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Papierkorb ist leer."
+                       FontWeight="SemiBold"
+                       FontSize="14" />
+            <TextBlock Text="Gelöschte Aufgaben werden hier angezeigt, bis sie wiederhergestellt oder endgültig entfernt werden."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap" />
           </StackPanel>
         </Border>
 
@@ -1248,10 +1280,12 @@
             IsVisible="{Binding IsTaskAreaVisible}">
       <ScrollViewer>
         <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasSelectedTask}">
-          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
             <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" />
+            <Button Grid.Column="2" Content="Rückgängig" Click="UndoTaskChange_OnClick" IsEnabled="{Binding CanUndoTaskChange}" Margin="0,0,8,0" />
+            <Button Grid.Column="3" Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,0" />
+            <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" />
           </Grid>
 
           <TextBlock Text="Hinweis: Ähnliche Aufträge werden beim Speichern geprüft."

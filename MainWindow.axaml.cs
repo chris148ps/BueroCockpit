@@ -54,6 +54,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly FileHashService _hashService;
     private readonly HashSet<string> _tasksPendingDuplicateCheck = new(StringComparer.OrdinalIgnoreCase);
     private AppSettings _appSettings = new();
+    private TaskUndoSnapshot? _taskUndoSnapshot;
+    private bool _hasPendingTaskUndo;
     private CategoryItem? _selectedCategory;
     private TaskItem? _selectedTask;
     private CategoryItem? _selectedTaskCategory;
@@ -240,8 +242,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsOverviewSelected));
             OnPropertyChanged(nameof(IsDeskSelected));
             OnPropertyChanged(nameof(IsTrashSelected));
+            OnPropertyChanged(nameof(IsNotTrashSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsTaskAreaVisible));
+            OnPropertyChanged(nameof(IsTrashEmpty));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
             CategoryMessage = string.Empty;
         }
@@ -281,6 +285,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedTask));
             OnPropertyChanged(nameof(HasSelectedTask));
             LoadTaskDetails();
+
+            if (_selectedTask is not null)
+            {
+                SetTaskUndoBaseline(_selectedTask);
+            }
+            else
+            {
+                ClearTaskUndoState();
+            }
 
             if (removedPendingPlaceholder)
             {
@@ -361,9 +374,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasDateInputMessage => !string.IsNullOrWhiteSpace(DateInputMessage);
 
     public bool HasSelectedTask => SelectedTask is not null;
+    public bool HasVisibleTasks => VisibleTasks.Count > 0;
+    public bool IsTrashEmpty => IsTrashSelected && !HasVisibleTasks;
+    public bool HasTrashItems => AllTasks.Any(task => task.IsDeleted);
+    public bool CanUndoTaskChange => _hasPendingTaskUndo &&
+                                     _taskUndoSnapshot is not null &&
+                                     _selectedTask is not null &&
+                                     string.Equals(_taskUndoSnapshot.Task.Id, _selectedTask.Id, StringComparison.OrdinalIgnoreCase);
     public bool IsOverviewSelected => SelectedCategory?.Name == OverviewCategoryName;
     public bool IsDeskSelected => SelectedCategory?.Id == DeskCategoryId;
     public bool IsTrashSelected => SelectedCategory?.Id == TrashCategoryId;
+    public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public string DashboardDateText => DateTime.Today.ToString("dddd, dd. MMMM yyyy");
@@ -1585,6 +1606,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? (VisibleTasks.Count == 1 ? "1 gelöschte Aufgabe" : $"{VisibleTasks.Count} gelöschte Aufgaben")
                     : (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
                 : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
+            if (IsTrashSelected && VisibleTasks.Count == 0 && string.IsNullOrWhiteSpace(SearchText))
+            {
+                TaskListCaption = "Papierkorb ist leer";
+            }
+            OnPropertyChanged(nameof(HasVisibleTasks));
+            OnPropertyChanged(nameof(IsTrashEmpty));
 
             var taskToSelect = selectedTaskId is null
                 ? VisibleTasks.FirstOrDefault()
@@ -1776,6 +1803,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask);
         setValue(parsedDate);
         _repository.SaveTask(SelectedTask);
         DateInputMessage = string.Empty;
@@ -1915,6 +1943,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TaskList.SelectedItem = null;
         SelectedAttachment = null;
         SelectedTaskCategory = null;
+        ClearTaskUndoState();
         Materials.Clear();
         Attachments.Clear();
         OnPropertyChanged(nameof(SelectedTask));
@@ -1922,6 +1951,250 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(HasNoMaterials));
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
+    }
+
+    private void SetTaskUndoBaseline(TaskItem task)
+    {
+        _taskUndoSnapshot = CreateTaskUndoSnapshot(task);
+        _hasPendingTaskUndo = false;
+        OnPropertyChanged(nameof(CanUndoTaskChange));
+    }
+
+    private void CaptureTaskUndoState(TaskItem? task)
+    {
+        if (task is null)
+        {
+            return;
+        }
+
+        _taskUndoSnapshot = CreateTaskUndoSnapshot(task);
+        _hasPendingTaskUndo = true;
+        OnPropertyChanged(nameof(CanUndoTaskChange));
+    }
+
+    private void ClearTaskUndoState()
+    {
+        _taskUndoSnapshot = null;
+        _hasPendingTaskUndo = false;
+        OnPropertyChanged(nameof(CanUndoTaskChange));
+    }
+
+    private void UndoTaskChange_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!CanUndoTaskChange || _taskUndoSnapshot is null || _selectedTask is null)
+        {
+            return;
+        }
+
+        RestoreTaskSnapshot(_taskUndoSnapshot);
+        ClearTaskUndoState();
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+    }
+
+    private void RestoreTaskSnapshot(TaskUndoSnapshot snapshot)
+    {
+        var task = AllTasks.FirstOrDefault(item => string.Equals(item.Id, snapshot.Task.Id, StringComparison.OrdinalIgnoreCase));
+        if (task is null)
+        {
+            task = CloneTaskItem(snapshot.Task);
+            AllTasks.Insert(0, task);
+        }
+        else
+        {
+            ApplyTaskState(task, snapshot.Task);
+        }
+
+        _repository.SaveTask(task);
+        SyncTaskMaterials(task.Id, snapshot.Materials);
+        SyncTaskAttachments(task.Id, snapshot.Attachments);
+        _tasksPendingDuplicateCheck.Remove(task.Id);
+
+        var targetCategory = task.IsDeleted
+            ? Categories.FirstOrDefault(category => category.Id == TrashCategoryId)
+            : GetTaskNavigationCategory(task) ?? GetDefaultStartupCategory() ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
+
+        if (targetCategory is not null)
+        {
+            SelectCategoryAndTask(targetCategory, task);
+            LoadTaskDetails();
+        }
+        else
+        {
+            RefreshVisibleTasks();
+        }
+    }
+
+    private void SyncTaskMaterials(string taskId, IReadOnlyList<MaterialItem> snapshotMaterials)
+    {
+        var currentMaterialIds = _repository.GetMaterials(taskId)
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var snapshotMaterialIds = snapshotMaterials
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var materialId in currentMaterialIds.Where(id => !snapshotMaterialIds.Contains(id)).ToList())
+        {
+            _repository.DeleteMaterial(materialId);
+        }
+
+        foreach (var material in snapshotMaterials)
+        {
+            var copy = CloneMaterialItem(material);
+            copy.TaskId = taskId;
+            _repository.SaveMaterial(copy);
+        }
+
+        if (SelectedTask?.Id == taskId)
+        {
+            Materials.Clear();
+            foreach (var material in snapshotMaterials)
+            {
+                var copy = CloneMaterialItem(material);
+                copy.TaskId = taskId;
+                Materials.Add(copy);
+            }
+
+            OnPropertyChanged(nameof(HasNoMaterials));
+        }
+    }
+
+    private void SyncTaskAttachments(string taskId, IReadOnlyList<AttachmentItem> snapshotAttachments)
+    {
+        var currentAttachments = _repository.GetAttachments(taskId);
+        var snapshotAttachmentIds = snapshotAttachments
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attachment in currentAttachments.Where(item => !snapshotAttachmentIds.Contains(item.Id)).ToList())
+        {
+            _repository.DeleteAttachment(attachment.Id);
+        }
+
+        foreach (var attachment in snapshotAttachments)
+        {
+            var copy = CloneAttachmentItem(attachment);
+            copy.TaskId = taskId;
+            _repository.SaveAttachment(copy);
+        }
+
+        if (SelectedTask?.Id == taskId)
+        {
+            Attachments.Clear();
+            foreach (var attachment in snapshotAttachments)
+            {
+                var copy = CloneAttachmentItem(attachment);
+                copy.TaskId = taskId;
+                Attachments.Insert(0, copy);
+            }
+
+            if (SelectedAttachment is not null &&
+                !snapshotAttachmentIds.Contains(SelectedAttachment.Id))
+            {
+                SelectedAttachment = null;
+            }
+        }
+    }
+
+    private TaskUndoSnapshot CreateTaskUndoSnapshot(TaskItem task)
+    {
+        var materials = SelectedTask?.Id == task.Id
+            ? Materials.Select(CloneMaterialItem).ToList()
+            : _repository.GetMaterials(task.Id).Select(CloneMaterialItem).ToList();
+        var attachments = SelectedTask?.Id == task.Id
+            ? Attachments.Select(CloneAttachmentItem).ToList()
+            : _repository.GetAttachments(task.Id).Select(CloneAttachmentItem).ToList();
+
+        return new TaskUndoSnapshot(
+            CloneTaskItem(task),
+            materials,
+            attachments);
+    }
+
+    private static void ApplyTaskState(TaskItem target, TaskItem source)
+    {
+        target.Title = source.Title;
+        target.CustomerName = source.CustomerName;
+        target.CustomerAddress = source.CustomerAddress;
+        target.Description = source.Description;
+        target.CategoryId = source.CategoryId;
+        target.CategoryIds = source.CategoryIds.ToList();
+        target.Status = source.Status;
+        target.Priority = source.Priority;
+        target.DueDate = source.DueDate;
+        target.FollowUpDate = source.FollowUpDate;
+        target.SentAt = source.SentAt;
+        target.AssignedTo = source.AssignedTo;
+        target.Technician = source.Technician;
+        target.CreatedAt = source.CreatedAt;
+        target.UpdatedAt = source.UpdatedAt;
+        target.CompletedAt = source.CompletedAt;
+        target.IsDeleted = source.IsDeleted;
+        target.DeletedAt = source.DeletedAt;
+        target.SortPosition = source.SortPosition;
+    }
+
+    private static TaskItem CloneTaskItem(TaskItem source)
+    {
+        return new TaskItem
+        {
+            Id = source.Id,
+            Title = source.Title,
+            CustomerName = source.CustomerName,
+            CustomerAddress = source.CustomerAddress,
+            Description = source.Description,
+            CategoryId = source.CategoryId,
+            CategoryIds = source.CategoryIds.ToList(),
+            Status = source.Status,
+            Priority = source.Priority,
+            DueDate = source.DueDate,
+            FollowUpDate = source.FollowUpDate,
+            SentAt = source.SentAt,
+            AssignedTo = source.AssignedTo,
+            Technician = source.Technician,
+            CreatedAt = source.CreatedAt,
+            UpdatedAt = source.UpdatedAt,
+            CompletedAt = source.CompletedAt,
+            IsDeleted = source.IsDeleted,
+            DeletedAt = source.DeletedAt,
+            SortPosition = source.SortPosition,
+            CategoryHint = source.CategoryHint,
+            CategoryNameChips = source.CategoryNameChips.ToList(),
+            ShowCategoryHint = source.ShowCategoryHint
+        };
+    }
+
+    private static MaterialItem CloneMaterialItem(MaterialItem source)
+    {
+        return new MaterialItem
+        {
+            Id = source.Id,
+            TaskId = source.TaskId,
+            Quantity = source.Quantity,
+            Unit = source.Unit,
+            Name = source.Name,
+            Status = source.Status,
+            Supplier = source.Supplier,
+            OrderedAt = source.OrderedAt,
+            Note = source.Note
+        };
+    }
+
+    private static AttachmentItem CloneAttachmentItem(AttachmentItem source)
+    {
+        return new AttachmentItem
+        {
+            Id = source.Id,
+            TaskId = source.TaskId,
+            FileName = source.FileName,
+            StoredPath = source.StoredPath,
+            ThumbnailPath = source.ThumbnailPath,
+            FileType = source.FileType,
+            ContentHash = source.ContentHash,
+            AddedAt = source.AddedAt,
+            IsSelectedForPrint = source.IsSelectedForPrint
+        };
     }
 
     private void RefreshDashboard()
@@ -1983,6 +2256,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id));
             }
         }
+
+        OnPropertyChanged(nameof(HasTrashItems));
+        OnPropertyChanged(nameof(IsTrashEmpty));
     }
 
     private void LoadDeskItems()
@@ -2598,6 +2874,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask);
         ApplySelectedTaskStatusRules();
 
         if (_tasksPendingDuplicateCheck.Contains(SelectedTask.Id) &&
@@ -2645,6 +2922,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     return;
                 }
 
+                CaptureTaskUndoState(SelectedTask);
                 SelectedTask.CategoryIds.Add(categoryId);
             }
         }
@@ -2657,6 +2935,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
+            CaptureTaskUndoState(SelectedTask);
             SelectedTask.CategoryIds.RemoveAll(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
 
             if (SelectedTask.CategoryIds.Count == 0)
@@ -2824,6 +3103,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(task);
         _repository.DeleteTask(task.Id);
         if (!task.IsDeleted)
         {
@@ -2844,6 +3124,70 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RefreshVisibleTasks();
         }
 
+        UpdateCategoryCounts();
+    }
+
+    private void RestoreTask_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedTask is null || !SelectedTask.IsDeleted)
+        {
+            return;
+        }
+
+        CaptureTaskUndoState(SelectedTask);
+        var task = SelectedTask;
+        task.IsDeleted = false;
+        task.DeletedAt = null;
+        task.UpdatedAt = DateTime.Now;
+        _repository.SaveTask(task);
+
+        var targetCategory = GetTaskNavigationCategory(task) ?? GetDefaultStartupCategory() ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
+        if (targetCategory is not null)
+        {
+            SelectCategoryAndTask(targetCategory, task);
+            LoadTaskDetails();
+        }
+        else
+        {
+            RefreshVisibleTasks();
+        }
+
+        UpdateCategoryCounts();
+    }
+
+    private async void EmptyTrash_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!IsTrashSelected || !HasTrashItems)
+        {
+            return;
+        }
+
+        var deletedCount = AllTasks.Count(task => task.IsDeleted);
+        if (deletedCount == 0)
+        {
+            return;
+        }
+
+        var confirmed = await ShowEmptyTrashConfirmationDialog(deletedCount);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        if (SelectedTask?.IsDeleted == true)
+        {
+            ClearSelectedTask();
+        }
+
+        _repository.EmptyTrash();
+
+        foreach (var task in AllTasks.Where(task => task.IsDeleted).ToList())
+        {
+            AllTasks.Remove(task);
+        }
+
+        ClearTaskUndoState();
+        RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
 
@@ -2972,6 +3316,128 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async Task<bool> ShowEmptyTrashConfirmationDialog(int deletedCount)
+    {
+        var dialog = new Window
+        {
+            Title = "Papierkorb leeren",
+            Width = 430,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14),
+                Child = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Papierkorb endgültig leeren?",
+                            FontSize = 18,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = deletedCount == 1
+                                ? "1 gelöschte Aufgabe wird endgültig entfernt. Anhänge bleiben als Dateien erhalten."
+                                : $"{deletedCount} gelöschte Aufgaben werden endgültig entfernt. Anhänge bleiben als Dateien erhalten.",
+                            FontSize = 13,
+                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 4, 0, 0),
+                            Children =
+                            {
+                                CreateDialogAction("Abbrechen", false),
+                                CreateDialogAction("Papierkorb leeren", true)
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
+        var cancelAction = (Border)buttonsPanel.Children[0];
+        var deleteAction = (Border)buttonsPanel.Children[1];
+
+        var result = false;
+
+        cancelAction.PointerReleased += (_, _) =>
+        {
+            result = false;
+            dialog.Close();
+        };
+
+        deleteAction.PointerReleased += (_, _) =>
+        {
+            result = true;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
+
+        static Border CreateDialogAction(string text, bool isDanger)
+        {
+            var normalBackground = isDanger ? "#DC2626" : "#F3F4F6";
+            var hoverBackground = isDanger ? "#B91C1C" : "#DBEAFE";
+            var normalBorder = isDanger ? "#B91C1C" : "#D1D5DB";
+            var hoverBorder = isDanger ? "#991B1B" : "#93C5FD";
+            IBrush foreground = isDanger ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+
+            var label = new TextBlock
+            {
+                Text = text,
+                Foreground = foreground,
+                FontWeight = FontWeight.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var action = new Border
+            {
+                MinWidth = isDanger ? 145 : 105,
+                Height = 34,
+                Background = new SolidColorBrush(Color.Parse(normalBackground)),
+                BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 6),
+                Child = label
+            };
+
+            action.PointerEntered += (_, _) =>
+            {
+                action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
+                action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+                label.Foreground = foreground;
+            };
+
+            action.PointerExited += (_, _) =>
+            {
+                action.Background = new SolidColorBrush(Color.Parse(normalBackground));
+                action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+                label.Foreground = foreground;
+            };
+
+            return action;
+        }
+    }
+
     private void AddMaterial_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedTask is null)
@@ -2979,6 +3445,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask);
         var item = new MaterialItem
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -3001,6 +3468,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
         _repository.DeleteMaterial(item.Id);
         Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
@@ -3013,7 +3481,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _repository.SaveTask(SelectedTask);
         var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
         if (storageProvider is null)
         {
@@ -3195,6 +3662,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
         var storedPath = ResolveAttachmentStoragePath(newPath, item.TaskId);
         item.StoredPath = AppPaths.ToStoredPath(storedPath);
         item.FileName = Path.GetFileName(newPath);
@@ -3256,6 +3724,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
         try
         {
             _repository.DeleteAttachment(item.Id);
@@ -3268,8 +3737,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var wasSelected = SelectedAttachment == item;
-        DeleteDataFileIfUnreferenced(item.StoredPath, item.TaskId);
-        DeleteDataFileIfUnreferenced(item.ThumbnailPath, item.TaskId);
 
         if (wasSelected)
         {
@@ -3465,6 +3932,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ImportAttachments(IEnumerable<string?> sourcePaths, string successSuffix, string? noneMessage = null)
     {
+        if (SelectedTask is not null && sourcePaths.Any(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path)))
+        {
+            CaptureTaskUndoState(SelectedTask);
+        }
+
         var addedCount = 0;
         var failedCount = 0;
 
@@ -3758,6 +4230,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        CaptureTaskUndoState(SelectedTask);
         SelectedTask.Status = status;
         ApplySelectedTaskStatusRules();
         _repository.SaveTask(SelectedTask);
@@ -6559,6 +7032,8 @@ public sealed class DashboardSection
     public bool HasTasks => Tasks.Count > 0;
     public bool HasNoTasks => !HasTasks;
 }
+
+public sealed record TaskUndoSnapshot(TaskItem Task, IReadOnlyList<MaterialItem> Materials, IReadOnlyList<AttachmentItem> Attachments);
 
 public sealed class TaskSearchResult
 {
