@@ -14,6 +14,7 @@
 		9D5F34C9856B466E980F2266 /* SnapshotRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D13C46345A048748D753E12 /* SnapshotRootView.swift */; };
 		B5D2533552974A3B9EAA8B77 /* SnapshotModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A5351152D40E48F3E6EA3 /* SnapshotModels.swift */; };
 		CB44387C4E784A398201B151 /* SnapshotReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14A03D372984B7698B23D60 /* SnapshotReader.swift */; };
+		773F8650E2B440A1836DDF7F /* SnapshotStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968ECB264B4DC6909F482B /* SnapshotStartView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		C14A03D372984B7698B23D60 /* SnapshotReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotReader.swift; sourceTree = SOURCE_ROOT; };
 		D00CD80576834B239BC01096 /* SnapshotBrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift; sourceTree = SOURCE_ROOT; };
 		6D13C46345A048748D753E12 /* SnapshotRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotRootView.swift; sourceTree = SOURCE_ROOT; };
+		56968ECB264B4DC6909F482B /* SnapshotStartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotStartView.swift; sourceTree = SOURCE_ROOT; };
 		58649F0CAC67404C9F982F96 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = BueroCockpitSnapshotReader/README.md; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -88,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				6D13C46345A048748D753E12 /* SnapshotRootView.swift */,
+				56968ECB264B4DC6909F482B /* SnapshotStartView.swift */,
 				B94B3645E8E84E45BFA4EFBE /* SnapshotCategoryListView.swift */,
 				B33A9290EEE34CEEA84F807F /* SnapshotTaskDetailView.swift */,
 				334ADD6274A04A5A911FCCD6 /* SnapshotEmptyStateView.swift */,
@@ -173,6 +176,7 @@
 				CB44387C4E784A398201B151 /* SnapshotReader.swift in Sources */,
 				83D4A7CAF36042D49FB99BCD /* SnapshotBrowserViewModel.swift in Sources */,
 				9D5F34C9856B466E980F2266 /* SnapshotRootView.swift in Sources */,
+				773F8650E2B440A1836DDF7F /* SnapshotStartView.swift in Sources */,
 				4FD20688DC6B4934BF83BCE1 /* SnapshotCategoryListView.swift in Sources */,
 				1D77FF7E5FEB43C987AC4970 /* SnapshotTaskDetailView.swift in Sources */,
 				1BA907AA0F734B7D9B377022 /* SnapshotEmptyStateView.swift in Sources */,
