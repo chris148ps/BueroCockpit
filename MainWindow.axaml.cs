@@ -627,7 +627,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
     public bool HasNoMaterials => Materials.Count == 0;
-    public string OneDriveEditDirectory => _appSettings.OneDriveEditDirectory;
+    public string OneDriveEditDirectory => ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
     public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
     public bool HasNoOneDriveEditDirectory => !HasOneDriveEditDirectory;
     public string IpadSnapshotStatus
@@ -875,12 +875,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
-        var normalizedOneDriveEditDirectory = ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
-        if (!string.Equals(normalizedOneDriveEditDirectory, _appSettings.OneDriveEditDirectory, StringComparison.Ordinal))
-        {
-            _appSettings.OneDriveEditDirectory = normalizedOneDriveEditDirectory;
-            _settingsService.Save(_appSettings);
-        }
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
@@ -5119,6 +5113,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return trimmedPath;
         }
 
+        return GetMacDevelopmentOneDriveEditDirectory();
+    }
+
+    private static string GetPersistedOneDriveEditDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
+        if (!OperatingSystem.IsMacOS())
+        {
+            return trimmedPath;
+        }
+
+        // Windows bleibt das produktive Zielsystem; wenn auf macOS der bekannte
+        // lokale CloudStorage-Testpfad gewaehlt wird, bleibt in der gemeinsamen
+        // settings.json trotzdem der produktive Windows-Pfad erhalten.
+        return IsKnownMacDevelopmentOneDriveEditDirectory(trimmedPath)
+            ? GetProductiveWindowsOneDriveEditDirectory()
+            : trimmedPath;
+    }
+
+    private static string GetMacDevelopmentOneDriveEditDirectory()
+    {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library",
@@ -5126,6 +5146,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "OneDrive-ElektroSchweim",
             "Dokumente",
             "BueroCockpit_iPad_Bearbeitung");
+    }
+
+    private static string GetProductiveWindowsOneDriveEditDirectory()
+    {
+        return @"C:\Users\Installation\OneDrive - Elektro Schweim\Dokumente\BueroCockpit_iPad_Bearbeitung";
     }
 
     private static bool IsWindowsStylePath(string path)
@@ -5140,6 +5165,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var normalized = path.Replace('\\', '/');
         return normalized.Contains("/OneDrive - Elektro Schweim/", StringComparison.OrdinalIgnoreCase) &&
                normalized.EndsWith("/Dokumente/BueroCockpit_iPad_Bearbeitung", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsKnownMacDevelopmentOneDriveEditDirectory(string path)
+    {
+        return AreSameResolvedDirectory(path, GetMacDevelopmentOneDriveEditDirectory());
     }
 
     private static bool AreSameResolvedDirectory(string firstPath, string secondPath)
@@ -5581,7 +5611,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _appSettings.OneDriveEditDirectory = folderPath;
+        _appSettings.OneDriveEditDirectory = GetPersistedOneDriveEditDirectory(folderPath);
         _settingsService.Save(_appSettings);
         OnPropertyChanged(nameof(OneDriveEditDirectory));
         OnPropertyChanged(nameof(HasOneDriveEditDirectory));
