@@ -1,36 +1,38 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	objectVersion = 77;
+	classes = {
+	};
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		118CFDC5B4F3445DA8AC739C /* SnapshotErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31B10EDBDD94510A65501FC /* SnapshotErrorView.swift */; };
-		1BA907AA0F734B7D9B377022 /* SnapshotEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334ADD6274A04A5A911FCCD6 /* SnapshotEmptyStateView.swift */; };
-		1D77FF7E5FEB43C987AC4970 /* SnapshotTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33A9290EEE34CEEA84F807F /* SnapshotTaskDetailView.swift */; };
-		4FD20688DC6B4934BF83BCE1 /* SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* SnapshotCategoryListView.swift */; };
-		78883E14CBB14ECFAE87268D /* BueroCockpitSnapshotReaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReaderApp.swift */; };
-		83D4A7CAF36042D49FB99BCD /* SnapshotBrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00CD80576834B239BC01096 /* SnapshotBrowserViewModel.swift */; };
-		9D5F34C9856B466E980F2266 /* SnapshotRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D13C46345A048748D753E12 /* SnapshotRootView.swift */; };
-		B5D2533552974A3B9EAA8B77 /* SnapshotModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A5351152D40E48F3E6EA3 /* SnapshotModels.swift */; };
-		CB44387C4E784A398201B151 /* SnapshotReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14A03D372984B7698B23D60 /* SnapshotReader.swift */; };
-		773F8650E2B440A1836DDF7F /* SnapshotStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968ECB264B4DC6909F482B /* SnapshotStartView.swift */; };
+		118CFDC5B4F3445DA8AC739C /* BueroCockpitSnapshotReader/SnapshotErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31B10EDBDD94510A65501FC /* BueroCockpitSnapshotReader/SnapshotErrorView.swift */; };
+		1BA907AA0F734B7D9B377022 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */; };
+		1D77FF7E5FEB43C987AC4970 /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */; };
+		4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */; };
+		773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */; };
+		78883E14CBB14ECFAE87268D /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */; };
+		83D4A7CAF36042D49FB99BCD /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00CD80576834B239BC01096 /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift */; };
+		9D5F34C9856B466E980F2266 /* BueroCockpitSnapshotReader/SnapshotRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */; };
+		B5D2533552974A3B9EAA8B77 /* BueroCockpitSnapshotReader/SnapshotModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A5351152D40E48F3E6EA3 /* BueroCockpitSnapshotReader/SnapshotModels.swift */; };
+		CB44387C4E784A398201B151 /* BueroCockpitSnapshotReader/SnapshotReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift; sourceTree = SOURCE_ROOT; };
-		334ADD6274A04A5A911FCCD6 /* SnapshotEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift; sourceTree = SOURCE_ROOT; };
+		20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift; sourceTree = SOURCE_ROOT; };
+		334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift; sourceTree = SOURCE_ROOT; };
+		56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotStartView.swift; sourceTree = SOURCE_ROOT; };
+		58649F0CAC67404C9F982F96 /* BueroCockpitSnapshotReader/README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = BueroCockpitSnapshotReader/README.md; sourceTree = SOURCE_ROOT; };
+		6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotRootView.swift; sourceTree = SOURCE_ROOT; };
 		72B7B4D77E404F96B5FB7FC2 /* BueroCockpitSnapshotReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = BueroCockpitSnapshotReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		73D3BFFA08764834B01A9809 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BueroCockpitSnapshotReader/Info.plist; sourceTree = SOURCE_ROOT; };
-		A31B10EDBDD94510A65501FC /* SnapshotErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotErrorView.swift; sourceTree = SOURCE_ROOT; };
-		B33A9290EEE34CEEA84F807F /* SnapshotTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift; sourceTree = SOURCE_ROOT; };
-		B71A5351152D40E48F3E6EA3 /* SnapshotModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotModels.swift; sourceTree = SOURCE_ROOT; };
-		B94B3645E8E84E45BFA4EFBE /* SnapshotCategoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotCategoryListView.swift; sourceTree = SOURCE_ROOT; };
-		C14A03D372984B7698B23D60 /* SnapshotReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotReader.swift; sourceTree = SOURCE_ROOT; };
-		D00CD80576834B239BC01096 /* SnapshotBrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift; sourceTree = SOURCE_ROOT; };
-		6D13C46345A048748D753E12 /* SnapshotRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotRootView.swift; sourceTree = SOURCE_ROOT; };
-		56968ECB264B4DC6909F482B /* SnapshotStartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotStartView.swift; sourceTree = SOURCE_ROOT; };
-		58649F0CAC67404C9F982F96 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = BueroCockpitSnapshotReader/README.md; sourceTree = SOURCE_ROOT; };
+		73D3BFFA08764834B01A9809 /* BueroCockpitSnapshotReader/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BueroCockpitSnapshotReader/Info.plist; sourceTree = SOURCE_ROOT; };
+		A31B10EDBDD94510A65501FC /* BueroCockpitSnapshotReader/SnapshotErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotErrorView.swift; sourceTree = SOURCE_ROOT; };
+		B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift; sourceTree = SOURCE_ROOT; };
+		B71A5351152D40E48F3E6EA3 /* BueroCockpitSnapshotReader/SnapshotModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotModels.swift; sourceTree = SOURCE_ROOT; };
+		B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotCategoryListView.swift; sourceTree = SOURCE_ROOT; };
+		C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotReader.swift; sourceTree = SOURCE_ROOT; };
+		D00CD80576834B239BC01096 /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -47,65 +49,65 @@
 		27157C77ED5F4232ABFE08DF = {
 			isa = PBXGroup;
 			children = (
-				F9B3D2D43FD74B939D34DA56 /* Products */,
-				5DE191DF1AE14A0296D75706 /* App */,
-				D93F5754E263402AB19D9D7B /* Models */,
-				98B2DBA2B02F4F7B94CA02EB /* Services */,
-				68B690CC1737446ABE4628D4 /* ViewModels */,
-				A64661BE72E2411D98F647D0 /* Views */,
-				520FF7ABFF8045C2AA5E1802 /* Supporting Files */,
+				F9B3D2D43FD74B939D34DA56,
+				5DE191DF1AE14A0296D75706,
+				D93F5754E263402AB19D9D7B,
+				98B2DBA2B02F4F7B94CA02EB,
+				68B690CC1737446ABE4628D4,
+				A64661BE72E2411D98F647D0,
+				520FF7ABFF8045C2AA5E1802,
 			);
 			sourceTree = "<group>";
 		};
-		5DE191DF1AE14A0296D75706 /* App */ = {
+		520FF7ABFF8045C2AA5E1802 = {
 			isa = PBXGroup;
 			children = (
-				20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReaderApp.swift */,
+				73D3BFFA08764834B01A9809 /* BueroCockpitSnapshotReader/Info.plist */,
+				58649F0CAC67404C9F982F96 /* BueroCockpitSnapshotReader/README.md */,
 			);
 			sourceTree = "<group>";
 		};
-		68B690CC1737446ABE4628D4 /* ViewModels */ = {
+		5DE191DF1AE14A0296D75706 = {
 			isa = PBXGroup;
 			children = (
-				D00CD80576834B239BC01096 /* SnapshotBrowserViewModel.swift */,
+				20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */,
 			);
 			sourceTree = "<group>";
 		};
-		520FF7ABFF8045C2AA5E1802 /* Supporting Files */ = {
+		68B690CC1737446ABE4628D4 = {
 			isa = PBXGroup;
 			children = (
-				73D3BFFA08764834B01A9809 /* Info.plist */,
-				58649F0CAC67404C9F982F96 /* README.md */,
+				D00CD80576834B239BC01096 /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift */,
 			);
 			sourceTree = "<group>";
 		};
-		98B2DBA2B02F4F7B94CA02EB /* Services */ = {
+		98B2DBA2B02F4F7B94CA02EB = {
 			isa = PBXGroup;
 			children = (
-				C14A03D372984B7698B23D60 /* SnapshotReader.swift */,
+				C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */,
 			);
 			sourceTree = "<group>";
 		};
-		A64661BE72E2411D98F647D0 /* Views */ = {
+		A64661BE72E2411D98F647D0 = {
 			isa = PBXGroup;
 			children = (
-				6D13C46345A048748D753E12 /* SnapshotRootView.swift */,
-				56968ECB264B4DC6909F482B /* SnapshotStartView.swift */,
-				B94B3645E8E84E45BFA4EFBE /* SnapshotCategoryListView.swift */,
-				B33A9290EEE34CEEA84F807F /* SnapshotTaskDetailView.swift */,
-				334ADD6274A04A5A911FCCD6 /* SnapshotEmptyStateView.swift */,
-				A31B10EDBDD94510A65501FC /* SnapshotErrorView.swift */,
+				6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */,
+				56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */,
+				B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */,
+				B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */,
+				334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */,
+				A31B10EDBDD94510A65501FC /* BueroCockpitSnapshotReader/SnapshotErrorView.swift */,
 			);
 			sourceTree = "<group>";
 		};
-		D93F5754E263402AB19D9D7B /* Models */ = {
+		D93F5754E263402AB19D9D7B = {
 			isa = PBXGroup;
 			children = (
-				B71A5351152D40E48F3E6EA3 /* SnapshotModels.swift */,
+				B71A5351152D40E48F3E6EA3 /* BueroCockpitSnapshotReader/SnapshotModels.swift */,
 			);
 			sourceTree = "<group>";
 		};
-		F9B3D2D43FD74B939D34DA56 /* Products */ = {
+		F9B3D2D43FD74B939D34DA56 = {
 			isa = PBXGroup;
 			children = (
 				72B7B4D77E404F96B5FB7FC2 /* BueroCockpitSnapshotReader.app */,
@@ -156,8 +158,7 @@
 			);
 			mainGroup = 27157C77ED5F4232ABFE08DF;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
-			productRefGroup = F9B3D2D43FD74B939D34DA56 /* Products */;
+			productRefGroup = F9B3D2D43FD74B939D34DA56;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -171,16 +172,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				78883E14CBB14ECFAE87268D /* BueroCockpitSnapshotReaderApp.swift in Sources */,
-				B5D2533552974A3B9EAA8B77 /* SnapshotModels.swift in Sources */,
-				CB44387C4E784A398201B151 /* SnapshotReader.swift in Sources */,
-				83D4A7CAF36042D49FB99BCD /* SnapshotBrowserViewModel.swift in Sources */,
-				9D5F34C9856B466E980F2266 /* SnapshotRootView.swift in Sources */,
-				773F8650E2B440A1836DDF7F /* SnapshotStartView.swift in Sources */,
-				4FD20688DC6B4934BF83BCE1 /* SnapshotCategoryListView.swift in Sources */,
-				1D77FF7E5FEB43C987AC4970 /* SnapshotTaskDetailView.swift in Sources */,
-				1BA907AA0F734B7D9B377022 /* SnapshotEmptyStateView.swift in Sources */,
-				118CFDC5B4F3445DA8AC739C /* SnapshotErrorView.swift in Sources */,
+				78883E14CBB14ECFAE87268D /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift in Sources */,
+				B5D2533552974A3B9EAA8B77 /* BueroCockpitSnapshotReader/SnapshotModels.swift in Sources */,
+				CB44387C4E784A398201B151 /* BueroCockpitSnapshotReader/SnapshotReader.swift in Sources */,
+				83D4A7CAF36042D49FB99BCD /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift in Sources */,
+				9D5F34C9856B466E980F2266 /* BueroCockpitSnapshotReader/SnapshotRootView.swift in Sources */,
+				773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */,
+				4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */,
+				1D77FF7E5FEB43C987AC4970 /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift in Sources */,
+				1BA907AA0F734B7D9B377022 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift in Sources */,
+				118CFDC5B4F3445DA8AC739C /* BueroCockpitSnapshotReader/SnapshotErrorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,15 +194,18 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = GD8R7SCJZ6;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BueroCockpitSnapshotReader/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -216,19 +220,45 @@
 			};
 			name = Debug;
 		};
+		402348C8F9C4419F87CCE245 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = GD8R7SCJZ6;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BueroCockpitSnapshotReader/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.elektroschweim.BueroCockpitSnapshotReader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
 		A6A9D5024DDE4F9B86D716F6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = GD8R7SCJZ6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BueroCockpitSnapshotReader/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -247,13 +277,16 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = GD8R7SCJZ6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BueroCockpitSnapshotReader/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.elektroschweim.BueroCockpitSnapshotReader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -263,43 +296,23 @@
 			};
 			name = Debug;
 		};
-		402348C8F9C4419F87CCE245 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = BueroCockpitSnapshotReader/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = de.elektroschweim.BueroCockpitSnapshotReader;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = 2;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B008B77B085A452F9EDFF773 /* Build configuration list for PBXProject "BueroCockpitSnapshotReader" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				0B664843B9AE4967A692FC74 /* Debug */,
-				A6A9D5024DDE4F9B86D716F6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		40E44C4997954FB884CCF949 /* Build configuration list for PBXNativeTarget "BueroCockpitSnapshotReader" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E88F6F70638E4B898F5643A9 /* Debug */,
 				402348C8F9C4419F87CCE245 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B008B77B085A452F9EDFF773 /* Build configuration list for PBXProject "BueroCockpitSnapshotReader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B664843B9AE4967A692FC74 /* Debug */,
+				A6A9D5024DDE4F9B86D716F6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
