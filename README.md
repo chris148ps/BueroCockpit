@@ -234,3 +234,5 @@ Diese Daten liegen im AppData-Ordner der App und werden von Git ignoriert.
 Der OneDrive-Bearbeitungsordner wird in der App unter `Einstellungen` ausgewählt. Es gibt keine Cloud-API und keine Microsoft-Graph-Anbindung; die App arbeitet nur mit einem frei gewählten lokalen Ordner.
 
 Das aktuelle Snapshot-Format und die technische Vorbereitung für eine spätere iPad-Leseversion sind in [docs/ipad-readonly-preparation.md](/Users/christian/AppProjekte/BueroCockpit/docs/ipad-readonly-preparation.md) dokumentiert.
+
+Die separate iPad-Leseversion liegt als SwiftUI-Projekt unter [iPad/BueroCockpitSnapshotReader](/Users/christian/AppProjekte/BueroCockpit/iPad/BueroCockpitSnapshotReader).
