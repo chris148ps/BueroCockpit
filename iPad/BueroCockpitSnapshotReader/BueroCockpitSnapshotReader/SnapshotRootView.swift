@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct SnapshotRootView: View {
     @StateObject private var viewModel = SnapshotBrowserViewModel()
     @State private var isPresentingFolderPicker = false
+    @State private var isPresentingMetadataPicker = false
 
     var body: some View {
         Group {
@@ -14,31 +15,58 @@ struct SnapshotRootView: View {
                 SnapshotStartView(
                     statusTitle: "Snapshot-Ordner auswählen",
                     statusMessage: "Wähle einen Ordner mit Sync/snapshots/, um Kategorien und Aufgaben anzuzeigen.",
-                    action: openFolderPicker
+                    primaryButtonTitle: "Snapshot-Ordner auswählen",
+                    primaryAction: openFolderPicker,
+                    secondaryButtonTitle: "metadata.json auswählen",
+                    secondaryAction: openMetadataPicker
                 )
             case .loading:
                 SnapshotStartView(
                     statusTitle: "Snapshot wird geladen …",
                     statusMessage: "Bitte warten. Die App liest gerade die lokalen Snapshot-Dateien ein.",
-                    action: openFolderPicker
+                    primaryButtonTitle: "Snapshot-Ordner auswählen",
+                    primaryAction: openFolderPicker,
+                    secondaryButtonTitle: "metadata.json auswählen",
+                    secondaryAction: openMetadataPicker
                 )
             case .empty(let message):
                 SnapshotStartView(
                     statusTitle: "Keine Snapshot-Daten gefunden",
                     statusMessage: message,
-                    action: openFolderPicker
+                    primaryButtonTitle: "Snapshot-Ordner auswählen",
+                    primaryAction: openFolderPicker,
+                    secondaryButtonTitle: "metadata.json auswählen",
+                    secondaryAction: openMetadataPicker
                 )
             case .failure(let message):
                 SnapshotStartView(
                     statusTitle: "Snapshot konnte nicht gelesen werden",
                     statusMessage: message,
-                    action: openFolderPicker
+                    primaryButtonTitle: "Snapshot-Ordner auswählen",
+                    primaryAction: openFolderPicker,
+                    secondaryButtonTitle: "metadata.json auswählen",
+                    secondaryAction: openMetadataPicker
                 )
             }
         }
         .fileImporter(
             isPresented: $isPresentingFolderPicker,
             allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else {
+                    return
+                }
+                viewModel.loadSnapshot(from: url)
+            case .failure(let error):
+                viewModel.present(errorMessage: error.localizedDescription)
+            }
+        }
+        .fileImporter(
+            isPresented: $isPresentingMetadataPicker,
+            allowedContentTypes: [.json],
             allowsMultipleSelection: false
         ) { result in
             switch result {
@@ -67,9 +95,13 @@ struct SnapshotRootView: View {
         )
         .navigationSplitViewStyle(.balanced)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Snapshot-Ordner auswählen") {
                     openFolderPicker()
+                }
+
+                Button("metadata.json auswählen") {
+                    openMetadataPicker()
                 }
             }
         }
@@ -99,20 +131,24 @@ struct SnapshotRootView: View {
             ProgressView("Snapshot wird geladen …")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .empty(let message):
-            SnapshotEmptyStateView(
-                title: "Keine Daten gefunden",
-                message: message,
-                systemImage: "tray"
-            ) {
-                openFolderPicker()
-            }
+                SnapshotEmptyStateView(
+                    title: "Keine Daten gefunden",
+                    message: message,
+                    systemImage: "tray",
+                primaryButtonTitle: "Snapshot-Ordner auswählen",
+                primaryAction: openFolderPicker,
+                secondaryButtonTitle: "metadata.json auswählen",
+                secondaryAction: openMetadataPicker
+            )
         case .failure(let message):
-            SnapshotErrorView(
-                title: "Snapshot konnte nicht gelesen werden",
-                message: message
-            ) {
-                openFolderPicker()
-            }
+                SnapshotErrorView(
+                    title: "Snapshot konnte nicht gelesen werden",
+                    message: message,
+                primaryButtonTitle: "Snapshot-Ordner auswählen",
+                primaryAction: openFolderPicker,
+                secondaryButtonTitle: "metadata.json auswählen",
+                secondaryAction: openMetadataPicker
+            )
         case .ready:
             List(viewModel.filteredTasks, selection: Binding(
                 get: { viewModel.selectedTaskID },
@@ -140,10 +176,12 @@ struct SnapshotRootView: View {
             SnapshotEmptyStateView(
                 title: "Snapshot auswählen",
                 message: "Wähle den Ordner mit Sync/snapshots/ aus, um Kategorien und Aufgaben anzuzeigen.",
-                systemImage: "folder"
-            ) {
-                openFolderPicker()
-            }
+                systemImage: "folder",
+                primaryButtonTitle: "Snapshot-Ordner auswählen",
+                primaryAction: openFolderPicker,
+                secondaryButtonTitle: "metadata.json auswählen",
+                secondaryAction: openMetadataPicker
+            )
         }
     }
 
@@ -160,10 +198,12 @@ struct SnapshotRootView: View {
             SnapshotEmptyStateView(
                 title: "BüroCockpit",
                 message: "Snapshot-Ordner auswählen. Die App arbeitet nur lesend.",
-                systemImage: "tray.full"
-            ) {
-                openFolderPicker()
-            }
+                systemImage: "tray.full",
+                primaryButtonTitle: "Snapshot-Ordner auswählen",
+                primaryAction: openFolderPicker,
+                secondaryButtonTitle: "metadata.json auswählen",
+                secondaryAction: openMetadataPicker
+            )
         case .loading:
             ProgressView("Snapshot wird geladen …")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -171,22 +211,30 @@ struct SnapshotRootView: View {
             SnapshotEmptyStateView(
                 title: "Keine Daten gefunden",
                 message: message,
-                systemImage: "tray"
-            ) {
-                openFolderPicker()
-            }
+                systemImage: "tray",
+                primaryButtonTitle: "Snapshot-Ordner auswählen",
+                primaryAction: openFolderPicker,
+                secondaryButtonTitle: "metadata.json auswählen",
+                secondaryAction: openMetadataPicker
+            )
         case .failure(let message):
             SnapshotErrorView(
                 title: "Snapshot konnte nicht gelesen werden",
-                message: message
-            ) {
-                openFolderPicker()
-            }
+                message: message,
+                primaryButtonTitle: "Snapshot-Ordner auswählen",
+                primaryAction: openFolderPicker,
+                secondaryButtonTitle: "metadata.json auswählen",
+                secondaryAction: openMetadataPicker
+            )
         }
     }
 
     private func openFolderPicker() {
         isPresentingFolderPicker = true
+    }
+
+    private func openMetadataPicker() {
+        isPresentingMetadataPicker = true
     }
 
     private var titleForSelectedCategory: String {

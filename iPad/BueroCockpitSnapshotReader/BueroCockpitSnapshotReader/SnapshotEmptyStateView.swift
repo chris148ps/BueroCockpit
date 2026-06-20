@@ -4,7 +4,28 @@ struct SnapshotEmptyStateView: View {
     let title: String
     let message: String
     let systemImage: String
-    let action: () -> Void
+    let primaryButtonTitle: String?
+    let primaryAction: (() -> Void)?
+    let secondaryButtonTitle: String?
+    let secondaryAction: (() -> Void)?
+
+    init(
+        title: String,
+        message: String,
+        systemImage: String,
+        primaryButtonTitle: String? = nil,
+        primaryAction: (() -> Void)? = nil,
+        secondaryButtonTitle: String? = nil,
+        secondaryAction: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.message = message
+        self.systemImage = systemImage
+        self.primaryButtonTitle = primaryButtonTitle
+        self.primaryAction = primaryAction
+        self.secondaryButtonTitle = secondaryButtonTitle
+        self.secondaryAction = secondaryAction
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -18,8 +39,17 @@ struct SnapshotEmptyStateView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
-            Button("Snapshot-Ordner wählen", action: action)
-                .buttonStyle(.borderedProminent)
+            if let primaryButtonTitle, let primaryAction {
+                VStack(spacing: 10) {
+                    Button(primaryButtonTitle, action: primaryAction)
+                        .buttonStyle(.borderedProminent)
+
+                    if let secondaryButtonTitle, let secondaryAction {
+                        Button(secondaryButtonTitle, action: secondaryAction)
+                            .buttonStyle(.bordered)
+                    }
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(32)

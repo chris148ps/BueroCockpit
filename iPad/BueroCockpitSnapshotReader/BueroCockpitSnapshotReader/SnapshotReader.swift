@@ -1,23 +1,33 @@
 import Foundation
 
 final class SnapshotReader: @unchecked Sendable {
-    func readSnapshot(from folderURL: URL) throws -> SnapshotDocument {
-        let accessGranted = folderURL.startAccessingSecurityScopedResource()
+    func readSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
+        let accessGranted = sourceURL.startAccessingSecurityScopedResource()
+        var snapshotAccessGranted = false
+        var snapshotURL: URL?
         defer {
+            if snapshotAccessGranted, let snapshotURL {
+                snapshotURL.stopAccessingSecurityScopedResource()
+            }
             if accessGranted {
-                folderURL.stopAccessingSecurityScopedResource()
+                sourceURL.stopAccessingSecurityScopedResource()
             }
         }
 
-        let snapshotURL = try resolveSnapshotDirectory(from: folderURL)
-        guard FileManager.default.fileExists(atPath: snapshotURL.path) else {
-            throw SnapshotReaderError.unreadableFolder(snapshotURL.lastPathComponent)
+        let resolvedSnapshotURL = try resolveSnapshotDirectory(from: sourceURL)
+        snapshotURL = resolvedSnapshotURL
+        if resolvedSnapshotURL != sourceURL {
+            snapshotAccessGranted = resolvedSnapshotURL.startAccessingSecurityScopedResource()
         }
 
-        let rawMetadata: RawMetadata = try decodeRequiredFile(named: "metadata.json", at: snapshotURL)
-        let rawCategories: [RawCategory] = try decodeRequiredArray(named: "categories.json", at: snapshotURL)
-        let rawTasks: [RawTask] = try decodeRequiredArray(named: "tasks.json", at: snapshotURL)
-        let attachments = decodeOptionalAttachments(at: snapshotURL)
+        guard FileManager.default.fileExists(atPath: resolvedSnapshotURL.path) else {
+            throw SnapshotReaderError.unreadableFolder(resolvedSnapshotURL.lastPathComponent)
+        }
+
+        let rawMetadata: RawMetadata = try decodeRequiredFile(named: "metadata.json", at: resolvedSnapshotURL)
+        let rawCategories: [RawCategory] = try decodeRequiredArray(named: "categories.json", at: resolvedSnapshotURL)
+        let rawTasks: [RawTask] = try decodeRequiredArray(named: "tasks.json", at: resolvedSnapshotURL)
+        let attachments = decodeOptionalAttachments(at: resolvedSnapshotURL)
 
         let metadata = SnapshotMetadata(
             formatVersion: rawMetadata.formatVersion,
@@ -81,23 +91,40 @@ final class SnapshotReader: @unchecked Sendable {
             categories: categories,
             tasks: tasks,
             attachments: normalizedAttachments,
-            sourceURL: snapshotURL
+            sourceURL: resolvedSnapshotURL
         )
     }
 
-    private func resolveSnapshotDirectory(from folderURL: URL) throws -> URL {
+    private func resolveSnapshotDirectory(from sourceURL: URL) throws -> URL {
+        if isMetadataFile(sourceURL) {
+            let snapshotURL = sourceURL.deletingLastPathComponent()
+            if containsSnapshotFiles(at: snapshotURL) {
+                return snapshotURL
+            }
+
+            throw SnapshotReaderError.missingRequiredFile("metadata.json")
+        }
+
         let candidateDirectories = [
-            folderURL,
-            folderURL.appendingPathComponent("Sync", isDirectory: true).appendingPathComponent("snapshots", isDirectory: true)
+            sourceURL,
+            sourceURL.appendingPathComponent("Sync", isDirectory: true).appendingPathComponent("snapshots", isDirectory: true)
         ]
 
         for candidate in candidateDirectories {
-            if FileManager.default.fileExists(atPath: candidate.appendingPathComponent("metadata.json").path) {
+            if containsSnapshotFiles(at: candidate) {
                 return candidate
             }
         }
 
         throw SnapshotReaderError.missingRequiredFile("metadata.json")
+    }
+
+    private func containsSnapshotFiles(at folderURL: URL) -> Bool {
+        FileManager.default.fileExists(atPath: folderURL.appendingPathComponent("metadata.json").path)
+    }
+
+    private func isMetadataFile(_ url: URL) -> Bool {
+        url.lastPathComponent.caseInsensitiveCompare("metadata.json") == .orderedSame
     }
 
     private func decodeRequiredFile<T: Decodable>(named fileName: String, at folderURL: URL) throws -> T {

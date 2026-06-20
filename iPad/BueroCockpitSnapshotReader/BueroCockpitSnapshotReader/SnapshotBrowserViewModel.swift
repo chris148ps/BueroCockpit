@@ -50,12 +50,12 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return filteredTasks.first(where: { $0.id == selectedTaskID }) ?? filteredTasks.first
     }
 
-    func loadSnapshot(from folderURL: URL) {
+    func loadSnapshot(from sourceURL: URL) {
         loadState = .loading
         Task { [reader] in
             do {
-                let document = try reader.readSnapshot(from: folderURL)
-                await apply(document: document, sourceFolderURL: folderURL)
+                let document = try reader.readSnapshot(from: sourceURL)
+                await apply(document: document)
             } catch {
                 await present(error: error)
             }
@@ -93,9 +93,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return tasks.filter { $0.categoryIds.contains(categoryID) }.count
     }
 
-    private func apply(document: SnapshotDocument, sourceFolderURL: URL) async {
+    private func apply(document: SnapshotDocument) async {
         self.document = document
-        selectedFolderURL = sourceFolderURL
+        selectedFolderURL = document.sourceURL
 
         if categories.isEmpty || tasks.isEmpty {
             loadState = .empty("Im Snapshot wurden keine Kategorien oder Aufgaben gefunden.")

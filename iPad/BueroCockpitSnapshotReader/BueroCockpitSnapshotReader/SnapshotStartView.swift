@@ -3,7 +3,10 @@ import SwiftUI
 struct SnapshotStartView: View {
     let statusTitle: String
     let statusMessage: String?
-    let action: () -> Void
+    let primaryButtonTitle: String
+    let primaryAction: () -> Void
+    let secondaryButtonTitle: String
+    let secondaryAction: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -47,9 +50,21 @@ struct SnapshotStartView: View {
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: 540)
 
-                        Button("Snapshot-Ordner auswählen", action: action)
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
+                        Text("Bei OneDrive bitte metadata.json auswählen, falls OneDrive bei der Ordnerauswahl ausgegraut ist.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 540)
+
+                        VStack(spacing: 10) {
+                            Button(primaryButtonTitle, action: primaryAction)
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+
+                            Button(secondaryButtonTitle, action: secondaryAction)
+                                .buttonStyle(.bordered)
+                                .controlSize(.large)
+                        }
                     }
                     .padding(.top, 8)
                 }

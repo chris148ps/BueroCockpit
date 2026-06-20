@@ -81,7 +81,7 @@ struct SnapshotTaskDetailView: View {
                     title: "Keine Aufgabe gewählt",
                     message: "Wähle links eine Kategorie und in der mittleren Spalte eine Aufgabe.",
                     systemImage: "doc.text.magnifyingglass"
-                ) {}
+                )
             }
         }
     }
