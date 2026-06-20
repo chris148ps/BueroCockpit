@@ -4007,6 +4007,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Materials.Insert(0, item);
         OnPropertyChanged(nameof(HasNoMaterials));
         _repository.SaveMaterial(item);
+        QueueIpadSnapshotExport();
     }
 
     private void DeleteMaterial_OnClick(object? sender, RoutedEventArgs e)
@@ -4020,6 +4021,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _repository.DeleteMaterial(item.Id);
         Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
+        QueueIpadSnapshotExport();
     }
 
     private async void AddAttachment_OnClick(object? sender, RoutedEventArgs e)
@@ -6632,6 +6634,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _repository.SaveMaterial(item);
         }
+
+        QueueIpadSnapshotExport();
     }
 
     private void MergeDuplicateMaterials()
