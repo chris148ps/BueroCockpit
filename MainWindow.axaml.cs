@@ -874,7 +874,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
-        _appSettings.OneDriveEditDirectory = ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
+        var normalizedOneDriveEditDirectory = ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
+        if (!string.Equals(normalizedOneDriveEditDirectory, _appSettings.OneDriveEditDirectory, StringComparison.Ordinal))
+        {
+            _appSettings.OneDriveEditDirectory = normalizedOneDriveEditDirectory;
+            _settingsService.Save(_appSettings);
+        }
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
@@ -5100,40 +5105,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return trimmedPath;
         }
 
+        // Windows bleibt das produktive Zielsystem; auf macOS nur Legacy-Windows-Pfade
+        // fuer lokale Entwicklung und Tests auf den passenden CloudStorage-Pfad umbiegen.
         if (!IsWindowsStylePath(trimmedPath))
         {
             return trimmedPath;
         }
 
-        var relativePath = TryExtractOneDriveRelativePath(trimmedPath);
-        if (string.IsNullOrWhiteSpace(relativePath))
+        if (!IsLegacyOneDriveEditDirectory(trimmedPath))
         {
-            return string.Empty;
+            return trimmedPath;
         }
 
-        try
-        {
-            var cloudStorageDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "Library",
-                "CloudStorage");
-
-            if (!Directory.Exists(cloudStorageDirectory))
-            {
-                return string.Empty;
-            }
-
-            foreach (var candidateRoot in Directory.EnumerateDirectories(cloudStorageDirectory, "OneDrive*", SearchOption.TopDirectoryOnly))
-            {
-                return Path.Combine(candidateRoot, relativePath);
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"OneDrive edit directory could not be resolved: {ex}");
-        }
-
-        return string.Empty;
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Library",
+            "CloudStorage",
+            "OneDrive-ElektroSchweim",
+            "Dokumente",
+            "BueroCockpit_iPad_Bearbeitung");
     }
 
     private static bool IsWindowsStylePath(string path)
@@ -5143,22 +5133,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                path.StartsWith(@"\\", StringComparison.Ordinal);
     }
 
-    private static string? TryExtractOneDriveRelativePath(string path)
+    private static bool IsLegacyOneDriveEditDirectory(string path)
     {
         var normalized = path.Replace('\\', '/');
-        var oneDriveIndex = normalized.IndexOf("/OneDrive", StringComparison.OrdinalIgnoreCase);
-        if (oneDriveIndex < 0)
-        {
-            return null;
-        }
-
-        var suffixStart = normalized.IndexOf('/', oneDriveIndex + 1);
-        if (suffixStart < 0 || suffixStart + 1 >= normalized.Length)
-        {
-            return null;
-        }
-
-        return normalized[(suffixStart + 1)..];
+        return normalized.Contains("/OneDrive - Elektro Schweim/", StringComparison.OrdinalIgnoreCase) &&
+               normalized.EndsWith("/Dokumente/BueroCockpit_iPad_Bearbeitung", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool AreSameResolvedDirectory(string firstPath, string secondPath)
