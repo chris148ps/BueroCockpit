@@ -7,6 +7,8 @@ struct SnapshotStartView: View {
     let primaryAction: () -> Void
     let secondaryButtonTitle: String
     let secondaryAction: () -> Void
+    let tertiaryButtonTitle: String?
+    let tertiaryAction: (() -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -50,7 +52,7 @@ struct SnapshotStartView: View {
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: 540)
 
-                        Text("Bei OneDrive bitte metadata.json auswählen, falls OneDrive bei der Ordnerauswahl ausgegraut ist.")
+                        Text("Bei OneDrive bitte Snapshot-Datei importieren verwenden. Die Paketdatei latest.bcsnapshot enthält die benötigten JSON-Daten in einer Datei.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -64,6 +66,12 @@ struct SnapshotStartView: View {
                             Button(secondaryButtonTitle, action: secondaryAction)
                                 .buttonStyle(.bordered)
                                 .controlSize(.large)
+
+                            if let tertiaryButtonTitle, let tertiaryAction {
+                                Button(tertiaryButtonTitle, action: tertiaryAction)
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.large)
+                            }
                         }
                     }
                     .padding(.top, 8)

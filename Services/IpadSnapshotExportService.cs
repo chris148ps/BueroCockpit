@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +11,8 @@ namespace BueroCockpit.Services;
 public sealed class IpadSnapshotExportService
 {
     private const int FormatVersion = 1;
+    private const string SnapshotPackageFileName = "latest.bcsnapshot";
+    private const string SnapshotPackageTempFileName = "latest.bcsnapshot.tmp";
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(700);
     private static readonly object LogLock = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -181,6 +184,24 @@ public sealed class IpadSnapshotExportService
         WriteJson(Path.Combine(snapshotsDirectory, "categories.json"), categories);
         WriteJson(Path.Combine(snapshotsDirectory, "attachments-index.json"), attachments);
 
+        var packagePath = Path.Combine(snapshotsDirectory, SnapshotPackageFileName);
+        try
+        {
+            LogExportMessage($"iPad snapshot package export started: {packagePath}");
+            WriteSnapshotPackage(
+                Path.Combine(snapshotsDirectory, SnapshotPackageTempFileName),
+                packagePath,
+                metadata,
+                categories,
+                tasks,
+                attachments);
+            LogExportMessage($"iPad snapshot package export completed: {packagePath}");
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad snapshot package export failed: {packagePath} | {ex}");
+        }
+
         return SnapshotExportResult.CreateSuccess(syncDirectory);
     }
 
@@ -269,6 +290,71 @@ public sealed class IpadSnapshotExportService
     {
         var json = JsonSerializer.Serialize(value, JsonOptions);
         File.WriteAllText(path, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static void WriteSnapshotPackage<TMetadata, TCategory, TTask, TAttachment>(
+        string tempPackagePath,
+        string finalPackagePath,
+        TMetadata metadata,
+        IReadOnlyCollection<TCategory> categories,
+        IReadOnlyCollection<TTask> tasks,
+        IReadOnlyCollection<TAttachment> attachments)
+    {
+        if (File.Exists(tempPackagePath))
+        {
+            File.Delete(tempPackagePath);
+        }
+
+        try
+        {
+            using (var fileStream = new FileStream(tempPackagePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
+            using (var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
+            {
+                WriteZipJsonEntry(archive, "metadata.json", metadata);
+                WriteZipJsonEntry(archive, "categories.json", categories);
+                WriteZipJsonEntry(archive, "tasks.json", tasks);
+                WriteZipJsonEntry(archive, "attachments-index.json", attachments);
+            }
+
+            if (File.Exists(finalPackagePath))
+            {
+                File.Replace(tempPackagePath, finalPackagePath, null);
+            }
+            else
+            {
+                File.Move(tempPackagePath, finalPackagePath);
+            }
+        }
+        catch
+        {
+            TryDeleteFile(tempPackagePath);
+            throw;
+        }
+    }
+
+    private static void WriteZipJsonEntry<T>(ZipArchive archive, string entryName, T value)
+    {
+        var json = JsonSerializer.Serialize(value, JsonOptions);
+        var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(json);
+
+        var entry = archive.CreateEntry(entryName, CompressionLevel.NoCompression);
+        using var stream = entry.Open();
+        stream.Write(bytes, 0, bytes.Length);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Der Aufräumfehler ist für den Export nicht relevant.
+        }
     }
 
     private static void LogExportMessage(string message)

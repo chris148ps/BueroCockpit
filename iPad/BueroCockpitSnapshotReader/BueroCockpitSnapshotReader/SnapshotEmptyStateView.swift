@@ -8,6 +8,8 @@ struct SnapshotEmptyStateView: View {
     let primaryAction: (() -> Void)?
     let secondaryButtonTitle: String?
     let secondaryAction: (() -> Void)?
+    let tertiaryButtonTitle: String?
+    let tertiaryAction: (() -> Void)?
 
     init(
         title: String,
@@ -16,7 +18,9 @@ struct SnapshotEmptyStateView: View {
         primaryButtonTitle: String? = nil,
         primaryAction: (() -> Void)? = nil,
         secondaryButtonTitle: String? = nil,
-        secondaryAction: (() -> Void)? = nil
+        secondaryAction: (() -> Void)? = nil,
+        tertiaryButtonTitle: String? = nil,
+        tertiaryAction: (() -> Void)? = nil
     ) {
         self.title = title
         self.message = message
@@ -25,6 +29,8 @@ struct SnapshotEmptyStateView: View {
         self.primaryAction = primaryAction
         self.secondaryButtonTitle = secondaryButtonTitle
         self.secondaryAction = secondaryAction
+        self.tertiaryButtonTitle = tertiaryButtonTitle
+        self.tertiaryAction = tertiaryAction
     }
 
     var body: some View {
@@ -46,6 +52,11 @@ struct SnapshotEmptyStateView: View {
 
                     if let secondaryButtonTitle, let secondaryAction {
                         Button(secondaryButtonTitle, action: secondaryAction)
+                            .buttonStyle(.bordered)
+                    }
+
+                    if let tertiaryButtonTitle, let tertiaryAction {
+                        Button(tertiaryButtonTitle, action: tertiaryAction)
                             .buttonStyle(.bordered)
                     }
                 }
