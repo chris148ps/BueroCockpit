@@ -10,7 +10,8 @@ final class SnapshotReader: @unchecked Sendable {
         }
 
         if isSnapshotPackage(sourceURL) {
-            return try readSnapshotPackage(from: sourceURL)
+            let localPackageURL = try stageSnapshotPackageToSandbox(from: sourceURL)
+            return try readSnapshotPackage(from: localPackageURL)
         }
 
         let resolvedSnapshotURL = try resolveSnapshotDirectory(from: sourceURL)
@@ -177,6 +178,63 @@ final class SnapshotReader: @unchecked Sendable {
         } catch {
             throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent)
         }
+    }
+
+    private func stageSnapshotPackageToSandbox(from sourceURL: URL) throws -> URL {
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+            throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent)
+        }
+
+        guard sourceURL.startAccessingSecurityScopedResource() else {
+            throw SnapshotReaderError.securityScopedAccessDenied(sourceURL.lastPathComponent)
+        }
+        defer {
+            sourceURL.stopAccessingSecurityScopedResource()
+        }
+
+        let snapshotsDirectory = try localSnapshotsDirectory()
+        let destinationURL = snapshotsDirectory.appendingPathComponent(sourceURL.lastPathComponent, isDirectory: false)
+
+        if sourceURL.standardizedFileURL == destinationURL.standardizedFileURL {
+            return destinationURL
+        }
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+
+        var coordinationError: NSError?
+        var copyError: Error?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(readingItemAt: sourceURL, options: [.withoutChanges], error: &coordinationError) { readableURL in
+            do {
+                try FileManager.default.copyItem(at: readableURL, to: destinationURL)
+            } catch {
+                copyError = error
+            }
+        }
+
+        if let coordinationError {
+            throw SnapshotReaderError.localCopyFailed("\(sourceURL.lastPathComponent): \(coordinationError.localizedDescription)")
+        }
+
+        if let copyError {
+            throw SnapshotReaderError.localCopyFailed("\(sourceURL.lastPathComponent): \(copyError.localizedDescription)")
+        }
+
+        return destinationURL
+    }
+
+    private func localSnapshotsDirectory() throws -> URL {
+        let applicationSupportURL = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let snapshotsURL = applicationSupportURL.appendingPathComponent("Snapshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: snapshotsURL, withIntermediateDirectories: true, attributes: nil)
+        return snapshotsURL
     }
 
     private func resolveSnapshotDirectory(from sourceURL: URL) throws -> URL {

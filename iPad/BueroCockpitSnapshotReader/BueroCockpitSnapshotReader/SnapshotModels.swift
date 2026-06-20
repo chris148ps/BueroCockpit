@@ -61,6 +61,8 @@ enum SnapshotLoadState: Equatable {
 
 enum SnapshotReaderError: LocalizedError, Equatable {
     case invalidPackageSelection
+    case securityScopedAccessDenied(String)
+    case localCopyFailed(String)
     case missingRequiredFile(String)
     case invalidJSON(String)
     case unreadableFolder(String)
@@ -70,6 +72,10 @@ enum SnapshotReaderError: LocalizedError, Equatable {
         switch self {
         case .invalidPackageSelection:
             return "Bitte eine BüroCockpit-Snapshot-Datei auswählen."
+        case .securityScopedAccessDenied(let fileName):
+            return "Sicherheitszugriff wurde verweigert: \(fileName)"
+        case .localCopyFailed(let fileName):
+            return "Datei konnte nicht lokal kopiert werden: \(fileName)"
         case .missingRequiredFile(let fileName):
             switch fileName.lowercased() {
             case "metadata.json":
@@ -86,7 +92,7 @@ enum SnapshotReaderError: LocalizedError, Equatable {
         case .unreadableFolder(let folderName):
             return "Snapshot-Ordner konnte nicht geöffnet werden: \(folderName)"
         case .unreadableSnapshotPackage(let fileName):
-            return "Snapshot-Datei konnte nicht geöffnet werden: \(fileName)"
+            return "Paket konnte nicht entpackt/gelesen werden: \(fileName)"
         }
     }
 }
