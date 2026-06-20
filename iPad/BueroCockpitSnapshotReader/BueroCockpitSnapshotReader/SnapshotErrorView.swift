@@ -31,35 +31,39 @@ struct SnapshotErrorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(.orange)
-            Text(title)
-                .font(.title2.bold())
-            Text(message)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 380)
-            if let primaryButtonTitle, let primaryAction {
-                VStack(spacing: 10) {
-                    Button(primaryButtonTitle, action: primaryAction)
-                        .buttonStyle(.borderedProminent)
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 44, weight: .light))
+                    .foregroundStyle(.orange)
+                Text(title)
+                    .font(.title2.bold())
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: 520, alignment: .leading)
+                    .textSelection(.enabled)
+                if let primaryButtonTitle, let primaryAction {
+                    VStack(spacing: 10) {
+                        Button(primaryButtonTitle, action: primaryAction)
+                            .buttonStyle(.borderedProminent)
 
-                    if let secondaryButtonTitle, let secondaryAction {
-                        Button(secondaryButtonTitle, action: secondaryAction)
-                            .buttonStyle(.bordered)
-                    }
+                        if let secondaryButtonTitle, let secondaryAction {
+                            Button(secondaryButtonTitle, action: secondaryAction)
+                                .buttonStyle(.bordered)
+                        }
 
-                    if let tertiaryButtonTitle, let tertiaryAction {
-                        Button(tertiaryButtonTitle, action: tertiaryAction)
-                            .buttonStyle(.bordered)
+                        if let tertiaryButtonTitle, let tertiaryAction {
+                            Button(tertiaryButtonTitle, action: tertiaryAction)
+                                .buttonStyle(.bordered)
+                        }
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .padding(32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(32)
     }
 }

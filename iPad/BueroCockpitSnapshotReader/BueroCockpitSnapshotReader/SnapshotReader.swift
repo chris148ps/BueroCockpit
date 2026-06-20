@@ -182,10 +182,6 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     private func stageSnapshotPackageToSandbox(from sourceURL: URL) throws -> URL {
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-            throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent, "Die lokale Paketdatei wurde nicht gefunden.")
-        }
-
         guard sourceURL.startAccessingSecurityScopedResource() else {
             throw SnapshotReaderError.securityScopedAccessDenied(sourceURL.lastPathComponent)
         }
@@ -196,31 +192,86 @@ final class SnapshotReader: @unchecked Sendable {
         let snapshotsDirectory = try localSnapshotsDirectory()
         let destinationURL = snapshotsDirectory.appendingPathComponent(sourceURL.lastPathComponent, isDirectory: false)
 
-        if sourceURL.standardizedFileURL == destinationURL.standardizedFileURL {
-            return destinationURL
-        }
+        let sourceInfo = try? FileManager.default.attributesOfItem(atPath: sourceURL.path)
+        let sourceExists = FileManager.default.fileExists(atPath: sourceURL.path)
+        let sourceSize = (sourceInfo?[.size] as? NSNumber)?.int64Value
 
         if FileManager.default.fileExists(atPath: destinationURL.path) {
             try FileManager.default.removeItem(at: destinationURL)
         }
 
         var coordinationError: NSError?
-        var copyError: Error?
+        var readError: Error?
+        var writeError: Error?
+        var copiedBytes: Int64?
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: sourceURL, options: [.withoutChanges], error: &coordinationError) { readableURL in
             do {
-                try FileManager.default.copyItem(at: readableURL, to: destinationURL)
+                let data = try Data(contentsOf: readableURL, options: [.mappedIfSafe])
+                copiedBytes = Int64(data.count)
+                try data.write(to: destinationURL, options: [.atomic])
             } catch {
-                copyError = error
+                if copiedBytes == nil {
+                    readError = error
+                } else {
+                    writeError = error
+                }
             }
         }
 
         if let coordinationError {
-            throw SnapshotReaderError.localCopyFailed("\(sourceURL.lastPathComponent): \(coordinationError.localizedDescription)")
+            throw SnapshotReaderError.unreadableSnapshotPackage(
+                sourceURL.lastPathComponent,
+                """
+                Original-Dateiname: \(sourceURL.lastPathComponent)
+                Lokale Ziel-URL: \(destinationURL.path)
+                Quelle vorhanden: \(sourceExists ? "ja" : "nein")
+                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
+                Koordination: \(coordinationError.localizedDescription)
+                """
+            )
         }
 
-        if let copyError {
-            throw SnapshotReaderError.localCopyFailed("\(sourceURL.lastPathComponent): \(copyError.localizedDescription)")
+        if let readError {
+            throw SnapshotReaderError.unreadableSnapshotPackage(
+                sourceURL.lastPathComponent,
+                """
+                Original-Dateiname: \(sourceURL.lastPathComponent)
+                Lokale Ziel-URL: \(destinationURL.path)
+                Quelle vorhanden: \(sourceExists ? "ja" : "nein")
+                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
+                Lesen der OneDrive-Datei fehlgeschlagen: \(readError.localizedDescription)
+                """
+            )
+        }
+
+        if let writeError {
+            throw SnapshotReaderError.localCopyFailed(
+                """
+                \(sourceURL.lastPathComponent)
+                Lokale Ziel-URL: \(destinationURL.path)
+                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
+                Schreiben der lokalen Kopie fehlgeschlagen: \(writeError.localizedDescription)
+                """
+            )
+        }
+
+        let destinationExists = FileManager.default.fileExists(atPath: destinationURL.path)
+        let destinationAttributes = try? FileManager.default.attributesOfItem(atPath: destinationURL.path)
+        let destinationSize = (destinationAttributes?[.size] as? NSNumber)?.int64Value
+        guard destinationExists, let destinationSize, destinationSize > 0 else {
+            throw SnapshotReaderError.unreadableSnapshotPackage(
+                sourceURL.lastPathComponent,
+                """
+                Original-Dateiname: \(sourceURL.lastPathComponent)
+                Lokale Ziel-URL: \(destinationURL.path)
+                Quelle vorhanden: \(sourceExists ? "ja" : "nein")
+                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
+                Lokale Datei vorhanden: \(destinationExists ? "ja" : "nein")
+                Lokale Dateigröße: \(String(describing: destinationSize))
+                Die lokale Paketdatei wurde nicht erfolgreich geschrieben.
+                """
+            )
         }
 
         return destinationURL
@@ -233,7 +284,9 @@ final class SnapshotReader: @unchecked Sendable {
             appropriateFor: nil,
             create: true
         )
-        let snapshotsURL = applicationSupportURL.appendingPathComponent("Snapshots", isDirectory: true)
+        let appDirectory = applicationSupportURL.appendingPathComponent("BueroCockpitSnapshotReader", isDirectory: true)
+        let snapshotsURL = appDirectory.appendingPathComponent("Snapshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true, attributes: nil)
         try FileManager.default.createDirectory(at: snapshotsURL, withIntermediateDirectories: true, attributes: nil)
         return snapshotsURL
     }

@@ -24,67 +24,70 @@ struct SnapshotStartView: View {
                 )
                 .ignoresSafeArea()
 
-                VStack(spacing: 18) {
-                    Image(systemName: "tray.full")
-                        .font(.system(size: 44, weight: .medium))
-                        .foregroundStyle(.blue)
-                        .padding(.bottom, 6)
+                ScrollView {
+                    VStack(spacing: 18) {
+                        Image(systemName: "tray.full")
+                            .font(.system(size: 44, weight: .medium))
+                            .foregroundStyle(.blue)
+                            .padding(.bottom, 6)
 
-                    Text("BüroCockpit")
-                        .font(.largeTitle.bold())
+                        Text("BüroCockpit")
+                            .font(.largeTitle.bold())
 
-                    Text(statusTitle)
-                        .font(.title2.weight(.semibold))
-                        .multilineTextAlignment(.center)
-
-                    if let statusMessage, !statusMessage.isEmpty {
-                        Text(statusMessage)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
+                        Text(statusTitle)
+                            .font(.title2.weight(.semibold))
                             .multilineTextAlignment(.center)
-                            .frame(maxWidth: 500)
-                    }
 
-                    VStack(spacing: 10) {
-                        Text("Die App arbeitet nur lesend. Sie zeigt Snapshot-Dateien an, schreibt aber nichts zurück.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 540)
-
-                        Text("Bei OneDrive bitte Snapshot-Datei importieren verwenden. Die Paketdatei latest.bcsnapshot enthält die benötigten JSON-Daten in einer Datei.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 540)
+                        if let statusMessage, !statusMessage.isEmpty {
+                            Text(statusMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: 560, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
 
                         VStack(spacing: 10) {
-                            Button(primaryButtonTitle, action: primaryAction)
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.large)
+                            Text("Die App arbeitet nur lesend. Sie zeigt Snapshot-Dateien an, schreibt aber nichts zurück.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 540)
 
-                            Button(secondaryButtonTitle, action: secondaryAction)
-                                .buttonStyle(.bordered)
-                                .controlSize(.large)
+                            Text("Bei OneDrive bitte Snapshot-Datei importieren verwenden. Die Paketdatei latest.bcsnapshot enthält die benötigten JSON-Daten in einer Datei.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 540)
 
-                            if let tertiaryButtonTitle, let tertiaryAction {
-                                Button(tertiaryButtonTitle, action: tertiaryAction)
+                            VStack(spacing: 10) {
+                                Button(primaryButtonTitle, action: primaryAction)
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.large)
+
+                                Button(secondaryButtonTitle, action: secondaryAction)
                                     .buttonStyle(.bordered)
                                     .controlSize(.large)
+
+                                if let tertiaryButtonTitle, let tertiaryAction {
+                                    Button(tertiaryButtonTitle, action: tertiaryAction)
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.large)
+                                }
                             }
                         }
+                        .padding(.top, 8)
                     }
-                    .padding(.top, 8)
+                    .padding(32)
+                    .frame(maxWidth: 720)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.08), radius: 30, x: 0, y: 16)
+                    .padding()
                 }
-                .padding(32)
-                .frame(maxWidth: 720)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.08), radius: 30, x: 0, y: 16)
-                .padding()
             }
             .navigationTitle("BüroCockpit")
         }
