@@ -186,7 +186,7 @@ struct SnapshotRootView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .navigationTitle(titleForSelectedCategory)
+            .navigationTitle(viewModel.selectedCategoryTitle)
         case .idle:
             SnapshotEmptyStateView(
                 title: "Snapshot auswählen",
@@ -312,11 +312,4 @@ struct SnapshotRootView: View {
         return "\(base)\n\(importStatusMessage)"
     }
 
-    private var titleForSelectedCategory: String {
-        if viewModel.selectedCategoryID == SnapshotBrowserViewModel.allTasksCategoryID {
-            return "Alle Aufgaben"
-        }
-
-        return viewModel.categories.first(where: { $0.id == viewModel.selectedCategoryID })?.name ?? "Aufgaben"
-    }
 }

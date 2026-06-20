@@ -20,8 +20,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         document?.metadata
     }
 
-    var categories: [SnapshotCategory] {
-        document?.categories ?? []
+    var categories: [SnapshotCategoryGroup] {
+        groupedCategories(from: document?.categories ?? [])
     }
 
     var tasks: [SnapshotTask] {
@@ -37,8 +37,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
             return tasks
         }
 
+        guard let selectedGroup = categories.first(where: { $0.id == selectedCategoryID }) else {
+            return tasks
+        }
+
+        let selectedCategoryIDs = Set(selectedGroup.categoryIDs)
         return tasks.filter { task in
-            task.categoryIds.contains(selectedCategoryID)
+            task.categoryIds.contains(where: { selectedCategoryIDs.contains($0) })
         }
     }
 
@@ -90,7 +95,22 @@ final class SnapshotBrowserViewModel: ObservableObject {
             return tasks.count
         }
 
-        return tasks.filter { $0.categoryIds.contains(categoryID) }.count
+        guard let selectedGroup = categories.first(where: { $0.id == categoryID }) else {
+            return 0
+        }
+
+        let selectedCategoryIDs = Set(selectedGroup.categoryIDs)
+        return tasks.filter { task in
+            task.categoryIds.contains(where: { selectedCategoryIDs.contains($0) })
+        }.count
+    }
+
+    var selectedCategoryTitle: String {
+        if selectedCategoryID == Self.allTasksCategoryID {
+            return "Alle Aufgaben"
+        }
+
+        return categories.first(where: { $0.id == selectedCategoryID })?.name ?? "Aufgaben"
     }
 
     private func apply(document: SnapshotDocument) async {
@@ -137,5 +157,59 @@ final class SnapshotBrowserViewModel: ObservableObject {
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
         loadState = .failure(errorMessage)
+    }
+
+    private func groupedCategories(from categories: [SnapshotCategory]) -> [SnapshotCategoryGroup] {
+        struct Bucket {
+            var name: String
+            var categoryIDs: [String]
+            var order: Int
+        }
+
+        var buckets: [String: Bucket] = [:]
+        var orderedKeys: [String] = []
+
+        for (index, category) in categories.enumerated() {
+            let trimmedName = category.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else {
+                continue
+            }
+
+            let key = trimmedName.lowercased()
+            if var bucket = buckets[key] {
+                if !bucket.categoryIDs.contains(category.id) {
+                    bucket.categoryIDs.append(category.id)
+                }
+                bucket.order = min(bucket.order, category.order ?? index)
+                buckets[key] = bucket
+            } else {
+                buckets[key] = Bucket(
+                    name: trimmedName,
+                    categoryIDs: [category.id],
+                    order: category.order ?? index
+                )
+                orderedKeys.append(key)
+            }
+        }
+
+        return orderedKeys.compactMap { key in
+            guard let bucket = buckets[key] else {
+                return nil
+            }
+
+            return SnapshotCategoryGroup(
+                id: key,
+                name: bucket.name,
+                categoryIDs: bucket.categoryIDs,
+                order: bucket.order
+            )
+        }
+        .sorted {
+            if $0.order != $1.order {
+                return $0.order < $1.order
+            }
+
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
 }

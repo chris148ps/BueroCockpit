@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SnapshotCategoryListView: View {
-    let categories: [SnapshotCategory]
+    let categories: [SnapshotCategoryGroup]
     let selectedCategoryID: String
     let allTaskCount: Int
     let taskCountForCategory: (String) -> Int
@@ -45,15 +45,21 @@ struct SnapshotCategoryListView: View {
                 Image(systemName: systemImage)
                     .frame(width: 18)
                 Text(title)
-                    .lineLimit(1)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Text("\(count)")
+                    .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .frame(width: 34, alignment: .trailing)
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowBackground(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+        .listRowBackground(isSelected ? Color.accentColor.opacity(0.22) : Color.primary.opacity(0.04))
     }
 }

@@ -15,6 +15,13 @@ struct SnapshotCategory: Identifiable, Equatable {
     let order: Int?
 }
 
+struct SnapshotCategoryGroup: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let categoryIDs: [String]
+    let order: Int
+}
+
 struct SnapshotTask: Identifiable, Equatable {
     let id: String
     let title: String
@@ -33,6 +40,32 @@ struct SnapshotTask: Identifiable, Equatable {
     let sourceIndex: Int
 }
 
+extension SnapshotTask {
+    var displayCategoryNames: [String] {
+        SnapshotDisplayFormatter.deduplicatedDisplayNames(categoryNames)
+    }
+
+    var displayDueDate: String? {
+        SnapshotDisplayFormatter.displayDate(dueDate)
+    }
+
+    var displayReminderDate: String? {
+        SnapshotDisplayFormatter.displayDate(reminderDate)
+    }
+
+    var displayCreatedAt: String? {
+        SnapshotDisplayFormatter.displayDate(createdAt)
+    }
+
+    var displayUpdatedAt: String? {
+        SnapshotDisplayFormatter.displayDate(updatedAt)
+    }
+
+    var displayMaterialOrderedAt: String? {
+        SnapshotDisplayFormatter.displayDate(materialOrderedAt)
+    }
+}
+
 struct SnapshotAttachmentIndex: Identifiable, Equatable {
     let id: String
     let taskId: String
@@ -49,6 +82,98 @@ struct SnapshotDocument: Equatable {
     let tasks: [SnapshotTask]
     let attachments: [SnapshotAttachmentIndex]
     let sourceURL: URL
+}
+
+extension SnapshotMetadata {
+    var displayAppVersion: String? {
+        SnapshotDisplayFormatter.shortVersion(from: appVersion)
+    }
+
+    var displayBuildIdentifier: String? {
+        SnapshotDisplayFormatter.buildIdentifier(from: appVersion)
+    }
+
+    var displayExportedAt: String? {
+        SnapshotDisplayFormatter.displayDate(exportedAt)
+    }
+}
+
+enum SnapshotDisplayFormatter {
+    private static let germanDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "de_DE_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "dd.MM.yyyy, HH:mm"
+        return formatter
+    }()
+
+    static func displayDate(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        if let date = parseISO8601Date(value) {
+            return germanDateFormatter.string(from: date)
+        }
+
+        return value
+    }
+
+    static func shortVersion(from value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        return value.split(separator: "+", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? value
+    }
+
+    static func buildIdentifier(from value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        let components = value.split(separator: "+", maxSplits: 1, omittingEmptySubsequences: false)
+        guard components.count == 2 else {
+            return nil
+        }
+
+        let build = String(components[1])
+        return build.isEmpty ? nil : build
+    }
+
+    private static func parseISO8601Date(_ value: String) -> Date? {
+        let withFractionalSeconds = ISO8601DateFormatter()
+        withFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        if let date = withFractionalSeconds.date(from: value) {
+            return date
+        }
+
+        let withoutFractionalSeconds = ISO8601DateFormatter()
+        withoutFractionalSeconds.formatOptions = [.withInternetDateTime]
+        return withoutFractionalSeconds.date(from: value)
+    }
+
+    static func deduplicatedDisplayNames(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for value in values {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                continue
+            }
+
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else {
+                continue
+            }
+
+            result.append(trimmed)
+        }
+
+        return result
+    }
 }
 
 enum SnapshotLoadState: Equatable {

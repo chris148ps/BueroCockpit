@@ -14,11 +14,11 @@ struct SnapshotTaskDetailView: View {
                         section(title: "Details") {
                             keyValue("Kunde", task.customerName)
                             keyValue("Status", task.status)
-                            keyValue("Fällig am", task.dueDate)
-                            keyValue("Erinnert am", task.reminderDate)
-                            keyValue("Erstellt am", task.createdAt)
-                            keyValue("Aktualisiert am", task.updatedAt)
-                            keyValue("Material bestellt am", task.materialOrderedAt)
+                            keyValue("Fällig am", task.displayDueDate)
+                            keyValue("Erinnert am", task.displayReminderDate)
+                            keyValue("Erstellt am", task.displayCreatedAt)
+                            keyValue("Aktualisiert am", task.displayUpdatedAt)
+                            keyValue("Material bestellt am", task.displayMaterialOrderedAt)
                         }
                         if let shortText = task.shortText, !shortText.isEmpty {
                             section(title: "Kurztext") {
@@ -32,9 +32,9 @@ struct SnapshotTaskDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
-                        if !task.categoryNames.isEmpty {
+                        if !task.displayCategoryNames.isEmpty {
                             section(title: "Kategorien") {
-                                FlowChips(items: task.categoryNames)
+                                FlowChips(items: task.displayCategoryNames)
                             }
                         }
                         if !attachments.isEmpty {
@@ -65,11 +65,12 @@ struct SnapshotTaskDetailView: View {
                         if let metadata {
                             section(title: "Snapshot") {
                                 keyValue("App", metadata.appName)
-                                keyValue("Version", metadata.appVersion)
+                                keyValue("Version", metadata.displayAppVersion)
+                                keyValue("Build", metadata.displayBuildIdentifier)
                                 keyValue("Gerät", metadata.deviceName)
                                 keyValue("Quelle", metadata.source)
                                 keyValue("Format", metadata.formatVersion.map(String.init))
-                                keyValue("Exportiert am", metadata.exportedAt)
+                                keyValue("Exportiert am", metadata.displayExportedAt)
                             }
                         }
                     }
@@ -90,6 +91,7 @@ struct SnapshotTaskDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(task.title)
                 .font(.largeTitle.bold())
+                .foregroundStyle(.primary)
             if let customerName = task.customerName, !customerName.isEmpty {
                 Text(customerName)
                     .font(.title3)
@@ -103,11 +105,16 @@ struct SnapshotTaskDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline)
+                .foregroundStyle(.primary)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -118,6 +125,7 @@ struct SnapshotTaskDetailView: View {
                     .foregroundStyle(.secondary)
                     .frame(width: 170, alignment: .leading)
                 Text(value)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -131,6 +139,7 @@ private struct FlowChips: View {
         FlowLayout(items: items) { item in
             Text(item)
                 .font(.subheadline)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color.accentColor.opacity(0.15), in: Capsule())
