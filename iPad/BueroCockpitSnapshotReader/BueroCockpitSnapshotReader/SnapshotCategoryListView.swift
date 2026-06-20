@@ -4,7 +4,11 @@ struct SnapshotCategoryListView: View {
     let categories: [SnapshotCategoryGroup]
     let selectedCategoryID: String
     let allTaskCount: Int
+    let categoryCount: Int
+    let loadedFileName: String?
+    let snapshotDate: String?
     let taskCountForCategory: (String) -> Int
+    let onImportSnapshot: () -> Void
     let onSelectAll: () -> Void
     let onSelectCategory: (String) -> Void
 
@@ -33,9 +37,34 @@ struct SnapshotCategoryListView: View {
                     }
                 }
             }
+            Section("Geladener Snapshot") {
+                infoRow(label: "Datei", value: loadedFileName)
+                infoRow(label: "Zeitpunkt", value: snapshotDate)
+                infoRow(label: "Kategorien", value: "\(categoryCount)")
+                infoRow(label: "Aufgaben", value: "\(allTaskCount)")
+
+                Button(action: onImportSnapshot) {
+                    Label("Neuen Snapshot importieren", systemImage: "square.and.arrow.down")
+                }
+            }
         }
         .navigationTitle("Kategorien")
         .listStyle(.sidebar)
+    }
+
+    @ViewBuilder
+    private func infoRow(label: String, value: String?) -> some View {
+        if let value, !value.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.callout)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     @ViewBuilder

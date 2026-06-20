@@ -3,7 +3,6 @@ import SwiftUI
 struct SnapshotTaskDetailView: View {
     let task: SnapshotTask?
     let attachments: [SnapshotAttachmentIndex]
-    let metadata: SnapshotMetadata?
 
     var body: some View {
         Group {
@@ -11,26 +10,27 @@ struct SnapshotTaskDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         header(task)
-                        section(title: "Details") {
+                        section(title: "Kunde / Auftrag") {
                             keyValue("Kunde", task.customerName)
-                            keyValue("Status", task.status)
+                            keyValue("Auftrag / Betreff", task.title)
+                            keyValue("Status", task.displayStatus)
+                        }
+                        if task.notes?.isEmpty == false || task.shortText?.isEmpty == false {
+                            section(title: "Beschreibung / Notiz") {
+                                Text(task.notes?.isEmpty == false ? task.notes! : task.shortText!)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        if hasDates(task) {
+                            section(title: "Termine / Datum") {
                             keyValue("Fällig am", task.displayDueDate)
-                            keyValue("Erinnert am", task.displayReminderDate)
+                            keyValue("Wiedervorlage", task.displayReminderDate)
                             keyValue("Erstellt am", task.displayCreatedAt)
                             keyValue("Aktualisiert am", task.displayUpdatedAt)
                             keyValue("Material bestellt am", task.displayMaterialOrderedAt)
                         }
-                        if let shortText = task.shortText, !shortText.isEmpty {
-                            section(title: "Kurztext") {
-                                Text(shortText)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        if let notes = task.notes, !notes.isEmpty {
-                            section(title: "Beschreibung") {
-                                Text(notes)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
                         }
                         if !task.displayCategoryNames.isEmpty {
                             section(title: "Kategorien") {
@@ -44,33 +44,16 @@ struct SnapshotTaskDetailView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(attachment.fileName)
                                                 .font(.headline)
-                                            Text(attachment.relativePath)
-                                                .font(.footnote)
-                                                .foregroundStyle(.secondary)
-                                            HStack {
-                                                Text(attachment.fileExists ? "Vorhanden" : "Fehlt")
-                                                Spacer()
-                                                if attachment.isImportant {
-                                                    Text("Wichtig")
-                                                }
+                                                .fixedSize(horizontal: false, vertical: true)
+                                            if attachment.isImportant {
+                                                Label("Wichtiger Anhang", systemImage: "exclamationmark.circle")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
                                             }
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
                                         }
                                         .padding(.vertical, 4)
                                     }
                                 }
-                            }
-                        }
-                        if let metadata {
-                            section(title: "Snapshot") {
-                                keyValue("App", metadata.appName)
-                                keyValue("Version", metadata.displayAppVersion)
-                                keyValue("Build", metadata.displayBuildIdentifier)
-                                keyValue("Gerät", metadata.deviceName)
-                                keyValue("Quelle", metadata.source)
-                                keyValue("Format", metadata.formatVersion.map(String.init))
-                                keyValue("Exportiert am", metadata.displayExportedAt)
                             }
                         }
                     }
@@ -92,10 +75,12 @@ struct SnapshotTaskDetailView: View {
             Text(task.title)
                 .font(.largeTitle.bold())
                 .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
             if let customerName = task.customerName, !customerName.isEmpty {
                 Text(customerName)
                     .font(.title3)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -119,7 +104,7 @@ struct SnapshotTaskDetailView: View {
 
     @ViewBuilder
     private func keyValue(_ label: String, _ value: String?) -> some View {
-        if let value, !value.isEmpty {
+        if let value = SnapshotDisplayFormatter.displayText(value) {
             HStack(alignment: .top) {
                 Text(label)
                     .foregroundStyle(.secondary)
@@ -127,8 +112,19 @@ struct SnapshotTaskDetailView: View {
                 Text(value)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func hasDates(_ task: SnapshotTask) -> Bool {
+        [
+            task.displayDueDate,
+            task.displayReminderDate,
+            task.displayCreatedAt,
+            task.displayUpdatedAt,
+            task.displayMaterialOrderedAt
+        ].contains(where: { $0 != nil })
     }
 }
 

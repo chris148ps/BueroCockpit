@@ -103,16 +103,18 @@ struct SnapshotRootView: View {
         .navigationSplitViewStyle(.balanced)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Snapshot-Datei importieren") {
+                Button("Neuen Snapshot importieren") {
                     openPackagePicker()
                 }
 
-                Button("Snapshot-Ordner auswählen") {
-                    openFolderPicker()
-                }
+                Menu("Weitere Importoptionen") {
+                    Button("Snapshot-Ordner auswählen") {
+                        openFolderPicker()
+                    }
 
-                Button("metadata.json auswählen") {
-                    openMetadataPicker()
+                    Button("metadata.json auswählen") {
+                        openMetadataPicker()
+                    }
                 }
             }
         }
@@ -123,9 +125,13 @@ struct SnapshotRootView: View {
             categories: viewModel.categories,
             selectedCategoryID: viewModel.selectedCategoryID,
             allTaskCount: viewModel.taskCount(in: SnapshotBrowserViewModel.allTasksCategoryID),
+            categoryCount: viewModel.document?.categories.count ?? 0,
+            loadedFileName: viewModel.loadedFileName,
+            snapshotDate: viewModel.metadata?.displayExportedAt,
             taskCountForCategory: { categoryID in
                 viewModel.taskCount(in: categoryID)
             },
+            onImportSnapshot: openPackagePicker,
             onSelectAll: {
                 viewModel.selectAllTasks()
             },
@@ -165,28 +171,29 @@ struct SnapshotRootView: View {
                 tertiaryAction: openMetadataPicker
             )
         case .ready:
-            List(viewModel.filteredTasks, selection: Binding(
-                get: { viewModel.selectedTaskID },
-                set: { viewModel.selectTask($0) }
-            )) { task in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(.headline)
-                    if let customerName = task.customerName, !customerName.isEmpty {
-                        Text(customerName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let shortText = task.shortText, !shortText.isEmpty {
-                        Text(shortText)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
+            if viewModel.filteredTasks.isEmpty {
+                SnapshotEmptyStateView(
+                    title: viewModel.tasks.isEmpty ? "Keine Aufgaben im Snapshot" : "Keine Aufgaben gefunden",
+                    message: viewModel.tasks.isEmpty
+                        ? "Der geladene Snapshot enthält keine Aufgaben. Du kannst jederzeit einen neuen Snapshot importieren."
+                        : "Für die aktuelle Kategorie und Suche wurden keine passenden Aufgaben gefunden.",
+                    systemImage: viewModel.tasks.isEmpty ? "tray" : "magnifyingglass",
+                    primaryButtonTitle: "Neuen Snapshot importieren",
+                    primaryAction: openPackagePicker
+                )
+                .navigationTitle(viewModel.selectedCategoryTitle)
+                .searchable(text: $viewModel.searchText, prompt: "Aufgaben durchsuchen")
+            } else {
+                List(viewModel.filteredTasks, selection: Binding(
+                    get: { viewModel.selectedTaskID },
+                    set: { viewModel.selectTask($0) }
+                )) { task in
+                    taskRow(task)
+                        .tag(task.id)
                 }
-                .padding(.vertical, 4)
+                .navigationTitle(viewModel.selectedCategoryTitle)
+                .searchable(text: $viewModel.searchText, prompt: "Kunde, Auftrag, Beschreibung, Kategorie")
             }
-            .navigationTitle(viewModel.selectedCategoryTitle)
         case .idle:
             SnapshotEmptyStateView(
                 title: "Snapshot auswählen",
@@ -202,14 +209,69 @@ struct SnapshotRootView: View {
         }
     }
 
+    private func taskRow(_ task: SnapshotTask) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let customerName = SnapshotDisplayFormatter.displayText(task.customerName) {
+                Text(customerName)
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(task.title)
+                .font(task.customerName?.isEmpty == false ? .subheadline.weight(.semibold) : .headline)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let shortText = SnapshotDisplayFormatter.displayText(task.shortText) {
+                Text(shortText)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    taskInfoChips(task)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    taskInfoChips(task)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private func taskInfoChips(_ task: SnapshotTask) -> some View {
+        if let status = task.displayStatus {
+            infoChip(status, systemImage: "circle.fill")
+        }
+        ForEach(task.displayCategoryNames, id: \.self) { category in
+            infoChip(category, systemImage: "folder")
+        }
+        if let dueDate = task.displayDueDate {
+            infoChip("Fällig: \(dueDate)", systemImage: "calendar")
+        } else if let createdAt = task.displayCreatedAt {
+            infoChip("Erstellt: \(createdAt)", systemImage: "calendar")
+        }
+    }
+
+    private func infoChip(_ text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.12), in: Capsule())
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     @ViewBuilder
     private var detailView: some View {
         switch viewModel.loadState {
         case .ready:
             SnapshotTaskDetailView(
                 task: viewModel.selectedTask,
-                attachments: viewModel.selectedTask.map(viewModel.attachments(for:)) ?? [],
-                metadata: viewModel.metadata
+                attachments: viewModel.selectedTask.map(viewModel.attachments(for:)) ?? []
             )
         case .idle:
             SnapshotEmptyStateView(

@@ -41,6 +41,15 @@ struct SnapshotTask: Identifiable, Equatable {
 }
 
 extension SnapshotTask {
+    var searchableText: String {
+        ([title, customerName, shortText, notes, status].compactMap { $0 } + categoryNames)
+            .joined(separator: "\n")
+    }
+
+    var displayStatus: String? {
+        SnapshotDisplayFormatter.displayText(status)
+    }
+
     var displayCategoryNames: [String] {
         SnapshotDisplayFormatter.deduplicatedDisplayNames(categoryNames)
     }
@@ -117,6 +126,14 @@ enum SnapshotDisplayFormatter {
         }
 
         return value
+    }
+
+    static func displayText(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        return value.replacingOccurrences(of: "_", with: " ")
     }
 
     static func shortVersion(from value: String?) -> String? {
@@ -199,25 +216,25 @@ enum SnapshotReaderError: LocalizedError, Equatable {
             return "Bitte eine BüroCockpit-Snapshot-Datei auswählen."
         case .securityScopedAccessDenied(let fileName):
             return "Sicherheitszugriff wurde verweigert: \(fileName)"
-        case .localCopyFailed(let fileName):
-            return "Datei konnte nicht lokal kopiert werden: \(fileName)"
-        case .missingRequiredFile(let fileName, let details):
+        case .localCopyFailed:
+            return "Die Snapshot-Datei konnte nicht lokal gespeichert werden. Bitte wähle sie erneut aus."
+        case .missingRequiredFile(let fileName, _):
             switch fileName.lowercased() {
             case "metadata.json":
-                return details.map { "Snapshot-Datei ungültig: metadata.json fehlt.\n\($0)" } ?? "Snapshot-Datei ungültig: metadata.json fehlt."
+                return "Die Snapshot-Datei ist unvollständig: metadata.json fehlt."
             case "categories.json":
-                return details.map { "Snapshot-Datei ungültig: categories.json fehlt.\n\($0)" } ?? "Snapshot-Datei ungültig: categories.json fehlt."
+                return "Die Snapshot-Datei ist unvollständig: categories.json fehlt."
             case "tasks.json":
-                return details.map { "Snapshot-Datei ungültig: tasks.json fehlt.\n\($0)" } ?? "Snapshot-Datei ungültig: tasks.json fehlt."
+                return "Die Snapshot-Datei ist unvollständig: tasks.json fehlt."
             default:
-                return details.map { "Pflichtdatei fehlt: \(fileName)\n\($0)" } ?? "Pflichtdatei fehlt: \(fileName)"
+                return "Die Snapshot-Datei ist unvollständig: \(fileName) fehlt."
             }
-        case .invalidJSON(let fileName, let details):
-            return details.map { "JSON konnte nicht gelesen werden: \(fileName)\n\($0)" } ?? "JSON konnte nicht gelesen werden: \(fileName)"
+        case .invalidJSON(let fileName, _):
+            return "Die Daten in \(fileName) konnten nicht gelesen werden. Bitte exportiere den Snapshot erneut."
         case .unreadableFolder(let folderName):
             return "Snapshot-Ordner konnte nicht geöffnet werden: \(folderName)"
-        case .unreadableSnapshotPackage(let fileName, let details):
-            return "Paket konnte nicht entpackt/gelesen werden: \(fileName)\n\(details)"
+        case .unreadableSnapshotPackage(let fileName, _):
+            return "Die Snapshot-Datei \(fileName) konnte nicht gelesen werden. Bitte wähle eine neue latest.bcsnapshot aus."
         }
     }
 }

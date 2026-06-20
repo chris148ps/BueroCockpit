@@ -9,6 +9,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var selectedFolderURL: URL?
     @Published var selectedCategoryID: String = "__all_tasks__"
     @Published var selectedTaskID: String?
+    @Published var searchText: String = "" {
+        didSet {
+            if filteredTasks.contains(where: { $0.id == selectedTaskID }) == false {
+                selectedTaskID = filteredTasks.first?.id
+            }
+        }
+    }
 
     private let reader: SnapshotReader
 
@@ -33,17 +40,25 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var filteredTasks: [SnapshotTask] {
-        guard selectedCategoryID != Self.allTasksCategoryID else {
-            return tasks
+        let categoryTasks: [SnapshotTask]
+        if selectedCategoryID == Self.allTasksCategoryID {
+            categoryTasks = tasks
+        } else if let selectedGroup = categories.first(where: { $0.id == selectedCategoryID }) {
+            let selectedCategoryIDs = Set(selectedGroup.categoryIDs)
+            categoryTasks = tasks.filter { task in
+                task.categoryIds.contains(where: { selectedCategoryIDs.contains($0) })
+            }
+        } else {
+            categoryTasks = tasks
         }
 
-        guard let selectedGroup = categories.first(where: { $0.id == selectedCategoryID }) else {
-            return tasks
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return categoryTasks
         }
 
-        let selectedCategoryIDs = Set(selectedGroup.categoryIDs)
-        return tasks.filter { task in
-            task.categoryIds.contains(where: { selectedCategoryIDs.contains($0) })
+        return categoryTasks.filter { task in
+            task.searchableText.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -56,6 +71,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func loadSnapshot(from sourceURL: URL) {
+        searchText = ""
         loadState = .loading
         Task { [reader] in
             do {
@@ -113,16 +129,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return categories.first(where: { $0.id == selectedCategoryID })?.name ?? "Aufgaben"
     }
 
+    var loadedFileName: String? {
+        document?.sourceURL.lastPathComponent
+    }
+
     private func apply(document: SnapshotDocument) async {
         self.document = document
         selectedFolderURL = document.sourceURL
-
-        if categories.isEmpty || tasks.isEmpty {
-            loadState = .empty("Im Snapshot wurden keine Kategorien oder Aufgaben gefunden.")
-            selectedCategoryID = Self.allTasksCategoryID
-            selectedTaskID = nil
-            return
-        }
 
         if selectedCategoryID != Self.allTasksCategoryID,
            !categories.contains(where: { $0.id == selectedCategoryID }) {
@@ -143,6 +156,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
+        searchText = ""
 
         if let readerError = error as? SnapshotReaderError {
             loadState = .failure(readerError.localizedDescription)
@@ -156,6 +170,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
+        searchText = ""
         loadState = .failure(errorMessage)
     }
 
