@@ -63,10 +63,10 @@ enum SnapshotReaderError: LocalizedError, Equatable {
     case invalidPackageSelection
     case securityScopedAccessDenied(String)
     case localCopyFailed(String)
-    case missingRequiredFile(String)
-    case invalidJSON(String)
+    case missingRequiredFile(String, String?)
+    case invalidJSON(String, String?)
     case unreadableFolder(String)
-    case unreadableSnapshotPackage(String)
+    case unreadableSnapshotPackage(String, String)
 
     var errorDescription: String? {
         switch self {
@@ -76,23 +76,23 @@ enum SnapshotReaderError: LocalizedError, Equatable {
             return "Sicherheitszugriff wurde verweigert: \(fileName)"
         case .localCopyFailed(let fileName):
             return "Datei konnte nicht lokal kopiert werden: \(fileName)"
-        case .missingRequiredFile(let fileName):
+        case .missingRequiredFile(let fileName, let details):
             switch fileName.lowercased() {
             case "metadata.json":
-                return "Snapshot-Datei ungültig: metadata.json fehlt."
+                return details.map { "Snapshot-Datei ungültig: metadata.json fehlt.\n\($0)" } ?? "Snapshot-Datei ungültig: metadata.json fehlt."
             case "categories.json":
-                return "Snapshot-Datei ungültig: categories.json fehlt."
+                return details.map { "Snapshot-Datei ungültig: categories.json fehlt.\n\($0)" } ?? "Snapshot-Datei ungültig: categories.json fehlt."
             case "tasks.json":
-                return "Snapshot-Datei ungültig: tasks.json fehlt."
+                return details.map { "Snapshot-Datei ungültig: tasks.json fehlt.\n\($0)" } ?? "Snapshot-Datei ungültig: tasks.json fehlt."
             default:
-                return "Pflichtdatei fehlt: \(fileName)"
+                return details.map { "Pflichtdatei fehlt: \(fileName)\n\($0)" } ?? "Pflichtdatei fehlt: \(fileName)"
             }
-        case .invalidJSON(let fileName):
-            return "JSON konnte nicht gelesen werden: \(fileName)"
+        case .invalidJSON(let fileName, let details):
+            return details.map { "JSON konnte nicht gelesen werden: \(fileName)\n\($0)" } ?? "JSON konnte nicht gelesen werden: \(fileName)"
         case .unreadableFolder(let folderName):
             return "Snapshot-Ordner konnte nicht geöffnet werden: \(folderName)"
-        case .unreadableSnapshotPackage(let fileName):
-            return "Paket konnte nicht entpackt/gelesen werden: \(fileName)"
+        case .unreadableSnapshotPackage(let fileName, let details):
+            return "Paket konnte nicht entpackt/gelesen werden: \(fileName)\n\(details)"
         }
     }
 }

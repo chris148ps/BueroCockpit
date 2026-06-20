@@ -1,4 +1,5 @@
 import Foundation
+import Compression
 
 final class SnapshotReader: @unchecked Sendable {
     func readSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
@@ -102,7 +103,7 @@ final class SnapshotReader: @unchecked Sendable {
 
     private func readSnapshotPackage(from sourceURL: URL) throws -> SnapshotDocument {
         do {
-            let archive = try SnapshotPackageArchive(contentsOf: sourceURL, fileName: sourceURL.lastPathComponent)
+            let archive = try SnapshotPackageArchive(contentsOf: sourceURL)
 
             let rawMetadata: RawMetadata = try decodeRequiredPackageFile(named: "metadata.json", in: archive)
             let rawCategories: [RawCategory] = try decodeRequiredPackageArray(named: "categories.json", in: archive)
@@ -176,13 +177,13 @@ final class SnapshotReader: @unchecked Sendable {
         } catch let readerError as SnapshotReaderError {
             throw readerError
         } catch {
-            throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent)
+            throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent, error.localizedDescription)
         }
     }
 
     private func stageSnapshotPackageToSandbox(from sourceURL: URL) throws -> URL {
         guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-            throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent)
+            throw SnapshotReaderError.unreadableSnapshotPackage(sourceURL.lastPathComponent, "Die lokale Paketdatei wurde nicht gefunden.")
         }
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
@@ -244,7 +245,7 @@ final class SnapshotReader: @unchecked Sendable {
                 return snapshotURL
             }
 
-            throw SnapshotReaderError.missingRequiredFile("metadata.json")
+            throw SnapshotReaderError.missingRequiredFile("metadata.json", nil)
         }
 
         let candidateDirectories = [
@@ -258,7 +259,7 @@ final class SnapshotReader: @unchecked Sendable {
             }
         }
 
-        throw SnapshotReaderError.missingRequiredFile("metadata.json")
+        throw SnapshotReaderError.missingRequiredFile("metadata.json", nil)
     }
 
     private func isSnapshotPackage(_ url: URL) -> Bool {
@@ -277,14 +278,14 @@ final class SnapshotReader: @unchecked Sendable {
     private func decodeRequiredFile<T: Decodable>(named fileName: String, at folderURL: URL) throws -> T {
         let fileURL = folderURL.appendingPathComponent(fileName)
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            throw SnapshotReaderError.missingRequiredFile(fileName)
+            throw SnapshotReaderError.missingRequiredFile(fileName, nil)
         }
 
         do {
             let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
             return try JSONDecoder.snapshotDecoder.decode(T.self, from: data)
         } catch {
-            throw SnapshotReaderError.invalidJSON(fileName)
+            throw SnapshotReaderError.invalidJSON(fileName, error.localizedDescription)
         }
     }
 
@@ -308,7 +309,7 @@ final class SnapshotReader: @unchecked Sendable {
 
     private func decodeRequiredPackageFile<T: Decodable>(named fileName: String, in archive: SnapshotPackageArchive) throws -> T {
         guard let data = archive.data(named: fileName) else {
-            throw SnapshotReaderError.missingRequiredFile(fileName)
+            throw SnapshotReaderError.missingRequiredFile(fileName, archive.diagnostics(forMissingFile: fileName))
         }
 
         do {
@@ -316,7 +317,7 @@ final class SnapshotReader: @unchecked Sendable {
         } catch let readerError as SnapshotReaderError {
             throw readerError
         } catch {
-            throw SnapshotReaderError.invalidJSON(fileName)
+            throw SnapshotReaderError.invalidJSON(fileName, "\(error.localizedDescription)\n\(archive.summary)")
         }
     }
 
@@ -387,21 +388,104 @@ private struct RawAttachment: Decodable {
 }
 
 private struct SnapshotPackageArchive {
-    private let entries: [String: Data]
+    private struct Entry {
+        let name: String
+        let normalizedName: String
+        let data: Data
+    }
 
-    init(contentsOf url: URL, fileName: String) throws {
+    private let sourceURL: URL
+    private let fileName: String
+    private let fileSize: Int64
+    private let hasLocalFileHeaderSignature: Bool
+    private let entries: [Entry]
+    private let rootNames: [String]
+    private let nestedNames: [String]
+    private let decodeIssues: [String]
+    private let parseFailed: Bool
+
+    init(contentsOf url: URL) throws {
+        sourceURL = url
+        fileName = url.lastPathComponent
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let sizeNumber = attributes[.size] as? NSNumber {
+            fileSize = sizeNumber.int64Value
+        } else {
+            fileSize = -1
+        }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-        entries = try Self.parseEntries(from: data, fileName: fileName)
+        hasLocalFileHeaderSignature = data.count >= 4 && Self.readUInt32LE([UInt8](data), 0) == 0x0403_4B50
+
+        var decodeIssues: [String] = []
+        let parsedEntries = Self.parseEntries(from: data, fileName: fileName, decodeIssues: &decodeIssues)
+        entries = parsedEntries.entries
+        rootNames = parsedEntries.rootNames
+        nestedNames = parsedEntries.nestedNames
+        self.decodeIssues = decodeIssues
+        parseFailed = parsedEntries.parseFailed
     }
 
     func data(named fileName: String) -> Data? {
-        entries[fileName.lowercased()]
+        let normalizedFileName = fileName.lowercased()
+        if let exact = entries.first(where: { $0.normalizedName == normalizedFileName }) {
+            return exact.data
+        }
+
+        if let suffixMatch = entries.first(where: { $0.normalizedName.hasSuffix("/" + normalizedFileName) }) {
+            return suffixMatch.data
+        }
+
+        return entries.first(where: { $0.name.caseInsensitiveCompare(fileName) == .orderedSame })?.data
     }
 
-    private static func parseEntries(from data: Data, fileName: String) throws -> [String: Data] {
+    var summary: String {
+        let fileSizeText: String
+        if fileSize >= 0 {
+            fileSizeText = "\(fileSize) bytes"
+        } else {
+            fileSizeText = "unbekannt"
+        }
+
+        let signatureText = hasLocalFileHeaderSignature ? "ja" : "nein"
+        let rootText = rootNames.isEmpty ? "keine" : rootNames.joined(separator: ", ")
+        let nestedText = nestedNames.isEmpty ? "keine" : nestedNames.joined(separator: ", ")
+        let issueText = decodeIssues.isEmpty ? "keine" : decodeIssues.joined(separator: " | ")
+        let parseText = parseFailed ? "ja" : "nein"
+
+        return """
+        Datei vorhanden: ja
+        Dateigröße: \(fileSizeText)
+        ZIP-Signatur erkannt: \(signatureText)
+        Parsing abgebrochen: \(parseText)
+        Gefundene Einträge: \(entries.count)
+        Root-Einträge: \(rootText)
+        Zusätzliche Pfade: \(nestedText)
+        Decode-Hinweise: \(issueText)
+        """
+    }
+
+    func diagnostics(forMissingFile fileName: String) -> String {
+        let matchingPaths = entries
+            .map(\.name)
+            .filter { path in
+                path.caseInsensitiveCompare(fileName) == .orderedSame
+                    || path.lowercased().hasSuffix("/" + fileName.lowercased())
+            }
+        let matchingText = matchingPaths.isEmpty ? "keine" : matchingPaths.joined(separator: ", ")
+        return """
+        \(summary)
+        Gesucht: \(fileName)
+        Ähnliche Einträge: \(matchingText)
+        """
+    }
+
+    private static func parseEntries(from data: Data, fileName: String, decodeIssues: inout [String]) -> (entries: [Entry], rootNames: [String], nestedNames: [String], parseFailed: Bool) {
         let bytes = [UInt8](data)
         var offset = 0
-        var result: [String: Data] = [:]
+        var result: [Entry] = []
+        var rootNames: [String] = []
+        var nestedNames: [String] = []
+        var parseFailed = false
 
         while offset + 4 <= bytes.count {
             let signature = readUInt32LE(bytes, offset)
@@ -410,7 +494,9 @@ private struct SnapshotPackageArchive {
             }
 
             guard offset + 30 <= bytes.count else {
-                throw SnapshotReaderError.unreadableSnapshotPackage(fileName)
+                decodeIssues.append("Eintrag \(result.count + 1): Lokaler ZIP-Header ist unvollständig.")
+                parseFailed = true
+                break
             }
 
             let compressionMethod = readUInt16LE(bytes, offset + 8)
@@ -421,7 +507,9 @@ private struct SnapshotPackageArchive {
             offset += 30
 
             guard offset + fileNameLength + extraFieldLength <= bytes.count else {
-                throw SnapshotReaderError.unreadableSnapshotPackage(fileName)
+                decodeIssues.append("Eintrag \(result.count + 1): Dateiname oder Zusatzdaten sind unvollständig.")
+                parseFailed = true
+                break
             }
 
             let fileNameData = Data(bytes[offset ..< offset + fileNameLength])
@@ -429,25 +517,80 @@ private struct SnapshotPackageArchive {
             offset += extraFieldLength
 
             guard offset + compressedSize <= bytes.count else {
-                throw SnapshotReaderError.unreadableSnapshotPackage(fileName)
+                decodeIssues.append("Eintrag \(result.count + 1): Dateigröße passt nicht zum Paketinhalt.")
+                parseFailed = true
+                break
             }
 
-            guard compressionMethod == 0 else {
-                throw SnapshotReaderError.unreadableSnapshotPackage(fileName)
-            }
-
-            let fileData = Data(bytes[offset ..< offset + compressedSize])
+            let compressedData = Data(bytes[offset ..< offset + compressedSize])
             offset += compressedSize
 
             let fileName = String(data: fileNameData, encoding: .utf8) ?? String(decoding: fileNameData, as: UTF8.self)
-            result[fileName.lowercased()] = fileData
+            let normalizedName = fileName.lowercased()
+            let fileData: Data
+            switch compressionMethod {
+            case 0:
+                fileData = compressedData
+            case 8:
+                guard let decoded = Self.inflate(data: compressedData) else {
+                    decodeIssues.append("Eintrag \(fileName): Deflate-Entpackung fehlgeschlagen.")
+                    parseFailed = true
+                    continue
+                }
+                fileData = decoded
+            default:
+                decodeIssues.append("Eintrag \(fileName): Kompressionsmethode \(compressionMethod) wird nicht unterstützt.")
+                parseFailed = true
+                continue
+            }
+
+            if fileName.hasSuffix("/") {
+                rootNames.append(fileName)
+            } else if !fileName.contains("/") {
+                rootNames.append(fileName)
+            } else {
+                nestedNames.append(fileName)
+            }
+
+            result.append(Entry(name: fileName, normalizedName: normalizedName, data: fileData))
         }
 
         if result.isEmpty {
-            throw SnapshotReaderError.unreadableSnapshotPackage(fileName)
+            decodeIssues.append("Es wurden keine lesbaren Einträge gefunden.")
+            parseFailed = true
         }
 
-        return result
+        return (result, rootNames, nestedNames, parseFailed)
+    }
+
+    private static func inflate(data: Data) -> Data? {
+        guard !data.isEmpty else {
+            return Data()
+        }
+
+        var sourceBuffer = Array(data)
+        let sourceSize = sourceBuffer.count
+        let destinationCapacity = max(sourceSize * 4, sourceSize + 1024)
+        var destinationBuffer = [UInt8](repeating: 0, count: destinationCapacity)
+
+        let decodedSize = destinationBuffer.withUnsafeMutableBytes { destinationPointer in
+            sourceBuffer.withUnsafeMutableBytes { sourcePointer in
+                compression_decode_buffer(
+                    destinationPointer.bindMemory(to: UInt8.self).baseAddress!,
+                    destinationCapacity,
+                    sourcePointer.bindMemory(to: UInt8.self).baseAddress!,
+                    sourceSize,
+                    nil,
+                    COMPRESSION_ZLIB
+                )
+            }
+        }
+
+        guard decodedSize > 0 else {
+            return nil
+        }
+
+        return Data(destinationBuffer.prefix(decodedSize))
     }
 
     private static func readUInt16LE(_ bytes: [UInt8], _ offset: Int) -> UInt16 {
