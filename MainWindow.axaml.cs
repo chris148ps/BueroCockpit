@@ -99,6 +99,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isUpdatingSelection;
     private bool _isRefreshingVisibleTasks;
     private bool _isSavingCategorySnapshot;
+    private int _isRunningIpadSnapshotExport;
     private bool _suppressTaskListSelectionChanged;
     private bool _suppressCategorySelectionChanged;
     private bool _suppressCategorySortModeSave;
@@ -3259,7 +3260,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SaveTaskAndQueueIpadSnapshot(SelectedTask);
         _tasksPendingDuplicateCheck.Remove(SelectedTask.Id);
-        SaveCurrentMaterials();
+        SaveCurrentMaterials(requestSnapshotExport: false);
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -4007,6 +4008,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Materials.Insert(0, item);
         OnPropertyChanged(nameof(HasNoMaterials));
         _repository.SaveMaterial(item);
+        TriggerIpadSnapshotExport("Material hinzugefuegt");
         QueueIpadSnapshotExport();
     }
 
@@ -4021,6 +4023,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _repository.DeleteMaterial(item.Id);
         Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
+        TriggerIpadSnapshotExport("Material geloescht");
         QueueIpadSnapshotExport();
     }
 
@@ -4707,7 +4710,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SaveCurrentMaterials();
+        SaveCurrentMaterials(requestSnapshotExport: false);
         var source = SelectedTask;
         var now = DateTime.Now;
         var copy = new TaskItem
@@ -5615,9 +5618,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Environment.MachineName);
     }
 
+    private void TriggerIpadSnapshotExport(string reason)
+    {
+        if (!HasOneDriveEditDirectory)
+        {
+            return;
+        }
+
+        if (Interlocked.Exchange(ref _isRunningIpadSnapshotExport, 1) == 1)
+        {
+            Debug.WriteLine($"iPad snapshot export already running, skipping direct export for {reason}.");
+            return;
+        }
+
+        _ = RunIpadSnapshotExportAsync(reason);
+    }
+
+    private async Task RunIpadSnapshotExportAsync(string reason)
+    {
+        try
+        {
+            Debug.WriteLine($"Direct iPad snapshot export started ({reason}): {OneDriveEditDirectory}");
+            var result = await _ipadSnapshotExportService.ExportNowAsync(
+                _repository,
+                OneDriveEditDirectory,
+                _updateService.GetCurrentVersion(),
+                Environment.MachineName);
+
+            Debug.WriteLine(result.Success
+                ? $"Direct iPad snapshot export completed ({reason}): {result.OutputDirectory}"
+                : $"Direct iPad snapshot export failed ({reason}): {result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Direct iPad snapshot export failed ({reason}): {ex}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isRunningIpadSnapshotExport, 0);
+        }
+    }
+
     private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
     {
         _repository.SaveTask(task);
+        TriggerIpadSnapshotExport("Aufgabe gespeichert");
         QueueIpadSnapshotExport();
     }
 
@@ -5638,30 +5683,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isSavingCategorySnapshot = false;
         }
 
+        TriggerIpadSnapshotExport("Kategorie gespeichert");
         QueueIpadSnapshotExport();
     }
 
     private void SaveAttachmentAndQueueIpadSnapshot(AttachmentItem attachment)
     {
         _repository.SaveAttachment(attachment);
+        TriggerIpadSnapshotExport("Anhang gespeichert");
         QueueIpadSnapshotExport();
     }
 
     private void DeleteTaskAndQueueIpadSnapshot(string taskId)
     {
         _repository.DeleteTask(taskId);
+        TriggerIpadSnapshotExport("Aufgabe geloescht");
         QueueIpadSnapshotExport();
     }
 
     private void DeleteAttachmentAndQueueIpadSnapshot(string attachmentId)
     {
         _repository.DeleteAttachment(attachmentId);
+        TriggerIpadSnapshotExport("Anhang geloescht");
         QueueIpadSnapshotExport();
     }
 
     private void EmptyTrashAndQueueIpadSnapshot()
     {
         _repository.EmptyTrash();
+        TriggerIpadSnapshotExport("Papierkorb geleert");
         QueueIpadSnapshotExport();
     }
 
@@ -6627,7 +6677,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private void SaveCurrentMaterials()
+    private void SaveCurrentMaterials(bool requestSnapshotExport = true)
     {
         MergeDuplicateMaterials();
         foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)))
@@ -6635,7 +6685,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _repository.SaveMaterial(item);
         }
 
-        QueueIpadSnapshotExport();
+        if (requestSnapshotExport)
+        {
+            TriggerIpadSnapshotExport("Material gespeichert");
+            QueueIpadSnapshotExport();
+        }
     }
 
     private void MergeDuplicateMaterials()

@@ -11,6 +11,7 @@ public sealed class IpadSnapshotExportService
 {
     private const int FormatVersion = 1;
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(700);
+    private static readonly object LogLock = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -31,8 +32,11 @@ public sealed class IpadSnapshotExportService
     {
         if (string.IsNullOrWhiteSpace(sharedDirectory))
         {
+            LogExportMessage("iPad snapshot export request skipped: no shared directory configured.");
             return;
         }
+
+        LogExportMessage($"iPad snapshot export queued: {sharedDirectory}");
 
         CancellationTokenSource? previousCts;
         var currentCts = new CancellationTokenSource();
@@ -49,13 +53,16 @@ public sealed class IpadSnapshotExportService
             try
             {
                 await Task.Delay(DebounceDelay, currentCts.Token).ConfigureAwait(false);
+                LogExportMessage($"iPad snapshot export started (debounced): {sharedDirectory}");
                 var result = await ExportNowAsync(repository, sharedDirectory, appVersion, deviceName, currentCts.Token).ConfigureAwait(false);
                 if (!result.Success && !string.IsNullOrWhiteSpace(result.ErrorMessage))
                 {
+                    LogExportMessage($"iPad snapshot export failed (debounced): {result.ErrorMessage}");
                     onError?.Invoke(result.ErrorMessage);
                 }
                 else if (result.Success)
                 {
+                    LogExportMessage($"iPad snapshot export completed (debounced): {result.OutputDirectory}");
                     onError?.Invoke(string.Empty);
                 }
             }
@@ -95,13 +102,18 @@ public sealed class IpadSnapshotExportService
     {
         if (string.IsNullOrWhiteSpace(sharedDirectory))
         {
+            LogExportMessage("iPad snapshot export skipped: no shared directory configured.");
             return SnapshotExportResult.CreateFailure("Kein gemeinsamer Datenordner ausgewählt.");
         }
+
+        LogExportMessage($"iPad snapshot export started: {sharedDirectory}");
 
         await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await Task.Run(() => ExportCore(repository, sharedDirectory, appVersion, deviceName), cancellationToken).ConfigureAwait(false);
+            var result = await Task.Run(() => ExportCore(repository, sharedDirectory, appVersion, deviceName), cancellationToken).ConfigureAwait(false);
+            LogExportMessage($"iPad snapshot export completed: {result.OutputDirectory}");
+            return result;
         }
         catch (OperationCanceledException)
         {
@@ -110,6 +122,7 @@ public sealed class IpadSnapshotExportService
         catch (Exception ex)
         {
             Debug.WriteLine($"iPad snapshot export failed: {ex}");
+            LogExportMessage($"iPad snapshot export failed: {ex}");
             return SnapshotExportResult.CreateFailure("iPad-Snapshot konnte nicht aktualisiert werden.");
         }
         finally
@@ -251,6 +264,26 @@ public sealed class IpadSnapshotExportService
     {
         var json = JsonSerializer.Serialize(value, JsonOptions);
         File.WriteAllText(path, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static void LogExportMessage(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.AppDataDirectory);
+            var logPath = Path.Combine(AppPaths.AppDataDirectory, "ipad-snapshot-export.log");
+            var line = $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}";
+            lock (LogLock)
+            {
+                File.AppendAllText(logPath, line, Encoding.UTF8);
+            }
+        }
+        catch
+        {
+            // Logging darf den Export nie blockieren.
+        }
+
+        Debug.WriteLine(message);
     }
 
     public sealed record SnapshotExportResult(bool Success, string? OutputDirectory, string? ErrorMessage)
