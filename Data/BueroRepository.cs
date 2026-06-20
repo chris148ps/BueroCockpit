@@ -6,6 +6,7 @@ namespace BueroCockpit.Data;
 public sealed class BueroRepository
 {
     private readonly string _connectionString;
+    public event Action<string>? DataWritten;
 
     public BueroRepository()
     {
@@ -270,6 +271,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$color", category.Color);
         command.Parameters.AddWithValue("$isVisible", category.IsVisible ? 1 : 0);
         command.ExecuteNonQuery();
+        NotifyDataWritten("Kategorie gespeichert");
     }
 
     public void HideCategory(string categoryId)
@@ -279,6 +281,7 @@ public sealed class BueroRepository
         command.CommandText = "UPDATE Categories SET IsVisible = 0 WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", categoryId);
         command.ExecuteNonQuery();
+        NotifyDataWritten("Kategorie ausgeblendet");
     }
 
     public int GetTaskCountForCategory(string categoryId)
@@ -476,6 +479,7 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
 
         SaveTaskCategories(task, validCategoryIds);
+        NotifyDataWritten("Aufgabe gespeichert");
     }
 
     public void DeleteTask(string taskId)
@@ -498,6 +502,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$deletedAt", DateTime.Now.ToString("O"));
         command.Parameters.AddWithValue("$updatedAt", DateTime.Now.ToString("O"));
         command.ExecuteNonQuery();
+        NotifyDataWritten("Aufgabe geloescht");
     }
 
     public void EmptyTrash()
@@ -547,6 +552,7 @@ public sealed class BueroRepository
             """);
 
         transaction.Commit();
+        NotifyDataWritten("Papierkorb geleert");
     }
 
     public void SaveMaterial(MaterialItem item)
@@ -575,6 +581,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$orderedAt", ToDb(item.OrderedAt));
         command.Parameters.AddWithValue("$note", item.Note);
         command.ExecuteNonQuery();
+        NotifyDataWritten("Material gespeichert");
     }
 
     public void DeleteMaterial(string materialId)
@@ -584,6 +591,7 @@ public sealed class BueroRepository
         command.CommandText = "DELETE FROM Materials WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", materialId);
         command.ExecuteNonQuery();
+        NotifyDataWritten("Material geloescht");
     }
 
     public void DeleteAttachment(string attachmentId)
@@ -606,6 +614,7 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
 
         transaction.Commit();
+        NotifyDataWritten("Anhang geloescht");
     }
 
     public bool HasAttachmentPathReference(string path)
@@ -671,6 +680,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$contentHash", item.ContentHash);
         command.Parameters.AddWithValue("$addedAt", ToDb(item.AddedAt));
         command.ExecuteNonQuery();
+        NotifyDataWritten("Anhang gespeichert");
     }
 
     public void SaveDeskItem(DeskItem item)
@@ -719,6 +729,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$createdAt", ToDb(item.CreatedAt));
         command.Parameters.AddWithValue("$updatedAt", ToDb(item.UpdatedAt));
         command.ExecuteNonQuery();
+        NotifyDataWritten("Schreibtisch gespeichert");
     }
 
     public void DeleteDeskItem(string deskItemId)
@@ -731,6 +742,7 @@ public sealed class BueroRepository
             """;
         command.Parameters.AddWithValue("$id", deskItemId);
         command.ExecuteNonQuery();
+        NotifyDataWritten("Schreibtisch geloescht");
     }
 
     public void UpdateAttachmentThumbnail(string attachmentId, string thumbnailPath)
@@ -766,6 +778,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$storedPath", storedPath);
         command.Parameters.AddWithValue("$thumbnailPath", AppPaths.ToStoredPath(thumbnailPath));
         command.ExecuteNonQuery();
+        NotifyDataWritten("Anhang-Thumbnail gespeichert");
     }
 
     public AttachmentEditSession? GetLatestEditSessionForAttachment(string attachmentId)
@@ -819,6 +832,7 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$status", session.Status);
         command.Parameters.AddWithValue("$importedAt", ToDb(session.ImportedAt));
         command.ExecuteNonQuery();
+        NotifyDataWritten("Anhang-Bearbeitungssitzung gespeichert");
     }
 
     private SqliteConnection OpenConnection()
@@ -826,6 +840,11 @@ public sealed class BueroRepository
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
         return connection;
+    }
+
+    private void NotifyDataWritten(string reason)
+    {
+        DataWritten?.Invoke(reason);
     }
 
     private static void ExecuteNonQuery(SqliteConnection connection, string sql)

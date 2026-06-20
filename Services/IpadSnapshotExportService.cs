@@ -93,6 +93,11 @@ public sealed class IpadSnapshotExportService
         });
     }
 
+    public void LogDiagnostic(string message)
+    {
+        LogExportMessage(message);
+    }
+
     public async Task<SnapshotExportResult> ExportNowAsync(
         BueroRepository repository,
         string sharedDirectory,
