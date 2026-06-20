@@ -874,6 +874,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
+        _appSettings.OneDriveEditDirectory = ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
@@ -5084,6 +5085,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             return path;
         }
+    }
+
+    private static string ResolveOneDriveEditDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
+        if (!OperatingSystem.IsMacOS())
+        {
+            return trimmedPath;
+        }
+
+        if (!IsWindowsStylePath(trimmedPath))
+        {
+            return trimmedPath;
+        }
+
+        var relativePath = TryExtractOneDriveRelativePath(trimmedPath);
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var cloudStorageDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Library",
+                "CloudStorage");
+
+            if (!Directory.Exists(cloudStorageDirectory))
+            {
+                return string.Empty;
+            }
+
+            foreach (var candidateRoot in Directory.EnumerateDirectories(cloudStorageDirectory, "OneDrive*", SearchOption.TopDirectoryOnly))
+            {
+                return Path.Combine(candidateRoot, relativePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"OneDrive edit directory could not be resolved: {ex}");
+        }
+
+        return string.Empty;
+    }
+
+    private static bool IsWindowsStylePath(string path)
+    {
+        return (path.Length >= 2 && char.IsLetter(path[0]) && path[1] == ':') ||
+               path.Contains('\\', StringComparison.Ordinal) ||
+               path.StartsWith(@"\\", StringComparison.Ordinal);
+    }
+
+    private static string? TryExtractOneDriveRelativePath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        var oneDriveIndex = normalized.IndexOf("/OneDrive", StringComparison.OrdinalIgnoreCase);
+        if (oneDriveIndex < 0)
+        {
+            return null;
+        }
+
+        var suffixStart = normalized.IndexOf('/', oneDriveIndex + 1);
+        if (suffixStart < 0 || suffixStart + 1 >= normalized.Length)
+        {
+            return null;
+        }
+
+        return normalized[(suffixStart + 1)..];
     }
 
     private static bool AreSameResolvedDirectory(string firstPath, string secondPath)
