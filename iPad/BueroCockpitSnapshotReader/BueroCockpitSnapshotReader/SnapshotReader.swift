@@ -204,7 +204,8 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     private func isSnapshotPackage(_ url: URL) -> Bool {
-        url.pathExtension.caseInsensitiveCompare("bcsnapshot") == .orderedSame
+        let extensionName = url.pathExtension.lowercased()
+        return extensionName == "bcsnapshot" || extensionName == "zip"
     }
 
     private func containsSnapshotFiles(at folderURL: URL) -> Bool {

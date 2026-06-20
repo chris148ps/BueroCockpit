@@ -1,11 +1,16 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct SnapshotRootView: View {
+    private enum SnapshotImportMode {
+        case folder
+        case metadata
+        case package
+    }
+
     @StateObject private var viewModel = SnapshotBrowserViewModel()
-    @State private var isPresentingFolderPicker = false
-    @State private var isPresentingMetadataPicker = false
-    @State private var isPresentingPackagePicker = false
+    @State private var isPackageImporterPresented = false
+    @State private var activeImportMode: SnapshotImportMode?
+    @State private var importStatusMessage: String?
 
     var body: some View {
         Group {
@@ -15,7 +20,9 @@ struct SnapshotRootView: View {
             case .idle:
                 SnapshotStartView(
                     statusTitle: "Snapshot-Datei importieren",
-                    statusMessage: "Für OneDrive bitte die Snapshot-Datei importieren. Die Paketdatei latest.bcsnapshot enthält die JSON-Daten in einer Datei.",
+                    statusMessage: combinedStatusMessage(
+                        base: "Für OneDrive bitte die Snapshot-Datei importieren. Die Paketdatei latest.bcsnapshot enthält die JSON-Daten in einer Datei."
+                    ),
                     primaryButtonTitle: "Snapshot-Datei importieren",
                     primaryAction: openPackagePicker,
                     secondaryButtonTitle: "Snapshot-Ordner auswählen",
@@ -26,7 +33,9 @@ struct SnapshotRootView: View {
             case .loading:
                 SnapshotStartView(
                     statusTitle: "Snapshot wird geladen …",
-                    statusMessage: "Bitte warten. Die App liest gerade die lokalen Snapshot-Dateien ein.",
+                    statusMessage: combinedStatusMessage(
+                        base: "Bitte warten. Die App liest gerade die lokalen Snapshot-Dateien ein."
+                    ),
                     primaryButtonTitle: "Snapshot-Datei importieren",
                     primaryAction: openPackagePicker,
                     secondaryButtonTitle: "Snapshot-Ordner auswählen",
@@ -37,7 +46,7 @@ struct SnapshotRootView: View {
             case .empty(let message):
                 SnapshotStartView(
                     statusTitle: "Keine Snapshot-Daten gefunden",
-                    statusMessage: message,
+                    statusMessage: combinedStatusMessage(base: message),
                     primaryButtonTitle: "Snapshot-Datei importieren",
                     primaryAction: openPackagePicker,
                     secondaryButtonTitle: "Snapshot-Ordner auswählen",
@@ -48,7 +57,7 @@ struct SnapshotRootView: View {
             case .failure(let message):
                 SnapshotStartView(
                     statusTitle: "Snapshot konnte nicht gelesen werden",
-                    statusMessage: message,
+                    statusMessage: combinedStatusMessage(base: message),
                     primaryButtonTitle: "Snapshot-Datei importieren",
                     primaryAction: openPackagePicker,
                     secondaryButtonTitle: "Snapshot-Ordner auswählen",
@@ -59,48 +68,22 @@ struct SnapshotRootView: View {
             }
         }
         .fileImporter(
-            isPresented: $isPresentingPackagePicker,
-            allowedContentTypes: packageImportContentTypes,
+            isPresented: $isPackageImporterPresented,
+            allowedContentTypes: [.folder, .json, .item],
             allowsMultipleSelection: false
         ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else {
-                    return
-                }
-                loadPackageSnapshot(from: url)
-            case .failure(let error):
-                viewModel.present(errorMessage: error.localizedDescription)
+            defer {
+                activeImportMode = nil
             }
-        }
-        .fileImporter(
-            isPresented: $isPresentingFolderPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
+
             switch result {
             case .success(let urls):
                 guard let url = urls.first else {
                     return
                 }
-                viewModel.loadSnapshot(from: url)
+                handleImportedURL(url)
             case .failure(let error):
-                viewModel.present(errorMessage: error.localizedDescription)
-            }
-        }
-        .fileImporter(
-            isPresented: $isPresentingMetadataPicker,
-            allowedContentTypes: [.json],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else {
-                    return
-                }
-                viewModel.loadSnapshot(from: url)
-            case .failure(let error):
-                viewModel.present(errorMessage: error.localizedDescription)
+                handleImporterFailure(error)
             }
         }
     }
@@ -269,33 +252,64 @@ struct SnapshotRootView: View {
         }
     }
 
-    private var packageImportContentTypes: [UTType] {
-        var contentTypes: [UTType] = [.item]
-        if let packageType = UTType(filenameExtension: "bcsnapshot") {
-            contentTypes.insert(packageType, at: 0)
-        }
-        return contentTypes
-    }
-
     private func openFolderPicker() {
-        isPresentingFolderPicker = true
+        activeImportMode = .folder
+        importStatusMessage = "Snapshot-Ordnerauswahl wird geöffnet …"
+        isPackageImporterPresented = true
     }
 
     private func openMetadataPicker() {
-        isPresentingMetadataPicker = true
+        activeImportMode = .metadata
+        importStatusMessage = "metadata.json-Auswahl wird geöffnet …"
+        isPackageImporterPresented = true
     }
 
     private func openPackagePicker() {
-        isPresentingPackagePicker = true
+        activeImportMode = .package
+        importStatusMessage = "Snapshot-Dateiauswahl wird geöffnet …"
+        isPackageImporterPresented = true
+    }
+
+    private func handleImportedURL(_ sourceURL: URL) {
+        switch activeImportMode {
+        case .package:
+            loadPackageSnapshot(from: sourceURL)
+        case .folder, .metadata:
+            viewModel.loadSnapshot(from: sourceURL)
+        case .none:
+            viewModel.present(errorMessage: "Die Auswahl konnte nicht zugeordnet werden.")
+        }
+    }
+
+    private func handleImporterFailure(_ error: Error) {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSUserCancelledError {
+            return
+        }
+
+        viewModel.present(errorMessage: error.localizedDescription)
     }
 
     private func loadPackageSnapshot(from sourceURL: URL) {
-        guard sourceURL.pathExtension.caseInsensitiveCompare("bcsnapshot") == .orderedSame else {
+        guard isSnapshotPackage(sourceURL) else {
             viewModel.present(errorMessage: SnapshotReaderError.invalidPackageSelection.localizedDescription)
             return
         }
 
         viewModel.loadSnapshot(from: sourceURL)
+    }
+
+    private func isSnapshotPackage(_ url: URL) -> Bool {
+        let extensionName = url.pathExtension.lowercased()
+        return extensionName == "bcsnapshot" || extensionName == "zip"
+    }
+
+    private func combinedStatusMessage(base: String) -> String? {
+        guard let importStatusMessage, !importStatusMessage.isEmpty else {
+            return base
+        }
+
+        return "\(base)\n\(importStatusMessage)"
     }
 
     private var titleForSelectedCategory: String {
