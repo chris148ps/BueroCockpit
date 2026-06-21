@@ -41,6 +41,31 @@ struct SnapshotTask: Identifiable, Equatable, Sendable {
 }
 
 extension SnapshotTask {
+    var displayPrimaryTitle: String {
+        SnapshotDisplayFormatter.displayText(title)
+            ?? SnapshotDisplayFormatter.displayText(customerName)
+            ?? "Aufgabe"
+    }
+
+    var displayDetailMetadata: String? {
+        var values: [String?] = [customerName, displayStatus]
+        if SnapshotDisplayFormatter.displayText(customerName) == nil {
+            values.append(displayCategoryNames.first)
+        }
+        if values.compactMap({ SnapshotDisplayFormatter.displayText($0) }).count < 2 {
+            values.append(displayCreatedAt)
+        }
+        return SnapshotDisplayFormatter.joinedMetadata(values)
+    }
+
+    var displayListMetadata: String? {
+        SnapshotDisplayFormatter.joinedMetadata([
+            displayStatus,
+            displayCategoryNames.first,
+            displayCreatedAt.map { "Erstellt \($0)" }
+        ])
+    }
+
     var searchableText: String {
         ([title, customerName, shortText, notes, status].compactMap { $0 } + categoryNames)
             .joined(separator: "\n")
@@ -134,6 +159,14 @@ enum SnapshotDisplayFormatter {
         }
 
         return value.replacingOccurrences(of: "_", with: " ")
+    }
+
+    static func joinedMetadata(_ values: [String?]) -> String? {
+        var seen = Set<String>()
+        let items = values.compactMap(displayText).filter { value in
+            seen.insert(value.lowercased()).inserted
+        }
+        return items.isEmpty ? nil : items.joined(separator: " · ")
     }
 
     static func shortVersion(from value: String?) -> String? {

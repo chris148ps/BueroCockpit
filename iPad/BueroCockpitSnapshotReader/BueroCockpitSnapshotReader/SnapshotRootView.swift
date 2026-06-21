@@ -308,8 +308,8 @@ struct SnapshotRootView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text(task.title)
-                .font(task.customerName?.isEmpty == false ? .subheadline.weight(.semibold) : .headline)
+            Text(task.displayPrimaryTitle)
+                .font(SnapshotDisplayFormatter.displayText(task.customerName) != nil ? .subheadline.weight(.semibold) : .headline)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let shortText = SnapshotDisplayFormatter.displayText(task.shortText) {
@@ -319,41 +319,14 @@ struct SnapshotRootView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 6) {
-                    taskInfoChips(task)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    taskInfoChips(task)
-                }
+            if let metadata = task.displayListMetadata {
+                Text(metadata)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.vertical, 6)
-    }
-
-    @ViewBuilder
-    private func taskInfoChips(_ task: SnapshotTask) -> some View {
-        if let status = task.displayStatus {
-            infoChip(status, systemImage: "circle.fill")
-        }
-        ForEach(task.displayCategoryNames, id: \.self) { category in
-            infoChip(category, systemImage: "folder")
-        }
-        if let dueDate = task.displayDueDate {
-            infoChip("Fällig: \(dueDate)", systemImage: "calendar")
-        } else if let createdAt = task.displayCreatedAt {
-            infoChip("Erstellt: \(createdAt)", systemImage: "calendar")
-        }
-    }
-
-    private func infoChip(_ text: String, systemImage: String) -> some View {
-        Label(text, systemImage: systemImage)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.secondary.opacity(0.12), in: Capsule())
-            .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder

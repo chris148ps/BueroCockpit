@@ -59,7 +59,6 @@ struct SnapshotTaskDetailView: View {
                     }
                     .padding(24)
                 }
-                .navigationTitle(task.title)
             } else {
                 SnapshotEmptyStateView(
                     title: "Keine Aufgabe gewählt",
@@ -72,13 +71,13 @@ struct SnapshotTaskDetailView: View {
 
     private func header(_ task: SnapshotTask) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(task.title)
+            Text(task.displayPrimaryTitle)
                 .font(.largeTitle.bold())
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
-            if let customerName = task.customerName, !customerName.isEmpty {
-                Text(customerName)
-                    .font(.title3)
+            if let metadata = task.displayDetailMetadata {
+                Text(metadata)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
