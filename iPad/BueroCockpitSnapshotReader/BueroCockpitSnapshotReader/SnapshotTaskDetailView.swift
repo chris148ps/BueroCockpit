@@ -159,7 +159,7 @@ struct SnapshotTaskDetailView: View {
             .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(attachment.fileName)
+                Text(attachment.displayTitle)
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -196,9 +196,16 @@ struct SnapshotTaskDetailView: View {
 
     private func openAttachment(_ attachment: SnapshotAttachmentIndex) {
         guard let localURL = attachment.localURL else {
-            attachmentNotice = attachment.fileExists
+            attachmentNotice = attachment.existsInSnapshot
+                ? "Die Datei ist im Snapshot-Index enthalten, konnte lokal aber nicht geöffnet werden."
+                : attachment.fileExists
                 ? "Die Datei ist im BüroCockpit-Datenordner vorhanden, aber nicht in diesem Snapshot-Paket enthalten."
-                : "Die Datei ist im Snapshot-Index vermerkt, wurde aber nicht gefunden."
+                : attachment.exportHint ?? "Die Datei ist im Snapshot-Index vermerkt, wurde aber nicht gefunden."
+            return
+        }
+
+        guard QLPreviewController.canPreview(localURL as NSURL) else {
+            attachmentNotice = "Vorschau für diesen Dateityp nicht verfügbar."
             return
         }
 

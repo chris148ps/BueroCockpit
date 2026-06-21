@@ -378,12 +378,16 @@ final class SnapshotReader: @unchecked Sendable {
                 id: id,
                 taskId: taskId,
                 fileName: fileName,
+                originalFileName: raw.originalFileName,
+                displayName: raw.displayName,
                 relativePath: relativePath,
                 packagePath: raw.packagePath,
                 contentType: raw.contentType,
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
                 fileExists: raw.fileExists ?? false,
+                existsInSnapshot: raw.existsInSnapshot ?? (localURL != nil),
+                exportHint: raw.exportHint,
                 localURL: localURL,
                 sourceIndex: index
             )
@@ -402,12 +406,16 @@ final class SnapshotReader: @unchecked Sendable {
                 id: id,
                 taskId: taskId,
                 fileName: fileName,
+                originalFileName: raw.originalFileName,
+                displayName: raw.displayName,
                 relativePath: relativePath,
                 packagePath: raw.packagePath,
                 contentType: raw.contentType,
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
                 fileExists: raw.fileExists ?? false,
+                existsInSnapshot: raw.existsInSnapshot ?? (localURL != nil),
+                exportHint: raw.exportHint,
                 localURL: localURL,
                 sourceIndex: index
             )
@@ -493,12 +501,16 @@ private struct RawAttachment: Decodable {
     let id: String?
     let taskId: String?
     let fileName: String?
+    let originalFileName: String?
+    let displayName: String?
     let relativePath: String?
     let packagePath: String?
     let contentType: String?
     let sizeBytes: Int64?
     let isImportant: Bool?
     let fileExists: Bool?
+    let existsInSnapshot: Bool?
+    let exportHint: String?
 }
 
 private struct SnapshotPackageArchive {

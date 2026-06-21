@@ -110,17 +110,27 @@ struct SnapshotAttachmentIndex: Identifiable, Equatable, Sendable {
     let id: String
     let taskId: String
     let fileName: String
+    let originalFileName: String?
+    let displayName: String?
     let relativePath: String
     let packagePath: String?
     let contentType: String?
     let sizeBytes: Int64?
     let isImportant: Bool
     let fileExists: Bool
+    let existsInSnapshot: Bool
+    let exportHint: String?
     let localURL: URL?
     let sourceIndex: Int
 }
 
 extension SnapshotAttachmentIndex {
+    var displayTitle: String {
+        SnapshotDisplayFormatter.displayText(displayName)
+            ?? SnapshotDisplayFormatter.displayText(fileName)
+            ?? "Anhang"
+    }
+
     var displayFileType: String {
         let extensionName = (fileName as NSString).pathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
         if !extensionName.isEmpty {
@@ -157,6 +167,14 @@ extension SnapshotAttachmentIndex {
     var availabilityText: String {
         if localURL != nil {
             return "Vorschau verfügbar"
+        }
+
+        if existsInSnapshot {
+            return "Datei im Snapshot nicht lesbar"
+        }
+
+        if let exportHint = SnapshotDisplayFormatter.displayText(exportHint) {
+            return exportHint
         }
 
         if fileExists {
