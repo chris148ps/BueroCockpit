@@ -491,3 +491,8 @@ Tasks/
 AppData/
 Daten/
 Testdaten/
+
+# Xcode user/workspace files
+iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader.xcodeproj/project.xcworkspace/
+iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader.xcodeproj/xcuserdata/
+*.xcuserstate
