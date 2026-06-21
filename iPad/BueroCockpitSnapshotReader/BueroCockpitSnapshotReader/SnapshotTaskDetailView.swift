@@ -1,8 +1,11 @@
 import SwiftUI
+import QuickLook
 
 struct SnapshotTaskDetailView: View {
     let task: SnapshotTask?
     let attachments: [SnapshotAttachmentIndex]
+    @State private var previewItem: SnapshotPreviewItem?
+    @State private var attachmentNotice: String?
 
     var body: some View {
         Group {
@@ -39,19 +42,14 @@ struct SnapshotTaskDetailView: View {
                         }
                         if !attachments.isEmpty {
                             section(title: "Anhänge") {
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 10) {
                                     ForEach(attachments) { attachment in
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(attachment.fileName)
-                                                .font(.headline)
-                                                .fixedSize(horizontal: false, vertical: true)
-                                            if attachment.isImportant {
-                                                Label("Wichtiger Anhang", systemImage: "exclamationmark.circle")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
+                                        Button {
+                                            openAttachment(attachment)
+                                        } label: {
+                                            attachmentRow(attachment)
                                         }
-                                        .padding(.vertical, 4)
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
@@ -66,6 +64,23 @@ struct SnapshotTaskDetailView: View {
                     systemImage: "doc.text.magnifyingglass"
                 )
             }
+        }
+        .sheet(item: $previewItem) { item in
+            SnapshotQuickLookPreview(url: item.url)
+        }
+        .alert("Anhang kann nicht geöffnet werden", isPresented: Binding(
+            get: { attachmentNotice != nil },
+            set: { isPresented in
+                if !isPresented {
+                    attachmentNotice = nil
+                }
+            }
+        )) {
+            Button("OK", role: .cancel) {
+                attachmentNotice = nil
+            }
+        } message: {
+            Text(attachmentNotice ?? "")
         }
     }
 
@@ -130,6 +145,104 @@ struct SnapshotTaskDetailView: View {
             task.displayUpdatedAt,
             task.displayMaterialOrderedAt
         ].contains(where: { $0 != nil })
+    }
+
+    private func attachmentRow(_ attachment: SnapshotAttachmentIndex) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+                Image(systemName: attachment.systemImageName)
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(attachment.fileName)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    Text(attachment.displayFileType)
+                    if let size = attachment.displaySize {
+                        Text(size)
+                    }
+                    Text(attachment.availabilityText)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                if attachment.isImportant {
+                    Label("Wichtiger Anhang", systemImage: "exclamationmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: attachment.canPreview ? "chevron.right" : "exclamationmark.circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func openAttachment(_ attachment: SnapshotAttachmentIndex) {
+        guard let localURL = attachment.localURL else {
+            attachmentNotice = attachment.fileExists
+                ? "Die Datei ist im BüroCockpit-Datenordner vorhanden, aber nicht in diesem Snapshot-Paket enthalten."
+                : "Die Datei ist im Snapshot-Index vermerkt, wurde aber nicht gefunden."
+            return
+        }
+
+        previewItem = SnapshotPreviewItem(url: localURL)
+    }
+}
+
+private struct SnapshotPreviewItem: Identifiable {
+    let url: URL
+    var id: String { url.path }
+}
+
+private struct SnapshotQuickLookPreview: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {
+        context.coordinator.url = url
+        uiViewController.reloadData()
+    }
+
+    final class Coordinator: NSObject, QLPreviewControllerDataSource {
+        var url: URL
+
+        init(url: URL) {
+            self.url = url
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+            1
+        }
+
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            url as NSURL
+        }
     }
 }
 

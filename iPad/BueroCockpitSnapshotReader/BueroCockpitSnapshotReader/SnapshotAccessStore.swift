@@ -25,6 +25,15 @@ enum SnapshotLocalStorage {
         return currentSnapshotsDirectory
     }
 
+    static func attachmentsDirectory(forSnapshotFileName fileName: String) throws -> URL {
+        let safeSnapshotName = sanitizedDirectoryName(from: fileName)
+        let directory = try snapshotsDirectory()
+            .appendingPathComponent("Attachments", isDirectory: true)
+            .appendingPathComponent(safeSnapshotName, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     private static func migrateLegacySnapshots(from legacyDirectory: URL, to currentDirectory: URL, fileManager: FileManager) throws {
         guard fileManager.fileExists(atPath: legacyDirectory.path) else {
             return
@@ -41,6 +50,15 @@ enum SnapshotLocalStorage {
             }
             try fileManager.moveItem(at: sourceURL, to: destinationURL)
         }
+    }
+
+    private static func sanitizedDirectoryName(from value: String) -> String {
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+            .union(.controlCharacters)
+            .union(.whitespacesAndNewlines)
+        let components = value.components(separatedBy: invalidCharacters).filter { !$0.isEmpty }
+        let result = components.joined(separator: "_")
+        return result.isEmpty ? "Snapshot" : result
     }
 }
 

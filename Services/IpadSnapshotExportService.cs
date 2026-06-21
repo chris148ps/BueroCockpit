@@ -243,13 +243,22 @@ public sealed class IpadSnapshotExportService
             {
                 var relativePath = AppPaths.ToStoredPath(attachment.StoredPath);
                 var resolvedPath = AppPaths.ResolveTaskAttachmentPath(attachment.TaskId, attachment.StoredPath, attachment.FileName);
+                var fileExists = File.Exists(resolvedPath);
+                var packagePath = fileExists
+                    ? CreateAttachmentPackagePath(attachment.Id, attachment.FileName)
+                    : null;
+                var sizeBytes = fileExists ? TryGetFileSize(resolvedPath) : null;
                 attachmentIndex.Add(new SnapshotAttachmentIndex(
                     attachment.Id,
                     attachment.TaskId,
                     attachment.FileName,
                     relativePath,
+                    packagePath,
+                    string.IsNullOrWhiteSpace(attachment.FileType) ? null : attachment.FileType,
+                    sizeBytes,
                     false,
-                    File.Exists(resolvedPath)));
+                    fileExists,
+                    fileExists ? resolvedPath : null));
             }
         }
 
@@ -292,13 +301,13 @@ public sealed class IpadSnapshotExportService
         File.WriteAllText(path, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    private static void WriteSnapshotPackage<TMetadata, TCategory, TTask, TAttachment>(
+    private static void WriteSnapshotPackage<TMetadata, TCategory, TTask>(
         string tempPackagePath,
         string finalPackagePath,
         TMetadata metadata,
         IReadOnlyCollection<TCategory> categories,
         IReadOnlyCollection<TTask> tasks,
-        IReadOnlyCollection<TAttachment> attachments)
+        IReadOnlyCollection<SnapshotAttachmentIndex> attachments)
     {
         if (File.Exists(tempPackagePath))
         {
@@ -314,6 +323,15 @@ public sealed class IpadSnapshotExportService
                 WriteZipJsonEntry(archive, "categories.json", categories);
                 WriteZipJsonEntry(archive, "tasks.json", tasks);
                 WriteZipJsonEntry(archive, "attachments-index.json", attachments);
+                foreach (var attachment in attachments)
+                {
+                    if (!string.IsNullOrWhiteSpace(attachment.PackagePath) &&
+                        !string.IsNullOrWhiteSpace(attachment.ResolvedPath) &&
+                        File.Exists(attachment.ResolvedPath))
+                    {
+                        TryWriteZipFileEntry(archive, attachment.PackagePath, attachment.ResolvedPath);
+                    }
+                }
             }
 
             if (File.Exists(finalPackagePath))
@@ -340,6 +358,74 @@ public sealed class IpadSnapshotExportService
         var entry = archive.CreateEntry(entryName, CompressionLevel.NoCompression);
         using var stream = entry.Open();
         stream.Write(bytes, 0, bytes.Length);
+    }
+
+    private static long? TryGetFileSize(string sourcePath)
+    {
+        try
+        {
+            return new FileInfo(sourcePath).Length;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void TryWriteZipFileEntry(ZipArchive archive, string entryName, string sourcePath)
+    {
+        try
+        {
+            WriteZipFileEntry(archive, entryName, sourcePath);
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad snapshot attachment skipped: {sourcePath} | {ex.Message}");
+        }
+    }
+
+    private static void WriteZipFileEntry(ZipArchive archive, string entryName, string sourcePath)
+    {
+        using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var entry = archive.CreateEntry(entryName, CompressionLevel.NoCompression);
+        using var entryStream = entry.Open();
+        sourceStream.CopyTo(entryStream);
+    }
+
+    private static string CreateAttachmentPackagePath(string attachmentId, string fileName)
+    {
+        var safeAttachmentId = SanitizeZipPathSegment(attachmentId);
+        var safeFileName = SanitizeZipPathSegment(Path.GetFileName(fileName));
+        if (string.IsNullOrWhiteSpace(safeAttachmentId))
+        {
+            safeAttachmentId = Guid.NewGuid().ToString("N");
+        }
+
+        if (string.IsNullOrWhiteSpace(safeFileName))
+        {
+            safeFileName = "Anhang";
+        }
+
+        return $"attachments/{safeAttachmentId}/{safeFileName}";
+    }
+
+    private static string SanitizeZipPathSegment(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars()
+            .Concat(new[] { '/', '\\', ':', '*', '?', '"', '<', '>', '|' })
+            .ToHashSet();
+        var builder = new StringBuilder(value.Trim().Length);
+        foreach (var character in value.Trim())
+        {
+            builder.Append(invalidChars.Contains(character) || char.IsControl(character) ? '_' : character);
+        }
+
+        return builder.ToString().Trim('_');
     }
 
     private static void TryDeleteFile(string path)
@@ -417,8 +503,12 @@ public sealed class IpadSnapshotExportService
         string TaskId,
         string FileName,
         string RelativePath,
+        string? PackagePath,
+        string? ContentType,
+        long? SizeBytes,
         bool IsImportant,
-        bool FileExists);
+        bool FileExists,
+        [property: JsonIgnore] string? ResolvedPath);
 
     private static List<SnapshotCategory> GetCategoriesForSnapshot(BueroRepository repository)
     {

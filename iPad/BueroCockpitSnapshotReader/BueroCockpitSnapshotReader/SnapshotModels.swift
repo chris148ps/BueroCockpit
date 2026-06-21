@@ -111,9 +111,64 @@ struct SnapshotAttachmentIndex: Identifiable, Equatable, Sendable {
     let taskId: String
     let fileName: String
     let relativePath: String
+    let packagePath: String?
+    let contentType: String?
+    let sizeBytes: Int64?
     let isImportant: Bool
     let fileExists: Bool
+    let localURL: URL?
     let sourceIndex: Int
+}
+
+extension SnapshotAttachmentIndex {
+    var displayFileType: String {
+        let extensionName = (fileName as NSString).pathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !extensionName.isEmpty {
+            return extensionName.uppercased()
+        }
+
+        if let contentType = SnapshotDisplayFormatter.displayText(contentType) {
+            return contentType
+        }
+
+        return "Datei"
+    }
+
+    var systemImageName: String {
+        let extensionName = (fileName as NSString).pathExtension.lowercased()
+        switch extensionName {
+        case "pdf":
+            return "doc.richtext"
+        case "jpg", "jpeg", "png", "heic", "heif", "gif", "tif", "tiff", "bmp":
+            return "photo"
+        default:
+            return "doc"
+        }
+    }
+
+    var displaySize: String? {
+        guard let sizeBytes else {
+            return nil
+        }
+
+        return ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+    }
+
+    var availabilityText: String {
+        if localURL != nil {
+            return "Vorschau verfügbar"
+        }
+
+        if fileExists {
+            return "Datei nicht im Snapshot enthalten"
+        }
+
+        return "Datei fehlt"
+    }
+
+    var canPreview: Bool {
+        localURL != nil
+    }
 }
 
 struct SnapshotDocument: Equatable, Sendable {

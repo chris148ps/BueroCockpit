@@ -78,21 +78,7 @@ final class SnapshotReader: @unchecked Sendable {
             )
         }
 
-        let normalizedAttachments: [SnapshotAttachmentIndex] = attachments.enumerated().compactMap { index, raw -> SnapshotAttachmentIndex? in
-            guard let id = raw.id, let taskId = raw.taskId, let fileName = raw.fileName, let relativePath = raw.relativePath else {
-                return nil
-            }
-
-            return SnapshotAttachmentIndex(
-                id: id,
-                taskId: taskId,
-                fileName: fileName,
-                relativePath: relativePath,
-                isImportant: raw.isImportant ?? false,
-                fileExists: raw.fileExists ?? false,
-                sourceIndex: index
-            )
-        }
+        let normalizedAttachments = normalizeAttachments(attachments, folderURL: resolvedSnapshotURL)
 
         return SnapshotDocument(
             metadata: metadata,
@@ -164,21 +150,7 @@ final class SnapshotReader: @unchecked Sendable {
                 )
             }
 
-            let normalizedAttachments: [SnapshotAttachmentIndex] = attachments.enumerated().compactMap { index, raw -> SnapshotAttachmentIndex? in
-                guard let id = raw.id, let taskId = raw.taskId, let fileName = raw.fileName, let relativePath = raw.relativePath else {
-                    return nil
-                }
-
-                return SnapshotAttachmentIndex(
-                    id: id,
-                    taskId: taskId,
-                    fileName: fileName,
-                    relativePath: relativePath,
-                    isImportant: raw.isImportant ?? false,
-                    fileExists: raw.fileExists ?? false,
-                    sourceIndex: index
-                )
-            }
+            let normalizedAttachments = normalizeAttachments(attachments, archive: archive, sourceURL: sourceURL)
 
             return SnapshotDocument(
                 metadata: metadata,
@@ -390,6 +362,91 @@ final class SnapshotReader: @unchecked Sendable {
             return []
         }
     }
+
+    private func normalizeAttachments(_ attachments: [RawAttachment], folderURL: URL) -> [SnapshotAttachmentIndex] {
+        attachments.enumerated().compactMap { index, raw -> SnapshotAttachmentIndex? in
+            guard let id = raw.id, let taskId = raw.taskId, let fileName = raw.fileName, let relativePath = raw.relativePath else {
+                return nil
+            }
+
+            let localURL = raw.packagePath.flatMap { packagePath -> URL? in
+                let candidateURL = folderURL.appendingPathComponent(packagePath)
+                return FileManager.default.fileExists(atPath: candidateURL.path) ? candidateURL : nil
+            }
+
+            return SnapshotAttachmentIndex(
+                id: id,
+                taskId: taskId,
+                fileName: fileName,
+                relativePath: relativePath,
+                packagePath: raw.packagePath,
+                contentType: raw.contentType,
+                sizeBytes: raw.sizeBytes,
+                isImportant: raw.isImportant ?? false,
+                fileExists: raw.fileExists ?? false,
+                localURL: localURL,
+                sourceIndex: index
+            )
+        }
+    }
+
+    private func normalizeAttachments(_ attachments: [RawAttachment], archive: SnapshotPackageArchive, sourceURL: URL) -> [SnapshotAttachmentIndex] {
+        attachments.enumerated().compactMap { index, raw -> SnapshotAttachmentIndex? in
+            guard let id = raw.id, let taskId = raw.taskId, let fileName = raw.fileName, let relativePath = raw.relativePath else {
+                return nil
+            }
+
+            let localURL = extractAttachment(raw, archive: archive, sourceURL: sourceURL)
+
+            return SnapshotAttachmentIndex(
+                id: id,
+                taskId: taskId,
+                fileName: fileName,
+                relativePath: relativePath,
+                packagePath: raw.packagePath,
+                contentType: raw.contentType,
+                sizeBytes: raw.sizeBytes,
+                isImportant: raw.isImportant ?? false,
+                fileExists: raw.fileExists ?? false,
+                localURL: localURL,
+                sourceIndex: index
+            )
+        }
+    }
+
+    private func extractAttachment(_ raw: RawAttachment, archive: SnapshotPackageArchive, sourceURL: URL) -> URL? {
+        guard let id = raw.id,
+              let fileName = raw.fileName,
+              let packagePath = raw.packagePath,
+              let data = archive.data(named: packagePath) else {
+            return nil
+        }
+
+        do {
+            let attachmentsDirectory = try SnapshotLocalStorage.attachmentsDirectory(forSnapshotFileName: sourceURL.lastPathComponent)
+            let attachmentDirectory = attachmentsDirectory.appendingPathComponent(sanitizedPathComponent(id), isDirectory: true)
+            try FileManager.default.createDirectory(at: attachmentDirectory, withIntermediateDirectories: true)
+            let destinationURL = attachmentDirectory.appendingPathComponent(sanitizedFileName(fileName), isDirectory: false)
+            try data.write(to: destinationURL, options: [.atomic])
+            return destinationURL
+        } catch {
+            return nil
+        }
+    }
+
+    private func sanitizedFileName(_ value: String) -> String {
+        let fileName = sanitizedPathComponent(value)
+        return fileName.isEmpty ? "Anhang" : fileName
+    }
+
+    private func sanitizedPathComponent(_ value: String) -> String {
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+            .union(.controlCharacters)
+            .union(.newlines)
+        let components = value.components(separatedBy: invalidCharacters).filter { !$0.isEmpty }
+        let result = components.joined(separator: "_").trimmingCharacters(in: .whitespacesAndNewlines)
+        return result.isEmpty ? "Anhang" : result
+    }
 }
 
 private extension JSONDecoder {
@@ -437,6 +494,9 @@ private struct RawAttachment: Decodable {
     let taskId: String?
     let fileName: String?
     let relativePath: String?
+    let packagePath: String?
+    let contentType: String?
+    let sizeBytes: Int64?
     let isImportant: Bool?
     let fileExists: Bool?
 }

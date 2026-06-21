@@ -100,12 +100,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func attachments(for task: SnapshotTask) -> [SnapshotAttachmentIndex] {
+        let directMatches = attachments.filter { $0.taskId == task.id }
         guard !task.attachmentRefs.isEmpty else {
-            return []
+            return directMatches.sorted { $0.sourceIndex < $1.sourceIndex }
         }
 
-        let attachmentLookup = Dictionary(uniqueKeysWithValues: attachments.map { ($0.id, $0) })
-        return task.attachmentRefs.compactMap { attachmentLookup[$0] }
+        let attachmentLookup = Dictionary(grouping: attachments, by: \.id)
+        let refMatches = task.attachmentRefs.compactMap { attachmentLookup[$0]?.first }
+        let missingDirectMatches = directMatches.filter { directMatch in
+            !refMatches.contains(where: { $0.id == directMatch.id })
+        }
+        return (refMatches + missingDirectMatches).sorted { $0.sourceIndex < $1.sourceIndex }
     }
 
     func taskCount(in categoryID: String) -> Int {
