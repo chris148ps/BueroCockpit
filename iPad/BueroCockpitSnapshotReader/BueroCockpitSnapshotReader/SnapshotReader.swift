@@ -289,17 +289,7 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     private func localSnapshotsDirectory() throws -> URL {
-        let applicationSupportURL = try FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let appDirectory = applicationSupportURL.appendingPathComponent("BueroCockpitSnapshotReader", isDirectory: true)
-        let snapshotsURL = appDirectory.appendingPathComponent("Snapshots", isDirectory: true)
-        try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true, attributes: nil)
-        try FileManager.default.createDirectory(at: snapshotsURL, withIntermediateDirectories: true, attributes: nil)
-        return snapshotsURL
+        try SnapshotLocalStorage.snapshotsDirectory()
     }
 
     private func resolveSnapshotDirectory(from sourceURL: URL) throws -> URL {

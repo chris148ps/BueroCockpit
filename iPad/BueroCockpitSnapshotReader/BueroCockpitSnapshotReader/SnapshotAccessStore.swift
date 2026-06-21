@@ -1,5 +1,49 @@
 import Foundation
 
+enum SnapshotLocalStorage {
+    private static let currentDirectoryName = "BueroCockpit"
+    private static let legacyDirectoryName = "BueroCockpitSnapshotReader"
+
+    static func snapshotsDirectory() throws -> URL {
+        let fileManager = FileManager.default
+        let applicationSupportURL = try fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let currentAppDirectory = applicationSupportURL.appendingPathComponent(currentDirectoryName, isDirectory: true)
+        let currentSnapshotsDirectory = currentAppDirectory.appendingPathComponent("Snapshots", isDirectory: true)
+        try fileManager.createDirectory(at: currentSnapshotsDirectory, withIntermediateDirectories: true)
+        try migrateLegacySnapshots(
+            from: applicationSupportURL
+                .appendingPathComponent(legacyDirectoryName, isDirectory: true)
+                .appendingPathComponent("Snapshots", isDirectory: true),
+            to: currentSnapshotsDirectory,
+            fileManager: fileManager
+        )
+        return currentSnapshotsDirectory
+    }
+
+    private static func migrateLegacySnapshots(from legacyDirectory: URL, to currentDirectory: URL, fileManager: FileManager) throws {
+        guard fileManager.fileExists(atPath: legacyDirectory.path) else {
+            return
+        }
+
+        for sourceURL in try fileManager.contentsOfDirectory(
+            at: legacyDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            let destinationURL = currentDirectory.appendingPathComponent(sourceURL.lastPathComponent)
+            guard !fileManager.fileExists(atPath: destinationURL.path) else {
+                continue
+            }
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+        }
+    }
+}
+
 enum SnapshotAccessError: LocalizedError, Sendable {
     case noSavedLocation
     case bookmarkCreationFailed
@@ -105,15 +149,7 @@ final class SnapshotAccessStore: @unchecked Sendable {
             throw SnapshotAccessError.noCachedSnapshot
         }
 
-        let applicationSupportURL = try FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let url = applicationSupportURL
-            .appendingPathComponent("BueroCockpitSnapshotReader", isDirectory: true)
-            .appendingPathComponent("Snapshots", isDirectory: true)
+        let url = try SnapshotLocalStorage.snapshotsDirectory()
             .appendingPathComponent(fileName, isDirectory: false)
 
         guard FileManager.default.fileExists(atPath: url.path) else {
