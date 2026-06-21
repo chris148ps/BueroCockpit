@@ -101,6 +101,14 @@ final class SnapshotReader: @unchecked Sendable {
         )
     }
 
+    func readCachedSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
+        guard isSnapshotPackage(sourceURL) else {
+            throw SnapshotReaderError.invalidPackageSelection
+        }
+
+        return try readSnapshotPackage(from: sourceURL)
+    }
+
     private func readSnapshotPackage(from sourceURL: URL) throws -> SnapshotDocument {
         do {
             let archive = try SnapshotPackageArchive(contentsOf: sourceURL)
@@ -195,10 +203,6 @@ final class SnapshotReader: @unchecked Sendable {
         let sourceInfo = try? FileManager.default.attributesOfItem(atPath: sourceURL.path)
         let sourceExists = FileManager.default.fileExists(atPath: sourceURL.path)
         let sourceSize = (sourceInfo?[.size] as? NSNumber)?.int64Value
-
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            try FileManager.default.removeItem(at: destinationURL)
-        }
 
         var coordinationError: NSError?
         var readError: Error?

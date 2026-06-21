@@ -1,6 +1,19 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SnapshotRootView: View {
+    private enum PresentedSheet: Identifiable, Equatable {
+        case setup
+        case settings
+
+        var id: String {
+            switch self {
+            case .setup: "setup"
+            case .settings: "settings"
+            }
+        }
+    }
+
     private enum SnapshotImportMode {
         case folder
         case metadata
@@ -11,10 +24,84 @@ struct SnapshotRootView: View {
     @State private var isPackageImporterPresented = false
     @State private var activeImportMode: SnapshotImportMode?
     @State private var importStatusMessage: String?
+    @State private var presentedSheet: PresentedSheet?
+    @State private var openImporterAfterSheetDismissal = false
 
     var body: some View {
         Group {
-            switch viewModel.loadState {
+            if viewModel.setupRequired && viewModel.document == nil && viewModel.loadState != .loading {
+                setupView
+            } else {
+                contentView
+            }
+        }
+        .task {
+            viewModel.restoreAtLaunch()
+        }
+        .onChange(of: viewModel.setupRequired) { _, isRequired in
+            if isRequired, viewModel.document != nil {
+                presentedSheet = .setup
+            }
+        }
+        .fileImporter(
+            isPresented: $isPackageImporterPresented,
+            allowedContentTypes: allowedImportContentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            defer {
+                activeImportMode = nil
+                importStatusMessage = nil
+            }
+
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else {
+                    return
+                }
+                handleImportedURL(url)
+            case .failure(let error):
+                handleImporterFailure(error)
+            }
+        }
+        .sheet(item: $presentedSheet, onDismiss: {
+            if openImporterAfterSheetDismissal {
+                openImporterAfterSheetDismissal = false
+                openPackagePicker()
+            }
+        }) { sheet in
+            switch sheet {
+            case .setup:
+                setupView
+            case .settings:
+                SnapshotSettingsView(
+                    fileName: viewModel.loadedFileName,
+                    snapshotDate: viewModel.metadata?.displayExportedAt,
+                    categoryCount: viewModel.document?.categories.count ?? 0,
+                    taskCount: viewModel.tasks.count,
+                    statusMessage: viewModel.noticeMessage,
+                    onRefresh: {
+                        presentedSheet = nil
+                        viewModel.refreshSnapshot()
+                    },
+                    onChooseLocation: {
+                        openImporterAfterSheetDismissal = true
+                        presentedSheet = nil
+                    },
+                    onReset: {
+                        viewModel.resetSetup()
+                        presentedSheet = nil
+                    },
+                    onDismiss: {
+                        presentedSheet = nil
+                    }
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        switch viewModel.loadState {
             case .ready:
                 browserView
             case .idle:
@@ -65,27 +152,22 @@ struct SnapshotRootView: View {
                     tertiaryButtonTitle: "metadata.json auswählen",
                     tertiaryAction: openMetadataPicker
                 )
-            }
         }
-        .fileImporter(
-            isPresented: $isPackageImporterPresented,
-            allowedContentTypes: [.folder, .json, .item],
-            allowsMultipleSelection: false
-        ) { result in
-            defer {
-                activeImportMode = nil
-            }
+    }
 
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else {
-                    return
+    private var setupView: some View {
+        SnapshotSetupView(
+            message: viewModel.setupMessage,
+            statusMessage: importStatusMessage,
+            onSelectSnapshot: {
+                if presentedSheet == .setup {
+                    openImporterAfterSheetDismissal = true
+                    presentedSheet = nil
+                } else {
+                    openPackagePicker()
                 }
-                handleImportedURL(url)
-            case .failure(let error):
-                handleImporterFailure(error)
             }
-        }
+        )
     }
 
     private var browserView: some View {
@@ -101,20 +183,29 @@ struct SnapshotRootView: View {
             }
         )
         .navigationSplitViewStyle(.balanced)
+        .safeAreaInset(edge: .top) {
+            if let notice = viewModel.noticeMessage {
+                Label(notice, systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.thinMaterial)
+            }
+        }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Neuen Snapshot importieren") {
+                Button("Snapshot aktualisieren") {
+                    viewModel.refreshSnapshot()
+                }
+
+                Button("Anderen Snapshot auswählen") {
                     openPackagePicker()
                 }
 
-                Menu("Weitere Importoptionen") {
-                    Button("Snapshot-Ordner auswählen") {
-                        openFolderPicker()
-                    }
-
-                    Button("metadata.json auswählen") {
-                        openMetadataPicker()
-                    }
+                Button("Einrichtung") {
+                    presentedSheet = .settings
                 }
             }
         }
@@ -315,21 +406,34 @@ struct SnapshotRootView: View {
     }
 
     private func openFolderPicker() {
-        activeImportMode = .folder
-        importStatusMessage = "Snapshot-Ordnerauswahl wird geöffnet …"
-        isPackageImporterPresented = true
+        presentImporter(
+            mode: .folder,
+            statusMessage: "Snapshot-Ordnerauswahl wird geöffnet …"
+        )
     }
 
     private func openMetadataPicker() {
-        activeImportMode = .metadata
-        importStatusMessage = "metadata.json-Auswahl wird geöffnet …"
-        isPackageImporterPresented = true
+        presentImporter(
+            mode: .metadata,
+            statusMessage: "metadata.json-Auswahl wird geöffnet …"
+        )
     }
 
     private func openPackagePicker() {
-        activeImportMode = .package
-        importStatusMessage = "Snapshot-Dateiauswahl wird geöffnet …"
-        isPackageImporterPresented = true
+        presentImporter(
+            mode: .package,
+            statusMessage: "Dateiauswahl wird geöffnet …"
+        )
+    }
+
+    private func presentImporter(mode: SnapshotImportMode, statusMessage: String) {
+        activeImportMode = mode
+        importStatusMessage = statusMessage
+
+        Task { @MainActor in
+            await Task.yield()
+            isPackageImporterPresented = true
+        }
     }
 
     private func handleImportedURL(_ sourceURL: URL) {
@@ -337,7 +441,7 @@ struct SnapshotRootView: View {
         case .package:
             loadPackageSnapshot(from: sourceURL)
         case .folder, .metadata:
-            viewModel.loadSnapshot(from: sourceURL)
+            viewModel.importSnapshot(from: sourceURL)
         case .none:
             viewModel.present(errorMessage: "Die Auswahl konnte nicht zugeordnet werden.")
         }
@@ -358,7 +462,7 @@ struct SnapshotRootView: View {
             return
         }
 
-        viewModel.loadSnapshot(from: sourceURL)
+        viewModel.importSnapshot(from: sourceURL)
     }
 
     private func isSnapshotPackage(_ url: URL) -> Bool {
@@ -372,6 +476,17 @@ struct SnapshotRootView: View {
         }
 
         return "\(base)\n\(importStatusMessage)"
+    }
+
+    private var allowedImportContentTypes: [UTType] {
+        switch activeImportMode {
+        case .folder:
+            return [.folder]
+        case .metadata:
+            return [.json]
+        case .package, .none:
+            return [UTType(filenameExtension: "bcsnapshot") ?? .data, .zip]
+        }
     }
 
 }

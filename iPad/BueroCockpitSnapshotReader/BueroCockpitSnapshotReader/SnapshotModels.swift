@@ -1,6 +1,6 @@
 import Foundation
 
-struct SnapshotMetadata: Equatable {
+struct SnapshotMetadata: Equatable, Sendable {
     let formatVersion: Int?
     let exportedAt: String?
     let appName: String?
@@ -9,20 +9,20 @@ struct SnapshotMetadata: Equatable {
     let source: String?
 }
 
-struct SnapshotCategory: Identifiable, Equatable {
+struct SnapshotCategory: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let order: Int?
 }
 
-struct SnapshotCategoryGroup: Identifiable, Equatable {
+struct SnapshotCategoryGroup: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let categoryIDs: [String]
     let order: Int
 }
 
-struct SnapshotTask: Identifiable, Equatable {
+struct SnapshotTask: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let customerName: String?
@@ -75,7 +75,7 @@ extension SnapshotTask {
     }
 }
 
-struct SnapshotAttachmentIndex: Identifiable, Equatable {
+struct SnapshotAttachmentIndex: Identifiable, Equatable, Sendable {
     let id: String
     let taskId: String
     let fileName: String
@@ -85,7 +85,7 @@ struct SnapshotAttachmentIndex: Identifiable, Equatable {
     let sourceIndex: Int
 }
 
-struct SnapshotDocument: Equatable {
+struct SnapshotDocument: Equatable, Sendable {
     let metadata: SnapshotMetadata
     let categories: [SnapshotCategory]
     let tasks: [SnapshotTask]
@@ -193,7 +193,7 @@ enum SnapshotDisplayFormatter {
     }
 }
 
-enum SnapshotLoadState: Equatable {
+enum SnapshotLoadState: Equatable, Sendable {
     case idle
     case loading
     case ready

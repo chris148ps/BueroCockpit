@@ -7,6 +7,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var loadState: SnapshotLoadState = .idle
     @Published private(set) var document: SnapshotDocument?
     @Published private(set) var selectedFolderURL: URL?
+    @Published private(set) var setupRequired = false
+    @Published private(set) var setupMessage: String?
+    @Published private(set) var noticeMessage: String?
     @Published var selectedCategoryID: String = "__all_tasks__"
     @Published var selectedTaskID: String?
     @Published var searchText: String = "" {
@@ -18,9 +21,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     private let reader: SnapshotReader
+    private let accessStore: SnapshotAccessStore
+    private var didAttemptStartupLoad = false
 
-    init(reader: SnapshotReader = SnapshotReader()) {
+    init(
+        reader: SnapshotReader = SnapshotReader(),
+        accessStore: SnapshotAccessStore = SnapshotAccessStore()
+    ) {
         self.reader = reader
+        self.accessStore = accessStore
+        setupRequired = !accessStore.isSetupCompleted
+        loadState = accessStore.isSetupCompleted ? .loading : .idle
     }
 
     var metadata: SnapshotMetadata? {
@@ -70,19 +81,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return filteredTasks.first(where: { $0.id == selectedTaskID }) ?? filteredTasks.first
     }
 
-    func loadSnapshot(from sourceURL: URL) {
-        searchText = ""
-        loadState = .loading
-        Task { [reader] in
-            do {
-                let document = try reader.readSnapshot(from: sourceURL)
-                await apply(document: document)
-            } catch {
-                await present(error: error)
-            }
-        }
-    }
-
     func selectAllTasks() {
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = filteredTasks.first?.id
@@ -130,10 +128,190 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var loadedFileName: String? {
-        document?.sourceURL.lastPathComponent
+        accessStore.savedFileName ?? document?.sourceURL.lastPathComponent
     }
 
-    private func apply(document: SnapshotDocument) async {
+    func restoreAtLaunch() {
+        guard !didAttemptStartupLoad else {
+            return
+        }
+
+        didAttemptStartupLoad = true
+        guard accessStore.hasSavedLocation else {
+            setupRequired = true
+            loadState = .idle
+            return
+        }
+
+        loadSavedSnapshot()
+    }
+
+    func importSnapshot(from sourceURL: URL) {
+        let hadLoadedDocument = document != nil
+        searchText = ""
+        noticeMessage = nil
+        loadState = .loading
+
+        let reader = self.reader
+        let accessStore = self.accessStore
+        Task {
+            do {
+                let document = try await Task.detached(priority: .userInitiated) {
+                    let bookmark = try accessStore.makeBookmark(for: sourceURL)
+                    let document = try reader.readSnapshot(from: sourceURL)
+                    accessStore.save(bookmark: bookmark, fileName: sourceURL.lastPathComponent)
+                    return document
+                }.value
+
+                setupRequired = false
+                setupMessage = nil
+                apply(document: document)
+            } catch {
+                let message = Self.displayMessage(for: error)
+                if hadLoadedDocument {
+                    setupRequired = false
+                    setupMessage = nil
+                    noticeMessage = "Der ausgewählte Snapshot konnte nicht geladen werden: \(message)"
+                    loadState = .ready
+                } else {
+                    setupRequired = true
+                    setupMessage = message
+                    present(error: error)
+                }
+            }
+        }
+    }
+
+    func refreshSnapshot() {
+        guard accessStore.hasSavedLocation else {
+            setupRequired = true
+            setupMessage = "Bitte wähle zuerst einen Snapshot aus."
+            return
+        }
+
+        loadSavedSnapshot()
+    }
+
+    func resetSetup() {
+        accessStore.reset()
+        document = nil
+        selectedFolderURL = nil
+        selectedCategoryID = Self.allTasksCategoryID
+        selectedTaskID = nil
+        searchText = ""
+        noticeMessage = nil
+        setupMessage = nil
+        setupRequired = true
+        loadState = .idle
+    }
+
+    func dismissSetup() {
+        if document != nil {
+            setupRequired = false
+        }
+    }
+
+    private func loadSavedSnapshot() {
+        searchText = ""
+        loadState = .loading
+
+        let reader = self.reader
+        let accessStore = self.accessStore
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) {
+                Self.loadSavedSnapshot(reader: reader, accessStore: accessStore)
+            }.value
+
+            switch outcome {
+            case .loaded(let document, let notice, let requiresSetup, let message):
+                noticeMessage = notice
+                setupRequired = requiresSetup
+                setupMessage = message
+                apply(document: document)
+            case .failure(let message, let requiresSetup):
+                noticeMessage = nil
+                setupRequired = requiresSetup
+                setupMessage = requiresSetup ? message : nil
+                if document != nil {
+                    noticeMessage = message
+                    loadState = .ready
+                } else {
+                    present(errorMessage: message, keepSetupState: true)
+                }
+            }
+        }
+    }
+
+    nonisolated private static func loadSavedSnapshot(
+        reader: SnapshotReader,
+        accessStore: SnapshotAccessStore
+    ) -> SavedSnapshotLoadOutcome {
+        do {
+            let location = try accessStore.resolveSavedLocation()
+            if location.isStale {
+                return cachedOutcome(
+                    reader: reader,
+                    accessStore: accessStore,
+                    failureMessage: SnapshotAccessError.staleBookmark.localizedDescription,
+                    requiresSetup: true
+                )
+            }
+
+            do {
+                return .loaded(
+                    try reader.readSnapshot(from: location.url),
+                    notice: nil,
+                    requiresSetup: false,
+                    setupMessage: nil
+                )
+            } catch {
+                return cachedOutcome(
+                    reader: reader,
+                    accessStore: accessStore,
+                    failureMessage: "Gespeicherter Snapshot konnte nicht aktualisiert werden. Es wird die letzte lokale Kopie angezeigt.",
+                    requiresSetup: false
+                )
+            }
+        } catch {
+            return cachedOutcome(
+                reader: reader,
+                accessStore: accessStore,
+                failureMessage: displayMessage(for: error),
+                requiresSetup: true
+            )
+        }
+    }
+
+    nonisolated private static func cachedOutcome(
+        reader: SnapshotReader,
+        accessStore: SnapshotAccessStore,
+        failureMessage: String,
+        requiresSetup: Bool
+    ) -> SavedSnapshotLoadOutcome {
+        do {
+            let cachedURL = try accessStore.cachedSnapshotURL()
+            let document = try reader.readCachedSnapshot(from: cachedURL)
+            return .loaded(
+                document,
+                notice: "Gespeicherter Snapshot konnte nicht aktualisiert werden. Es wird die letzte lokale Kopie angezeigt.",
+                requiresSetup: requiresSetup,
+                setupMessage: requiresSetup ? failureMessage : nil
+            )
+        } catch {
+            return .failure(failureMessage, requiresSetup: requiresSetup)
+        }
+    }
+
+    nonisolated private static func displayMessage(for error: Error) -> String {
+        if let localizedError = error as? LocalizedError,
+           let description = localizedError.errorDescription {
+            return description
+        }
+
+        return error.localizedDescription
+    }
+
+    private func apply(document: SnapshotDocument) {
         self.document = document
         selectedFolderURL = document.sourceURL
 
@@ -151,7 +329,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         loadState = .ready
     }
 
-    private func present(error: Error) async {
+    private func present(error: Error) {
         document = nil
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
@@ -165,12 +343,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
     }
 
-    func present(errorMessage: String) {
+    func present(errorMessage: String, keepSetupState: Bool = false) {
         document = nil
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
         searchText = ""
+        if !keepSetupState {
+            setupRequired = true
+        }
         loadState = .failure(errorMessage)
     }
 
@@ -227,4 +408,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }
+}
+
+private enum SavedSnapshotLoadOutcome: Sendable {
+    case loaded(
+        SnapshotDocument,
+        notice: String?,
+        requiresSetup: Bool,
+        setupMessage: String?
+    )
+    case failure(String, requiresSetup: Bool)
 }
