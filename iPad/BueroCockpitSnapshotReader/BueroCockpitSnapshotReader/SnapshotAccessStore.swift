@@ -80,6 +80,7 @@ final class SnapshotAccessStore: @unchecked Sendable {
     }
 
     func resolveSavedLocation() throws -> ResolvedSnapshotLocation {
+        SnapshotPerformanceLog.event("Bookmark resolution started")
         guard let bookmark = defaults.data(forKey: Key.bookmark) else {
             throw SnapshotAccessError.noSavedLocation
         }
@@ -92,6 +93,7 @@ final class SnapshotAccessStore: @unchecked Sendable {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             )
+            SnapshotPerformanceLog.event("Bookmark resolution finished")
             return ResolvedSnapshotLocation(url: url, isStale: isStale)
         } catch {
             throw SnapshotAccessError.invalidBookmark

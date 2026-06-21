@@ -42,20 +42,26 @@ struct SnapshotTask: Identifiable, Equatable, Sendable {
 
 extension SnapshotTask {
     var displayPrimaryTitle: String {
-        SnapshotDisplayFormatter.displayText(title)
-            ?? SnapshotDisplayFormatter.displayText(customerName)
+        SnapshotDisplayFormatter.displayText(customerName)
+            ?? SnapshotDisplayFormatter.displayText(title)
             ?? "Aufgabe"
     }
 
+    var displaySecondaryTitle: String? {
+        guard let customer = SnapshotDisplayFormatter.displayText(customerName),
+              let title = SnapshotDisplayFormatter.displayText(title),
+              customer.caseInsensitiveCompare(title) != .orderedSame else {
+            return nil
+        }
+        return title
+    }
+
     var displayDetailMetadata: String? {
-        var values: [String?] = [customerName, displayStatus]
-        if SnapshotDisplayFormatter.displayText(customerName) == nil {
-            values.append(displayCategoryNames.first)
-        }
-        if values.compactMap({ SnapshotDisplayFormatter.displayText($0) }).count < 2 {
-            values.append(displayCreatedAt)
-        }
-        return SnapshotDisplayFormatter.joinedMetadata(values)
+        SnapshotDisplayFormatter.joinedMetadata([
+            displayStatus,
+            displayCategoryNames.first,
+            displayCreatedAt
+        ])
     }
 
     var displayListMetadata: String? {

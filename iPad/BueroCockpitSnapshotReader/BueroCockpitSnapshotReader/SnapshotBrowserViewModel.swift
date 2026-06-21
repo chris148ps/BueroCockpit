@@ -10,6 +10,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var setupRequired = false
     @Published private(set) var setupMessage: String?
     @Published private(set) var noticeMessage: String?
+    @Published private(set) var loadingTitle = "Snapshot wird geladen …"
+    @Published private var groupedCategoryCache: [SnapshotCategoryGroup] = []
+    @Published private var taskCountByCategoryID: [String: Int] = [:]
     @Published var selectedCategoryID: String = "__all_tasks__"
     @Published var selectedTaskID: String?
     @Published var searchText: String = "" {
@@ -32,6 +35,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         self.accessStore = accessStore
         setupRequired = !accessStore.isSetupCompleted
         loadState = accessStore.isSetupCompleted ? .loading : .idle
+        SnapshotPerformanceLog.event("ViewModel init")
     }
 
     var metadata: SnapshotMetadata? {
@@ -39,7 +43,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var categories: [SnapshotCategoryGroup] {
-        groupedCategories(from: document?.categories ?? [])
+        groupedCategoryCache
     }
 
     var tasks: [SnapshotTask] {
@@ -108,15 +112,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         if categoryID == Self.allTasksCategoryID {
             return tasks.count
         }
-
-        guard let selectedGroup = categories.first(where: { $0.id == categoryID }) else {
-            return 0
-        }
-
-        let selectedCategoryIDs = Set(selectedGroup.categoryIDs)
-        return tasks.filter { task in
-            task.categoryIds.contains(where: { selectedCategoryIDs.contains($0) })
-        }.count
+        return taskCountByCategoryID[categoryID] ?? 0
     }
 
     var selectedCategoryTitle: String {
@@ -131,6 +127,16 @@ final class SnapshotBrowserViewModel: ObservableObject {
         accessStore.savedFileName ?? document?.sourceURL.lastPathComponent
     }
 
+    var hasSavedSnapshotLocation: Bool {
+        accessStore.hasSavedLocation
+    }
+
+    var loadingDescription: String {
+        loadingTitle == "Snapshot wird aktualisiert …"
+            ? "Bitte warten. Die App lädt den gespeicherten Snapshot-Ort neu."
+            : "Bitte warten. Die App liest die lokale Snapshot-Kopie ein."
+    }
+
     func restoreAtLaunch() {
         guard !didAttemptStartupLoad else {
             return
@@ -138,18 +144,21 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
         didAttemptStartupLoad = true
         guard accessStore.hasSavedLocation else {
+            SnapshotPerformanceLog.event("Start auto-load skipped: no saved location")
             setupRequired = true
             loadState = .idle
             return
         }
 
-        loadSavedSnapshot()
+        loadCachedSnapshotAtLaunch()
     }
 
     func importSnapshot(from sourceURL: URL) {
+        SnapshotPerformanceLog.event("Import processing started")
         let hadLoadedDocument = document != nil
         searchText = ""
         noticeMessage = nil
+        loadingTitle = "Snapshot wird geladen …"
         loadState = .loading
 
         let reader = self.reader
@@ -160,12 +169,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     let bookmark = try accessStore.makeBookmark(for: sourceURL)
                     let document = try reader.readSnapshot(from: sourceURL)
                     accessStore.save(bookmark: bookmark, fileName: sourceURL.lastPathComponent)
-                    return document
+                    return Self.prepare(document: document)
                 }.value
 
                 setupRequired = false
                 setupMessage = nil
-                apply(document: document)
+                apply(prepared: document)
+                SnapshotPerformanceLog.event("Import processing finished")
             } catch {
                 let message = Self.displayMessage(for: error)
                 if hadLoadedDocument {
@@ -178,6 +188,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     setupMessage = message
                     present(error: error)
                 }
+                SnapshotPerformanceLog.event("Import processing failed")
             }
         }
     }
@@ -195,6 +206,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
     func resetSetup() {
         accessStore.reset()
         document = nil
+        groupedCategoryCache = []
+        taskCountByCategoryID = [:]
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
@@ -211,8 +224,47 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
     }
 
+    private func loadCachedSnapshotAtLaunch() {
+        SnapshotPerformanceLog.event("Start local cache load started")
+        loadingTitle = "Snapshot wird geladen …"
+        loadState = .loading
+
+        let reader = self.reader
+        let accessStore = self.accessStore
+        Task {
+            let outcome = await Task.detached(priority: .utility) {
+                do {
+                    let cachedURL = try accessStore.cachedSnapshotURL()
+                    SnapshotPerformanceLog.event("Start local cache located")
+                    let document = try reader.readCachedSnapshot(from: cachedURL)
+                    return StartCacheLoadOutcome.loaded(Self.prepare(document: document))
+                } catch {
+                    return StartCacheLoadOutcome.failure(Self.displayMessage(for: error))
+                }
+            }.value
+
+            switch outcome {
+            case .loaded(let prepared):
+                setupRequired = false
+                setupMessage = nil
+                noticeMessage = nil
+                apply(prepared: prepared)
+                SnapshotPerformanceLog.event("Start local cache load finished")
+            case .failure(let message):
+                setupRequired = false
+                present(
+                    errorMessage: "Die lokale Snapshot-Kopie konnte nicht geladen werden: \(message)",
+                    keepSetupState: true
+                )
+                SnapshotPerformanceLog.event("Start local cache load failed")
+            }
+        }
+    }
+
     private func loadSavedSnapshot() {
+        SnapshotPerformanceLog.event("Manual bookmark refresh started")
         searchText = ""
+        loadingTitle = "Snapshot wird aktualisiert …"
         loadState = .loading
 
         let reader = self.reader
@@ -227,7 +279,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 noticeMessage = notice
                 setupRequired = requiresSetup
                 setupMessage = message
-                apply(document: document)
+                apply(prepared: document)
+                SnapshotPerformanceLog.event("Manual bookmark refresh finished")
             case .failure(let message, let requiresSetup):
                 noticeMessage = nil
                 setupRequired = requiresSetup
@@ -238,6 +291,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 } else {
                     present(errorMessage: message, keepSetupState: true)
                 }
+                SnapshotPerformanceLog.event("Manual bookmark refresh failed")
             }
         }
     }
@@ -259,7 +313,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
             do {
                 return .loaded(
-                    try reader.readSnapshot(from: location.url),
+                    prepare(document: try reader.readSnapshot(from: location.url)),
                     notice: nil,
                     requiresSetup: false,
                     setupMessage: nil
@@ -292,7 +346,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             let cachedURL = try accessStore.cachedSnapshotURL()
             let document = try reader.readCachedSnapshot(from: cachedURL)
             return .loaded(
-                document,
+                prepare(document: document),
                 notice: "Gespeicherter Snapshot konnte nicht aktualisiert werden. Es wird die letzte lokale Kopie angezeigt.",
                 requiresSetup: requiresSetup,
                 setupMessage: requiresSetup ? failureMessage : nil
@@ -311,9 +365,11 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return error.localizedDescription
     }
 
-    private func apply(document: SnapshotDocument) {
-        self.document = document
-        selectedFolderURL = document.sourceURL
+    private func apply(prepared: PreparedSnapshot) {
+        document = prepared.document
+        groupedCategoryCache = prepared.categories
+        taskCountByCategoryID = prepared.taskCountByCategoryID
+        selectedFolderURL = prepared.document.sourceURL
 
         if selectedCategoryID != Self.allTasksCategoryID,
            !categories.contains(where: { $0.id == selectedCategoryID }) {
@@ -327,10 +383,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
 
         loadState = .ready
+        SnapshotPerformanceLog.event("ViewModel state updated")
     }
 
     private func present(error: Error) {
         document = nil
+        groupedCategoryCache = []
+        taskCountByCategoryID = [:]
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
@@ -345,6 +404,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     func present(errorMessage: String, keepSetupState: Bool = false) {
         document = nil
+        groupedCategoryCache = []
+        taskCountByCategoryID = [:]
         selectedFolderURL = nil
         selectedCategoryID = Self.allTasksCategoryID
         selectedTaskID = nil
@@ -355,7 +416,29 @@ final class SnapshotBrowserViewModel: ObservableObject {
         loadState = .failure(errorMessage)
     }
 
-    private func groupedCategories(from categories: [SnapshotCategory]) -> [SnapshotCategoryGroup] {
+    nonisolated private static func prepare(document: SnapshotDocument) -> PreparedSnapshot {
+        let groups = groupedCategories(from: document.categories)
+        var taskCounts: [String: Int] = [:]
+
+        for group in groups {
+            let categoryIDs = Set(group.categoryIDs)
+            taskCounts[group.id] = document.tasks.reduce(into: 0) { count, task in
+                if task.categoryIds.contains(where: categoryIDs.contains) {
+                    count += 1
+                }
+            }
+        }
+
+        SnapshotPerformanceLog.event("Category grouping finished")
+
+        return PreparedSnapshot(
+            document: document,
+            categories: groups,
+            taskCountByCategoryID: taskCounts
+        )
+    }
+
+    nonisolated private static func groupedCategories(from categories: [SnapshotCategory]) -> [SnapshotCategoryGroup] {
         struct Bucket {
             var name: String
             var categoryIDs: [String]
@@ -412,10 +495,21 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
 private enum SavedSnapshotLoadOutcome: Sendable {
     case loaded(
-        SnapshotDocument,
+        PreparedSnapshot,
         notice: String?,
         requiresSetup: Bool,
         setupMessage: String?
     )
     case failure(String, requiresSetup: Bool)
+}
+
+private enum StartCacheLoadOutcome: Sendable {
+    case loaded(PreparedSnapshot)
+    case failure(String)
+}
+
+private struct PreparedSnapshot: Sendable {
+    let document: SnapshotDocument
+    let categories: [SnapshotCategoryGroup]
+    let taskCountByCategoryID: [String: Int]
 }

@@ -75,6 +75,12 @@ struct SnapshotTaskDetailView: View {
                 .font(.largeTitle.bold())
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let secondaryTitle = task.displaySecondaryTitle {
+                Text(secondaryTitle)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let metadata = task.displayDetailMetadata {
                 Text(metadata)
                     .font(.subheadline)

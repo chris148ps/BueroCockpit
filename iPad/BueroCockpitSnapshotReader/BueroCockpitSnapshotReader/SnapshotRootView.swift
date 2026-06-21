@@ -58,6 +58,7 @@ struct SnapshotRootView: View {
                 guard let url = urls.first else {
                     return
                 }
+                SnapshotPerformanceLog.event("File selected")
                 handleImportedURL(url)
             case .failure(let error):
                 handleImporterFailure(error)
@@ -119,9 +120,9 @@ struct SnapshotRootView: View {
                 )
             case .loading:
                 SnapshotStartView(
-                    statusTitle: "Snapshot wird geladen …",
+                    statusTitle: viewModel.loadingTitle,
                     statusMessage: combinedStatusMessage(
-                        base: "Bitte warten. Die App liest gerade die lokalen Snapshot-Dateien ein."
+                        base: viewModel.loadingDescription
                     ),
                     primaryButtonTitle: "Snapshot-Datei importieren",
                     primaryAction: openPackagePicker,
@@ -145,12 +146,12 @@ struct SnapshotRootView: View {
                 SnapshotStartView(
                     statusTitle: "Snapshot konnte nicht gelesen werden",
                     statusMessage: combinedStatusMessage(base: message),
-                    primaryButtonTitle: "Snapshot-Datei importieren",
-                    primaryAction: openPackagePicker,
-                    secondaryButtonTitle: "Snapshot-Ordner auswählen",
-                    secondaryAction: openFolderPicker,
-                    tertiaryButtonTitle: "metadata.json auswählen",
-                    tertiaryAction: openMetadataPicker
+                    primaryButtonTitle: viewModel.hasSavedSnapshotLocation ? "Snapshot aktualisieren" : "Snapshot-Datei auswählen",
+                    primaryAction: viewModel.hasSavedSnapshotLocation ? viewModel.refreshSnapshot : openPackagePicker,
+                    secondaryButtonTitle: "Anderen Snapshot auswählen",
+                    secondaryAction: openPackagePicker,
+                    tertiaryButtonTitle: nil,
+                    tertiaryAction: nil
                 )
         }
     }
@@ -400,13 +401,11 @@ struct SnapshotRootView: View {
     }
 
     private func presentImporter(mode: SnapshotImportMode, statusMessage: String) {
+        SnapshotPerformanceLog.event("Import button pressed")
         activeImportMode = mode
         importStatusMessage = statusMessage
-
-        Task { @MainActor in
-            await Task.yield()
-            isPackageImporterPresented = true
-        }
+        isPackageImporterPresented = true
+        SnapshotPerformanceLog.event("fileImporter presented state set")
     }
 
     private func handleImportedURL(_ sourceURL: URL) {

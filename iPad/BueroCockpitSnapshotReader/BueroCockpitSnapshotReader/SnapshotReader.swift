@@ -3,6 +3,7 @@ import Compression
 
 final class SnapshotReader: @unchecked Sendable {
     func readSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
+        SnapshotPerformanceLog.event("Reader started")
         let accessGranted = sourceURL.startAccessingSecurityScopedResource()
         defer {
             if accessGranted {
@@ -34,6 +35,7 @@ final class SnapshotReader: @unchecked Sendable {
         let rawCategories: [RawCategory] = try decodeRequiredArray(named: "categories.json", at: resolvedSnapshotURL)
         let rawTasks: [RawTask] = try decodeRequiredArray(named: "tasks.json", at: resolvedSnapshotURL)
         let attachments = decodeOptionalAttachments(at: resolvedSnapshotURL)
+        SnapshotPerformanceLog.event("JSON decoded")
 
         let metadata = SnapshotMetadata(
             formatVersion: rawMetadata.formatVersion,
@@ -102,6 +104,7 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     func readCachedSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
+        SnapshotPerformanceLog.event("Cached package read started")
         guard isSnapshotPackage(sourceURL) else {
             throw SnapshotReaderError.invalidPackageSelection
         }
@@ -112,11 +115,13 @@ final class SnapshotReader: @unchecked Sendable {
     private func readSnapshotPackage(from sourceURL: URL) throws -> SnapshotDocument {
         do {
             let archive = try SnapshotPackageArchive(contentsOf: sourceURL)
+            SnapshotPerformanceLog.event("Package read")
 
             let rawMetadata: RawMetadata = try decodeRequiredPackageFile(named: "metadata.json", in: archive)
             let rawCategories: [RawCategory] = try decodeRequiredPackageArray(named: "categories.json", in: archive)
             let rawTasks: [RawTask] = try decodeRequiredPackageArray(named: "tasks.json", in: archive)
             let attachments = decodeOptionalPackageAttachments(in: archive)
+            SnapshotPerformanceLog.event("JSON decoded")
 
             let metadata = SnapshotMetadata(
                 formatVersion: rawMetadata.formatVersion,
@@ -190,6 +195,7 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     private func stageSnapshotPackageToSandbox(from sourceURL: URL) throws -> URL {
+        SnapshotPerformanceLog.event("Local copy started")
         guard sourceURL.startAccessingSecurityScopedResource() else {
             throw SnapshotReaderError.securityScopedAccessDenied(sourceURL.lastPathComponent)
         }
@@ -278,6 +284,7 @@ final class SnapshotReader: @unchecked Sendable {
             )
         }
 
+        SnapshotPerformanceLog.event("Local copy finished")
         return destinationURL
     }
 
