@@ -1113,26 +1113,31 @@ public sealed class BueroRepository
 
     private static void AddTaskParameters(SqliteCommand command, TaskItem task)
     {
-        command.Parameters.AddWithValue("$id", task.Id);
-        command.Parameters.AddWithValue("$title", task.Title);
-        command.Parameters.AddWithValue("$customerName", task.CustomerName);
-        command.Parameters.AddWithValue("$description", task.Description);
-        command.Parameters.AddWithValue("$categoryId", task.CategoryId);
-        command.Parameters.AddWithValue("$status", task.Status);
-        command.Parameters.AddWithValue("$priority", task.Priority);
-        command.Parameters.AddWithValue("$dueDate", ToDb(task.DueDate));
-        command.Parameters.AddWithValue("$followUpDate", ToDb(task.FollowUpDate));
-        command.Parameters.AddWithValue("$sentAt", ToDb(task.SentAt));
-        command.Parameters.AddWithValue("$materialOrderedAt", ToDb(task.MaterialOrderedAt));
-        command.Parameters.AddWithValue("$customerAddress", task.CustomerAddress);
-        command.Parameters.AddWithValue("$technician", task.Technician);
-        command.Parameters.AddWithValue("$sortPosition", task.SortPosition);
-        command.Parameters.AddWithValue("$assignedTo", task.AssignedTo);
-        command.Parameters.AddWithValue("$createdAt", ToDb(task.CreatedAt));
-        command.Parameters.AddWithValue("$updatedAt", ToDb(task.UpdatedAt));
-        command.Parameters.AddWithValue("$completedAt", ToDb(task.CompletedAt));
-        command.Parameters.AddWithValue("$isDeleted", task.IsDeleted ? 1 : 0);
-        command.Parameters.AddWithValue("$deletedAt", ToDb(task.DeletedAt));
+        AddParameter(command, "$id", task.Id ?? string.Empty);
+        AddParameter(command, "$title", task.Title ?? string.Empty);
+        AddParameter(command, "$customerName", task.CustomerName ?? string.Empty);
+        AddParameter(command, "$description", task.Description ?? string.Empty);
+        AddParameter(command, "$categoryId", task.CategoryId ?? string.Empty);
+        AddParameter(command, "$status", task.Status ?? string.Empty);
+        AddParameter(command, "$priority", task.Priority ?? string.Empty);
+        AddParameter(command, "$dueDate", ToDb(task.DueDate));
+        AddParameter(command, "$followUpDate", ToDb(task.FollowUpDate));
+        AddParameter(command, "$sentAt", ToDb(task.SentAt));
+        AddParameter(command, "$materialOrderedAt", ToDb(task.MaterialOrderedAt));
+        AddParameter(command, "$customerAddress", task.CustomerAddress ?? string.Empty);
+        AddParameter(command, "$technician", task.Technician ?? string.Empty);
+        AddParameter(command, "$sortPosition", task.SortPosition);
+        AddParameter(command, "$assignedTo", task.AssignedTo ?? string.Empty);
+        AddParameter(command, "$createdAt", ToDb(task.CreatedAt));
+        AddParameter(command, "$updatedAt", ToDb(task.UpdatedAt));
+        AddParameter(command, "$completedAt", ToDb(task.CompletedAt));
+        AddParameter(command, "$isDeleted", task.IsDeleted ? 1 : 0);
+        AddParameter(command, "$deletedAt", ToDb(task.DeletedAt));
+    }
+
+    private static void AddParameter(SqliteCommand command, string name, object? value)
+    {
+        command.Parameters.AddWithValue(name, value ?? DBNull.Value);
     }
 
     private static object ToDb(DateTime? value)
