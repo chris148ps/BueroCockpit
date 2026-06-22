@@ -336,7 +336,8 @@ struct SnapshotRootView: View {
         case .ready:
             SnapshotTaskDetailView(
                 task: viewModel.selectedTask,
-                attachments: viewModel.selectedTask.map(viewModel.attachments(for:)) ?? []
+                attachments: viewModel.selectedTask.map(viewModel.attachments(for:)) ?? [],
+                attachmentLoader: viewModel.prepareAttachment
             )
         case .idle:
             SnapshotEmptyStateView(

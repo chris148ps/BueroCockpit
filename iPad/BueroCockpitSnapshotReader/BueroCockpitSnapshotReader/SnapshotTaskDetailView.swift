@@ -1,11 +1,15 @@
 import SwiftUI
 import QuickLook
+import PDFKit
 
 struct SnapshotTaskDetailView: View {
     let task: SnapshotTask?
     let attachments: [SnapshotAttachmentIndex]
+    let attachmentLoader: (SnapshotAttachmentIndex) async throws -> URL
     @State private var previewItem: SnapshotPreviewItem?
     @State private var attachmentNotice: String?
+    @State private var loadingAttachmentID: String?
+    @State private var unavailableAttachmentIDs: Set<String> = []
 
     var body: some View {
         Group {
@@ -47,9 +51,13 @@ struct SnapshotTaskDetailView: View {
                                         Button {
                                             openAttachment(attachment)
                                         } label: {
-                                            attachmentRow(attachment)
+                                            attachmentRow(
+                                                attachment,
+                                                previewUnavailable: unavailableAttachmentIDs.contains(attachment.id)
+                                            )
                                         }
                                         .buttonStyle(.plain)
+                                        .disabled(loadingAttachmentID != nil)
                                     }
                                 }
                             }
@@ -66,7 +74,12 @@ struct SnapshotTaskDetailView: View {
             }
         }
         .sheet(item: $previewItem) { item in
-            SnapshotQuickLookPreview(url: item.url)
+            switch item.kind {
+            case .pdf:
+                SnapshotPDFPreview(url: item.url)
+            case .quickLook:
+                SnapshotQuickLookPreview(url: item.url)
+            }
         }
         .alert("Anhang kann nicht geöffnet werden", isPresented: Binding(
             get: { attachmentNotice != nil },
@@ -81,6 +94,21 @@ struct SnapshotTaskDetailView: View {
             }
         } message: {
             Text(attachmentNotice ?? "")
+        }
+        .overlay {
+            if loadingAttachmentID != nil {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Anhang wird vorbereitet …")
+                        .font(.headline)
+                    Text("Bei großen Dateien kann dies einen Moment dauern.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(24)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(radius: 12)
+            }
         }
     }
 
@@ -147,7 +175,7 @@ struct SnapshotTaskDetailView: View {
         ].contains(where: { $0 != nil })
     }
 
-    private func attachmentRow(_ attachment: SnapshotAttachmentIndex) -> some View {
+    private func attachmentRow(_ attachment: SnapshotAttachmentIndex, previewUnavailable: Bool) -> some View {
         HStack(alignment: .center, spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -164,15 +192,10 @@ struct SnapshotTaskDetailView: View {
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 8) {
-                    Text(attachment.displayFileType)
-                    if let size = attachment.displaySize {
-                        Text(size)
-                    }
-                    Text(attachment.availabilityText)
-                }
+                Text(attachmentMetadata(attachment, previewUnavailable: previewUnavailable))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
                 if attachment.isImportant {
                     Label("Wichtiger Anhang", systemImage: "exclamationmark.circle")
@@ -182,9 +205,13 @@ struct SnapshotTaskDetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Image(systemName: attachment.canPreview ? "chevron.right" : "exclamationmark.circle")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+            if loadingAttachmentID == attachment.id {
+                ProgressView()
+            } else {
+                Image(systemName: attachment.canPreview && !previewUnavailable ? "chevron.right" : "exclamationmark.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(10)
         .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -195,27 +222,90 @@ struct SnapshotTaskDetailView: View {
     }
 
     private func openAttachment(_ attachment: SnapshotAttachmentIndex) {
-        guard let localURL = attachment.localURL else {
+        guard attachment.canPreview else {
             attachmentNotice = attachment.existsInSnapshot
-                ? "Die Datei ist im Snapshot-Index enthalten, konnte lokal aber nicht geöffnet werden."
+                ? "Die Datei ist im Snapshot enthalten, kann aber nicht geöffnet werden."
                 : attachment.fileExists
                 ? "Die Datei ist im BüroCockpit-Datenordner vorhanden, aber nicht in diesem Snapshot-Paket enthalten."
                 : attachment.exportHint ?? "Die Datei ist im Snapshot-Index vermerkt, wurde aber nicht gefunden."
             return
         }
 
-        guard QLPreviewController.canPreview(localURL as NSURL) else {
-            attachmentNotice = "Vorschau für diesen Dateityp nicht verfügbar."
-            return
+        loadingAttachmentID = attachment.id
+        Task {
+            defer { loadingAttachmentID = nil }
+            do {
+                let localURL = try await attachmentLoader(attachment)
+                if attachment.isPDF {
+                    let canOpenPDF = await Task.detached(priority: .userInitiated) {
+                        PDFDocument(url: localURL) != nil
+                    }.value
+                    guard canOpenPDF else {
+                        throw SnapshotAttachmentError.previewUnavailable
+                    }
+                    previewItem = SnapshotPreviewItem(url: localURL, kind: .pdf)
+                } else {
+                    guard QLPreviewController.canPreview(localURL as NSURL) else {
+                        throw SnapshotAttachmentError.previewUnavailable
+                    }
+                    previewItem = SnapshotPreviewItem(url: localURL, kind: .quickLook)
+                }
+                unavailableAttachmentIDs.remove(attachment.id)
+            } catch {
+                if case SnapshotAttachmentError.previewUnavailable = error {
+                    unavailableAttachmentIDs.insert(attachment.id)
+                }
+                attachmentNotice = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
+    }
 
-        previewItem = SnapshotPreviewItem(url: localURL)
+    private func attachmentMetadata(_ attachment: SnapshotAttachmentIndex, previewUnavailable: Bool) -> String {
+        [
+            attachment.displayFileType,
+            attachment.displaySize,
+            previewUnavailable ? "Vorschau nicht verfügbar" : attachment.availabilityText
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
     }
 }
 
 private struct SnapshotPreviewItem: Identifiable {
+    enum Kind {
+        case pdf
+        case quickLook
+    }
+
     let url: URL
-    var id: String { url.path }
+    let kind: Kind
+    var id: String { "\(kind)-\(url.path)" }
+}
+
+private extension SnapshotAttachmentIndex {
+    var isPDF: Bool {
+        fileName.lowercased().hasSuffix(".pdf")
+            || contentType?.localizedCaseInsensitiveContains("pdf") == true
+    }
+}
+
+private struct SnapshotPDFPreview: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> PDFView {
+        let view = PDFView()
+        view.autoScales = true
+        view.displayMode = .singlePageContinuous
+        view.displayDirection = .vertical
+        view.document = PDFDocument(url: url)
+        return view
+    }
+
+    func updateUIView(_ uiView: PDFView, context: Context) {
+        if uiView.document?.documentURL != url {
+            uiView.document = PDFDocument(url: url)
+        }
+    }
 }
 
 private struct SnapshotQuickLookPreview: UIViewControllerRepresentable {

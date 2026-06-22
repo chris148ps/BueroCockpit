@@ -25,11 +25,15 @@ enum SnapshotLocalStorage {
         return currentSnapshotsDirectory
     }
 
-    static func attachmentsDirectory(forSnapshotFileName fileName: String) throws -> URL {
-        let safeSnapshotName = sanitizedDirectoryName(from: fileName)
+    static func attachmentsDirectory(forSnapshot snapshotURL: URL) throws -> URL {
+        let safeSnapshotName = sanitizedDirectoryName(from: snapshotURL.lastPathComponent)
+        let attributes = try? FileManager.default.attributesOfItem(atPath: snapshotURL.path)
+        let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+        let modifiedAt = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let snapshotCacheKey = "\(safeSnapshotName)_\(size)_\(Int64(modifiedAt))"
         let directory = try snapshotsDirectory()
             .appendingPathComponent("Attachments", isDirectory: true)
-            .appendingPathComponent(safeSnapshotName, isDirectory: true)
+            .appendingPathComponent(snapshotCacheKey, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
     }

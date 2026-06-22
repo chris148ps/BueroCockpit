@@ -165,27 +165,32 @@ extension SnapshotAttachmentIndex {
     }
 
     var availabilityText: String {
-        if localURL != nil {
-            return "Vorschau verfügbar"
-        }
-
         if existsInSnapshot {
-            return "Datei im Snapshot nicht lesbar"
-        }
-
-        if let exportHint = SnapshotDisplayFormatter.displayText(exportHint) {
-            return exportHint
-        }
-
-        if fileExists {
-            return "Datei nicht im Snapshot enthalten"
+            return "Im Snapshot enthalten"
         }
 
         return "Datei fehlt"
     }
 
     var canPreview: Bool {
-        localURL != nil
+        localURL != nil || (existsInSnapshot && packagePath != nil)
+    }
+}
+
+enum SnapshotAttachmentError: LocalizedError, Sendable {
+    case missingFromSnapshot
+    case extractionFailed(String)
+    case previewUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .missingFromSnapshot:
+            return "Die Datei ist im Snapshot-Index vermerkt, aber nicht im Snapshot-Paket enthalten."
+        case .extractionFailed(let details):
+            return "Die Datei konnte nicht aus dem Snapshot-Paket bereitgestellt werden. \(details)"
+        case .previewUnavailable:
+            return "Für diesen Dateityp ist auf diesem iPad keine Vorschau verfügbar."
+        }
     }
 }
 

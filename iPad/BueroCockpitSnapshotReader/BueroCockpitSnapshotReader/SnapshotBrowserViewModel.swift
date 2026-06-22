@@ -113,6 +113,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return (refMatches + missingDirectMatches).sorted { $0.sourceIndex < $1.sourceIndex }
     }
 
+    func prepareAttachment(_ attachment: SnapshotAttachmentIndex) async throws -> URL {
+        guard let sourceURL = document?.sourceURL else {
+            throw SnapshotAttachmentError.missingFromSnapshot
+        }
+
+        let reader = self.reader
+        return try await Task.detached(priority: .userInitiated) {
+            try reader.prepareAttachment(attachment, from: sourceURL)
+        }.value
+    }
+
     func taskCount(in categoryID: String) -> Int {
         if categoryID == Self.allTasksCategoryID {
             return tasks.count

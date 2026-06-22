@@ -2,6 +2,30 @@ import Foundation
 import Compression
 
 final class SnapshotReader: @unchecked Sendable {
+    func prepareAttachment(_ attachment: SnapshotAttachmentIndex, from sourceURL: URL) throws -> URL {
+        if let localURL = attachment.localURL,
+           FileManager.default.fileExists(atPath: localURL.path) {
+            return localURL
+        }
+
+        guard isSnapshotPackage(sourceURL),
+              let packagePath = attachment.packagePath else {
+            throw SnapshotAttachmentError.missingFromSnapshot
+        }
+
+        do {
+            let archive = try SnapshotPackageArchive(contentsOf: sourceURL)
+            guard archive.containsEntry(named: packagePath) else {
+                throw SnapshotAttachmentError.missingFromSnapshot
+            }
+            return try extractAttachment(attachment, archive: archive, sourceURL: sourceURL)
+        } catch let attachmentError as SnapshotAttachmentError {
+            throw attachmentError
+        } catch {
+            throw SnapshotAttachmentError.extractionFailed(error.localizedDescription)
+        }
+    }
+
     func readSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
         SnapshotPerformanceLog.event("Reader started")
         let accessGranted = sourceURL.startAccessingSecurityScopedResource()
@@ -183,21 +207,20 @@ final class SnapshotReader: @unchecked Sendable {
         let sourceSize = (sourceInfo?[.size] as? NSNumber)?.int64Value
 
         var coordinationError: NSError?
-        var readError: Error?
-        var writeError: Error?
-        var copiedBytes: Int64?
+        var transferError: Error?
+        let temporaryURL = snapshotsDirectory.appendingPathComponent(".\(UUID().uuidString).importing", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: temporaryURL) }
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: sourceURL, options: [.withoutChanges], error: &coordinationError) { readableURL in
             do {
-                let data = try Data(contentsOf: readableURL, options: [.mappedIfSafe])
-                copiedBytes = Int64(data.count)
-                try data.write(to: destinationURL, options: [.atomic])
-            } catch {
-                if copiedBytes == nil {
-                    readError = error
+                try FileManager.default.copyItem(at: readableURL, to: temporaryURL)
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    _ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: temporaryURL)
                 } else {
-                    writeError = error
+                    try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
                 }
+            } catch {
+                transferError = error
             }
         }
 
@@ -214,26 +237,13 @@ final class SnapshotReader: @unchecked Sendable {
             )
         }
 
-        if let readError {
-            throw SnapshotReaderError.unreadableSnapshotPackage(
-                sourceURL.lastPathComponent,
-                """
-                Original-Dateiname: \(sourceURL.lastPathComponent)
-                Lokale Ziel-URL: \(destinationURL.path)
-                Quelle vorhanden: \(sourceExists ? "ja" : "nein")
-                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
-                Lesen der OneDrive-Datei fehlgeschlagen: \(readError.localizedDescription)
-                """
-            )
-        }
-
-        if let writeError {
+        if let transferError {
             throw SnapshotReaderError.localCopyFailed(
                 """
                 \(sourceURL.lastPathComponent)
                 Lokale Ziel-URL: \(destinationURL.path)
                 Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
-                Schreiben der lokalen Kopie fehlgeschlagen: \(writeError.localizedDescription)
+                Lokales Kopieren der Snapshot-Datei fehlgeschlagen: \(transferError.localizedDescription)
                 """
             )
         }
@@ -400,7 +410,15 @@ final class SnapshotReader: @unchecked Sendable {
                 return nil
             }
 
-            let localURL = extractAttachment(raw, archive: archive, sourceURL: sourceURL)
+            let existsInArchive = raw.packagePath.map(archive.containsEntry(named:)) ?? false
+            let localURL = existsInArchive
+                ? cachedAttachmentURL(
+                    id: id,
+                    fileName: fileName,
+                    expectedSize: raw.sizeBytes,
+                    sourceURL: sourceURL
+                )
+                : nil
 
             return SnapshotAttachmentIndex(
                 id: id,
@@ -414,7 +432,7 @@ final class SnapshotReader: @unchecked Sendable {
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
                 fileExists: raw.fileExists ?? false,
-                existsInSnapshot: raw.existsInSnapshot ?? (localURL != nil),
+                existsInSnapshot: existsInArchive,
                 exportHint: raw.exportHint,
                 localURL: localURL,
                 sourceIndex: index
@@ -422,24 +440,49 @@ final class SnapshotReader: @unchecked Sendable {
         }
     }
 
-    private func extractAttachment(_ raw: RawAttachment, archive: SnapshotPackageArchive, sourceURL: URL) -> URL? {
-        guard let id = raw.id,
-              let fileName = raw.fileName,
-              let packagePath = raw.packagePath,
+    private func extractAttachment(_ attachment: SnapshotAttachmentIndex, archive: SnapshotPackageArchive, sourceURL: URL) throws -> URL {
+        if let cachedURL = cachedAttachmentURL(
+            id: attachment.id,
+            fileName: attachment.fileName,
+            expectedSize: attachment.sizeBytes,
+            sourceURL: sourceURL
+        ) {
+            return cachedURL
+        }
+
+        guard let packagePath = attachment.packagePath,
               let data = archive.data(named: packagePath) else {
-            return nil
+            throw SnapshotAttachmentError.missingFromSnapshot
         }
 
         do {
-            let attachmentsDirectory = try SnapshotLocalStorage.attachmentsDirectory(forSnapshotFileName: sourceURL.lastPathComponent)
-            let attachmentDirectory = attachmentsDirectory.appendingPathComponent(sanitizedPathComponent(id), isDirectory: true)
+            let attachmentsDirectory = try SnapshotLocalStorage.attachmentsDirectory(forSnapshot: sourceURL)
+            let attachmentDirectory = attachmentsDirectory.appendingPathComponent(sanitizedPathComponent(attachment.id), isDirectory: true)
             try FileManager.default.createDirectory(at: attachmentDirectory, withIntermediateDirectories: true)
-            let destinationURL = attachmentDirectory.appendingPathComponent(sanitizedFileName(fileName), isDirectory: false)
+            let destinationURL = attachmentDirectory.appendingPathComponent(sanitizedFileName(attachment.fileName), isDirectory: false)
             try data.write(to: destinationURL, options: [.atomic])
             return destinationURL
         } catch {
+            throw SnapshotAttachmentError.extractionFailed(error.localizedDescription)
+        }
+    }
+
+    private func cachedAttachmentURL(id: String, fileName: String, expectedSize: Int64?, sourceURL: URL) -> URL? {
+        guard let attachmentsDirectory = try? SnapshotLocalStorage.attachmentsDirectory(forSnapshot: sourceURL) else {
             return nil
         }
+        let url = attachmentsDirectory
+            .appendingPathComponent(sanitizedPathComponent(id), isDirectory: true)
+            .appendingPathComponent(sanitizedFileName(fileName), isDirectory: false)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+        guard let expectedSize else {
+            return url
+        }
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let actualSize = (attributes?[.size] as? NSNumber)?.int64Value
+        return actualSize == expectedSize ? url : nil
     }
 
     private func sanitizedFileName(_ value: String) -> String {
@@ -517,7 +560,10 @@ private struct SnapshotPackageArchive {
     private struct Entry {
         let name: String
         let normalizedName: String
-        let data: Data
+        let compressionMethod: UInt16
+        let dataOffset: Int
+        let compressedSize: Int
+        let uncompressedSize: Int
     }
 
     private let sourceURL: URL
@@ -540,7 +586,7 @@ private struct SnapshotPackageArchive {
             fileSize = -1
         }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-        hasLocalFileHeaderSignature = data.count >= 4 && Self.readUInt32LE([UInt8](data), 0) == 0x0403_4B50
+        hasLocalFileHeaderSignature = data.count >= 4 && Self.readUInt32LE(data, 0) == 0x0403_4B50
 
         var decodeIssues: [String] = []
         let parsedEntries = Self.parseEntries(from: data, fileName: fileName, decodeIssues: &decodeIssues)
@@ -552,16 +598,40 @@ private struct SnapshotPackageArchive {
     }
 
     func data(named fileName: String) -> Data? {
+        guard let entry = entry(named: fileName),
+              let archiveData = try? Data(contentsOf: sourceURL, options: [.mappedIfSafe]),
+              entry.dataOffset >= 0,
+              entry.compressedSize >= 0,
+              entry.dataOffset + entry.compressedSize <= archiveData.count else {
+            return nil
+        }
+
+        let compressedData = archiveData.subdata(in: entry.dataOffset ..< entry.dataOffset + entry.compressedSize)
+        switch entry.compressionMethod {
+        case 0:
+            return compressedData
+        case 8:
+            return Self.inflate(data: compressedData, expectedSize: entry.uncompressedSize)
+        default:
+            return nil
+        }
+    }
+
+    func containsEntry(named fileName: String) -> Bool {
+        entry(named: fileName) != nil
+    }
+
+    private func entry(named fileName: String) -> Entry? {
         let normalizedFileName = fileName.lowercased()
         if let exact = entries.first(where: { $0.normalizedName == normalizedFileName }) {
-            return exact.data
+            return exact
         }
 
         if let suffixMatch = entries.first(where: { $0.normalizedName.hasSuffix("/" + normalizedFileName) }) {
-            return suffixMatch.data
+            return suffixMatch
         }
 
-        return entries.first(where: { $0.name.caseInsensitiveCompare(fileName) == .orderedSame })?.data
+        return entries.first(where: { $0.name.caseInsensitiveCompare(fileName) == .orderedSame })
     }
 
     var summary: String {
@@ -606,64 +676,58 @@ private struct SnapshotPackageArchive {
     }
 
     private static func parseEntries(from data: Data, fileName: String, decodeIssues: inout [String]) -> (entries: [Entry], rootNames: [String], nestedNames: [String], parseFailed: Bool) {
-        let bytes = [UInt8](data)
         var offset = 0
         var result: [Entry] = []
         var rootNames: [String] = []
         var nestedNames: [String] = []
         var parseFailed = false
 
-        while offset + 4 <= bytes.count {
-            let signature = readUInt32LE(bytes, offset)
+        while offset + 4 <= data.count {
+            let signature = readUInt32LE(data, offset)
             guard signature == 0x0403_4B50 else {
                 break
             }
 
-            guard offset + 30 <= bytes.count else {
+            guard offset + 30 <= data.count else {
                 decodeIssues.append("Eintrag \(result.count + 1): Lokaler ZIP-Header ist unvollständig.")
                 parseFailed = true
                 break
             }
 
-            let compressionMethod = readUInt16LE(bytes, offset + 8)
-            let compressedSize = Int(readUInt32LE(bytes, offset + 18))
-            let fileNameLength = Int(readUInt16LE(bytes, offset + 26))
-            let extraFieldLength = Int(readUInt16LE(bytes, offset + 28))
+            let compressionMethod = readUInt16LE(data, offset + 8)
+            let compressedSize = Int(readUInt32LE(data, offset + 18))
+            let uncompressedSize = Int(readUInt32LE(data, offset + 22))
+            let fileNameLength = Int(readUInt16LE(data, offset + 26))
+            let extraFieldLength = Int(readUInt16LE(data, offset + 28))
 
             offset += 30
 
-            guard offset + fileNameLength + extraFieldLength <= bytes.count else {
+            guard offset + fileNameLength + extraFieldLength <= data.count else {
                 decodeIssues.append("Eintrag \(result.count + 1): Dateiname oder Zusatzdaten sind unvollständig.")
                 parseFailed = true
                 break
             }
 
-            let fileNameData = Data(bytes[offset ..< offset + fileNameLength])
+            let fileNameData = data.subdata(in: offset ..< offset + fileNameLength)
             offset += fileNameLength
             offset += extraFieldLength
 
-            guard offset + compressedSize <= bytes.count else {
+            guard offset + compressedSize <= data.count else {
                 decodeIssues.append("Eintrag \(result.count + 1): Dateigröße passt nicht zum Paketinhalt.")
                 parseFailed = true
                 break
             }
 
-            let compressedData = Data(bytes[offset ..< offset + compressedSize])
+            let dataOffset = offset
             offset += compressedSize
 
             let fileName = String(data: fileNameData, encoding: .utf8) ?? String(decoding: fileNameData, as: UTF8.self)
             let normalizedName = fileName.lowercased()
-            let fileData: Data
             switch compressionMethod {
             case 0:
-                fileData = compressedData
+                break
             case 8:
-                guard let decoded = Self.inflate(data: compressedData) else {
-                    decodeIssues.append("Eintrag \(fileName): Deflate-Entpackung fehlgeschlagen.")
-                    parseFailed = true
-                    continue
-                }
-                fileData = decoded
+                break
             default:
                 decodeIssues.append("Eintrag \(fileName): Kompressionsmethode \(compressionMethod) wird nicht unterstützt.")
                 parseFailed = true
@@ -678,7 +742,14 @@ private struct SnapshotPackageArchive {
                 nestedNames.append(fileName)
             }
 
-            result.append(Entry(name: fileName, normalizedName: normalizedName, data: fileData))
+            result.append(Entry(
+                name: fileName,
+                normalizedName: normalizedName,
+                compressionMethod: compressionMethod,
+                dataOffset: dataOffset,
+                compressedSize: compressedSize,
+                uncompressedSize: uncompressedSize
+            ))
         }
 
         if result.isEmpty {
@@ -689,14 +760,14 @@ private struct SnapshotPackageArchive {
         return (result, rootNames, nestedNames, parseFailed)
     }
 
-    private static func inflate(data: Data) -> Data? {
+    private static func inflate(data: Data, expectedSize: Int) -> Data? {
         guard !data.isEmpty else {
             return Data()
         }
 
         var sourceBuffer = Array(data)
         let sourceSize = sourceBuffer.count
-        let destinationCapacity = max(sourceSize * 4, sourceSize + 1024)
+        let destinationCapacity = max(expectedSize, max(sourceSize * 4, sourceSize + 1024))
         var destinationBuffer = [UInt8](repeating: 0, count: destinationCapacity)
 
         let decodedSize = destinationBuffer.withUnsafeMutableBytes { destinationPointer in
@@ -719,14 +790,14 @@ private struct SnapshotPackageArchive {
         return Data(destinationBuffer.prefix(decodedSize))
     }
 
-    private static func readUInt16LE(_ bytes: [UInt8], _ offset: Int) -> UInt16 {
-        UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+    private static func readUInt16LE(_ data: Data, _ offset: Int) -> UInt16 {
+        UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
     }
 
-    private static func readUInt32LE(_ bytes: [UInt8], _ offset: Int) -> UInt32 {
-        UInt32(bytes[offset])
-            | (UInt32(bytes[offset + 1]) << 8)
-            | (UInt32(bytes[offset + 2]) << 16)
-            | (UInt32(bytes[offset + 3]) << 24)
+    private static func readUInt32LE(_ data: Data, _ offset: Int) -> UInt32 {
+        UInt32(data[offset])
+            | (UInt32(data[offset + 1]) << 8)
+            | (UInt32(data[offset + 2]) << 16)
+            | (UInt32(data[offset + 3]) << 24)
     }
 }
