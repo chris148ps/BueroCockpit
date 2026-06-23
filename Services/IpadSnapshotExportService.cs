@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BueroCockpit.Data;
 using BueroCockpit.Models;
+using SkiaSharp;
 
 namespace BueroCockpit.Services;
 
@@ -12,7 +14,11 @@ public sealed class IpadSnapshotExportService
 {
     private const int FormatVersion = 1;
     private const string SnapshotPackageFileName = "latest.bcsnapshot";
-    private const string SnapshotPackageTempFileName = "latest.bcsnapshot.tmp";
+    private const string LegacySnapshotPackageTempFileName = "latest.bcsnapshot.tmp";
+    private const int LivePreviewMaxLongSide = 1600;
+    private const int LivePreviewJpegQuality = 74;
+    private const string LiveOriginalDownloadMode = "onDemandPlanned";
+    private const string LiveOriginalReason = "Original wird zur Speicherersparnis nicht automatisch synchronisiert.";
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(700);
     private static readonly object LogLock = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -57,7 +63,7 @@ public sealed class IpadSnapshotExportService
             {
                 await Task.Delay(DebounceDelay, currentCts.Token).ConfigureAwait(false);
                 LogExportMessage($"iPad snapshot export started (debounced): {sharedDirectory}");
-                var result = await ExportNowAsync(repository, sharedDirectory, appVersion, deviceName, currentCts.Token).ConfigureAwait(false);
+                var result = await ExportLiveNowAsync(repository, sharedDirectory, appVersion, deviceName, currentCts.Token).ConfigureAwait(false);
                 if (!result.Success && !string.IsNullOrWhiteSpace(result.ErrorMessage))
                 {
                     LogExportMessage($"iPad snapshot export failed (debounced): {result.ErrorMessage}");
@@ -119,8 +125,18 @@ public sealed class IpadSnapshotExportService
         await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var result = await Task.Run(() => ExportCore(repository, sharedDirectory, appVersion, deviceName), cancellationToken).ConfigureAwait(false);
-            LogExportMessage($"iPad snapshot export completed: {result.OutputDirectory}");
+            var result = await Task.Run(
+                () => ExportCore(repository, sharedDirectory, appVersion, deviceName, includeFullSnapshot: true),
+                cancellationToken).ConfigureAwait(false);
+            if (result.Success)
+            {
+                LogExportMessage($"iPad snapshot export completed: {result.OutputDirectory}");
+            }
+            else
+            {
+                LogExportMessage($"iPad snapshot export failed: {result.ErrorMessage}");
+            }
+
             return result;
         }
         catch (OperationCanceledException)
@@ -139,13 +155,53 @@ public sealed class IpadSnapshotExportService
         }
     }
 
+    public async Task<SnapshotExportResult> ExportLiveNowAsync(
+        BueroRepository repository,
+        string sharedDirectory,
+        string? appVersion = null,
+        string? deviceName = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sharedDirectory))
+        {
+            LogExportMessage("iPad live sync skipped: no shared directory configured.");
+            return SnapshotExportResult.CreateFailure("Kein gemeinsamer Datenordner ausgewählt.");
+        }
+
+        await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(
+                () => ExportCore(repository, sharedDirectory, appVersion, deviceName, includeFullSnapshot: false),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live sync failed: {ex}");
+            return SnapshotExportResult.CreateFailure("iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.");
+        }
+        finally
+        {
+            _exportGate.Release();
+        }
+    }
+
     private static SnapshotExportResult ExportCore(
         BueroRepository repository,
         string sharedDirectory,
         string? appVersion,
-        string? deviceName)
+        string? deviceName,
+        bool includeFullSnapshot)
     {
+        var stopwatch = Stopwatch.StartNew();
         var syncDirectory = Path.Combine(sharedDirectory, "Sync");
+        var liveDirectory = Path.Combine(syncDirectory, "live");
+        var previewsDirectory = Path.Combine(liveDirectory, "previews");
+        var attachmentsDirectory = Path.Combine(liveDirectory, "attachments");
         var snapshotsDirectory = Path.Combine(syncDirectory, "snapshots");
         var inboxDirectory = Path.Combine(syncDirectory, "inbox");
         var inboxChangesDirectory = Path.Combine(inboxDirectory, "changes");
@@ -154,6 +210,8 @@ public sealed class IpadSnapshotExportService
         var conflictsDirectory = Path.Combine(syncDirectory, "conflicts");
 
         Directory.CreateDirectory(syncDirectory);
+        Directory.CreateDirectory(liveDirectory);
+        Directory.CreateDirectory(previewsDirectory);
         Directory.CreateDirectory(snapshotsDirectory);
         Directory.CreateDirectory(inboxDirectory);
         Directory.CreateDirectory(inboxChangesDirectory);
@@ -179,30 +237,65 @@ public sealed class IpadSnapshotExportService
             string.IsNullOrWhiteSpace(deviceName) ? null : deviceName.Trim(),
             "BueroCockpit");
 
+        var liveExport = ExportLiveAttachments(attachments, liveDirectory, previewsDirectory);
+
+        WriteJson(Path.Combine(liveDirectory, "metadata.json"), metadata);
+        WriteJson(Path.Combine(liveDirectory, "tasks.json"), tasks);
+        WriteJson(Path.Combine(liveDirectory, "categories.json"), categories);
+        WriteJson(Path.Combine(liveDirectory, "attachments-index.json"), liveExport.Attachments);
+        CleanupLivePreviews(previewsDirectory, liveExport.Attachments);
+        var removedOriginals = CleanupLiveOriginals(attachmentsDirectory);
+        var liveSizeBytes = GetLiveDirectorySize(liveDirectory, previewsDirectory);
+        stopwatch.Stop();
+
+        LogExportMessage(
+            $"iPad live sync completed: new previews={liveExport.NewPreviews}, skipped previews={liveExport.SkippedPreviews}, " +
+            $"removed originals={removedOriginals}, originals copied=0, duration={stopwatch.Elapsed.TotalSeconds:F1}s, " +
+            $"live size={liveSizeBytes / 1024d / 1024d:F1}MB");
+
+        if (!includeFullSnapshot)
+        {
+            CleanupSnapshotTempFiles(snapshotsDirectory);
+            return SnapshotExportResult.CreateSuccess(liveDirectory);
+        }
+
         WriteJson(Path.Combine(snapshotsDirectory, "metadata.json"), metadata);
         WriteJson(Path.Combine(snapshotsDirectory, "tasks.json"), tasks);
         WriteJson(Path.Combine(snapshotsDirectory, "categories.json"), categories);
-        WriteJson(Path.Combine(snapshotsDirectory, "attachments-index.json"), attachments);
+        var fullSnapshotAttachments = PrepareFullSnapshotAttachments(attachments);
+        WriteJson(Path.Combine(snapshotsDirectory, "attachments-index.json"), fullSnapshotAttachments);
 
         var packagePath = Path.Combine(snapshotsDirectory, SnapshotPackageFileName);
+        var legacyTempPackagePath = Path.Combine(snapshotsDirectory, LegacySnapshotPackageTempFileName);
+        var tempPackagePath = Path.Combine(
+            snapshotsDirectory,
+            $"{SnapshotPackageFileName}.{Guid.NewGuid():N}.tmp");
         try
         {
+            if (File.Exists(legacyTempPackagePath))
+            {
+                File.Delete(legacyTempPackagePath);
+                LogExportMessage($"iPad snapshot legacy temp file deleted: {legacyTempPackagePath}");
+            }
+
             LogExportMessage($"iPad snapshot package export started: {packagePath}");
             WriteSnapshotPackage(
-                Path.Combine(snapshotsDirectory, SnapshotPackageTempFileName),
+                tempPackagePath,
                 packagePath,
                 metadata,
                 categories,
                 tasks,
-                attachments);
+                fullSnapshotAttachments);
             LogExportMessage($"iPad snapshot package export completed: {packagePath}");
+            CleanupSnapshotTempFiles(snapshotsDirectory);
         }
         catch (Exception ex)
         {
             LogExportMessage($"iPad snapshot package export failed: {packagePath} | {ex}");
+            return SnapshotExportResult.CreateFailure("iPad-Snapshot konnte nicht exportiert werden. Details siehe Log.");
         }
 
-        return SnapshotExportResult.CreateSuccess(syncDirectory);
+        return SnapshotExportResult.CreateSuccess(liveDirectory);
     }
 
     private static SnapshotTask CreateTaskSnapshot(TaskItem task, IReadOnlyDictionary<string, string> categoryLookup, BueroRepository repository)
@@ -236,7 +329,6 @@ public sealed class IpadSnapshotExportService
     {
         var attachmentIndex = new List<SnapshotAttachmentIndex>();
         var taskIds = tasks.Select(task => task.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var usedPackagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var taskId in taskIds)
         {
@@ -245,10 +337,8 @@ public sealed class IpadSnapshotExportService
                 var relativePath = AppPaths.ToStoredPath(attachment.StoredPath);
                 var resolvedPath = AppPaths.ResolveTaskAttachmentPath(attachment.TaskId, attachment.StoredPath, attachment.FileName);
                 var fileExists = File.Exists(resolvedPath);
-                var packagePath = fileExists
-                    ? CreateAttachmentPackagePath(attachment.TaskId, attachment.FileName, usedPackagePaths)
-                    : null;
                 var sizeBytes = fileExists ? TryGetFileSize(resolvedPath) : null;
+                var hash = fileExists ? ResolveContentHash(attachment.ContentHash, resolvedPath) : null;
                 var exportHint = fileExists
                     ? null
                     : "Datei nicht im Snapshot enthalten: Quelldatei wurde nicht gefunden.";
@@ -259,18 +349,380 @@ public sealed class IpadSnapshotExportService
                     attachment.FileName,
                     attachment.FileName,
                     relativePath,
-                    packagePath,
+                    null,
+                    null,
+                    hash,
                     string.IsNullOrWhiteSpace(attachment.FileType) ? null : attachment.FileType,
                     sizeBytes,
                     false,
                     fileExists,
                     false,
+                    false,
+                    false,
+                    LiveOriginalDownloadMode,
+                    LiveOriginalReason,
                     exportHint,
                     fileExists ? resolvedPath : null));
             }
         }
 
         return attachmentIndex;
+    }
+
+    private static LiveAttachmentExportResult ExportLiveAttachments(
+        IReadOnlyCollection<SnapshotAttachmentIndex> attachments,
+        string liveDirectory,
+        string previewsDirectory)
+    {
+        var thumbnailService = new ThumbnailService();
+        var result = new List<SnapshotAttachmentIndex>(attachments.Count);
+        var previewPathsByHash = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var newPreviews = 0;
+        var skippedPreviews = 0;
+
+        foreach (var attachment in attachments)
+        {
+            if (!attachment.FileExists || string.IsNullOrWhiteSpace(attachment.ResolvedPath) ||
+                string.IsNullOrWhiteSpace(attachment.ContentHash))
+            {
+                result.Add(attachment with
+                {
+                    PackagePath = null,
+                    PreviewPath = null,
+                    PreviewAvailable = false,
+                    OriginalAvailableInLiveSync = false,
+                    OriginalDownloadMode = LiveOriginalDownloadMode,
+                    Reason = LiveOriginalReason,
+                    ExistsInSnapshot = false
+                });
+                continue;
+            }
+
+            var hash = attachment.ContentHash;
+            string? previewPath = null;
+            if (IsPreviewSupported(attachment.FileName))
+            {
+                if (previewPathsByHash.TryGetValue(hash, out var knownPreviewPath))
+                {
+                    previewPath = knownPreviewPath;
+                    skippedPreviews++;
+                }
+                else
+                {
+                    var targetPreviewPath = Path.Combine(previewsDirectory, $"{hash}.jpg");
+                    var relativePreviewPath = ToSyncRelativePath(liveDirectory, targetPreviewPath);
+                    if (File.Exists(targetPreviewPath))
+                    {
+                        previewPath = relativePreviewPath;
+                        skippedPreviews++;
+                    }
+                    else
+                    {
+                        if (TryCreateLivePreview(attachment, targetPreviewPath, thumbnailService))
+                        {
+                            previewPath = relativePreviewPath;
+                            newPreviews++;
+                        }
+                        else
+                        {
+                            skippedPreviews++;
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(previewPath))
+                    {
+                        previewPathsByHash[hash] = previewPath;
+                    }
+                }
+            }
+            else
+            {
+                skippedPreviews++;
+            }
+
+            result.Add(attachment with
+            {
+                PackagePath = null,
+                PreviewPath = previewPath,
+                PreviewAvailable = previewPath is not null,
+                OriginalAvailableInLiveSync = false,
+                OriginalDownloadMode = LiveOriginalDownloadMode,
+                Reason = LiveOriginalReason,
+                ExistsInSnapshot = false,
+                ExportHint = previewPath is null ? "Keine Vorschau verfügbar." : null
+            });
+        }
+
+        return new LiveAttachmentExportResult(
+            result,
+            newPreviews,
+            skippedPreviews);
+    }
+
+    private static List<SnapshotAttachmentIndex> PrepareFullSnapshotAttachments(
+        IReadOnlyCollection<SnapshotAttachmentIndex> attachments)
+    {
+        var packagePathByHash = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var usedPackagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<SnapshotAttachmentIndex>(attachments.Count);
+
+        foreach (var attachment in attachments)
+        {
+            string? packagePath = null;
+            if (attachment.FileExists && !string.IsNullOrWhiteSpace(attachment.ResolvedPath))
+            {
+                if (!string.IsNullOrWhiteSpace(attachment.ContentHash) &&
+                    packagePathByHash.TryGetValue(attachment.ContentHash, out var existingPath))
+                {
+                    packagePath = existingPath;
+                }
+                else
+                {
+                    packagePath = CreateAttachmentPackagePath(attachment.TaskId, attachment.FileName, usedPackagePaths);
+                    if (!string.IsNullOrWhiteSpace(attachment.ContentHash))
+                    {
+                        packagePathByHash[attachment.ContentHash] = packagePath;
+                    }
+                }
+            }
+
+            result.Add(attachment with { PackagePath = packagePath, PreviewPath = null });
+        }
+
+        return result;
+    }
+
+    private static void CleanupLivePreviews(
+        string previewsDirectory,
+        IReadOnlyCollection<SnapshotAttachmentIndex> attachments)
+    {
+        var referencedPreviews = attachments
+            .Select(attachment => attachment.PreviewPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => Path.GetFileName(path!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in Directory.EnumerateFiles(previewsDirectory))
+        {
+            if (!referencedPreviews.Contains(Path.GetFileName(file)))
+            {
+                TryDeleteFile(file);
+            }
+        }
+
+    }
+
+    private static int CleanupLiveOriginals(string attachmentsDirectory)
+    {
+        if (!Directory.Exists(attachmentsDirectory))
+        {
+            return 0;
+        }
+
+        var rootInfo = new DirectoryInfo(attachmentsDirectory);
+        if (rootInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            LogExportMessage($"iPad live sync original cleanup skipped for linked directory: {attachmentsDirectory}");
+            return 0;
+        }
+
+        var removedOriginals = 0;
+        foreach (var file in rootInfo.EnumerateFiles())
+        {
+            if (TryDeleteFile(file.FullName))
+            {
+                removedOriginals++;
+            }
+        }
+
+        foreach (var directory in rootInfo.EnumerateDirectories())
+        {
+            CleanupLiveOriginalDirectory(directory, ref removedOriginals);
+        }
+
+        try
+        {
+            if (!rootInfo.EnumerateFileSystemInfos().Any())
+            {
+                rootInfo.Delete();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live sync original directory cleanup failed: {attachmentsDirectory} | {ex.Message}");
+        }
+
+        return removedOriginals;
+    }
+
+    private static void CleanupLiveOriginalDirectory(DirectoryInfo directory, ref int removedOriginals)
+    {
+        if (directory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            LogExportMessage($"iPad live sync original cleanup skipped for linked directory: {directory.FullName}");
+            return;
+        }
+
+        try
+        {
+            foreach (var file in directory.EnumerateFiles())
+            {
+                if (TryDeleteFile(file.FullName))
+                {
+                    removedOriginals++;
+                }
+            }
+
+            foreach (var childDirectory in directory.EnumerateDirectories())
+            {
+                CleanupLiveOriginalDirectory(childDirectory, ref removedOriginals);
+            }
+
+            if (!directory.EnumerateFileSystemInfos().Any())
+            {
+                directory.Delete();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live sync original cleanup failed: {directory.FullName} | {ex.Message}");
+        }
+    }
+
+    private static void CleanupSnapshotTempFiles(string snapshotsDirectory)
+    {
+        if (!Directory.Exists(snapshotsDirectory))
+        {
+            return;
+        }
+
+        foreach (var tempFile in Directory.EnumerateFiles(snapshotsDirectory, "latest.bcsnapshot*.tmp"))
+        {
+            TryDeleteFile(tempFile);
+        }
+    }
+
+    private static string? ResolveContentHash(string? storedHash, string sourcePath)
+    {
+        var normalizedStoredHash = storedHash?.Trim().ToLowerInvariant();
+        if (normalizedStoredHash is { Length: 64 } && normalizedStoredHash.All(Uri.IsHexDigit))
+        {
+            return normalizedStoredHash;
+        }
+
+        try
+        {
+            using var stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live sync hash failed: {sourcePath} | {ex.Message}");
+            return null;
+        }
+    }
+
+    private static bool IsPreviewSupported(string fileName)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() is
+            ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp" or ".pdf";
+    }
+
+    private static bool TryCreateLivePreview(
+        SnapshotAttachmentIndex attachment,
+        string targetPreviewPath,
+        ThumbnailService thumbnailService)
+    {
+        try
+        {
+            var sourcePath = attachment.ResolvedPath!;
+            var previewSourcePath = sourcePath;
+            if (Path.GetExtension(attachment.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                previewSourcePath = thumbnailService.EnsureThumbnail(new AttachmentItem
+                {
+                    Id = attachment.Id,
+                    TaskId = attachment.TaskId,
+                    FileName = attachment.FileName,
+                    StoredPath = sourcePath,
+                    FileType = attachment.ContentType ?? ".pdf"
+                }) ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(previewSourcePath) || !File.Exists(previewSourcePath))
+            {
+                return false;
+            }
+
+            using var source = SKBitmap.Decode(previewSourcePath);
+            if (source is null || source.Width <= 0 || source.Height <= 0)
+            {
+                return false;
+            }
+
+            var scale = Math.Min(1d, LivePreviewMaxLongSide / (double)Math.Max(source.Width, source.Height));
+            var targetWidth = Math.Max(1, (int)Math.Round(source.Width * scale));
+            var targetHeight = Math.Max(1, (int)Math.Round(source.Height * scale));
+            using var resized = source.Resize(
+                new SKImageInfo(targetWidth, targetHeight),
+                new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+            if (resized is null)
+            {
+                return false;
+            }
+
+            using var image = SKImage.FromBitmap(resized);
+            using var encoded = image.Encode(SKEncodedImageFormat.Jpeg, LivePreviewJpegQuality);
+            if (encoded is null)
+            {
+                return false;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPreviewPath)!);
+            var tempPath = $"{targetPreviewPath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    encoded.SaveTo(stream);
+                }
+
+                File.Move(tempPath, targetPreviewPath, overwrite: false);
+            }
+            catch
+            {
+                TryDeleteFile(tempPath);
+                throw;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live sync preview skipped: {attachment.FileName} | {ex.Message}");
+            return false;
+        }
+    }
+
+    private static long GetLiveDirectorySize(string liveDirectory, string previewsDirectory)
+    {
+        try
+        {
+            var jsonSize = Directory.EnumerateFiles(liveDirectory, "*.json", SearchOption.TopDirectoryOnly)
+                .Sum(path => TryGetFileSize(path) ?? 0L);
+            var previewSize = Directory.EnumerateFiles(previewsDirectory, "*", SearchOption.TopDirectoryOnly)
+                .Sum(path => TryGetFileSize(path) ?? 0L);
+            return jsonSize + previewSize;
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live sync size calculation failed: {liveDirectory} | {ex.Message}");
+            return 0;
+        }
+    }
+
+    private static string ToSyncRelativePath(string liveDirectory, string path)
+    {
+        return Path.GetRelativePath(liveDirectory, path).Replace('\\', '/');
     }
 
     private static string[] GetTaskCategoryIds(TaskItem task)
@@ -306,7 +758,34 @@ public sealed class IpadSnapshotExportService
     private static void WriteJson<T>(string path, T value)
     {
         var json = JsonSerializer.Serialize(value, JsonOptions);
-        File.WriteAllText(path, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllText(tempPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            if (!File.Exists(path))
+            {
+                File.Move(tempPath, path);
+                return;
+            }
+
+            try
+            {
+                File.Replace(tempPath, path, null);
+            }
+            catch (PlatformNotSupportedException)
+            {
+                File.Move(tempPath, path, overwrite: true);
+            }
+            catch (IOException)
+            {
+                File.Move(tempPath, path, overwrite: true);
+            }
+        }
+        catch
+        {
+            TryDeleteFile(tempPath);
+            throw;
+        }
     }
 
     private static void WriteSnapshotPackage<TMetadata, TCategory, TTask>(
@@ -331,13 +810,20 @@ public sealed class IpadSnapshotExportService
                 WriteZipJsonEntry(archive, "categories.json", categories);
                 WriteZipJsonEntry(archive, "tasks.json", tasks);
                 var attachmentsForIndex = new List<SnapshotAttachmentIndex>(attachments.Count);
+                var writtenAttachmentEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var attachment in attachments)
                 {
                     if (!string.IsNullOrWhiteSpace(attachment.PackagePath) &&
                         !string.IsNullOrWhiteSpace(attachment.ResolvedPath) &&
                         File.Exists(attachment.ResolvedPath))
                     {
-                        var copied = TryWriteZipFileEntry(archive, attachment.PackagePath, attachment.ResolvedPath, out var exportHint);
+                        string? exportHint = null;
+                        var copied = writtenAttachmentEntries.Contains(attachment.PackagePath) ||
+                            TryWriteZipFileEntry(archive, attachment.PackagePath, attachment.ResolvedPath, out exportHint);
+                        if (copied)
+                        {
+                            writtenAttachmentEntries.Add(attachment.PackagePath);
+                        }
                         attachmentsForIndex.Add(attachment with
                         {
                             ExistsInSnapshot = copied,
@@ -362,19 +848,62 @@ public sealed class IpadSnapshotExportService
                 WriteZipJsonEntry(archive, "attachments-index.json", attachmentsForIndex);
             }
 
-            if (File.Exists(finalPackagePath))
-            {
-                File.Replace(tempPackagePath, finalPackagePath, null);
-            }
-            else
-            {
-                File.Move(tempPackagePath, finalPackagePath);
-            }
+            ValidateSnapshotPackage(tempPackagePath);
+
+            PromoteSnapshotPackage(tempPackagePath, finalPackagePath);
         }
         catch
         {
             TryDeleteFile(tempPackagePath);
             throw;
+        }
+    }
+
+    private static void PromoteSnapshotPackage(string tempPackagePath, string finalPackagePath)
+    {
+        if (!File.Exists(finalPackagePath))
+        {
+            File.Move(tempPackagePath, finalPackagePath);
+            return;
+        }
+
+        try
+        {
+            File.Replace(tempPackagePath, finalPackagePath, null);
+        }
+        catch (PlatformNotSupportedException)
+        {
+            File.Move(tempPackagePath, finalPackagePath, overwrite: true);
+        }
+        catch (IOException ex)
+        {
+            LogExportMessage($"iPad snapshot package replace failed, trying overwrite move: {ex.Message}");
+            File.Move(tempPackagePath, finalPackagePath, overwrite: true);
+        }
+    }
+
+    private static void ValidateSnapshotPackage(string packagePath)
+    {
+        var requiredEntries = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "metadata.json",
+            "categories.json",
+            "tasks.json",
+            "attachments-index.json"
+        };
+
+        using var archive = ZipFile.OpenRead(packagePath);
+        foreach (var entry in archive.Entries)
+        {
+            requiredEntries.Remove(entry.FullName);
+            using var entryStream = entry.Open();
+            entryStream.CopyTo(Stream.Null);
+        }
+
+        if (requiredEntries.Count > 0)
+        {
+            throw new InvalidDataException(
+                $"Snapshot-Paket enthält nicht alle Pflichtdateien: {string.Join(", ", requiredEntries)}");
         }
     }
 
@@ -472,19 +1001,22 @@ public sealed class IpadSnapshotExportService
         return builder.ToString().Trim('_');
     }
 
-    private static void TryDeleteFile(string path)
+    private static bool TryDeleteFile(string path)
     {
         try
         {
             if (File.Exists(path))
             {
                 File.Delete(path);
+                return true;
             }
         }
         catch
         {
             // Der Aufräumfehler ist für den Export nicht relevant.
         }
+
+        return false;
     }
 
     private static void LogExportMessage(string message)
@@ -550,13 +1082,24 @@ public sealed class IpadSnapshotExportService
         string DisplayName,
         string RelativePath,
         string? PackagePath,
+        string? PreviewPath,
+        string? ContentHash,
         string? ContentType,
         long? SizeBytes,
         bool IsImportant,
         bool FileExists,
         bool ExistsInSnapshot,
+        bool PreviewAvailable,
+        bool OriginalAvailableInLiveSync,
+        string OriginalDownloadMode,
+        string Reason,
         string? ExportHint,
         [property: JsonIgnore] string? ResolvedPath);
+
+    private sealed record LiveAttachmentExportResult(
+        IReadOnlyCollection<SnapshotAttachmentIndex> Attachments,
+        int NewPreviews,
+        int SkippedPreviews);
 
     private static List<SnapshotCategory> GetCategoriesForSnapshot(BueroRepository repository)
     {

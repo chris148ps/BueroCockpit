@@ -1177,7 +1177,7 @@
                 <Button Content="OneDrive-Ordner auswählen" Click="SelectOneDriveFolder_OnClick" />
                 <Button Grid.Column="1" Content="OneDrive-Ordner öffnen" Click="OpenOneDriveFolder_OnClick" />
               </Grid>
-              <Button Content="iPad-Snapshot jetzt aktualisieren"
+              <Button Content="iPad-Sync + Vollsnapshot jetzt aktualisieren"
                       Click="RefreshIpadSnapshot_OnClick"
                       HorizontalAlignment="Left" />
               <TextBlock Text="{Binding IpadSnapshotStatus}"
@@ -1882,6 +1882,28 @@
           </ItemsControl>
         </StackPanel>
       </ScrollViewer>
+    </Border>
+
+    <Border Grid.Column="1"
+            Grid.ColumnSpan="2"
+            VerticalAlignment="Top"
+            Margin="26,18,26,0"
+            Padding="18"
+            Background="#E8F2FF"
+            BorderBrush="#2563EB"
+            BorderThickness="2"
+            CornerRadius="14"
+            IsVisible="{Binding HasIpadSnapshotStatus}">
+      <StackPanel Spacing="12">
+        <TextBlock Text="{Binding IpadSnapshotStatus}"
+                   FontSize="22"
+                   FontWeight="SemiBold"
+                   Foreground="#123A6F"
+                   TextWrapping="Wrap" />
+        <ProgressBar Height="18"
+                     IsIndeterminate="True"
+                     IsVisible="{Binding IsIpadSnapshotExportRunning}" />
+      </StackPanel>
     </Border>
   </Grid>
 </Window>

@@ -286,6 +286,8 @@ final class SnapshotReader: @unchecked Sendable {
 
         let candidateDirectories = [
             sourceURL,
+            sourceURL.appendingPathComponent("live", isDirectory: true),
+            sourceURL.appendingPathComponent("Sync", isDirectory: true).appendingPathComponent("live", isDirectory: true),
             sourceURL.appendingPathComponent("Sync", isDirectory: true).appendingPathComponent("snapshots", isDirectory: true)
         ]
 
@@ -379,10 +381,11 @@ final class SnapshotReader: @unchecked Sendable {
                 return nil
             }
 
-            let localURL = raw.packagePath.flatMap { packagePath -> URL? in
-                let candidateURL = folderURL.appendingPathComponent(packagePath)
-                return FileManager.default.fileExists(atPath: candidateURL.path) ? candidateURL : nil
-            }
+            let localURL = [raw.packagePath, raw.previewPath]
+                .compactMap { $0 }
+                .lazy
+                .map { folderURL.appendingPathComponent($0) }
+                .first { FileManager.default.fileExists(atPath: $0.path) }
 
             return SnapshotAttachmentIndex(
                 id: id,
@@ -392,6 +395,10 @@ final class SnapshotReader: @unchecked Sendable {
                 displayName: raw.displayName,
                 relativePath: relativePath,
                 packagePath: raw.packagePath,
+                previewAvailable: raw.previewAvailable ?? (raw.previewPath != nil),
+                originalAvailableInLiveSync: raw.originalAvailableInLiveSync ?? false,
+                originalDownloadMode: raw.originalDownloadMode,
+                reason: raw.reason,
                 contentType: raw.contentType,
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
@@ -428,6 +435,10 @@ final class SnapshotReader: @unchecked Sendable {
                 displayName: raw.displayName,
                 relativePath: relativePath,
                 packagePath: raw.packagePath,
+                previewAvailable: raw.previewAvailable ?? false,
+                originalAvailableInLiveSync: raw.originalAvailableInLiveSync ?? false,
+                originalDownloadMode: raw.originalDownloadMode,
+                reason: raw.reason,
                 contentType: raw.contentType,
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
@@ -548,6 +559,11 @@ private struct RawAttachment: Decodable {
     let displayName: String?
     let relativePath: String?
     let packagePath: String?
+    let previewPath: String?
+    let previewAvailable: Bool?
+    let originalAvailableInLiveSync: Bool?
+    let originalDownloadMode: String?
+    let reason: String?
     let contentType: String?
     let sizeBytes: Int64?
     let isImportant: Bool?

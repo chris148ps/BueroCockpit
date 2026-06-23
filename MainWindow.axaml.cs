@@ -100,6 +100,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isRefreshingVisibleTasks;
     private bool _isSavingCategorySnapshot;
     private int _isRunningIpadSnapshotExport;
+    private int _isPendingIpadSnapshotExport;
+    private bool _isIpadSnapshotExportRunning;
+    private CancellationTokenSource? _ipadSnapshotStatusHideCts;
     private bool _suppressTaskListSelectionChanged;
     private bool _suppressCategorySelectionChanged;
     private bool _suppressCategorySortModeSave;
@@ -645,6 +648,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasIpadSnapshotStatus => !string.IsNullOrWhiteSpace(IpadSnapshotStatus);
+    public bool IsIpadSnapshotExportRunning
+    {
+        get => _isIpadSnapshotExportRunning;
+        private set
+        {
+            if (_isIpadSnapshotExportRunning != value)
+            {
+                _isIpadSnapshotExportRunning = value;
+                OnPropertyChanged(nameof(IsIpadSnapshotExportRunning));
+            }
+        }
+    }
     public string AttachmentEditStatus
     {
         get => _attachmentEditStatus;
@@ -5617,7 +5632,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(HasOneDriveEditDirectory));
         OnPropertyChanged(nameof(HasNoOneDriveEditDirectory));
         BackupStatus = $"OneDrive-Bearbeitungsordner gesetzt: {folderPath}";
-        QueueIpadSnapshotExport();
+        TriggerIpadSnapshotExport("folder-selected");
     }
 
     private void OpenOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)
@@ -5629,21 +5644,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         OpenFolder(OneDriveEditDirectory);
-    }
-
-    private void QueueIpadSnapshotExport()
-    {
-        if (!HasOneDriveEditDirectory)
-        {
-            _ipadSnapshotExportService.LogDiagnostic("iPad snapshot export skipped: no OneDrive edit directory configured.");
-            return;
-        }
-
-        _ipadSnapshotExportService.RequestExport(
-            _repository,
-            OneDriveEditDirectory,
-            _updateService.GetCurrentVersion(),
-            Environment.MachineName);
     }
 
     private void TriggerIpadSnapshotExport(string reason)
@@ -5658,8 +5658,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (Interlocked.Exchange(ref _isRunningIpadSnapshotExport, 1) == 1)
         {
-            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export skipped ({reason}): direct export already running.");
-            Debug.WriteLine($"iPad snapshot export already running, skipping direct export for {reason}.");
+            Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 1);
+            _ipadSnapshotExportService.LogDiagnostic($"iPad live sync queued ({reason}): export already running.");
             return;
         }
 
@@ -5668,26 +5668,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task RunIpadSnapshotExportAsync(string reason)
     {
+        IsIpadSnapshotExportRunning = true;
+        SetIpadSnapshotStatus("iPad-Sync wird aktualisiert …");
+
         try
         {
-            Debug.WriteLine($"Direct iPad snapshot export started ({reason}): {OneDriveEditDirectory}");
-            var result = await _ipadSnapshotExportService.ExportNowAsync(
-                _repository,
-                OneDriveEditDirectory,
-                _updateService.GetCurrentVersion(),
-                Environment.MachineName);
+            IpadSnapshotExportService.SnapshotExportResult result;
+            do
+            {
+                Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 0);
+                Debug.WriteLine($"iPad live sync started ({reason}): {OneDriveEditDirectory}");
+                result = await _ipadSnapshotExportService.ExportLiveNowAsync(
+                    _repository,
+                    OneDriveEditDirectory,
+                    _updateService.GetCurrentVersion(),
+                    Environment.MachineName);
+            }
+            while (result.Success && Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 0) == 1);
 
-            Debug.WriteLine(result.Success
-                ? $"Direct iPad snapshot export completed ({reason}): {result.OutputDirectory}"
-                : $"Direct iPad snapshot export failed ({reason}): {result.ErrorMessage}");
+            SetIpadSnapshotStatus(
+                result.Success
+                    ? "iPad-Sync erfolgreich aktualisiert."
+                    : "iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.",
+                autoHide: result.Success);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Direct iPad snapshot export failed ({reason}): {ex}");
+            SetIpadSnapshotStatus("iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.");
+            Debug.WriteLine($"iPad live sync failed ({reason}): {ex}");
         }
         finally
         {
+            IsIpadSnapshotExportRunning = false;
             Interlocked.Exchange(ref _isRunningIpadSnapshotExport, 0);
+            if (Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 0) == 1)
+            {
+                TriggerIpadSnapshotExport("pending-write");
+            }
         }
     }
 
@@ -5700,7 +5717,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         TriggerIpadSnapshotExport(reason);
-        QueueIpadSnapshotExport();
     }
 
     private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
@@ -5750,26 +5766,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!HasOneDriveEditDirectory)
         {
-            IpadSnapshotStatus = "Noch kein OneDrive-Bearbeitungsordner gewählt.";
+            SetIpadSnapshotStatus("Noch kein OneDrive-Bearbeitungsordner gewählt.");
             return;
         }
 
         try
         {
+            IsIpadSnapshotExportRunning = true;
+            SetIpadSnapshotStatus("iPad-Sync wird aktualisiert …");
             var result = await _ipadSnapshotExportService.ExportNowAsync(
                 _repository,
                 OneDriveEditDirectory,
                 _updateService.GetCurrentVersion(),
                 Environment.MachineName);
 
-            IpadSnapshotStatus = result.Success
-                ? $"iPad-Snapshot aktualisiert: {result.OutputDirectory}"
-                : result.ErrorMessage ?? "iPad-Snapshot konnte nicht aktualisiert werden.";
+            SetIpadSnapshotStatus(
+                result.Success
+                    ? "iPad-Sync erfolgreich aktualisiert. Vollsnapshot wurde ebenfalls erstellt."
+                    : "iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.",
+                autoHide: result.Success);
         }
         catch (Exception ex)
         {
-            IpadSnapshotStatus = "iPad-Snapshot konnte nicht aktualisiert werden.";
+            SetIpadSnapshotStatus("iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.");
             Debug.WriteLine($"Manual iPad snapshot export failed: {ex}");
+        }
+        finally
+        {
+            IsIpadSnapshotExportRunning = false;
+        }
+    }
+
+    private void SetIpadSnapshotStatus(string status, bool autoHide = false)
+    {
+        var previousCts = _ipadSnapshotStatusHideCts;
+        _ipadSnapshotStatusHideCts = null;
+        previousCts?.Cancel();
+        previousCts?.Dispose();
+
+        IpadSnapshotStatus = status;
+        if (!autoHide)
+        {
+            return;
+        }
+
+        var currentCts = new CancellationTokenSource();
+        _ipadSnapshotStatusHideCts = currentCts;
+        _ = HideSuccessfulIpadSnapshotStatusAsync(currentCts);
+    }
+
+    private async Task HideSuccessfulIpadSnapshotStatusAsync(CancellationTokenSource currentCts)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), currentCts.Token);
+            if (ReferenceEquals(_ipadSnapshotStatusHideCts, currentCts))
+            {
+                _ipadSnapshotStatusHideCts = null;
+                IpadSnapshotStatus = string.Empty;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Eine neuere Statusmeldung bleibt sichtbar.
+        }
+        finally
+        {
+            currentCts.Dispose();
         }
     }
 

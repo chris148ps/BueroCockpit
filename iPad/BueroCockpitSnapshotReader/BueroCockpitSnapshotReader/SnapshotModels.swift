@@ -114,6 +114,10 @@ struct SnapshotAttachmentIndex: Identifiable, Equatable, Sendable {
     let displayName: String?
     let relativePath: String
     let packagePath: String?
+    let previewAvailable: Bool
+    let originalAvailableInLiveSync: Bool
+    let originalDownloadMode: String?
+    let reason: String?
     let contentType: String?
     let sizeBytes: Int64?
     let isImportant: Bool
@@ -167,6 +171,10 @@ extension SnapshotAttachmentIndex {
     var availabilityText: String {
         if existsInSnapshot {
             return "Im Snapshot enthalten"
+        }
+
+        if localURL != nil {
+            return "Vorschau verfügbar"
         }
 
         return "Datei fehlt"
