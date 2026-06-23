@@ -173,15 +173,21 @@ extension SnapshotAttachmentIndex {
             return "Im Snapshot enthalten"
         }
 
-        if localURL != nil {
-            return "Vorschau verfügbar"
+        if previewAvailable && (localURL != nil || packagePath != nil) {
+            return originalAvailableInLiveSync
+                ? "Vorschau im Live-Sync enthalten"
+                : "Vorschau im Live-Sync enthalten · Original nicht synchronisiert"
+        }
+
+        if fileExists && !originalAvailableInLiveSync {
+            return "Original nicht synchronisiert"
         }
 
         return "Datei fehlt"
     }
 
     var canPreview: Bool {
-        localURL != nil || (existsInSnapshot && packagePath != nil)
+        localURL != nil || packagePath != nil
     }
 }
 
@@ -330,6 +336,7 @@ enum SnapshotReaderError: LocalizedError, Equatable {
     case invalidPackageSelection
     case securityScopedAccessDenied(String)
     case localCopyFailed(String)
+    case localLiveFileUnreadable(String)
     case missingRequiredFile(String, String?)
     case invalidJSON(String, String?)
     case unreadableFolder(String)
@@ -342,7 +349,9 @@ enum SnapshotReaderError: LocalizedError, Equatable {
         case .securityScopedAccessDenied(let fileName):
             return "Sicherheitszugriff wurde verweigert: \(fileName)"
         case .localCopyFailed:
-            return "Die Snapshot-Datei konnte nicht lokal gespeichert werden. Bitte wähle sie erneut aus."
+            return "Die Datei konnte nicht lokal kopiert werden. Bitte Sync/live.bclive erneut importieren."
+        case .localLiveFileUnreadable:
+            return "Die lokale Live-Datei konnte nicht gelesen werden. Bitte Sync/live.bclive erneut importieren."
         case .missingRequiredFile(let fileName, _):
             switch fileName.lowercased() {
             case "metadata.json":
@@ -359,7 +368,7 @@ enum SnapshotReaderError: LocalizedError, Equatable {
         case .unreadableFolder(let folderName):
             return "Snapshot-Ordner konnte nicht geöffnet werden: \(folderName)"
         case .unreadableSnapshotPackage(let fileName, _):
-            return "Die Snapshot-Datei \(fileName) konnte nicht gelesen werden. Bitte wähle eine neue latest.bcsnapshot aus."
+            return "Die lokale Live-Datei \(fileName) konnte nicht gelesen werden. Bitte Sync/live.bclive erneut importieren."
         }
     }
 }

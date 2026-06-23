@@ -54,7 +54,7 @@ struct SnapshotStartView: View {
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: 540)
 
-                            Text("Bei OneDrive bitte Snapshot-Datei importieren verwenden. Die Paketdatei latest.bcsnapshot enthält die benötigten JSON-Daten in einer Datei.")
+                            Text("Wählen Sie Sync/live.bclive aus. Die Datei wird lokal in die App kopiert und dann gelesen. Eine .bcsnapshot-Datei bleibt als manueller Fallback verfügbar.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)

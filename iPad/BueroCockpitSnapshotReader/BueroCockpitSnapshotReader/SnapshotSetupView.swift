@@ -10,6 +10,7 @@ struct SnapshotSetupView: View {
     let message: String?
     let statusMessage: String?
     let onSelectSnapshot: () -> Void
+    let onSelectFolder: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -22,11 +23,11 @@ struct SnapshotSetupView: View {
                     Text("BüroCockpit einrichten")
                         .font(.largeTitle.bold())
 
-                    Text("Wähle den BüroCockpit-Snapshot aus OneDrive aus.")
+                    Text("Wählen Sie Sync/live.bclive aus. Die Datei wird lokal in die App kopiert und dann gelesen.")
                         .font(.title3)
                         .multilineTextAlignment(.center)
 
-                    Text("Die Datei wird nur gelesen. Die App merkt sich den gewählten Ort und hält zusätzlich eine lokale Kopie für die Offline-Anzeige bereit.")
+                    Text("Die App liest ausschließlich die lokale Kopie. Für neuere Daten importieren Sie Sync/live.bclive erneut.")
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 560)
@@ -45,8 +46,12 @@ struct SnapshotSetupView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Button("Snapshot-Datei auswählen", action: onSelectSnapshot)
+                    Button("Live-Datei importieren", action: onSelectSnapshot)
                         .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+
+                    Button("Live-Ordner auswählen", action: onSelectFolder)
+                        .buttonStyle(.bordered)
                         .controlSize(.large)
                 }
                 .padding(40)
@@ -65,6 +70,7 @@ struct SnapshotSettingsView: View {
     let statusMessage: String?
     let onRefresh: () -> Void
     let onChooseLocation: () -> Void
+    let onChooseFolder: () -> Void
     let onReset: () -> Void
     let onDismiss: () -> Void
 
@@ -84,8 +90,9 @@ struct SnapshotSettingsView: View {
                 }
 
                 Section("Aktionen") {
-                    Button("Snapshot aktualisieren", action: onRefresh)
-                    Button("Snapshot-Ort neu wählen", action: onChooseLocation)
+                    Button("Daten neu laden", action: onRefresh)
+                    Button("Live-Datei erneut importieren", action: onChooseLocation)
+                    Button("Live-Ordner auswählen", action: onChooseFolder)
                     Button("Einrichtung zurücksetzen", role: .destructive, action: onReset)
                 }
 

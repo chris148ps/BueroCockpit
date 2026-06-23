@@ -15,6 +15,7 @@ public sealed class IpadSnapshotExportService
     private const int FormatVersion = 1;
     private const string SnapshotPackageFileName = "latest.bcsnapshot";
     private const string LegacySnapshotPackageTempFileName = "latest.bcsnapshot.tmp";
+    private const string LivePackageFileName = "live.bclive";
     private const int LivePreviewMaxLongSide = 1600;
     private const int LivePreviewJpegQuality = 74;
     private const string LiveOriginalDownloadMode = "onDemandPlanned";
@@ -246,6 +247,28 @@ public sealed class IpadSnapshotExportService
         CleanupLivePreviews(previewsDirectory, liveExport.Attachments);
         var removedOriginals = CleanupLiveOriginals(attachmentsDirectory);
         var liveSizeBytes = GetLiveDirectorySize(liveDirectory, previewsDirectory);
+
+        var livePackagePath = Path.Combine(syncDirectory, LivePackageFileName);
+        var tempLivePackagePath = Path.Combine(
+            syncDirectory,
+            $"{LivePackageFileName}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            CleanupLivePackageTempFiles(syncDirectory);
+            LogExportMessage($"live package export started: {livePackagePath}");
+            WriteLivePackage(tempLivePackagePath, livePackagePath, liveDirectory, previewsDirectory);
+            var livePackageSizeBytes = TryGetFileSize(livePackagePath) ?? 0L;
+            LogExportMessage(
+                $"live package export completed: {livePackagePath} | size={livePackageSizeBytes / 1024d / 1024d:F1}MB");
+            CleanupLivePackageTempFiles(syncDirectory);
+        }
+        catch (Exception ex)
+        {
+            TryDeleteFile(tempLivePackagePath);
+            LogExportMessage($"live package export failed: {livePackagePath} | {ex}");
+            return SnapshotExportResult.CreateFailure("iPad-Live-Datei konnte nicht exportiert werden. Details siehe Log.");
+        }
+
         stopwatch.Stop();
 
         LogExportMessage(
@@ -601,6 +624,19 @@ public sealed class IpadSnapshotExportService
         }
     }
 
+    private static void CleanupLivePackageTempFiles(string syncDirectory)
+    {
+        if (!Directory.Exists(syncDirectory))
+        {
+            return;
+        }
+
+        foreach (var tempFile in Directory.EnumerateFiles(syncDirectory, $"{LivePackageFileName}.*.tmp"))
+        {
+            TryDeleteFile(tempFile);
+        }
+    }
+
     private static string? ResolveContentHash(string? storedHash, string sourcePath)
     {
         var normalizedStoredHash = storedHash?.Trim().ToLowerInvariant();
@@ -850,6 +886,49 @@ public sealed class IpadSnapshotExportService
 
             ValidateSnapshotPackage(tempPackagePath);
 
+            PromoteSnapshotPackage(tempPackagePath, finalPackagePath);
+        }
+        catch
+        {
+            TryDeleteFile(tempPackagePath);
+            throw;
+        }
+    }
+
+    private static void WriteLivePackage(
+        string tempPackagePath,
+        string finalPackagePath,
+        string liveDirectory,
+        string previewsDirectory)
+    {
+        if (File.Exists(tempPackagePath))
+        {
+            File.Delete(tempPackagePath);
+        }
+
+        try
+        {
+            using (var fileStream = new FileStream(tempPackagePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
+            using (var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
+            {
+                foreach (var fileName in new[]
+                         {
+                             "metadata.json",
+                             "categories.json",
+                             "tasks.json",
+                             "attachments-index.json"
+                         })
+                {
+                    WriteZipFileEntry(archive, fileName, Path.Combine(liveDirectory, fileName));
+                }
+
+                foreach (var previewPath in Directory.EnumerateFiles(previewsDirectory, "*", SearchOption.TopDirectoryOnly))
+                {
+                    WriteZipFileEntry(archive, $"previews/{Path.GetFileName(previewPath)}", previewPath);
+                }
+            }
+
+            ValidateSnapshotPackage(tempPackagePath);
             PromoteSnapshotPackage(tempPackagePath, finalPackagePath);
         }
         catch

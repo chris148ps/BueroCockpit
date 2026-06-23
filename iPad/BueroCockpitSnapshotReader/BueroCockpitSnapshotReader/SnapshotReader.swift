@@ -28,16 +28,16 @@ final class SnapshotReader: @unchecked Sendable {
 
     func readSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
         SnapshotPerformanceLog.event("Reader started")
+        if isSnapshotPackage(sourceURL) {
+            let localPackageURL = try importSnapshotPackage(from: sourceURL)
+            return try readSnapshotPackage(from: localPackageURL)
+        }
+
         let accessGranted = sourceURL.startAccessingSecurityScopedResource()
         defer {
             if accessGranted {
                 sourceURL.stopAccessingSecurityScopedResource()
             }
-        }
-
-        if isSnapshotPackage(sourceURL) {
-            let localPackageURL = try stageSnapshotPackageToSandbox(from: sourceURL)
-            return try readSnapshotPackage(from: localPackageURL)
         }
 
         let resolvedSnapshotURL = try resolveSnapshotDirectory(from: sourceURL)
@@ -58,7 +58,12 @@ final class SnapshotReader: @unchecked Sendable {
         let rawMetadata: RawMetadata = try decodeRequiredFile(named: "metadata.json", at: resolvedSnapshotURL)
         let rawCategories: [RawCategory] = try decodeRequiredArray(named: "categories.json", at: resolvedSnapshotURL)
         let rawTasks: [RawTask] = try decodeRequiredArray(named: "tasks.json", at: resolvedSnapshotURL)
-        let attachments = decodeOptionalAttachments(at: resolvedSnapshotURL)
+        let attachments: [RawAttachment]
+        if resolvedSnapshotURL.lastPathComponent.caseInsensitiveCompare("live") == .orderedSame {
+            attachments = try decodeRequiredArray(named: "attachments-index.json", at: resolvedSnapshotURL)
+        } else {
+            attachments = decodeOptionalAttachments(at: resolvedSnapshotURL)
+        }
         SnapshotPerformanceLog.event("JSON decoded")
 
         let metadata = SnapshotMetadata(
@@ -130,7 +135,12 @@ final class SnapshotReader: @unchecked Sendable {
             let rawMetadata: RawMetadata = try decodeRequiredPackageFile(named: "metadata.json", in: archive)
             let rawCategories: [RawCategory] = try decodeRequiredPackageArray(named: "categories.json", in: archive)
             let rawTasks: [RawTask] = try decodeRequiredPackageArray(named: "tasks.json", in: archive)
-            let attachments = decodeOptionalPackageAttachments(in: archive)
+            let attachments: [RawAttachment]
+            if sourceURL.pathExtension.caseInsensitiveCompare("bclive") == .orderedSame {
+                attachments = try decodeRequiredPackageArray(named: "attachments-index.json", in: archive)
+            } else {
+                attachments = decodeOptionalPackageAttachments(in: archive)
+            }
             SnapshotPerformanceLog.event("JSON decoded")
 
             let metadata = SnapshotMetadata(
@@ -190,17 +200,18 @@ final class SnapshotReader: @unchecked Sendable {
         }
     }
 
-    private func stageSnapshotPackageToSandbox(from sourceURL: URL) throws -> URL {
+    private func importSnapshotPackage(from sourceURL: URL) throws -> URL {
         SnapshotPerformanceLog.event("Local copy started")
         guard sourceURL.startAccessingSecurityScopedResource() else {
-            throw SnapshotReaderError.securityScopedAccessDenied(sourceURL.lastPathComponent)
+            throw SnapshotReaderError.localCopyFailed(sourceURL.lastPathComponent)
         }
         defer {
             sourceURL.stopAccessingSecurityScopedResource()
         }
 
         let snapshotsDirectory = try localSnapshotsDirectory()
-        let destinationURL = snapshotsDirectory.appendingPathComponent(sourceURL.lastPathComponent, isDirectory: false)
+        let fileExtension = sourceURL.pathExtension.lowercased()
+        let destinationURL = snapshotsDirectory.appendingPathComponent("current.\(fileExtension)", isDirectory: false)
 
         let sourceInfo = try? FileManager.default.attributesOfItem(atPath: sourceURL.path)
         let sourceExists = FileManager.default.fileExists(atPath: sourceURL.path)
@@ -208,33 +219,19 @@ final class SnapshotReader: @unchecked Sendable {
 
         var coordinationError: NSError?
         var transferError: Error?
-        let temporaryURL = snapshotsDirectory.appendingPathComponent(".\(UUID().uuidString).importing", isDirectory: false)
+        let temporaryURL = snapshotsDirectory.appendingPathComponent(".import-\(UUID().uuidString).\(fileExtension)", isDirectory: false)
         defer { try? FileManager.default.removeItem(at: temporaryURL) }
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: sourceURL, options: [.withoutChanges], error: &coordinationError) { readableURL in
             do {
                 try FileManager.default.copyItem(at: readableURL, to: temporaryURL)
-                if FileManager.default.fileExists(atPath: destinationURL.path) {
-                    _ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: temporaryURL)
-                } else {
-                    try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
-                }
             } catch {
                 transferError = error
             }
         }
 
         if let coordinationError {
-            throw SnapshotReaderError.unreadableSnapshotPackage(
-                sourceURL.lastPathComponent,
-                """
-                Original-Dateiname: \(sourceURL.lastPathComponent)
-                Lokale Ziel-URL: \(destinationURL.path)
-                Quelle vorhanden: \(sourceExists ? "ja" : "nein")
-                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
-                Koordination: \(coordinationError.localizedDescription)
-                """
-            )
+            throw SnapshotReaderError.localCopyFailed(coordinationError.localizedDescription)
         }
 
         if let transferError {
@@ -243,35 +240,61 @@ final class SnapshotReader: @unchecked Sendable {
                 \(sourceURL.lastPathComponent)
                 Lokale Ziel-URL: \(destinationURL.path)
                 Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
-                Lokales Kopieren der Snapshot-Datei fehlgeschlagen: \(transferError.localizedDescription)
+                \(transferError.localizedDescription)
                 """
             )
         }
 
-        let destinationExists = FileManager.default.fileExists(atPath: destinationURL.path)
-        let destinationAttributes = try? FileManager.default.attributesOfItem(atPath: destinationURL.path)
-        let destinationSize = (destinationAttributes?[.size] as? NSNumber)?.int64Value
-        guard destinationExists, let destinationSize, destinationSize > 0 else {
-            throw SnapshotReaderError.unreadableSnapshotPackage(
-                sourceURL.lastPathComponent,
-                """
-                Original-Dateiname: \(sourceURL.lastPathComponent)
-                Lokale Ziel-URL: \(destinationURL.path)
-                Quelle vorhanden: \(sourceExists ? "ja" : "nein")
-                Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")
-                Lokale Datei vorhanden: \(destinationExists ? "ja" : "nein")
-                Lokale Dateigröße: \(String(describing: destinationSize))
-                Die lokale Paketdatei wurde nicht erfolgreich geschrieben.
-                """
+        let temporaryAttributes = try? FileManager.default.attributesOfItem(atPath: temporaryURL.path)
+        let temporarySize = (temporaryAttributes?[.size] as? NSNumber)?.int64Value
+        guard FileManager.default.fileExists(atPath: temporaryURL.path), let temporarySize, temporarySize > 0 else {
+            throw SnapshotReaderError.localCopyFailed(
+                "Quelle vorhanden: \(sourceExists ? "ja" : "nein"), Quellgröße: \(sourceSize.map { "\($0)" } ?? "unbekannt")"
             )
         }
 
+        do {
+            try validateImportedPackage(at: temporaryURL)
+        } catch {
+            throw SnapshotReaderError.localLiveFileUnreadable(error.localizedDescription)
+        }
+
+        do {
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                _ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: temporaryURL)
+            } else {
+                try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
+            }
+        } catch {
+            throw SnapshotReaderError.localCopyFailed(error.localizedDescription)
+        }
+
+        cleanupOtherImportedPackages(keeping: destinationURL, in: snapshotsDirectory)
         SnapshotPerformanceLog.event("Local copy finished")
         return destinationURL
     }
 
     private func localSnapshotsDirectory() throws -> URL {
-        try SnapshotLocalStorage.snapshotsDirectory()
+        try SnapshotLocalStorage.importedSnapshotsDirectory()
+    }
+
+    private func validateImportedPackage(at packageURL: URL) throws {
+        let archive = try SnapshotPackageArchive(contentsOf: packageURL)
+        let _: RawMetadata = try decodeRequiredPackageFile(named: "metadata.json", in: archive)
+        let _: [RawCategory] = try decodeRequiredPackageArray(named: "categories.json", in: archive)
+        let _: [RawTask] = try decodeRequiredPackageArray(named: "tasks.json", in: archive)
+        if packageURL.pathExtension.caseInsensitiveCompare("bclive") == .orderedSame {
+            let _: [RawAttachment] = try decodeRequiredPackageArray(named: "attachments-index.json", in: archive)
+        }
+    }
+
+    private func cleanupOtherImportedPackages(keeping currentURL: URL, in directory: URL) {
+        for fileExtension in ["bclive", "bcsnapshot", "zip"] {
+            let candidate = directory.appendingPathComponent("current.\(fileExtension)", isDirectory: false)
+            if candidate != currentURL {
+                try? FileManager.default.removeItem(at: candidate)
+            }
+        }
     }
 
     private func resolveSnapshotDirectory(from sourceURL: URL) throws -> URL {
@@ -302,7 +325,7 @@ final class SnapshotReader: @unchecked Sendable {
 
     private func isSnapshotPackage(_ url: URL) -> Bool {
         let extensionName = url.pathExtension.lowercased()
-        return extensionName == "bcsnapshot" || extensionName == "zip"
+        return extensionName == "bclive" || extensionName == "bcsnapshot" || extensionName == "zip"
     }
 
     private func containsSnapshotFiles(at folderURL: URL) -> Bool {
@@ -417,12 +440,17 @@ final class SnapshotReader: @unchecked Sendable {
                 return nil
             }
 
-            let existsInArchive = raw.packagePath.map(archive.containsEntry(named:)) ?? false
-            let localURL = existsInArchive
+            let originalExistsInArchive = raw.packagePath.map(archive.containsEntry(named:)) ?? false
+            let previewExistsInArchive = raw.previewPath.map(archive.containsEntry(named:)) ?? false
+            let readablePackagePath = originalExistsInArchive
+                ? raw.packagePath
+                : previewExistsInArchive ? raw.previewPath : nil
+            let cachedFileName = readablePackagePath.map { ($0 as NSString).lastPathComponent } ?? fileName
+            let localURL = readablePackagePath != nil
                 ? cachedAttachmentURL(
                     id: id,
-                    fileName: fileName,
-                    expectedSize: raw.sizeBytes,
+                    fileName: cachedFileName,
+                    expectedSize: originalExistsInArchive ? raw.sizeBytes : nil,
                     sourceURL: sourceURL
                 )
                 : nil
@@ -434,8 +462,8 @@ final class SnapshotReader: @unchecked Sendable {
                 originalFileName: raw.originalFileName,
                 displayName: raw.displayName,
                 relativePath: relativePath,
-                packagePath: raw.packagePath,
-                previewAvailable: raw.previewAvailable ?? false,
+                packagePath: readablePackagePath,
+                previewAvailable: raw.previewAvailable ?? previewExistsInArchive,
                 originalAvailableInLiveSync: raw.originalAvailableInLiveSync ?? false,
                 originalDownloadMode: raw.originalDownloadMode,
                 reason: raw.reason,
@@ -443,7 +471,7 @@ final class SnapshotReader: @unchecked Sendable {
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
                 fileExists: raw.fileExists ?? false,
-                existsInSnapshot: existsInArchive,
+                existsInSnapshot: originalExistsInArchive,
                 exportHint: raw.exportHint,
                 localURL: localURL,
                 sourceIndex: index
@@ -452,10 +480,11 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     private func extractAttachment(_ attachment: SnapshotAttachmentIndex, archive: SnapshotPackageArchive, sourceURL: URL) throws -> URL {
+        let cachedFileName = attachment.packagePath.map { ($0 as NSString).lastPathComponent } ?? attachment.fileName
         if let cachedURL = cachedAttachmentURL(
             id: attachment.id,
-            fileName: attachment.fileName,
-            expectedSize: attachment.sizeBytes,
+            fileName: cachedFileName,
+            expectedSize: attachment.existsInSnapshot ? attachment.sizeBytes : nil,
             sourceURL: sourceURL
         ) {
             return cachedURL
@@ -470,7 +499,7 @@ final class SnapshotReader: @unchecked Sendable {
             let attachmentsDirectory = try SnapshotLocalStorage.attachmentsDirectory(forSnapshot: sourceURL)
             let attachmentDirectory = attachmentsDirectory.appendingPathComponent(sanitizedPathComponent(attachment.id), isDirectory: true)
             try FileManager.default.createDirectory(at: attachmentDirectory, withIntermediateDirectories: true)
-            let destinationURL = attachmentDirectory.appendingPathComponent(sanitizedFileName(attachment.fileName), isDirectory: false)
+            let destinationURL = attachmentDirectory.appendingPathComponent(sanitizedFileName(cachedFileName), isDirectory: false)
             try data.write(to: destinationURL, options: [.atomic])
             return destinationURL
         } catch {

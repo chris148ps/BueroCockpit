@@ -143,14 +143,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
         accessStore.savedFileName ?? document?.sourceURL.lastPathComponent
     }
 
-    var hasSavedSnapshotLocation: Bool {
-        accessStore.hasSavedLocation
+    var hasLocalSnapshot: Bool {
+        accessStore.hasLocalSnapshot
     }
 
     var loadingDescription: String {
-        loadingTitle == "Snapshot wird aktualisiert …"
-            ? "Bitte warten. Die App lädt den gespeicherten Snapshot-Ort neu."
-            : "Bitte warten. Die App liest die lokale Snapshot-Kopie ein."
+        loadingTitle == "Lokale Live-Datei wird neu geladen …"
+            ? "Bitte warten. Die App liest die bereits lokal gespeicherte Datei erneut."
+            : "Bitte warten. Die ausgewählte Datei wird lokal kopiert und gelesen."
     }
 
     func restoreAtLaunch() {
@@ -159,14 +159,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
 
         didAttemptStartupLoad = true
-        guard accessStore.hasSavedLocation else {
-            SnapshotPerformanceLog.event("Start auto-load skipped: no saved location")
+        guard accessStore.hasLocalSnapshot else {
+            SnapshotPerformanceLog.event("Start local load skipped: no imported file")
             setupRequired = true
             loadState = .idle
             return
         }
 
-        loadCachedSnapshotAtLaunch()
+        loadLocalSnapshot(isLaunch: true)
     }
 
     func importSnapshot(from sourceURL: URL) {
@@ -182,9 +182,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         Task {
             do {
                 let document = try await Task.detached(priority: .userInitiated) {
-                    let bookmark = try accessStore.makeBookmark(for: sourceURL)
                     let document = try reader.readSnapshot(from: sourceURL)
-                    accessStore.save(bookmark: bookmark, fileName: sourceURL.lastPathComponent)
+                    if ["bclive", "bcsnapshot", "zip"].contains(document.sourceURL.pathExtension.lowercased()) {
+                        accessStore.saveLocalSnapshot(fileName: document.sourceURL.lastPathComponent)
+                    }
                     return Self.prepare(document: document)
                 }.value
 
@@ -197,7 +198,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 if hadLoadedDocument {
                     setupRequired = false
                     setupMessage = nil
-                    noticeMessage = "Der ausgewählte Snapshot konnte nicht geladen werden: \(message)"
+                    noticeMessage = "Import fehlgeschlagen. Die bisher angezeigten Daten wurden nicht ersetzt. \(message)"
                     loadState = .ready
                 } else {
                     setupRequired = true
@@ -210,13 +211,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func refreshSnapshot() {
-        guard accessStore.hasSavedLocation else {
+        guard accessStore.hasLocalSnapshot else {
             setupRequired = true
-            setupMessage = "Bitte wähle zuerst einen Snapshot aus."
+            setupMessage = "Bitte Sync/live.bclive erneut importieren."
             return
         }
 
-        loadSavedSnapshot()
+        loadLocalSnapshot(isLaunch: false)
     }
 
     func resetSetup() {
@@ -240,135 +241,46 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
     }
 
-    private func loadCachedSnapshotAtLaunch() {
-        SnapshotPerformanceLog.event("Start local cache load started")
-        loadingTitle = "Snapshot wird geladen …"
-        loadState = .loading
-
-        let reader = self.reader
-        let accessStore = self.accessStore
-        Task {
-            let outcome = await Task.detached(priority: .utility) {
-                do {
-                    let cachedURL = try accessStore.cachedSnapshotURL()
-                    SnapshotPerformanceLog.event("Start local cache located")
-                    let document = try reader.readCachedSnapshot(from: cachedURL)
-                    return StartCacheLoadOutcome.loaded(Self.prepare(document: document))
-                } catch {
-                    return StartCacheLoadOutcome.failure(Self.displayMessage(for: error))
-                }
-            }.value
-
-            switch outcome {
-            case .loaded(let prepared):
-                setupRequired = false
-                setupMessage = nil
-                noticeMessage = nil
-                apply(prepared: prepared)
-                SnapshotPerformanceLog.event("Start local cache load finished")
-            case .failure(let message):
-                setupRequired = false
-                present(
-                    errorMessage: "Die lokale Snapshot-Kopie konnte nicht geladen werden: \(message)",
-                    keepSetupState: true
-                )
-                SnapshotPerformanceLog.event("Start local cache load failed")
-            }
-        }
-    }
-
-    private func loadSavedSnapshot() {
-        SnapshotPerformanceLog.event("Manual bookmark refresh started")
+    private func loadLocalSnapshot(isLaunch: Bool) {
+        SnapshotPerformanceLog.event(isLaunch ? "Start local file load started" : "Manual local file reload started")
         searchText = ""
-        loadingTitle = "Snapshot wird aktualisiert …"
+        loadingTitle = isLaunch ? "Lokale Live-Datei wird geladen …" : "Lokale Live-Datei wird neu geladen …"
         loadState = .loading
 
         let reader = self.reader
         let accessStore = self.accessStore
         Task {
             let outcome = await Task.detached(priority: .userInitiated) {
-                Self.loadSavedSnapshot(reader: reader, accessStore: accessStore)
+                do {
+                    let cachedURL = try accessStore.cachedSnapshotURL()
+                    let document = try reader.readCachedSnapshot(from: cachedURL)
+                    return LocalSnapshotLoadOutcome.loaded(Self.prepare(document: document))
+                } catch {
+                    return LocalSnapshotLoadOutcome.failure(Self.displayMessage(for: error))
+                }
             }.value
 
             switch outcome {
-            case .loaded(let document, let notice, let requiresSetup, let message):
-                noticeMessage = notice
-                setupRequired = requiresSetup
-                setupMessage = message
-                apply(prepared: document)
-                SnapshotPerformanceLog.event("Manual bookmark refresh finished")
-            case .failure(let message, let requiresSetup):
+            case .loaded(let prepared):
                 noticeMessage = nil
-                setupRequired = requiresSetup
-                setupMessage = requiresSetup ? message : nil
+                setupRequired = false
+                setupMessage = nil
+                apply(prepared: prepared)
+                SnapshotPerformanceLog.event(isLaunch ? "Start local file load finished" : "Manual local file reload finished")
+            case .failure(let message):
+                let failureMessage = "Die lokale Live-Datei konnte nicht gelesen werden. Bitte Sync/live.bclive erneut importieren. \(message)"
                 if document != nil {
-                    noticeMessage = message
+                    noticeMessage = failureMessage
+                    setupRequired = false
+                    setupMessage = nil
                     loadState = .ready
                 } else {
-                    present(errorMessage: message, keepSetupState: true)
+                    setupRequired = true
+                    setupMessage = failureMessage
+                    present(errorMessage: failureMessage)
                 }
-                SnapshotPerformanceLog.event("Manual bookmark refresh failed")
+                SnapshotPerformanceLog.event(isLaunch ? "Start local file load failed" : "Manual local file reload failed")
             }
-        }
-    }
-
-    nonisolated private static func loadSavedSnapshot(
-        reader: SnapshotReader,
-        accessStore: SnapshotAccessStore
-    ) -> SavedSnapshotLoadOutcome {
-        do {
-            let location = try accessStore.resolveSavedLocation()
-            if location.isStale {
-                return cachedOutcome(
-                    reader: reader,
-                    accessStore: accessStore,
-                    failureMessage: SnapshotAccessError.staleBookmark.localizedDescription,
-                    requiresSetup: true
-                )
-            }
-
-            do {
-                return .loaded(
-                    prepare(document: try reader.readSnapshot(from: location.url)),
-                    notice: nil,
-                    requiresSetup: false,
-                    setupMessage: nil
-                )
-            } catch {
-                return cachedOutcome(
-                    reader: reader,
-                    accessStore: accessStore,
-                    failureMessage: "Gespeicherter Snapshot konnte nicht aktualisiert werden. Es wird die letzte lokale Kopie angezeigt.",
-                    requiresSetup: false
-                )
-            }
-        } catch {
-            return cachedOutcome(
-                reader: reader,
-                accessStore: accessStore,
-                failureMessage: displayMessage(for: error),
-                requiresSetup: true
-            )
-        }
-    }
-
-    nonisolated private static func cachedOutcome(
-        reader: SnapshotReader,
-        accessStore: SnapshotAccessStore,
-        failureMessage: String,
-        requiresSetup: Bool
-    ) -> SavedSnapshotLoadOutcome {
-        do {
-            let cachedURL = try accessStore.cachedSnapshotURL()
-            let document = try reader.readCachedSnapshot(from: cachedURL)
-            return .loaded(
-                prepare(document: document),
-                notice: "Gespeicherter Snapshot konnte nicht aktualisiert werden. Es wird die letzte lokale Kopie angezeigt.",
-                requiresSetup: requiresSetup,
-                setupMessage: requiresSetup ? failureMessage : nil
-            )
-        } catch {
-            return .failure(failureMessage, requiresSetup: requiresSetup)
         }
     }
 
@@ -509,17 +421,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 }
 
-private enum SavedSnapshotLoadOutcome: Sendable {
-    case loaded(
-        PreparedSnapshot,
-        notice: String?,
-        requiresSetup: Bool,
-        setupMessage: String?
-    )
-    case failure(String, requiresSetup: Bool)
-}
-
-private enum StartCacheLoadOutcome: Sendable {
+private enum LocalSnapshotLoadOutcome: Sendable {
     case loaded(PreparedSnapshot)
     case failure(String)
 }

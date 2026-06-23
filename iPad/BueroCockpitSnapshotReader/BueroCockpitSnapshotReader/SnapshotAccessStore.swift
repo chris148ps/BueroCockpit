@@ -25,6 +25,19 @@ enum SnapshotLocalStorage {
         return currentSnapshotsDirectory
     }
 
+    static func importedSnapshotsDirectory() throws -> URL {
+        let fileManager = FileManager.default
+        let documentsURL = try fileManager.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let directory = documentsURL.appendingPathComponent("ImportedSnapshots", isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     static func attachmentsDirectory(forSnapshot snapshotURL: URL) throws -> URL {
         let safeSnapshotName = sanitizedDirectoryName(from: snapshotURL.lastPathComponent)
         let attributes = try? FileManager.default.attributesOfItem(atPath: snapshotURL.path)
@@ -67,31 +80,14 @@ enum SnapshotLocalStorage {
 }
 
 enum SnapshotAccessError: LocalizedError, Sendable {
-    case noSavedLocation
-    case bookmarkCreationFailed
-    case invalidBookmark
-    case staleBookmark
     case noCachedSnapshot
 
     var errorDescription: String? {
         switch self {
-        case .noSavedLocation:
-            return "Es ist noch kein Snapshot-Ort gespeichert."
-        case .bookmarkCreationFailed:
-            return "Der Zugriff auf die ausgewählte Snapshot-Datei konnte nicht gespeichert werden."
-        case .invalidBookmark:
-            return "Der gespeicherte Snapshot-Ort ist nicht mehr gültig. Bitte wähle die Datei erneut aus."
-        case .staleBookmark:
-            return "Der gespeicherte Snapshot-Ort ist veraltet. Bitte wähle die Datei erneut aus."
         case .noCachedSnapshot:
-            return "Es ist keine lokale Snapshot-Kopie verfügbar."
+            return "Es ist keine lokale Live-Datei verfügbar. Bitte Sync/live.bclive erneut importieren."
         }
     }
-}
-
-struct ResolvedSnapshotLocation: Sendable {
-    let url: URL
-    let isStale: Bool
 }
 
 final class SnapshotAccessStore: @unchecked Sendable {
@@ -105,65 +101,29 @@ final class SnapshotAccessStore: @unchecked Sendable {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if defaults.data(forKey: Key.bookmark) != nil {
+            defaults.removeObject(forKey: Key.bookmark)
+            defaults.removeObject(forKey: Key.sourceFileName)
+            defaults.removeObject(forKey: Key.setupCompleted)
+        }
     }
 
-    var hasSavedLocation: Bool {
-        defaults.data(forKey: Key.bookmark) != nil
+    var hasLocalSnapshot: Bool {
+        (try? cachedSnapshotURL()) != nil
     }
 
     var isSetupCompleted: Bool {
-        defaults.bool(forKey: Key.setupCompleted) && hasSavedLocation
+        defaults.bool(forKey: Key.setupCompleted) && hasLocalSnapshot
     }
 
     var savedFileName: String? {
         defaults.string(forKey: Key.sourceFileName)
     }
 
-    func makeBookmark(for url: URL) throws -> Data {
-        let accessGranted = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessGranted {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        do {
-            // iPadOS preserves the document picker's security scope in a minimal bookmark.
-            return try url.bookmarkData(
-                options: .minimalBookmark,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-        } catch {
-            throw SnapshotAccessError.bookmarkCreationFailed
-        }
-    }
-
-    func save(bookmark: Data, fileName: String) {
-        defaults.set(bookmark, forKey: Key.bookmark)
+    func saveLocalSnapshot(fileName: String) {
+        defaults.removeObject(forKey: Key.bookmark)
         defaults.set(fileName, forKey: Key.sourceFileName)
         defaults.set(true, forKey: Key.setupCompleted)
-    }
-
-    func resolveSavedLocation() throws -> ResolvedSnapshotLocation {
-        SnapshotPerformanceLog.event("Bookmark resolution started")
-        guard let bookmark = defaults.data(forKey: Key.bookmark) else {
-            throw SnapshotAccessError.noSavedLocation
-        }
-
-        var isStale = false
-        do {
-            let url = try URL(
-                resolvingBookmarkData: bookmark,
-                options: [.withoutUI],
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            )
-            SnapshotPerformanceLog.event("Bookmark resolution finished")
-            return ResolvedSnapshotLocation(url: url, isStale: isStale)
-        } catch {
-            throw SnapshotAccessError.invalidBookmark
-        }
     }
 
     func cachedSnapshotURL() throws -> URL {
@@ -171,7 +131,7 @@ final class SnapshotAccessStore: @unchecked Sendable {
             throw SnapshotAccessError.noCachedSnapshot
         }
 
-        let url = try SnapshotLocalStorage.snapshotsDirectory()
+        let url = try SnapshotLocalStorage.importedSnapshotsDirectory()
             .appendingPathComponent(fileName, isDirectory: false)
 
         guard FileManager.default.fileExists(atPath: url.path) else {

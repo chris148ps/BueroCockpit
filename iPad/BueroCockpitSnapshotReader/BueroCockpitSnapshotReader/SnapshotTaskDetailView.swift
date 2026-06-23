@@ -236,7 +236,7 @@ struct SnapshotTaskDetailView: View {
             defer { loadingAttachmentID = nil }
             do {
                 let localURL = try await attachmentLoader(attachment)
-                if attachment.isPDF {
+                if localURL.pathExtension.localizedCaseInsensitiveCompare("pdf") == .orderedSame {
                     let canOpenPDF = await Task.detached(priority: .userInitiated) {
                         PDFDocument(url: localURL) != nil
                     }.value
@@ -280,13 +280,6 @@ private struct SnapshotPreviewItem: Identifiable {
     let url: URL
     let kind: Kind
     var id: String { "\(kind)-\(url.path)" }
-}
-
-private extension SnapshotAttachmentIndex {
-    var isPDF: Bool {
-        fileName.lowercased().hasSuffix(".pdf")
-            || contentType?.localizedCaseInsensitiveContains("pdf") == true
-    }
 }
 
 private struct SnapshotPDFPreview: UIViewRepresentable {
