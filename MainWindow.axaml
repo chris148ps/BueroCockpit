@@ -272,10 +272,38 @@
             BorderThickness="0,0,1,0"
             Padding="18">
       <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-          <TextBlock Text="BüroCockpit" FontSize="24" FontWeight="SemiBold" />
-          <TextBlock Text="Lokale Aufgaben" Foreground="{DynamicResource TextSecondaryBrush}" Margin="1,3,0,0" />
-        </StackPanel>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,20" Margin="0,0,0,18">
+          <StackPanel>
+            <TextBlock Text="BüroCockpit" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="Lokale Aufgaben" Foreground="{DynamicResource TextSecondaryBrush}" Margin="1,3,0,0" />
+          </StackPanel>
+          <Grid Grid.Column="1"
+                Width="20"
+                Height="24"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                IsVisible="{Binding HasIpadSnapshotStatus}"
+                ToolTip.Tip="{Binding IpadSnapshotStatus}">
+            <TextBlock Text="↻"
+                       FontSize="18"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsIpadSnapshotExportRunning}" />
+            <TextBlock Text="✓"
+                       FontSize="17"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding HasSuccessfulIpadSnapshotStatus}" />
+            <TextBlock Text="⚠"
+                       FontSize="16"
+                       Foreground="{DynamicResource DangerBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding HasFailedIpadSnapshotStatus}" />
+          </Grid>
+        </Grid>
 
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
           <TextBlock Grid.Column="0"
@@ -1180,10 +1208,6 @@
               <Button Content="iPad-Sync + Vollsnapshot jetzt aktualisieren"
                       Click="RefreshIpadSnapshot_OnClick"
                       HorizontalAlignment="Left" />
-              <TextBlock Text="{Binding IpadSnapshotStatus}"
-                         IsVisible="{Binding HasIpadSnapshotStatus}"
-                         Foreground="{DynamicResource TextPrimaryBrush}"
-                         TextWrapping="Wrap" />
             </StackPanel>
           </Border>
 
@@ -1884,26 +1908,5 @@
       </ScrollViewer>
     </Border>
 
-    <Border Grid.Column="1"
-            Grid.ColumnSpan="2"
-            VerticalAlignment="Top"
-            Margin="26,18,26,0"
-            Padding="18"
-            Background="#E8F2FF"
-            BorderBrush="#2563EB"
-            BorderThickness="2"
-            CornerRadius="14"
-            IsVisible="{Binding HasIpadSnapshotStatus}">
-      <StackPanel Spacing="12">
-        <TextBlock Text="{Binding IpadSnapshotStatus}"
-                   FontSize="22"
-                   FontWeight="SemiBold"
-                   Foreground="#123A6F"
-                   TextWrapping="Wrap" />
-        <ProgressBar Height="18"
-                     IsIndeterminate="True"
-                     IsVisible="{Binding IsIpadSnapshotExportRunning}" />
-      </StackPanel>
-    </Border>
   </Grid>
 </Window>

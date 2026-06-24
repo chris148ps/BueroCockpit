@@ -643,11 +643,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _ipadSnapshotStatus = value;
                 OnPropertyChanged(nameof(IpadSnapshotStatus));
                 OnPropertyChanged(nameof(HasIpadSnapshotStatus));
+                OnPropertyChanged(nameof(HasSuccessfulIpadSnapshotStatus));
+                OnPropertyChanged(nameof(HasFailedIpadSnapshotStatus));
             }
         }
     }
 
     public bool HasIpadSnapshotStatus => !string.IsNullOrWhiteSpace(IpadSnapshotStatus);
+    public bool HasSuccessfulIpadSnapshotStatus =>
+        HasIpadSnapshotStatus &&
+        !IsIpadSnapshotExportRunning &&
+        IpadSnapshotStatus.Contains("erfolgreich", StringComparison.OrdinalIgnoreCase);
+    public bool HasFailedIpadSnapshotStatus =>
+        HasIpadSnapshotStatus &&
+        !IsIpadSnapshotExportRunning &&
+        !HasSuccessfulIpadSnapshotStatus;
     public bool IsIpadSnapshotExportRunning
     {
         get => _isIpadSnapshotExportRunning;
@@ -657,6 +667,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _isIpadSnapshotExportRunning = value;
                 OnPropertyChanged(nameof(IsIpadSnapshotExportRunning));
+                OnPropertyChanged(nameof(HasSuccessfulIpadSnapshotStatus));
+                OnPropertyChanged(nameof(HasFailedIpadSnapshotStatus));
             }
         }
     }
