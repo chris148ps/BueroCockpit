@@ -92,6 +92,8 @@ final class SnapshotReader: @unchecked Sendable {
                 id: id,
                 title: title,
                 customerName: raw.customerName,
+                customerEmail: raw.customerEmail,
+                customerPhone: raw.customerPhone,
                 categoryIds: raw.categoryIds ?? [],
                 categoryNames: raw.categoryNames ?? [],
                 dueDate: raw.dueDate,
@@ -169,6 +171,8 @@ final class SnapshotReader: @unchecked Sendable {
                     id: id,
                     title: title,
                     customerName: raw.customerName,
+                    customerEmail: raw.customerEmail,
+                    customerPhone: raw.customerPhone,
                     categoryIds: raw.categoryIds ?? [],
                     categoryNames: raw.categoryNames ?? [],
                     dueDate: raw.dueDate,
@@ -567,6 +571,8 @@ private struct RawTask: Decodable {
     let id: String?
     let title: String?
     let customerName: String?
+    let customerEmail: String?
+    let customerPhone: String?
     let categoryIds: [String]?
     let categoryNames: [String]?
     let dueDate: String?

@@ -26,6 +26,8 @@ struct SnapshotTask: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let customerName: String?
+    let customerEmail: String?
+    let customerPhone: String?
     let categoryIds: [String]
     let categoryNames: [String]
     let dueDate: String?
@@ -73,7 +75,7 @@ extension SnapshotTask {
     }
 
     var searchableText: String {
-        ([title, customerName, shortText, notes, status].compactMap { $0 } + categoryNames)
+        ([title, customerName, customerEmail, customerPhone, shortText, notes, status].compactMap { $0 } + categoryNames)
             .joined(separator: "\n")
     }
 

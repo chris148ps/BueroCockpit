@@ -19,6 +19,8 @@ struct SnapshotTaskDetailView: View {
                         header(task)
                         section(title: "Kunde / Auftrag") {
                             keyValue("Kunde", task.customerName)
+                            keyValue("E-Mail", task.customerEmail)
+                            keyValue("Telefon", task.customerPhone)
                             keyValue("Auftrag / Betreff", task.title)
                             keyValue("Status", task.displayStatus)
                         }

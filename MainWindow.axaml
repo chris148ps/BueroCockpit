@@ -1608,6 +1608,21 @@
                        MinHeight="64"
                        GotFocus="TaskDetailEditor_OnGotFocus" />
 
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,6,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Kunden-E-Mail" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBox Text="{Binding SelectedTask.CustomerEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           PlaceholderText="E-Mail-Adresse"
+                           GotFocus="TaskDetailEditor_OnGotFocus" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="6">
+                  <TextBlock Text="Telefonnummer" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBox Text="{Binding SelectedTask.CustomerPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           PlaceholderText="Telefonnummer"
+                           GotFocus="TaskDetailEditor_OnGotFocus" />
+                </StackPanel>
+              </Grid>
+
               <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kurzer Aufgabentitel" GotFocus="TaskDetailEditor_OnGotFocus" />
 
@@ -1717,9 +1732,10 @@
           <TextBlock Classes="SectionTitle" Text="Termine" Margin="0,12,0,0" />
           <Border Classes="Card" Padding="14">
             <StackPanel Spacing="8">
-              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+              <Grid ColumnDefinitions="2*,*,2*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
                 <TextBlock Text="Termin" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="1" Text="Wiedervorlage" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Column="1" Text="Uhrzeit" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Column="2" Text="Wiedervorlage" Foreground="{DynamicResource TextSecondaryBrush}" />
                 <StackPanel Grid.Row="1" Spacing="6">
                   <TextBox Text="{Binding DueDateInputText}"
                            Tag="DueDate"
@@ -1730,6 +1746,14 @@
                            KeyDown="DateTextBox_OnKeyDown" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                  <TextBox Text="{Binding DueTimeInputText}"
+                           Tag="DueTime"
+                           PlaceholderText="HH:MM"
+                           GotFocus="TaskDetailEditor_OnGotFocus"
+                           LostFocus="DueTimeTextBox_OnLostFocus"
+                           KeyDown="DateTextBox_OnKeyDown" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2" Spacing="6">
                   <TextBox Text="{Binding FollowUpDateInputText}"
                            Tag="FollowUpDate"
                            PlaceholderText="TT.MM.JJJJ"

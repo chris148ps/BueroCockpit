@@ -72,6 +72,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
     private string _dueDateText = string.Empty;
+    private string _dueTimeText = string.Empty;
     private string _followUpDateText = string.Empty;
     private string _sentAtText = string.Empty;
     private string _materialOrderedAtText = string.Empty;
@@ -409,6 +410,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _followUpDateText = value;
                 OnPropertyChanged(nameof(FollowUpDateInputText));
+            }
+        }
+    }
+
+    public string DueTimeInputText
+    {
+        get => _dueTimeText;
+        set
+        {
+            if (_dueTimeText != value)
+            {
+                _dueTimeText = value;
+                OnPropertyChanged(nameof(DueTimeInputText));
             }
         }
     }
@@ -2004,6 +2018,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             DueDateInputText = FormatDateShort(SelectedTask?.DueDate);
+            DueTimeInputText = FormatOptionalTime(SelectedTask?.DueDate);
             FollowUpDateInputText = FormatDateShort(SelectedTask?.FollowUpDate);
             SentAtInputText = FormatDateShort(SelectedTask?.SentAt);
             MaterialOrderedAtInputText = FormatDateShort(SelectedTask?.MaterialOrderedAt);
@@ -2034,7 +2049,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 if (SelectedTask is not null)
                 {
-                    SelectedTask.DueDate = value;
+                    var existingTime = SelectedTask.DueDate?.TimeOfDay ?? TimeSpan.Zero;
+                    SelectedTask.DueDate = value?.Date.Add(existingTime);
                 }
             });
     }
@@ -2116,6 +2132,65 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static string FormatDateShort(DateTime? value)
     {
         return value?.ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("de-DE")) ?? string.Empty;
+    }
+
+    private static string FormatOptionalTime(DateTime? value)
+    {
+        return value.HasValue && value.Value.TimeOfDay != TimeSpan.Zero
+            ? value.Value.ToString("HH:mm", CultureInfo.InvariantCulture)
+            : string.Empty;
+    }
+
+    private void ApplyDueTimeText()
+    {
+        if (_isUpdatingDateFields || SelectedTask is null)
+        {
+            return;
+        }
+
+        var input = DueTimeInputText.Trim();
+        if (string.IsNullOrEmpty(input))
+        {
+            if (SelectedTask.DueDate.HasValue && SelectedTask.DueDate.Value.TimeOfDay != TimeSpan.Zero)
+            {
+                CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
+                SelectedTask.DueDate = SelectedTask.DueDate.Value.Date;
+                SaveTaskAndQueueIpadSnapshot(SelectedTask);
+            }
+
+            DateInputMessage = string.Empty;
+            UpdateDateTextFieldsFromSelectedTask();
+            return;
+        }
+
+        var formats = new[] { "HH:mm", "H:mm" };
+        if (!DateTime.TryParseExact(input, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedTime))
+        {
+            DateInputMessage = "Uhrzeit: Bitte als HH:MM eingeben.";
+            UpdateDateTextFieldsFromSelectedTask();
+            return;
+        }
+
+        if (!SelectedTask.DueDate.HasValue)
+        {
+            DateInputMessage = "Uhrzeit: Bitte zuerst ein Termindatum eingeben.";
+            UpdateDateTextFieldsFromSelectedTask();
+            return;
+        }
+
+        var combined = SelectedTask.DueDate.Value.Date.Add(parsedTime.TimeOfDay);
+        if (SelectedTask.DueDate.Value == combined)
+        {
+            DateInputMessage = string.Empty;
+            UpdateDateTextFieldsFromSelectedTask();
+            return;
+        }
+
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
+        SelectedTask.DueDate = combined;
+        SaveTaskAndQueueIpadSnapshot(SelectedTask);
+        DateInputMessage = string.Empty;
+        UpdateDateTextFieldsFromSelectedTask();
     }
 
     private static string FormatDateLong(DateTime? value)
@@ -2480,6 +2555,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         target.Title = source.Title;
         target.CustomerName = source.CustomerName;
         target.CustomerAddress = source.CustomerAddress;
+        target.CustomerEmail = source.CustomerEmail;
+        target.CustomerPhone = source.CustomerPhone;
         target.Description = source.Description;
         target.CategoryId = source.CategoryId;
         target.CategoryIds = source.CategoryIds.ToList();
@@ -4770,6 +4847,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Id = Guid.NewGuid().ToString("N"),
             CustomerName = source.CustomerName,
             CustomerAddress = source.CustomerAddress,
+            CustomerEmail = source.CustomerEmail,
+            CustomerPhone = source.CustomerPhone,
             Title = source.Title.StartsWith("Kopie - ", StringComparison.OrdinalIgnoreCase) ? source.Title : $"Kopie - {source.Title}",
             Description = source.Description,
             CategoryId = source.CategoryId,
@@ -4910,6 +4989,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ApplyDueDateText();
     }
 
+    private void DueTimeTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        ApplyDueTimeText();
+    }
+
     private void FollowUpDateTextBox_OnLostFocus(object? sender, RoutedEventArgs e)
     {
         ApplyFollowUpDateText();
@@ -4967,6 +5051,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             case "DueDate":
                 ApplyDueDateText();
+                break;
+            case "DueTime":
+                ApplyDueTimeText();
                 break;
             case "FollowUpDate":
                 ApplyFollowUpDateText();

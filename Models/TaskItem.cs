@@ -5,6 +5,8 @@ public sealed class TaskItem : ObservableObject
     private string _title = string.Empty;
     private string _customerName = string.Empty;
     private string _customerAddress = string.Empty;
+    private string _customerEmail = string.Empty;
+    private string _customerPhone = string.Empty;
     private string _description = string.Empty;
     private string _categoryId = string.Empty;
     private string _status = "Offen";
@@ -27,6 +29,8 @@ public sealed class TaskItem : ObservableObject
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get => _title; set => SetProperty(ref _title, value); }
     public string CustomerName { get => _customerName; set => SetProperty(ref _customerName, value); }
+    public string CustomerEmail { get => _customerEmail; set => SetProperty(ref _customerEmail, value); }
+    public string CustomerPhone { get => _customerPhone; set => SetProperty(ref _customerPhone, value); }
     public string CustomerAddress
     {
         get => _customerAddress;
@@ -140,7 +144,11 @@ public sealed class TaskItem : ObservableObject
     }
 
     public string DueDateText => DueDate?.ToString("dd.MM.yyyy") ?? "-";
-    public string DueDateOverviewText => DueDate?.ToString("dddd, dd.MM.yyyy", System.Globalization.CultureInfo.GetCultureInfo("de-DE")) ?? "-";
+    public string DueDateOverviewText => DueDate is null
+        ? "-"
+        : DueDate.Value.TimeOfDay == TimeSpan.Zero
+            ? DueDate.Value.ToString("dddd, dd.MM.yyyy", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))
+            : DueDate.Value.ToString("dddd, dd.MM.yyyy, HH:mm 'Uhr'", System.Globalization.CultureInfo.GetCultureInfo("de-DE"));
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
     public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
     public string MaterialOrderedAtText => MaterialOrderedAt?.ToString("dd.MM.yyyy") ?? "-";
@@ -162,6 +170,8 @@ public sealed class TaskItem : ObservableObject
             Title = Title,
             CustomerName = CustomerName,
             CustomerAddress = CustomerAddress,
+            CustomerEmail = CustomerEmail,
+            CustomerPhone = CustomerPhone,
             Description = Description,
             CategoryId = CategoryId,
             CategoryIds = new List<string>(CategoryIds),

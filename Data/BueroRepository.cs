@@ -43,6 +43,8 @@ public sealed class BueroRepository
                 SentAt TEXT NULL,
                 MaterialOrderedAt TEXT NULL,
                 CustomerAddress TEXT NOT NULL DEFAULT '',
+                CustomerEmail TEXT NOT NULL DEFAULT '',
+                CustomerPhone TEXT NOT NULL DEFAULT '',
                 Technician TEXT NOT NULL DEFAULT '',
                 SortPosition REAL NOT NULL DEFAULT 0,
                 AssignedTo TEXT NOT NULL,
@@ -211,7 +213,7 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT Id, Title, CustomerName, Description, CategoryId, Status, Priority,
-                   DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, Technician, SortPosition,
+                   DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
                    AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt
             FROM Tasks
             ORDER BY UpdatedAt DESC;
@@ -235,14 +237,16 @@ public sealed class BueroRepository
                 SentAt = ReadNullableDate(reader, 9),
                 MaterialOrderedAt = ReadNullableDate(reader, 10),
                 CustomerAddress = reader.GetString(11),
-                Technician = reader.GetString(12),
-                SortPosition = reader.GetDouble(13),
-                AssignedTo = reader.GetString(14),
-                CreatedAt = ReadDateOrFallback(reader.GetString(15), ReadDate(reader.GetString(16))),
-                UpdatedAt = ReadDate(reader.GetString(16)),
-                CompletedAt = ReadNullableDate(reader, 17),
-                IsDeleted = reader.GetInt32(18) == 1,
-                DeletedAt = ReadNullableDate(reader, 19)
+                CustomerEmail = reader.GetString(12),
+                CustomerPhone = reader.GetString(13),
+                Technician = reader.GetString(14),
+                SortPosition = reader.GetDouble(15),
+                AssignedTo = reader.GetString(16),
+                CreatedAt = ReadDateOrFallback(reader.GetString(17), ReadDate(reader.GetString(18))),
+                UpdatedAt = ReadDate(reader.GetString(18)),
+                CompletedAt = ReadNullableDate(reader, 19),
+                IsDeleted = reader.GetInt32(20) == 1,
+                DeletedAt = ReadNullableDate(reader, 21)
             });
         }
 
@@ -450,15 +454,17 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, Priority,
-                               DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, Technician, SortPosition,
+                               DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
                                AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt)
             VALUES ($id, $title, $customerName, $description, $categoryId, $status, $priority,
-                    $dueDate, $followUpDate, $sentAt, $materialOrderedAt, $customerAddress, $technician, $sortPosition,
+                    $dueDate, $followUpDate, $sentAt, $materialOrderedAt, $customerAddress, $customerEmail, $customerPhone, $technician, $sortPosition,
                     $assignedTo, $createdAt, $updatedAt, $completedAt, $isDeleted, $deletedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Title = excluded.Title,
                 CustomerName = excluded.CustomerName,
                 CustomerAddress = excluded.CustomerAddress,
+                CustomerEmail = excluded.CustomerEmail,
+                CustomerPhone = excluded.CustomerPhone,
                 Description = excluded.Description,
                 CategoryId = excluded.CategoryId,
                 Status = excluded.Status,
@@ -868,6 +874,8 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Tasks", "SentAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "MaterialOrderedAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Tasks", "CustomerEmail", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Tasks", "CustomerPhone", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "Technician", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "SortPosition", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "Tasks", "CompletedAt", "TEXT NULL");
@@ -1125,6 +1133,8 @@ public sealed class BueroRepository
         AddParameter(command, "$sentAt", ToDb(task.SentAt));
         AddParameter(command, "$materialOrderedAt", ToDb(task.MaterialOrderedAt));
         AddParameter(command, "$customerAddress", task.CustomerAddress ?? string.Empty);
+        AddParameter(command, "$customerEmail", task.CustomerEmail ?? string.Empty);
+        AddParameter(command, "$customerPhone", task.CustomerPhone ?? string.Empty);
         AddParameter(command, "$technician", task.Technician ?? string.Empty);
         AddParameter(command, "$sortPosition", task.SortPosition);
         AddParameter(command, "$assignedTo", task.AssignedTo ?? string.Empty);
