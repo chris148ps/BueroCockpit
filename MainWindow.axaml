@@ -263,6 +263,26 @@
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="14" />
     </Style>
+    <Style Selector="Border.FollowUpCard.HasFollowUps">
+      <Setter Property="Background" Value="#202124" />
+      <Setter Property="BorderBrush" Value="#D92D20" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.FollowUpCount">
+      <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.FollowUpCountText">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Border.FollowUpCard.HasFollowUps TextBlock.FollowUpCardTitle">
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="Border.FollowUpCard.HasFollowUps Border.FollowUpCount">
+      <Setter Property="Background" Value="#3A1F1F" />
+    </Style>
+    <Style Selector="Border.FollowUpCard.HasFollowUps TextBlock.FollowUpCountText">
+      <Setter Property="Foreground" Value="#FF6B6B" />
+    </Style>
   </Window.Styles>
 
   <Grid ColumnDefinitions="300,430,*">
@@ -426,6 +446,13 @@
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
+                        <Border.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Wiedervorlage bestätigen"
+                                      IsVisible="{Binding HasFollowUpDate}"
+                                      Click="ConfirmFollowUp_OnClick" />
+                          </ContextMenu>
+                        </Border.ContextMenu>
                         <StackPanel Spacing="5">
                           <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                           <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
@@ -451,8 +478,12 @@
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
+                          <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
+                                     IsVisible="{Binding HasTechnician}"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     FontSize="12" />
                           <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
+                            <TextBlock Text="{Binding DueDateOverviewText, StringFormat='Termin: {0}'}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" />
                             <TextBlock Grid.Column="1"
@@ -494,6 +525,13 @@
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
+                        <Border.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Wiedervorlage bestätigen"
+                                      IsVisible="{Binding HasFollowUpDate}"
+                                      Click="ConfirmFollowUp_OnClick" />
+                          </ContextMenu>
+                        </Border.ContextMenu>
                         <StackPanel Spacing="5">
                           <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                           <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
@@ -519,8 +557,12 @@
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
+                          <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
+                                     IsVisible="{Binding HasTechnician}"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     FontSize="12" />
                           <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{Binding DueDateText, StringFormat='Termin: {0}'}"
+                            <TextBlock Text="{Binding DueDateOverviewText, StringFormat='Termin: {0}'}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" />
                             <TextBlock Grid.Column="1"
@@ -536,34 +578,43 @@
               </StackPanel>
             </Border>
 
-            <Border Classes="Card"
+            <Border Classes="Card FollowUpCard"
+                    Classes.HasFollowUps="{Binding HasFollowUpTasks}"
                     Width="365"
                     MinHeight="230"
                     Padding="18">
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
-                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
-                    <TextBlock Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Classes="FollowUpCardTitle" Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
+                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="10" Padding="9,3">
+                    <TextBlock Classes="FollowUpCountText" Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" />
                   </Border>
                 </Grid>
 
                 <ItemsControl ItemsSource="{Binding FollowUpTasks}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Background="{Binding ReminderCardBackground}"
-                              BorderBrush="{Binding ReminderCardBorderBrush}"
+                      <Border Background="#2C2C2E"
+                              BorderBrush="#8F3434"
                               BorderThickness="1"
                               CornerRadius="10"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
+                        <Border.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Wiedervorlage bestätigen"
+                                      IsVisible="{Binding HasFollowUpDate}"
+                                      Click="ConfirmFollowUp_OnClick" />
+                          </ContextMenu>
+                        </Border.ContextMenu>
                         <StackPanel Spacing="5">
                           <TextBlock Text="{Binding CustomerName}"
                                      FontWeight="SemiBold"
+                                     Foreground="#FFFFFF"
                                      TextWrapping="Wrap" />
                           <TextBlock Text="{Binding Title}"
-                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     Foreground="#F2F2F7"
                                      TextWrapping="Wrap" />
                           <ItemsControl ItemsSource="{Binding CategoryNameChips}"
                                         IsVisible="{Binding ShowCategoryHint}">
@@ -589,11 +640,11 @@
                           </ItemsControl>
                           <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Foreground="#D1D1D6"
                                        FontSize="12" />
                             <TextBlock Grid.Column="1"
                                        Text="{Binding Status}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Foreground="#D1D1D6"
                                        FontSize="12" />
                           </Grid>
                         </StackPanel>
@@ -1460,6 +1511,13 @@
                       BorderThickness="1"
                       PointerEntered="TaskCard_OnPointerEntered"
                       PointerExited="TaskCard_OnPointerExited">
+                <Border.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Wiedervorlage bestätigen"
+                              IsVisible="{Binding HasFollowUpDate}"
+                              Click="ConfirmFollowUp_OnClick" />
+                  </ContextMenu>
+                </Border.ContextMenu>
                 <StackPanel Spacing="8">
                   <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" FontSize="15" />
                   <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />

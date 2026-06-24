@@ -110,6 +110,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _suppressSavingDuringSelection;
     private bool _isUpdatingDateFields;
     private int _selectionNavigationDepth;
+    private string? _searchSelectedTaskId;
     private Point _deskDragStartPointerPosition;
     private Point _deskDragStartItemPosition;
     private Vector _deskDragCurrentDelta;
@@ -701,9 +702,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
+            var selectedTaskIdBeforeSearchReset = !string.IsNullOrWhiteSpace(_searchText) &&
+                                                  string.IsNullOrWhiteSpace(value)
+                ? _searchSelectedTaskId ?? SelectedTask?.Id
+                : null;
+
+            if (string.IsNullOrWhiteSpace(_searchText) && !string.IsNullOrWhiteSpace(value))
+            {
+                _searchSelectedTaskId = null;
+            }
+
             _searchText = value;
             OnPropertyChanged(nameof(SearchText));
             RefreshVisibleTasks();
+
+            if (!string.IsNullOrWhiteSpace(selectedTaskIdBeforeSearchReset))
+            {
+                var visibleSelectedTask = VisibleTasks.FirstOrDefault(task => task.Id == selectedTaskIdBeforeSearchReset);
+                if (visibleSelectedTask is not null)
+                {
+                    SetSelectedTaskDuringRefresh(visibleSelectedTask);
+                }
+
+                _searchSelectedTaskId = null;
+            }
+
             RefreshGlobalSearchResults();
         }
     }
@@ -2563,8 +2586,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private IEnumerable<TaskItem> GetFollowUpTasks()
     {
+        var today = DateTime.Today;
+
         return AllTasks
-            .Where(task => !task.IsDeleted && task.FollowUpDate.HasValue)
+            .Where(task =>
+                !task.IsDeleted &&
+                task.FollowUpDate.HasValue &&
+                task.FollowUpDate.Value.Date == today)
             .OrderBy(task => GetFollowUpSortGroup(task))
             .ThenBy(task => task.FollowUpDate!.Value.Date)
             .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
@@ -2606,6 +2634,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(task =>
                 !task.IsDeleted &&
                 !IsDoneOrArchived(task) &&
+                !IsInArchiveCategory(task) &&
                 task.DueDate.HasValue &&
                 task.DueDate.Value.Date >= startInclusive.Date &&
                 task.DueDate.Value.Date < endExclusive.Date)
@@ -2626,6 +2655,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var overviewCount = AllTasks.Count(task =>
             !task.IsDeleted &&
             !IsDoneOrArchived(task) &&
+            !IsInArchiveCategory(task) &&
             task.DueDate.HasValue &&
             task.DueDate.Value.Date >= weekStart &&
             task.DueDate.Value.Date < weekStart.AddDays(14));
@@ -3360,8 +3390,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             !string.IsNullOrWhiteSpace(visibleCategoryIdBeforeChange) &&
             !SelectedTask.CategoryIds.Contains(visibleCategoryIdBeforeChange, StringComparer.OrdinalIgnoreCase);
 
-        var targetCategory = Categories.FirstOrDefault(category =>
+        var primaryCategory = Categories.FirstOrDefault(category =>
             string.Equals(category.Id, SelectedTask.CategoryId, StringComparison.OrdinalIgnoreCase));
+        var visibleCategory = Categories.FirstOrDefault(category =>
+            string.Equals(category.Id, visibleCategoryIdBeforeChange, StringComparison.OrdinalIgnoreCase) &&
+            SelectedTask.CategoryIds.Contains(category.Id, StringComparer.OrdinalIgnoreCase));
+        var targetCategory = visibleCategory ?? primaryCategory;
 
         _isUpdatingSelection = true;
         try
@@ -4826,12 +4860,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DashboardTask_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        if (sender is not Avalonia.StyledElement { DataContext: TaskItem task })
+        if (sender is not Control { DataContext: TaskItem task } control ||
+            !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
         {
             return;
         }
 
         NavigateToTask(task, fromGlobalSearch: false);
+    }
+
+    private void ConfirmFollowUp_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: TaskItem task } || !task.FollowUpDate.HasValue)
+        {
+            return;
+        }
+
+        var isSelectedTask = SelectedTask?.Id == task.Id;
+        if (isSelectedTask)
+        {
+            CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+        }
+
+        task.FollowUpDate = null;
+        SaveTaskAndQueueIpadSnapshot(task);
+        RefreshDashboard();
+
+        if (!IsOverviewSelected)
+        {
+            RefreshVisibleTasks();
+        }
+
+        if (isSelectedTask)
+        {
+            UpdateDateTextFieldsFromSelectedTask();
+        }
     }
 
     private void SearchBox_OnTextChanged(object? sender, TextChangedEventArgs e)
@@ -6637,6 +6700,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SelectedTask = selectedTask;
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            _searchSelectedTaskId = selectedTask.Id;
+        }
     }
 
     private void GlobalSearchResult_OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
@@ -6653,6 +6720,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (task is null || _selectionNavigationDepth > 0)
         {
             return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            _searchSelectedTaskId = task.Id;
         }
 
         var category = GetTaskNavigationCategory(task, preferredCategoryId);
@@ -6919,6 +6991,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return task.Status.Equals("Erledigt", StringComparison.OrdinalIgnoreCase) ||
                task.Status.Equals("Archiv", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsInArchiveCategory(TaskItem task)
+    {
+        var archiveCategory = Categories.FirstOrDefault(category =>
+            category.Name.Equals("Archiv", StringComparison.OrdinalIgnoreCase));
+        return archiveCategory is not null && TaskBelongsToCategory(task, archiveCategory.Id);
     }
 
     private static bool Contains(string? value, string query)

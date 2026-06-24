@@ -51,6 +51,7 @@ public sealed class TaskItem : ObservableObject
             if (SetProperty(ref _dueDate, value))
             {
                 OnPropertyChanged(nameof(DueDateText));
+                OnPropertyChanged(nameof(DueDateOverviewText));
             }
         }
     }
@@ -139,6 +140,7 @@ public sealed class TaskItem : ObservableObject
     }
 
     public string DueDateText => DueDate?.ToString("dd.MM.yyyy") ?? "-";
+    public string DueDateOverviewText => DueDate?.ToString("dddd, dd.MM.yyyy", System.Globalization.CultureInfo.GetCultureInfo("de-DE")) ?? "-";
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
     public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
     public string MaterialOrderedAtText => MaterialOrderedAt?.ToString("dd.MM.yyyy") ?? "-";
