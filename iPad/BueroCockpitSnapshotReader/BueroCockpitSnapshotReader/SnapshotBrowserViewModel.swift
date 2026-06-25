@@ -154,9 +154,29 @@ final class SnapshotBrowserViewModel: ObservableObject {
         accessStore.hasLocalSnapshot
     }
 
+    var hasICloudSnapshotSource: Bool {
+        accessStore.hasICloudSourceBookmark
+    }
+
+    var isICloudDriveActive: Bool {
+        syncSettings.providerType == .iCloudDrive
+    }
+
+    var iCloudLastUpdatedText: String? {
+        guard syncSettings.providerType == .iCloudDrive,
+              let lastSuccessfulSync = syncSettings.lastSuccessfulSync else {
+            return nil
+        }
+
+        return "Zuletzt aktualisiert: \(Self.formatSyncDate(lastSuccessfulSync))"
+    }
+
     var loadingDescription: String {
         if loadingTitle == "Google Drive wird aktualisiert …" {
             return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
+        }
+        if loadingTitle == "iCloud Drive wird aktualisiert …" {
+            return "Bitte warten. Die App liest die ausgewählte Datei und prüft sie vor der lokalen Übernahme."
         }
         return "Bitte warten. Die lokale Datei wird gelesen."
     }
@@ -214,7 +234,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 syncSettings = settings
                 syncSettingsStore.save(settings)
                 syncStatusMessage = "Lokale Datei importiert"
-                noticeMessage = "Lokale Datei importiert"
                 apply(prepared: document)
                 SnapshotPerformanceLog.event("Import processing finished")
             } catch {
@@ -235,6 +254,11 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func refreshSnapshot() {
+        if syncSettings.providerType == .iCloudDrive {
+            refreshICloudSnapshot()
+            return
+        }
+
         if syncSettings.providerType == .googleDriveDirect,
            !syncSettings.googleDriveFileId.isEmpty {
             updateFromGoogleDrive(
@@ -265,6 +289,50 @@ final class SnapshotBrowserViewModel: ObservableObject {
             saveConfigurationOnSuccess: true,
             isLaunch: false
         )
+    }
+
+    func importICloudSnapshot(from sourceURL: URL) {
+        updateFromICloudDrive(
+            sourceURL: sourceURL,
+            saveBookmarkOnSuccess: true,
+            successMessage: "iCloud-Datei geladen",
+            keepCurrentView: false
+        )
+    }
+
+    @discardableResult
+    func refreshICloudSnapshot(keepCurrentView: Bool = false) -> Bool {
+        do {
+            let sourceURL = try accessStore.resolveICloudSourceURL()
+            updateFromICloudDrive(
+                sourceURL: sourceURL,
+                saveBookmarkOnSuccess: false,
+                successMessage: "Aus iCloud Drive aktualisiert",
+                keepCurrentView: keepCurrentView
+            )
+            return true
+        } catch {
+            let message = Self.displayMessage(for: error)
+            syncStatusMessage = message
+            noticeMessage = message
+            accessStore.clearICloudSourceBookmark()
+            if document == nil {
+                setupRequired = true
+                setupMessage = message
+                loadState = .idle
+            }
+            return false
+        }
+    }
+
+    func requestICloudSourceSelection() {
+        let message = "Bitte live.bclive aus iCloud Drive erneut auswählen."
+        syncStatusMessage = message
+        if document != nil {
+            noticeMessage = message
+        } else {
+            setupMessage = message
+        }
     }
 
     func resetSetup() {
@@ -392,7 +460,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 syncStatusMessage = saveConfigurationOnSuccess
                     ? "Google Drive Verbindung erfolgreich"
                     : "Online aktualisiert"
-                noticeMessage = syncStatusMessage
                 setupRequired = false
                 setupMessage = nil
                 apply(prepared: prepared)
@@ -421,6 +488,92 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
     }
 
+    private func updateFromICloudDrive(
+        sourceURL: URL,
+        saveBookmarkOnSuccess: Bool,
+        successMessage: String,
+        keepCurrentView: Bool
+    ) {
+        guard !isSyncing else { return }
+        isSyncing = true
+        searchText = ""
+        noticeMessage = nil
+        syncStatusMessage = "Aktualisiere iCloud-Datei …"
+        loadingTitle = "iCloud Drive wird aktualisiert …"
+        if !keepCurrentView {
+            loadState = .loading
+        }
+
+        let reader = self.reader
+        let accessStore = self.accessStore
+        Task {
+            let outcome: ICloudSnapshotLoadOutcome
+            do {
+                let imported = try await Task.detached(priority: .userInitiated) {
+                    let importResult = try accessStore.copySecurityScopedLiveSnapshotToTemporary(
+                        from: sourceURL,
+                        saveBookmark: saveBookmarkOnSuccess
+                    )
+                    let temporaryURL = importResult.temporaryURL
+                    defer { try? FileManager.default.removeItem(at: temporaryURL) }
+                    _ = try reader.readCachedSnapshot(from: temporaryURL)
+                    let installedURL = try accessStore.installDownloadedLiveSnapshot(from: temporaryURL)
+                    return (
+                        prepared: Self.prepare(document: try reader.readCachedSnapshot(from: installedURL)),
+                        bookmarkWarning: importResult.bookmarkWarning
+                    )
+                }.value
+
+                outcome = .loaded(imported.prepared, bookmarkWarning: imported.bookmarkWarning)
+            } catch {
+                outcome = .failure(Self.displayMessage(for: error))
+            }
+
+            isSyncing = false
+            switch outcome {
+            case .loaded(let prepared, let bookmarkWarning):
+                let now = Date()
+                var settings = syncSettings
+                settings.providerType = .iCloudDrive
+                settings.lastSuccessfulSync = now
+                settings.lastImportDate = now
+                settings.lastError = bookmarkWarning
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                var status = "iCloud-Datei eingerichtet\n\(successMessage)\nZuletzt aktualisiert: \(Self.formatSyncDate(now))"
+                if let bookmarkWarning {
+                    status += "\n\(bookmarkWarning)"
+                }
+                syncStatusMessage = status
+                setupRequired = false
+                setupMessage = nil
+                apply(prepared: prepared)
+            case .failure(let message):
+                var settings = syncSettings
+                settings.lastError = message
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                let displayMessage = message == SnapshotAccessError.iCloudSourceUnavailable.localizedDescription
+                    ? message
+                    : "iCloud-Aktualisierung fehlgeschlagen. \(message)"
+                syncStatusMessage = displayMessage
+                if message == SnapshotAccessError.iCloudSourceUnavailable.localizedDescription {
+                    accessStore.clearICloudSourceBookmark()
+                }
+                if document != nil {
+                    noticeMessage = displayMessage
+                    setupRequired = false
+                    setupMessage = nil
+                    loadState = .ready
+                } else {
+                    setupRequired = true
+                    setupMessage = displayMessage
+                    present(errorMessage: displayMessage, keepSetupState: true)
+                }
+            }
+        }
+    }
+
     nonisolated private static func displayMessage(for error: Error) -> String {
         if let localizedError = error as? LocalizedError,
            let description = localizedError.errorDescription {
@@ -428,6 +581,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
 
         return error.localizedDescription
+    }
+
+    nonisolated private static func formatSyncDate(_ date: Date) -> String {
+        date.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func apply(prepared: PreparedSnapshot) {
@@ -566,6 +723,11 @@ private enum LocalSnapshotLoadOutcome: Sendable {
 private enum GoogleSnapshotLoadOutcome: Sendable {
     case online(PreparedSnapshot)
     case fallback(PreparedSnapshot, onlineError: String)
+    case failure(String)
+}
+
+private enum ICloudSnapshotLoadOutcome: Sendable {
+    case loaded(PreparedSnapshot, bookmarkWarning: String?)
     case failure(String)
 }
 

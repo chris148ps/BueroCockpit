@@ -2,6 +2,7 @@ import Foundation
 
 enum SyncProviderType: String, Codable, CaseIterable, Identifiable, Sendable {
     case manualFile
+    case iCloudDrive
     case googleDriveDirect
     case webDavNas
     case dropbox
@@ -12,6 +13,7 @@ enum SyncProviderType: String, Codable, CaseIterable, Identifiable, Sendable {
     var displayName: String {
         switch self {
         case .manualFile: "Manuelle Datei"
+        case .iCloudDrive: "iCloud Drive"
         case .googleDriveDirect: "Google Drive Direktlink"
         case .webDavNas: "WebDAV / NAS"
         case .dropbox: "Dropbox"
@@ -22,6 +24,7 @@ enum SyncProviderType: String, Codable, CaseIterable, Identifiable, Sendable {
     var systemImage: String {
         switch self {
         case .manualFile: "doc.badge.arrow.up"
+        case .iCloudDrive: "icloud"
         case .googleDriveDirect: "link"
         case .webDavNas: "externaldrive.connected.to.line.below"
         case .dropbox: "shippingbox"
@@ -30,7 +33,7 @@ enum SyncProviderType: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 
     var isAvailable: Bool {
-        self == .manualFile || self == .googleDriveDirect
+        self == .manualFile || self == .iCloudDrive || self == .googleDriveDirect
     }
 }
 

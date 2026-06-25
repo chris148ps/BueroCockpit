@@ -18,6 +18,7 @@ struct SnapshotRootView: View {
         case folder
         case metadata
         case package
+        case iCloudPackage
     }
 
     @StateObject private var viewModel = SnapshotBrowserViewModel()
@@ -81,59 +82,30 @@ struct SnapshotRootView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if viewModel.document == nil && viewModel.loadState != .loading {
+        if viewModel.document == nil {
             setupView
         } else {
             switch viewModel.loadState {
             case .ready:
                 browserView
             case .idle:
-                SnapshotStartView(
-                    statusTitle: "Live-Sync laden",
-                    statusMessage: combinedStatusMessage(
-                        base: "Wählen Sie Sync/live.bclive aus. Die Datei wird lokal in die App kopiert und dann gelesen."
-                    ),
-                    primaryButtonTitle: "Live-Datei importieren",
-                    primaryAction: openPackagePicker,
-                    secondaryButtonTitle: "Live-Ordner auswählen",
-                    secondaryAction: openFolderPicker,
-                    tertiaryButtonTitle: "metadata.json auswählen",
-                    tertiaryAction: openMetadataPicker
-                )
+                browserView
             case .loading:
-                SnapshotStartView(
-                    statusTitle: viewModel.loadingTitle,
-                    statusMessage: combinedStatusMessage(
-                        base: viewModel.loadingDescription
-                    ),
-                    primaryButtonTitle: "Live-Datei importieren",
-                    primaryAction: openPackagePicker,
-                    secondaryButtonTitle: "Live-Ordner auswählen",
-                    secondaryAction: openFolderPicker,
-                    tertiaryButtonTitle: "metadata.json auswählen",
-                    tertiaryAction: openMetadataPicker
-                )
+                browserView
             case .empty(let message):
-                SnapshotStartView(
-                    statusTitle: "Keine Snapshot-Daten gefunden",
-                    statusMessage: combinedStatusMessage(base: message),
-                    primaryButtonTitle: "Live-Datei importieren",
-                    primaryAction: openPackagePicker,
-                    secondaryButtonTitle: "Live-Ordner auswählen",
-                    secondaryAction: openFolderPicker,
-                    tertiaryButtonTitle: "metadata.json auswählen",
-                    tertiaryAction: openMetadataPicker
+                SnapshotEmptyStateView(
+                    title: "Keine Snapshot-Daten gefunden",
+                    message: message,
+                    systemImage: "tray",
+                    primaryButtonTitle: "Sync-Einstellungen",
+                    primaryAction: { presentedSheet = .settings }
                 )
             case .failure(let message):
-                SnapshotStartView(
-                    statusTitle: "Snapshot konnte nicht gelesen werden",
-                    statusMessage: combinedStatusMessage(base: message),
-                    primaryButtonTitle: viewModel.hasLocalSnapshot ? "Daten neu laden" : "Live-Datei importieren",
-                    primaryAction: viewModel.hasLocalSnapshot ? viewModel.refreshSnapshot : openPackagePicker,
-                    secondaryButtonTitle: "Live-Ordner auswählen",
-                    secondaryAction: openFolderPicker,
-                    tertiaryButtonTitle: nil,
-                    tertiaryAction: nil
+                SnapshotErrorView(
+                    title: "Snapshot konnte nicht gelesen werden",
+                    message: message,
+                    primaryButtonTitle: "Sync-Einstellungen",
+                    primaryAction: { presentedSheet = .settings }
                 )
             }
         }
@@ -148,6 +120,8 @@ struct SnapshotRootView: View {
             currentProvider: viewModel.syncSettings.providerType,
             savedGoogleDriveLink: viewModel.syncSettings.googleDriveLink,
             hasLocalSnapshot: viewModel.hasLocalSnapshot,
+            hasICloudSnapshotSource: viewModel.hasICloudSnapshotSource,
+            iCloudLastUpdatedText: viewModel.iCloudLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
             isWorking: viewModel.isSyncing || viewModel.loadState == .loading,
@@ -159,6 +133,15 @@ struct SnapshotRootView: View {
                     openPackagePicker()
                 }
             },
+            onSelectICloudSnapshot: {
+                if presentedSheet != nil {
+                    importModeAfterSheetDismissal = .iCloudPackage
+                    presentedSheet = nil
+                } else {
+                    openICloudPicker()
+                }
+            },
+            onRefreshICloudSnapshot: refreshOrSelectICloudSnapshot,
             onReload: viewModel.refreshSnapshot,
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
             onDismiss: onDismiss
@@ -179,20 +162,49 @@ struct SnapshotRootView: View {
         )
         .navigationSplitViewStyle(.balanced)
         .safeAreaInset(edge: .top) {
-            if let notice = viewModel.noticeMessage {
-                let isFailure = notice.localizedCaseInsensitiveContains("fehlgeschlagen")
-                    || notice.localizedCaseInsensitiveContains("konnte nicht")
-                Label(notice, systemImage: isFailure ? "exclamationmark.triangle" : "checkmark.circle")
-                    .font(.callout)
-                    .foregroundStyle(isFailure ? .orange : .green)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 0) {
+                if viewModel.isICloudDriveActive {
+                    HStack(spacing: 12) {
+                        Button("Aus iCloud Drive aktualisieren") {
+                            refreshOrSelectICloudSnapshot()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.isSyncing || viewModel.loadState == .loading)
+
+                        Button("Sync-Einstellungen") {
+                            presentedSheet = .settings
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+                    }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(.thinMaterial)
+                }
+
+                if let notice = viewModel.noticeMessage {
+                    let isFailure = notice.localizedCaseInsensitiveContains("fehlgeschlagen")
+                        || notice.localizedCaseInsensitiveContains("konnte nicht")
+                        || notice.localizedCaseInsensitiveContains("bitte")
+                    Label(notice, systemImage: isFailure ? "exclamationmark.triangle" : "checkmark.circle")
+                        .font(.callout)
+                        .foregroundStyle(isFailure ? .orange : .green)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.thinMaterial)
+                }
             }
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                if viewModel.isICloudDriveActive {
+                    Button("Aus iCloud Drive aktualisieren") {
+                        refreshOrSelectICloudSnapshot()
+                    }
+                }
+
                 Button("Daten neu laden") {
                     viewModel.refreshSnapshot()
                 }
@@ -205,7 +217,7 @@ struct SnapshotRootView: View {
                     openFolderPicker()
                 }
 
-                Button("Sync-Quelle") {
+                Button("Sync-Einstellungen") {
                     presentedSheet = .settings
                 }
             }
@@ -395,6 +407,8 @@ struct SnapshotRootView: View {
             openMetadataPicker()
         case .package:
             openPackagePicker()
+        case .iCloudPackage:
+            openICloudPicker()
         }
     }
 
@@ -412,6 +426,39 @@ struct SnapshotRootView: View {
         )
     }
 
+    private func openICloudPicker() {
+        presentImporter(
+            mode: .iCloudPackage,
+            statusMessage: "iCloud-Dateiauswahl wird geöffnet …"
+        )
+    }
+
+    private func refreshOrSelectICloudSnapshot() {
+        guard !viewModel.isSyncing, viewModel.loadState != .loading else {
+            return
+        }
+
+        if viewModel.hasICloudSnapshotSource {
+            if viewModel.refreshICloudSnapshot(keepCurrentView: presentedSheet != nil) {
+                return
+            }
+            openICloudSelectionAfterMissingAccess()
+            return
+        }
+
+        viewModel.requestICloudSourceSelection()
+        openICloudSelectionAfterMissingAccess()
+    }
+
+    private func openICloudSelectionAfterMissingAccess() {
+        if presentedSheet != nil {
+            importModeAfterSheetDismissal = .iCloudPackage
+            presentedSheet = nil
+        } else {
+            openICloudPicker()
+        }
+    }
+
     private func presentImporter(mode: SnapshotImportMode, statusMessage: String) {
         SnapshotPerformanceLog.event("Import button pressed")
         activeImportMode = mode
@@ -424,6 +471,8 @@ struct SnapshotRootView: View {
         switch activeImportMode {
         case .package:
             loadPackageSnapshot(from: sourceURL)
+        case .iCloudPackage:
+            loadICloudSnapshot(from: sourceURL)
         case .folder, .metadata:
             viewModel.importSnapshot(from: sourceURL)
         case .none:
@@ -449,6 +498,15 @@ struct SnapshotRootView: View {
         viewModel.importSnapshot(from: sourceURL)
     }
 
+    private func loadICloudSnapshot(from sourceURL: URL) {
+        guard sourceURL.pathExtension.caseInsensitiveCompare("bclive") == .orderedSame else {
+            viewModel.present(errorMessage: SnapshotReaderError.invalidPackageSelection.localizedDescription)
+            return
+        }
+
+        viewModel.importICloudSnapshot(from: sourceURL)
+    }
+
     private func isSnapshotPackage(_ url: URL) -> Bool {
         let extensionName = url.pathExtension.lowercased()
         return extensionName == "bclive" || extensionName == "bcsnapshot" || extensionName == "zip"
@@ -468,7 +526,7 @@ struct SnapshotRootView: View {
             return [.folder]
         case .metadata:
             return [.json]
-        case .package, .none:
+        case .package, .iCloudPackage, .none:
             return [
                 UTType(filenameExtension: "bclive") ?? .data,
                 UTType(filenameExtension: "bcsnapshot") ?? .data,

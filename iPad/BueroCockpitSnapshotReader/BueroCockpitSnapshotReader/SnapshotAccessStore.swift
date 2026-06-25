@@ -81,11 +81,17 @@ enum SnapshotLocalStorage {
 
 enum SnapshotAccessError: LocalizedError, Sendable {
     case noCachedSnapshot
+    case iCloudSourceUnavailable
+    case iCloudBookmarkFailed
 
     var errorDescription: String? {
         switch self {
         case .noCachedSnapshot:
             return "Es ist keine lokale Live-Datei verfügbar. Bitte Sync/live.bclive erneut importieren."
+        case .iCloudSourceUnavailable:
+            return "Bitte iCloud-Datei erneut auswählen."
+        case .iCloudBookmarkFailed:
+            return "Der iCloud-Dateizugriff konnte nicht gespeichert werden. Bitte iCloud-Datei erneut auswählen."
         }
     }
 }
@@ -95,15 +101,15 @@ final class SnapshotAccessStore: @unchecked Sendable {
         static let legacyBookmark = "snapshotLocationBookmark"
         static let sourceFileName = "snapshotSourceFileName"
         static let setupCompleted = "snapshotSetupCompleted"
+        static let iCloudSourceBookmark = "snapshotICloudSourceBookmark"
+        static let syncSetupVersion = "syncSetupVersion"
     }
 
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if defaults.data(forKey: Key.legacyBookmark) != nil {
-            defaults.removeObject(forKey: Key.legacyBookmark)
-        }
+        migrateLegacySetupStateIfNeeded()
     }
 
     var hasLocalSnapshot: Bool {
@@ -118,22 +124,51 @@ final class SnapshotAccessStore: @unchecked Sendable {
         defaults.string(forKey: Key.sourceFileName)
     }
 
+    var hasICloudSourceBookmark: Bool {
+        defaults.data(forKey: Key.iCloudSourceBookmark) != nil
+    }
+
+    var hasCurrentLiveSnapshot: Bool {
+        (try? cachedLiveSnapshotURL()) != nil
+    }
+
+    func clearICloudSourceBookmark() {
+        defaults.removeObject(forKey: Key.iCloudSourceBookmark)
+    }
+
     func saveLocalSnapshot(fileName: String) {
         defaults.removeObject(forKey: Key.legacyBookmark)
         defaults.set(fileName, forKey: Key.sourceFileName)
         defaults.set(true, forKey: Key.setupCompleted)
     }
 
+    private func migrateLegacySetupStateIfNeeded() {
+        guard defaults.integer(forKey: Key.syncSetupVersion) < 2 else {
+            return
+        }
+
+        defaults.removeObject(forKey: Key.legacyBookmark)
+        if (try? cachedLiveSnapshotURL()) != nil {
+            saveLocalSnapshot(fileName: "current.bclive")
+        } else if (try? cachedSnapshotURL()) == nil {
+            defaults.removeObject(forKey: Key.sourceFileName)
+            defaults.removeObject(forKey: Key.setupCompleted)
+        }
+        defaults.set(2, forKey: Key.syncSetupVersion)
+    }
+
     func cachedSnapshotURL() throws -> URL {
         guard let fileName = savedFileName, !fileName.isEmpty else {
-            throw SnapshotAccessError.noCachedSnapshot
+            return try cachedLiveSnapshotURL()
         }
 
         let url = try SnapshotLocalStorage.importedSnapshotsDirectory()
             .appendingPathComponent(fileName, isDirectory: false)
 
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SnapshotAccessError.noCachedSnapshot
+            let liveURL = try cachedLiveSnapshotURL()
+            saveLocalSnapshot(fileName: liveURL.lastPathComponent)
+            return liveURL
         }
 
         return url
@@ -148,6 +183,98 @@ final class SnapshotAccessStore: @unchecked Sendable {
         }
 
         return url
+    }
+
+    private func saveICloudSourceBookmark(for sourceURL: URL) throws {
+        do {
+            let bookmark = try sourceURL.bookmarkData(
+                options: [],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            defaults.set(bookmark, forKey: Key.iCloudSourceBookmark)
+        } catch {
+            throw SnapshotAccessError.iCloudBookmarkFailed
+        }
+    }
+
+    func resolveICloudSourceURL() throws -> URL {
+        guard let bookmark = defaults.data(forKey: Key.iCloudSourceBookmark) else {
+            throw SnapshotAccessError.iCloudSourceUnavailable
+        }
+
+        var isStale = false
+        let url = try URL(
+            resolvingBookmarkData: bookmark,
+            options: [],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        )
+
+        guard !isStale else {
+            defaults.removeObject(forKey: Key.iCloudSourceBookmark)
+            throw SnapshotAccessError.iCloudSourceUnavailable
+        }
+
+        return url
+    }
+
+    func copySecurityScopedLiveSnapshotToTemporary(from sourceURL: URL) throws -> URL {
+        try copySecurityScopedLiveSnapshotToTemporary(from: sourceURL, saveBookmark: false).temporaryURL
+    }
+
+    func copySecurityScopedLiveSnapshotToTemporary(from sourceURL: URL, saveBookmark: Bool) throws -> (temporaryURL: URL, bookmarkWarning: String?) {
+        guard sourceURL.pathExtension.caseInsensitiveCompare("bclive") == .orderedSame else {
+            throw SnapshotReaderError.invalidPackageSelection
+        }
+
+        let accessGranted = sourceURL.startAccessingSecurityScopedResource()
+        guard accessGranted else {
+            throw SnapshotAccessError.iCloudSourceUnavailable
+        }
+        defer {
+            sourceURL.stopAccessingSecurityScopedResource()
+        }
+
+        var bookmarkWarning: String?
+        if saveBookmark {
+            do {
+                try saveICloudSourceBookmark(for: sourceURL)
+            } catch {
+                bookmarkWarning = SnapshotAccessError.iCloudBookmarkFailed.localizedDescription
+            }
+        }
+
+        let directory = try SnapshotLocalStorage.importedSnapshotsDirectory()
+        let temporaryURL = directory.appendingPathComponent(".icloud-\(UUID().uuidString).bclive", isDirectory: false)
+        try? FileManager.default.removeItem(at: temporaryURL)
+
+        var coordinationError: NSError?
+        var transferError: Error?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(readingItemAt: sourceURL, options: [.withoutChanges], error: &coordinationError) { readableURL in
+            do {
+                try FileManager.default.copyItem(at: readableURL, to: temporaryURL)
+            } catch {
+                transferError = error
+            }
+        }
+
+        if let coordinationError {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            throw SnapshotReaderError.localCopyFailed(coordinationError.localizedDescription)
+        }
+
+        if let transferError {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            throw SnapshotReaderError.localCopyFailed(transferError.localizedDescription)
+        }
+
+        guard FileManager.default.fileExists(atPath: temporaryURL.path) else {
+            throw SnapshotReaderError.localCopyFailed(sourceURL.lastPathComponent)
+        }
+
+        return (temporaryURL, bookmarkWarning)
     }
 
     func installDownloadedLiveSnapshot(from sourceURL: URL) throws -> URL {
@@ -174,5 +301,6 @@ final class SnapshotAccessStore: @unchecked Sendable {
         defaults.removeObject(forKey: Key.legacyBookmark)
         defaults.removeObject(forKey: Key.sourceFileName)
         defaults.removeObject(forKey: Key.setupCompleted)
+        defaults.removeObject(forKey: Key.iCloudSourceBookmark)
     }
 }

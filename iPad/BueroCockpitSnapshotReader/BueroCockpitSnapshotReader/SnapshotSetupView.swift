@@ -4,10 +4,14 @@ struct SnapshotSetupView: View {
     let currentProvider: SyncProviderType
     let savedGoogleDriveLink: String
     let hasLocalSnapshot: Bool
+    let hasICloudSnapshotSource: Bool
+    let iCloudLastUpdatedText: String?
     let message: String?
     let statusMessage: String?
     let isWorking: Bool
     let onSelectSnapshot: () -> Void
+    let onSelectICloudSnapshot: () -> Void
+    let onRefreshICloudSnapshot: () -> Void
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
     let onDismiss: (() -> Void)?
@@ -19,10 +23,14 @@ struct SnapshotSetupView: View {
         currentProvider: SyncProviderType,
         savedGoogleDriveLink: String,
         hasLocalSnapshot: Bool,
+        hasICloudSnapshotSource: Bool,
+        iCloudLastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
         isWorking: Bool,
         onSelectSnapshot: @escaping () -> Void,
+        onSelectICloudSnapshot: @escaping () -> Void,
+        onRefreshICloudSnapshot: @escaping () -> Void,
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
         onDismiss: (() -> Void)? = nil
@@ -30,10 +38,14 @@ struct SnapshotSetupView: View {
         self.currentProvider = currentProvider
         self.savedGoogleDriveLink = savedGoogleDriveLink
         self.hasLocalSnapshot = hasLocalSnapshot
+        self.hasICloudSnapshotSource = hasICloudSnapshotSource
+        self.iCloudLastUpdatedText = iCloudLastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
         self.isWorking = isWorking
         self.onSelectSnapshot = onSelectSnapshot
+        self.onSelectICloudSnapshot = onSelectICloudSnapshot
+        self.onRefreshICloudSnapshot = onRefreshICloudSnapshot
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
         self.onDismiss = onDismiss
@@ -148,6 +160,29 @@ struct SnapshotSetupView: View {
                     .disabled(isWorking)
                 if !hasLocalSnapshot {
                     Text("Bitte live.bclive einmal importieren.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case .iCloudDrive:
+            VStack(alignment: .leading, spacing: 16) {
+                Text("iCloud Drive")
+                    .font(.headline)
+                Text("Wählen Sie die Datei live.bclive aus iCloud Drive aus. Die App merkt sich die Datei und kann sie später erneut einlesen.")
+                Button("iCloud-Datei auswählen", action: onSelectICloudSnapshot)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isWorking)
+                Button("Aus iCloud Drive aktualisieren", action: onRefreshICloudSnapshot)
+                    .buttonStyle(.bordered)
+                    .disabled(isWorking)
+                if hasICloudSnapshotSource {
+                    Text("iCloud-Datei eingerichtet")
+                        .foregroundStyle(.secondary)
+                    if let iCloudLastUpdatedText {
+                        Text(iCloudLastUpdatedText)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Bitte zuerst live.bclive aus iCloud Drive auswählen.")
                         .foregroundStyle(.secondary)
                 }
             }
