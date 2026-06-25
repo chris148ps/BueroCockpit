@@ -241,7 +241,11 @@ public sealed class IpadSnapshotExportService
             return SnapshotExportResult.CreateFailure("Zielpfad ist ungueltig.");
         }
 
-        Directory.CreateDirectory(targetDirectory);
+        if (!Directory.Exists(targetDirectory))
+        {
+            return SnapshotExportResult.CreateFailure("Zielordner wurde nicht gefunden. Bitte den Ordner erneut auswählen.");
+        }
+
         Directory.CreateDirectory(stagingDirectory);
 
         var exportResult = ExportCore(repository, stagingDirectory, appVersion, deviceName, includeFullSnapshot: false);

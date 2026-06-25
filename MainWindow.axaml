@@ -1261,22 +1261,45 @@
                       HorizontalAlignment="Left" />
               <Separator Margin="0,6,0,2" />
               <TextBlock Text="iPad-Live-Datei" FontSize="14" FontWeight="SemiBold" />
-              <TextBlock Text="Zielpfad für live.bclive" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+              <TextBlock Text="Für den iPad-Live-Sync wählen Sie den Ordner, in den BüroCockpit die Datei live.bclive schreibt. Für Christians interne Nutzung ist iCloud Drive\BueroCockpit_iPad_Live vorgesehen."
+                         Foreground="{DynamicResource TextTertiaryBrush}"
+                         FontSize="12"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="Aktueller Zielordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,4,0,0" />
+              <TextBlock Text="{Binding IpadLiveFileTargetFolder}"
+                         IsVisible="{Binding HasIpadLiveFileTargetPath}"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="Kein Zielordner eingerichtet"
+                         IsVisible="{Binding HasNoIpadLiveFileTargetPath}"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="Vollständiger Dateiname" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,4,0,0" />
               <TextBlock Text="{Binding IpadLiveFileTargetPath}"
                          IsVisible="{Binding HasIpadLiveFileTargetPath}"
                          TextWrapping="Wrap" />
-              <TextBlock Text="Kein Zielpfad eingerichtet"
+              <TextBlock Text="live.bclive"
                          IsVisible="{Binding HasNoIpadLiveFileTargetPath}"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
               <WrapPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="Ziel auswählen"
+                <Button Content="Ordner auswählen"
                         Click="SelectIpadLiveFileTarget_OnClick"
                         Margin="0,0,10,8" />
                 <Button Content="Jetzt Live-Datei schreiben"
                         Click="WriteIpadLiveFile_OnClick"
+                        Margin="0,0,10,8" />
+                <Button Content="Empfohlenen iCloud-Ordner prüfen"
+                        Click="CheckRecommendedIpadLiveFolder_OnClick"
                         Margin="0,0,0,8" />
               </WrapPanel>
+              <TextBlock Text="{Binding IpadLiveFileLastSuccessfulExport}"
+                         IsVisible="{Binding HasIpadLiveFileLastSuccessfulExport}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding IpadLiveFileLastError}"
+                         IsVisible="{Binding HasIpadLiveFileLastError}"
+                         Foreground="{DynamicResource DangerBrush}"
+                         TextWrapping="Wrap" />
               <TextBlock Text="{Binding IpadLiveFileStatus}"
                          Foreground="{DynamicResource TextPrimaryBrush}"
                          TextWrapping="Wrap" />
