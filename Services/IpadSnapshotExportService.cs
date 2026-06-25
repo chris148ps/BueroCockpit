@@ -191,6 +191,86 @@ public sealed class IpadSnapshotExportService
         }
     }
 
+    public async Task<SnapshotExportResult> ExportLivePackageToFileAsync(
+        BueroRepository repository,
+        string targetFilePath,
+        string? appVersion = null,
+        string? deviceName = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(targetFilePath))
+        {
+            LogExportMessage("iPad live file export skipped: no target file configured.");
+            return SnapshotExportResult.CreateFailure("Kein Zielpfad eingerichtet.");
+        }
+
+        await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var stagingDirectory = Path.Combine(Path.GetTempPath(), "BueroCockpit", "ipad-live-file", Guid.NewGuid().ToString("N"));
+        try
+        {
+            return await Task.Run(
+                () => ExportLivePackageToFileCore(repository, stagingDirectory, targetFilePath, appVersion, deviceName),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogExportMessage($"iPad live file export failed: {targetFilePath} | {ex}");
+            return SnapshotExportResult.CreateFailure("iPad-Live-Datei konnte nicht geschrieben werden. Details siehe Log.");
+        }
+        finally
+        {
+            TryDeleteDirectory(stagingDirectory);
+            _exportGate.Release();
+        }
+    }
+
+    private static SnapshotExportResult ExportLivePackageToFileCore(
+        BueroRepository repository,
+        string stagingDirectory,
+        string targetFilePath,
+        string? appVersion,
+        string? deviceName)
+    {
+        var targetDirectory = Path.GetDirectoryName(targetFilePath);
+        if (string.IsNullOrWhiteSpace(targetDirectory))
+        {
+            return SnapshotExportResult.CreateFailure("Zielpfad ist ungueltig.");
+        }
+
+        Directory.CreateDirectory(targetDirectory);
+        Directory.CreateDirectory(stagingDirectory);
+
+        var exportResult = ExportCore(repository, stagingDirectory, appVersion, deviceName, includeFullSnapshot: false);
+        if (!exportResult.Success)
+        {
+            return exportResult;
+        }
+
+        var sourcePackagePath = Path.Combine(stagingDirectory, "Sync", LivePackageFileName);
+        ValidateSnapshotPackage(sourcePackagePath);
+
+        var tempTargetPath = Path.Combine(
+            targetDirectory,
+            $"{Path.GetFileName(targetFilePath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.Copy(sourcePackagePath, tempTargetPath, overwrite: true);
+            ValidateSnapshotPackage(tempTargetPath);
+            PromoteSnapshotPackage(tempTargetPath, targetFilePath);
+            LogExportMessage($"iPad live file export completed: {targetFilePath}");
+            return SnapshotExportResult.CreateSuccess(targetFilePath);
+        }
+        catch
+        {
+            TryDeleteFile(tempTargetPath);
+            throw;
+        }
+    }
+
     private static SnapshotExportResult ExportCore(
         BueroRepository repository,
         string sharedDirectory,
@@ -924,6 +1004,7 @@ public sealed class IpadSnapshotExportService
                     WriteZipFileEntry(archive, fileName, Path.Combine(liveDirectory, fileName));
                 }
 
+                archive.CreateEntry("previews/");
                 foreach (var previewPath in Directory.EnumerateFiles(previewsDirectory, "*", SearchOption.TopDirectoryOnly))
                 {
                     WriteZipFileEntry(archive, $"previews/{Path.GetFileName(previewPath)}", previewPath);
@@ -1098,6 +1179,21 @@ public sealed class IpadSnapshotExportService
         }
 
         return false;
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+            // Temporäre Exportdaten dürfen den App-Lauf nicht blockieren.
+        }
     }
 
     private static void LogExportMessage(string message)

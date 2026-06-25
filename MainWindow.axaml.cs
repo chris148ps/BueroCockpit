@@ -87,6 +87,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _deskStatus = string.Empty;
     private string _filePathCheckStatus = string.Empty;
     private string _ipadSnapshotStatus = string.Empty;
+    private string _ipadLiveFileStatus = "Kein Zielpfad eingerichtet";
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -102,6 +103,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isSavingCategorySnapshot;
     private int _isRunningIpadSnapshotExport;
     private int _isPendingIpadSnapshotExport;
+    private int _isRunningIpadLiveFileExport;
+    private int _isPendingIpadLiveFileExport;
     private bool _isIpadSnapshotExportRunning;
     private CancellationTokenSource? _ipadSnapshotStatusHideCts;
     private bool _suppressTaskListSelectionChanged;
@@ -648,6 +651,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string OneDriveEditDirectory => ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
     public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
     public bool HasNoOneDriveEditDirectory => !HasOneDriveEditDirectory;
+    public string IpadLiveFileTargetPath => ResolveIpadLiveFileTargetPath(_appSettings.IpadLiveFileTargetPath);
+    public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
+    public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
+    public string IpadLiveFileStatus
+    {
+        get => _ipadLiveFileStatus;
+        set
+        {
+            if (_ipadLiveFileStatus != value)
+            {
+                _ipadLiveFileStatus = value;
+                OnPropertyChanged(nameof(IpadLiveFileStatus));
+            }
+        }
+    }
+
     public string IpadSnapshotStatus
     {
         get => _ipadSnapshotStatus;
@@ -5314,6 +5333,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : trimmedPath;
     }
 
+    private static string ResolveIpadLiveFileTargetPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        return Environment.ExpandEnvironmentVariables(path.Trim());
+    }
+
+    private static string BuildIpadLiveFileTargetPath(string folderPath)
+    {
+        return Path.Combine(folderPath, "live.bclive");
+    }
+
     private static string GetMacDevelopmentOneDriveEditDirectory()
     {
         return Path.Combine(
@@ -5808,6 +5842,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OpenFolder(OneDriveEditDirectory);
     }
 
+    private async void SelectIpadLiveFileTarget_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            IpadLiveFileStatus = "Fehler beim Schreiben der Live-Datei: Ordnerauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Zielordner für live.bclive auswählen",
+            AllowMultiple = false
+        });
+
+        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return;
+        }
+
+        _appSettings.IpadLiveFileTargetPath = BuildIpadLiveFileTargetPath(folderPath);
+        _settingsService.Save(_appSettings);
+        OnPropertyChanged(nameof(IpadLiveFileTargetPath));
+        OnPropertyChanged(nameof(HasIpadLiveFileTargetPath));
+        OnPropertyChanged(nameof(HasNoIpadLiveFileTargetPath));
+        TriggerIpadLiveFileExport("live-file-target-selected");
+    }
+
+    private void WriteIpadLiveFile_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!HasIpadLiveFileTargetPath)
+        {
+            IpadLiveFileStatus = "Kein Zielpfad eingerichtet";
+            return;
+        }
+
+        TriggerIpadLiveFileExport("manual-live-file-write");
+    }
+
     private void TriggerIpadSnapshotExport(string reason)
     {
         _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export trigger received: {reason}");
@@ -5879,6 +5953,66 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         TriggerIpadSnapshotExport(reason);
+        TriggerIpadLiveFileExport(reason);
+    }
+
+    private void TriggerIpadLiveFileExport(string reason)
+    {
+        _ipadSnapshotExportService.LogDiagnostic($"iPad live file export trigger received: {reason}");
+
+        if (!HasIpadLiveFileTargetPath)
+        {
+            IpadLiveFileStatus = "Kein Zielpfad eingerichtet";
+            _ipadSnapshotExportService.LogDiagnostic($"iPad live file export skipped ({reason}): no target file configured.");
+            return;
+        }
+
+        if (Interlocked.Exchange(ref _isRunningIpadLiveFileExport, 1) == 1)
+        {
+            Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 1);
+            _ipadSnapshotExportService.LogDiagnostic($"iPad live file export queued ({reason}): export already running.");
+            return;
+        }
+
+        _ = RunIpadLiveFileExportAsync(reason);
+    }
+
+    private async Task RunIpadLiveFileExportAsync(string reason)
+    {
+        IpadLiveFileStatus = "Live-Datei wird geschrieben …";
+
+        try
+        {
+            IpadSnapshotExportService.SnapshotExportResult result;
+            do
+            {
+                Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 0);
+                Debug.WriteLine($"iPad live file export started ({reason}): {IpadLiveFileTargetPath}");
+                result = await _ipadSnapshotExportService.ExportLivePackageToFileAsync(
+                    _repository,
+                    IpadLiveFileTargetPath,
+                    _updateService.GetCurrentVersion(),
+                    Environment.MachineName);
+            }
+            while (result.Success && Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 0) == 1);
+
+            IpadLiveFileStatus = result.Success
+                ? $"Live-Datei geschrieben: {DateTime.Now:dd.MM.yyyy HH:mm:ss}"
+                : $"Fehler beim Schreiben der Live-Datei: {result.ErrorMessage ?? "Details siehe Log."}";
+        }
+        catch (Exception ex)
+        {
+            IpadLiveFileStatus = "Fehler beim Schreiben der Live-Datei: Details siehe Log.";
+            Debug.WriteLine($"iPad live file export failed ({reason}): {ex}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isRunningIpadLiveFileExport, 0);
+            if (Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 0) == 1)
+            {
+                TriggerIpadLiveFileExport("pending-live-file-write");
+            }
+        }
     }
 
     private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
