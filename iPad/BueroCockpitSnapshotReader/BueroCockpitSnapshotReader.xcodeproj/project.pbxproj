@@ -14,13 +14,16 @@
 		318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */; };
 		3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */; };
 		4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */; };
+		6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */; };
 		773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */; };
 		77A83F20D14948DC95A6B25E /* BueroCockpitSnapshotReader/SnapshotSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E19B840C5F714A2DBA33068A /* BueroCockpitSnapshotReader/SnapshotSetupView.swift */; };
 		78883E14CBB14ECFAE87268D /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */; };
 		83D4A7CAF36042D49FB99BCD /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00CD80576834B239BC01096 /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift */; };
 		9D5F34C9856B466E980F2266 /* BueroCockpitSnapshotReader/SnapshotRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */; };
 		B5D2533552974A3B9EAA8B77 /* BueroCockpitSnapshotReader/SnapshotModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A5351152D40E48F3E6EA3 /* BueroCockpitSnapshotReader/SnapshotModels.swift */; };
+		B89D08E5E8A14AB5903CF3CF /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BBAE2E4C814337BB890382 /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift */; };
 		CB44387C4E784A398201B151 /* BueroCockpitSnapshotReader/SnapshotReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */; };
+		D58F361FD66D479DB784DD7B /* BueroCockpitSnapshotReader/MobileInboxModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7574E57C01A748F78857B4BE /* BueroCockpitSnapshotReader/MobileInboxModels.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,7 +36,10 @@
 		6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotRootView.swift; sourceTree = SOURCE_ROOT; };
 		72B7B4D77E404F96B5FB7FC2 /* BueroCockpitSnapshotReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = BueroCockpitSnapshotReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		73D3BFFA08764834B01A9809 /* BueroCockpitSnapshotReader/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BueroCockpitSnapshotReader/Info.plist; sourceTree = SOURCE_ROOT; };
+		7574E57C01A748F78857B4BE /* BueroCockpitSnapshotReader/MobileInboxModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobileInboxModels.swift; sourceTree = SOURCE_ROOT; };
+		8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobileInboxWriter.swift; sourceTree = SOURCE_ROOT; };
 		91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift; sourceTree = SOURCE_ROOT; };
+		94BBAE2E4C814337BB890382 /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobileInspectionFormView.swift; sourceTree = SOURCE_ROOT; };
 		A31B10EDBDD94510A65501FC /* BueroCockpitSnapshotReader/SnapshotErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotErrorView.swift; sourceTree = SOURCE_ROOT; };
 		B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift; sourceTree = SOURCE_ROOT; };
 		B71A5351152D40E48F3E6EA3 /* BueroCockpitSnapshotReader/SnapshotModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotModels.swift; sourceTree = SOURCE_ROOT; };
@@ -95,6 +101,7 @@
 				C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */,
 				58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */,
 				4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */,
+				8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */,
 				91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */,
 			);
 			sourceTree = "<group>";
@@ -105,6 +112,7 @@
 				6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */,
 				56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */,
 				E19B840C5F714A2DBA33068A /* BueroCockpitSnapshotReader/SnapshotSetupView.swift */,
+				94BBAE2E4C814337BB890382 /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift */,
 				B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */,
 				B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */,
 				334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */,
@@ -116,6 +124,7 @@
 			isa = PBXGroup;
 			children = (
 				B71A5351152D40E48F3E6EA3 /* BueroCockpitSnapshotReader/SnapshotModels.swift */,
+				7574E57C01A748F78857B4BE /* BueroCockpitSnapshotReader/MobileInboxModels.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -189,15 +198,18 @@
 				CB44387C4E784A398201B151 /* BueroCockpitSnapshotReader/SnapshotReader.swift in Sources */,
 				2A14F345BC9D4CA8A327AB10 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift in Sources */,
 				3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */,
+				6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */,
 				318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */,
 				83D4A7CAF36042D49FB99BCD /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift in Sources */,
 				9D5F34C9856B466E980F2266 /* BueroCockpitSnapshotReader/SnapshotRootView.swift in Sources */,
 				773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */,
 				77A83F20D14948DC95A6B25E /* BueroCockpitSnapshotReader/SnapshotSetupView.swift in Sources */,
+				B89D08E5E8A14AB5903CF3CF /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift in Sources */,
 				4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */,
 				1D77FF7E5FEB43C987AC4970 /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift in Sources */,
 				1BA907AA0F734B7D9B377022 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift in Sources */,
 				118CFDC5B4F3445DA8AC739C /* BueroCockpitSnapshotReader/SnapshotErrorView.swift in Sources */,
+				D58F361FD66D479DB784DD7B /* BueroCockpitSnapshotReader/MobileInboxModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
