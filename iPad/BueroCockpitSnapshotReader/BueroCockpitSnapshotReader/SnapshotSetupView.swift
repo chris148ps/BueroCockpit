@@ -5,7 +5,7 @@ struct SnapshotSetupView: View {
     let savedGoogleDriveLink: String
     let hasLocalSnapshot: Bool
     let hasICloudSnapshotSource: Bool
-    let iCloudLastUpdatedText: String?
+    let lastUpdatedText: String?
     let message: String?
     let statusMessage: String?
     let isWorking: Bool
@@ -24,7 +24,7 @@ struct SnapshotSetupView: View {
         savedGoogleDriveLink: String,
         hasLocalSnapshot: Bool,
         hasICloudSnapshotSource: Bool,
-        iCloudLastUpdatedText: String?,
+        lastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
         isWorking: Bool,
@@ -39,7 +39,7 @@ struct SnapshotSetupView: View {
         self.savedGoogleDriveLink = savedGoogleDriveLink
         self.hasLocalSnapshot = hasLocalSnapshot
         self.hasICloudSnapshotSource = hasICloudSnapshotSource
-        self.iCloudLastUpdatedText = iCloudLastUpdatedText
+        self.lastUpdatedText = lastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
         self.isWorking = isWorking
@@ -72,6 +72,28 @@ struct SnapshotSetupView: View {
                     }
 
                     GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(currentProvider.displayName, systemImage: currentProvider.systemImage)
+                                .font(.headline)
+
+                            if let lastUpdatedText {
+                                Text(lastUpdatedText)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            if let statusMessage, !statusMessage.isEmpty {
+                                Text(statusMessage)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        Label("Aktueller Sync", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.headline)
+                    }
+
+                    GroupBox {
                         assistantContent
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } label: {
@@ -85,17 +107,18 @@ struct SnapshotSetupView: View {
                             .foregroundStyle(.orange)
                     }
 
-                    if let statusMessage, !statusMessage.isEmpty {
-                        Label(statusMessage, systemImage: statusMessage.contains("fehlgeschlagen") ? "exclamationmark.triangle" : "checkmark.circle")
-                            .font(.callout)
-                            .foregroundStyle(statusMessage.contains("fehlgeschlagen") ? .orange : .green)
-                    }
                 }
                 .padding(32)
                 .frame(maxWidth: 900)
                 .frame(maxWidth: .infinity)
             }
             .navigationTitle("Einrichtung")
+            .onChange(of: currentProvider) { _, provider in
+                selectedProvider = provider
+            }
+            .onChange(of: savedGoogleDriveLink) { _, link in
+                googleDriveLink = link
+            }
             .toolbar {
                 if let onDismiss {
                     ToolbarItem(placement: .confirmationAction) {
@@ -171,18 +194,18 @@ struct SnapshotSetupView: View {
                 Button("iCloud-Datei auswählen", action: onSelectICloudSnapshot)
                     .buttonStyle(.borderedProminent)
                     .disabled(isWorking)
-                Button("Aus iCloud Drive aktualisieren", action: onRefreshICloudSnapshot)
-                    .buttonStyle(.bordered)
-                    .disabled(isWorking)
                 if hasICloudSnapshotSource {
+                    Button("Aus iCloud Drive aktualisieren", action: onRefreshICloudSnapshot)
+                        .buttonStyle(.bordered)
+                        .disabled(isWorking)
                     Text("iCloud-Datei eingerichtet")
                         .foregroundStyle(.secondary)
-                    if let iCloudLastUpdatedText {
-                        Text(iCloudLastUpdatedText)
+                    if let lastUpdatedText {
+                        Text(lastUpdatedText)
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("Bitte zuerst live.bclive aus iCloud Drive auswählen.")
+                    Text("Bitte zuerst iCloud-Datei auswählen.")
                         .foregroundStyle(.secondary)
                 }
             }

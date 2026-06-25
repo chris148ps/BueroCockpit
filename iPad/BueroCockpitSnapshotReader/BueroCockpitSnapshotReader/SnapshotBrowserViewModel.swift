@@ -162,13 +162,21 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.providerType == .iCloudDrive
     }
 
-    var iCloudLastUpdatedText: String? {
-        guard syncSettings.providerType == .iCloudDrive,
-              let lastSuccessfulSync = syncSettings.lastSuccessfulSync else {
+    var syncLastUpdatedText: String? {
+        let date: Date?
+        switch syncSettings.providerType {
+        case .manualFile:
+            date = syncSettings.lastImportDate
+        case .iCloudDrive, .googleDriveDirect:
+            date = syncSettings.lastSuccessfulSync ?? syncSettings.lastImportDate
+        case .webDavNas, .dropbox, .microsoftGraphOneDrive:
+            date = syncSettings.lastSuccessfulSync ?? syncSettings.lastImportDate
+        }
+        guard let date else {
             return nil
         }
 
-        return "Zuletzt aktualisiert: \(Self.formatSyncDate(lastSuccessfulSync))"
+        return "Zuletzt aktualisiert: \(Self.formatSyncDate(date))"
     }
 
     var loadingDescription: String {
@@ -233,7 +241,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 settings.lastError = nil
                 syncSettings = settings
                 syncSettingsStore.save(settings)
-                syncStatusMessage = "Lokale Datei importiert"
+                syncStatusMessage = "Lokale Datei geladen"
                 apply(prepared: document)
                 SnapshotPerformanceLog.event("Import processing finished")
             } catch {
@@ -326,7 +334,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func requestICloudSourceSelection() {
-        let message = "Bitte live.bclive aus iCloud Drive erneut auswählen."
+        let message = "Bitte iCloud-Datei erneut auswählen"
         syncStatusMessage = message
         if document != nil {
             noticeMessage = message
@@ -381,7 +389,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             switch outcome {
             case .loaded(let prepared):
                 noticeMessage = nil
-                syncStatusMessage = syncSettings.providerType == .manualFile ? "Lokale Datei importiert" : syncStatusMessage
+                syncStatusMessage = syncSettings.providerType == .manualFile ? "Lokale Datei geladen" : syncStatusMessage
                 setupRequired = false
                 setupMessage = nil
                 apply(prepared: prepared)
@@ -540,7 +548,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 settings.lastError = bookmarkWarning
                 syncSettings = settings
                 syncSettingsStore.save(settings)
-                var status = "iCloud-Datei eingerichtet\n\(successMessage)\nZuletzt aktualisiert: \(Self.formatSyncDate(now))"
+                var status = successMessage
                 if let bookmarkWarning {
                     status += "\n\(bookmarkWarning)"
                 }

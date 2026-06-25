@@ -121,10 +121,10 @@ struct SnapshotRootView: View {
             savedGoogleDriveLink: viewModel.syncSettings.googleDriveLink,
             hasLocalSnapshot: viewModel.hasLocalSnapshot,
             hasICloudSnapshotSource: viewModel.hasICloudSnapshotSource,
-            iCloudLastUpdatedText: viewModel.iCloudLastUpdatedText,
+            lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
-            isWorking: viewModel.isSyncing || viewModel.loadState == .loading,
+            isWorking: viewModel.isSyncing,
             onSelectSnapshot: {
                 if presentedSheet != nil {
                     importModeAfterSheetDismissal = .package
@@ -161,61 +161,24 @@ struct SnapshotRootView: View {
             }
         )
         .navigationSplitViewStyle(.balanced)
-        .safeAreaInset(edge: .top) {
-            VStack(spacing: 0) {
-                if viewModel.isICloudDriveActive {
-                    HStack(spacing: 12) {
-                        Button("Aus iCloud Drive aktualisieren") {
-                            refreshOrSelectICloudSnapshot()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(viewModel.isSyncing || viewModel.loadState == .loading)
-
-                        Button("Sync-Einstellungen") {
-                            presentedSheet = .settings
-                        }
-                        .buttonStyle(.bordered)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.thinMaterial)
-                }
-
-                if let notice = viewModel.noticeMessage {
-                    let isFailure = notice.localizedCaseInsensitiveContains("fehlgeschlagen")
-                        || notice.localizedCaseInsensitiveContains("konnte nicht")
-                        || notice.localizedCaseInsensitiveContains("bitte")
-                    Label(notice, systemImage: isFailure ? "exclamationmark.triangle" : "checkmark.circle")
-                        .font(.callout)
-                        .foregroundStyle(isFailure ? .orange : .green)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.thinMaterial)
-                }
-            }
-        }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Text("BüroCockpit")
+                    .font(.headline)
+            }
+
             ToolbarItemGroup(placement: .topBarTrailing) {
-                if viewModel.isICloudDriveActive {
-                    Button("Aus iCloud Drive aktualisieren") {
-                        refreshOrSelectICloudSnapshot()
+                Button {
+                    refreshCurrentSyncSource()
+                } label: {
+                    if viewModel.isSyncing || viewModel.loadState == .loading {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "arrow.clockwise")
                     }
                 }
-
-                Button("Daten neu laden") {
-                    viewModel.refreshSnapshot()
-                }
-
-                Button("Live-Datei importieren") {
-                    openPackagePicker()
-                }
-
-                Button("Live-Ordner auswählen") {
-                    openFolderPicker()
-                }
+                .disabled(viewModel.isSyncing || viewModel.loadState == .loading)
+                .help("Aktualisieren")
 
                 Button("Sync-Einstellungen") {
                     presentedSheet = .settings
@@ -277,16 +240,16 @@ struct SnapshotRootView: View {
         case .ready:
             if viewModel.filteredTasks.isEmpty {
                 SnapshotEmptyStateView(
-                    title: viewModel.tasks.isEmpty ? "Keine Aufgaben im Snapshot" : "Keine Aufgaben gefunden",
+                    title: viewModel.tasks.isEmpty ? "Keine Aufträge" : "Keine Treffer",
                     message: viewModel.tasks.isEmpty
-                        ? "Der geladene Snapshot enthält keine Aufgaben. Du kannst jederzeit einen neuen Snapshot importieren."
-                        : "Für die aktuelle Kategorie und Suche wurden keine passenden Aufgaben gefunden.",
+                        ? "Keine Aufträge im aktuellen Snapshot."
+                        : "Keine passenden Aufträge gefunden.",
                     systemImage: viewModel.tasks.isEmpty ? "tray" : "magnifyingglass",
                     primaryButtonTitle: "Live-Datei erneut importieren",
                     primaryAction: openPackagePicker
                 )
                 .navigationTitle(viewModel.selectedCategoryTitle)
-                .searchable(text: $viewModel.searchText, prompt: "Aufgaben durchsuchen")
+                .searchable(text: $viewModel.searchText, prompt: "Aufträge suchen")
             } else {
                 List(viewModel.filteredTasks, selection: Binding(
                     get: { viewModel.selectedTaskID },
@@ -296,7 +259,7 @@ struct SnapshotRootView: View {
                         .tag(task.id)
                 }
                 .navigationTitle(viewModel.selectedCategoryTitle)
-                .searchable(text: $viewModel.searchText, prompt: "Kunde, Auftrag, Beschreibung, Kategorie")
+                .searchable(text: $viewModel.searchText, prompt: "Aufträge suchen")
             }
         case .idle:
             SnapshotEmptyStateView(
@@ -448,6 +411,14 @@ struct SnapshotRootView: View {
 
         viewModel.requestICloudSourceSelection()
         openICloudSelectionAfterMissingAccess()
+    }
+
+    private func refreshCurrentSyncSource() {
+        if viewModel.isICloudDriveActive {
+            refreshOrSelectICloudSnapshot()
+        } else {
+            viewModel.refreshSnapshot()
+        }
     }
 
     private func openICloudSelectionAfterMissingAccess() {
