@@ -149,8 +149,8 @@ struct MobileInspectionFormView: View {
             }
             .sheet(isPresented: $isSketchCanvasPresented) {
                 MobileSketchCanvasView(
-                    onSave: { data in
-                        addSketch(data)
+                    onSave: { sketch in
+                        addSketch(sketch)
                         isSketchCanvasPresented = false
                     },
                     onCancel: {
@@ -275,16 +275,17 @@ struct MobileInspectionFormView: View {
         ))
     }
 
-    private func addSketch(_ data: Data) {
-        guard !data.isEmpty else {
+    private func addSketch(_ sketch: MobileInspectionSketchInput) {
+        guard !sketch.data.isEmpty else {
             errorMessage = MobileInboxError.sketchDataIsEmpty("Skizze \(sketches.count + 1)").localizedDescription
             return
         }
 
         sketches.append(MobileInspectionSketchInput(
-            id: UUID().uuidString,
+            id: sketch.id,
             fileName: "Skizze \(sketches.count + 1)",
-            data: data
+            data: sketch.data,
+            drawingData: sketch.drawingData
         ))
         errorMessage = nil
     }

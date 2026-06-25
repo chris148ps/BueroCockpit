@@ -14,6 +14,8 @@ enum MobileInboxError: LocalizedError, Sendable {
     case sketchDataIsEmpty(String)
     case sketchCouldNotBeWritten(String)
     case sketchFileIsEmpty(String)
+    case drawingCouldNotBeWritten(String)
+    case drawingFileIsEmpty(String)
     case jsonCouldNotBeWritten(String)
 
     var errorDescription: String? {
@@ -42,6 +44,10 @@ enum MobileInboxError: LocalizedError, Sendable {
             return "Die Skizze \(name) konnte nicht im Mobile-Inbox-Ordner gespeichert werden."
         case .sketchFileIsEmpty(let name):
             return "Die Skizze \(name) wurde ohne Inhalt gespeichert. Bitte erneut zeichnen."
+        case .drawingCouldNotBeWritten(let name):
+            return "Die bearbeitbare Skizze \(name) konnte nicht gespeichert werden."
+        case .drawingFileIsEmpty(let name):
+            return "Die bearbeitbare Skizze \(name) wurde ohne Inhalt gespeichert."
         case .jsonCouldNotBeWritten(let path):
             return "Die Aufgabe konnte nicht gespeichert werden: \(path)"
         }
@@ -110,6 +116,14 @@ final class MobileInboxStore: @unchecked Sendable {
 
         return url
     }
+
+    func mobileInboxURL(for selectedFolder: URL) -> URL {
+        if selectedFolder.lastPathComponent.caseInsensitiveCompare("mobile-inbox") == .orderedSame {
+            return selectedFolder
+        }
+
+        return selectedFolder.appendingPathComponent("mobile-inbox", isDirectory: true)
+    }
 }
 
 final class MobileInboxWriter: @unchecked Sendable {
@@ -142,7 +156,7 @@ final class MobileInboxWriter: @unchecked Sendable {
 
         let entryID = makeEntryID(createdAt: now)
         let directoryName = "\(entryID)-\(sanitizedCustomerName(draft.customerName))"
-        let inboxURL = mobileInboxURL(for: selectedFolder)
+        let inboxURL = store.mobileInboxURL(for: selectedFolder)
         let entryURL = inboxURL.appendingPathComponent(directoryName, isDirectory: true)
         let originalsURL = entryURL.appendingPathComponent("originals", isDirectory: true)
         let previewsURL = entryURL.appendingPathComponent("previews", isDirectory: true)
@@ -200,14 +214,6 @@ final class MobileInboxWriter: @unchecked Sendable {
         return MobileInspectionSaveResult(entryID: entryID, entryURL: entryURL)
     }
 
-    private func mobileInboxURL(for selectedFolder: URL) -> URL {
-        if selectedFolder.lastPathComponent.caseInsensitiveCompare("mobile-inbox") == .orderedSame {
-            return selectedFolder
-        }
-
-        return selectedFolder.appendingPathComponent("mobile-inbox", isDirectory: true)
-    }
-
     private func savePhoto(
         _ input: MobileInspectionPhotoInput,
         index: Int,
@@ -253,13 +259,24 @@ final class MobileInboxWriter: @unchecked Sendable {
         }
 
         let sketchID = String(format: "skizze-%03d", index)
-        let fileName = "\(sketchID).png"
-        let url = sketchesURL.appendingPathComponent(fileName, isDirectory: false)
-        try writeSketchData(input.data, to: url, displayName: input.fileName)
+        let pngFileName = "\(sketchID).png"
+        let pngURL = sketchesURL.appendingPathComponent(pngFileName, isDirectory: false)
+        try writeSketchData(input.data, to: pngURL, displayName: input.fileName)
+
+        let drawingPath: String?
+        if let drawingData = input.drawingData, !drawingData.isEmpty {
+            let drawingFileName = "\(sketchID).pkdrawing"
+            let drawingURL = sketchesURL.appendingPathComponent(drawingFileName, isDirectory: false)
+            try writeDrawingData(drawingData, to: drawingURL, displayName: input.fileName)
+            drawingPath = "sketches/\(drawingFileName)"
+        } else {
+            drawingPath = nil
+        }
 
         return MobileInspectionSketch(
             id: sketchID,
-            path: "sketches/\(fileName)"
+            path: "sketches/\(pngFileName)",
+            drawingPath: drawingPath
         )
     }
 
@@ -358,6 +375,34 @@ final class MobileInboxWriter: @unchecked Sendable {
         guard size > 0 else {
             try? fileManager.removeItem(at: url)
             throw MobileInboxError.sketchFileIsEmpty(displayName)
+        }
+    }
+
+    private func writeDrawingData(_ data: Data, to url: URL, displayName: String) throws {
+        guard !data.isEmpty else {
+            throw MobileInboxError.drawingFileIsEmpty(displayName)
+        }
+
+        var coordinationError: NSError?
+        var writeError: Error?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(writingItemAt: url, options: [.forReplacing], error: &coordinationError) { writableURL in
+            do {
+                try data.write(to: writableURL, options: [.atomic])
+            } catch {
+                writeError = error
+            }
+        }
+
+        if coordinationError != nil || writeError != nil {
+            throw MobileInboxError.drawingCouldNotBeWritten(displayName)
+        }
+
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+        let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+        guard size > 0 else {
+            try? fileManager.removeItem(at: url)
+            throw MobileInboxError.drawingFileIsEmpty(displayName)
         }
     }
 

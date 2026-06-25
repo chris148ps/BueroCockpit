@@ -91,6 +91,7 @@ struct SnapshotRootView: View {
                     onSaved: { result in
                         mobileInboxMessage = "Gespeichert in \(result.entryURL.lastPathComponent)"
                         refreshNoticeMessage = "Mobile Besichtigung gespeichert:\n\(result.entryURL.path)"
+                        viewModel.loadMobileInboxEntries(selectCategory: true)
                     },
                     onNeedsFolderSelection: {
                         importModeAfterSheetDismissal = .mobileInboxFolder
@@ -390,6 +391,51 @@ struct SnapshotRootView: View {
     }
 
     private func taskRow(_ task: SnapshotTask) -> some View {
+        if task.categoryIds.contains(SnapshotBrowserViewModel.mobilePendingCategoryID) {
+            return AnyView(mobileInboxTaskRow(task))
+        }
+
+        return AnyView(snapshotTaskRow(task))
+    }
+
+    private func mobileInboxTaskRow(_ task: SnapshotTask) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let customerName = SnapshotDisplayFormatter.displayText(task.customerName) {
+                Text(customerName)
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(SnapshotDisplayFormatter.displayText(task.title) ?? "Neue mobile Besichtigung")
+                .font(.subheadline.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let category = task.displayCategoryNames.dropFirst().first {
+                Text(category)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let summary = task.shortText {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let metadata = SnapshotDisplayFormatter.joinedMetadata([
+                "wartet auf Freigabe",
+                task.displayCreatedAt
+            ]) {
+                Text(metadata)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func snapshotTaskRow(_ task: SnapshotTask) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if let customerName = SnapshotDisplayFormatter.displayText(task.customerName) {
                 Text(customerName)

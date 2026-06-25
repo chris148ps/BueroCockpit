@@ -9,6 +9,7 @@ struct MobileInspectionPhoto: Codable, Equatable, Sendable {
 struct MobileInspectionSketch: Codable, Equatable, Sendable {
     let id: String
     let path: String
+    let drawingPath: String?
 }
 
 struct MobileInspectionTask: Codable, Equatable, Sendable {
@@ -38,6 +39,7 @@ struct MobileInspectionSketchInput: Identifiable, Equatable, Sendable {
     let id: String
     let fileName: String
     let data: Data
+    let drawingData: Data?
 }
 
 struct MobileInspectionDraft: Equatable, Sendable {
@@ -55,4 +57,45 @@ struct MobileInspectionDraft: Equatable, Sendable {
 struct MobileInspectionSaveResult: Equatable, Sendable {
     let entryID: String
     let entryURL: URL
+}
+
+struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
+    let id: String
+    let customerName: String
+    let title: String
+    let category: String
+    let notes: String
+    let createdAt: String
+    let status: String
+    let photoCount: Int
+    let sketchCount: Int
+    let entryURL: URL
+
+    var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Neue mobile Besichtigung" : trimmed
+    }
+
+    var searchableText: String {
+        [customerName, title, category, notes, createdAt, status].joined(separator: "\n")
+    }
+
+    var attachmentSummary: String? {
+        var parts: [String] = []
+        if photoCount == 1 {
+            parts.append("1 Foto")
+        } else if photoCount > 1 {
+            parts.append("\(photoCount) Fotos")
+        }
+        if sketchCount == 1 {
+            parts.append("1 Skizze")
+        } else if sketchCount > 1 {
+            parts.append("\(sketchCount) Skizzen")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    var displayCreatedAt: String? {
+        SnapshotDisplayFormatter.displayDate(createdAt)
+    }
 }

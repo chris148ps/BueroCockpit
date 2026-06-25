@@ -2,7 +2,8 @@ import Foundation
 
 @MainActor
 final class SnapshotBrowserViewModel: ObservableObject {
-    static let allTasksCategoryID = "__all_tasks__"
+    nonisolated static let allTasksCategoryID = "__all_tasks__"
+    nonisolated static let mobilePendingCategoryID = "__mobile_pending__"
 
     @Published private(set) var loadState: SnapshotLoadState = .idle
     @Published private(set) var document: SnapshotDocument?
@@ -14,6 +15,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var syncSettings: SnapshotSyncSettings
     @Published private(set) var isSyncing = false
     @Published private(set) var loadingTitle = "Snapshot wird geladen …"
+    @Published private(set) var mobileInboxEntries: [MobileInboxPendingEntry] = []
     @Published private var groupedCategoryCache: [SnapshotCategoryGroup] = []
     @Published private var taskCountByCategoryID: [String: Int] = [:]
     @Published var selectedCategoryID: String = "__all_tasks__"
@@ -29,16 +31,19 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let reader: SnapshotReader
     private let accessStore: SnapshotAccessStore
     private let syncSettingsStore: SnapshotSyncSettingsStore
+    private let mobileInboxReader: MobileInboxReader
     private var didAttemptStartupLoad = false
 
     init(
         reader: SnapshotReader = SnapshotReader(),
         accessStore: SnapshotAccessStore = SnapshotAccessStore(),
-        syncSettingsStore: SnapshotSyncSettingsStore = SnapshotSyncSettingsStore()
+        syncSettingsStore: SnapshotSyncSettingsStore = SnapshotSyncSettingsStore(),
+        mobileInboxReader: MobileInboxReader = MobileInboxReader()
     ) {
         self.reader = reader
         self.accessStore = accessStore
         self.syncSettingsStore = syncSettingsStore
+        self.mobileInboxReader = mobileInboxReader
         syncSettings = syncSettingsStore.load()
         setupRequired = !accessStore.isSetupCompleted
         loadState = accessStore.isSetupCompleted ? .loading : .idle
@@ -50,7 +55,18 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var categories: [SnapshotCategoryGroup] {
-        groupedCategoryCache
+        if mobileInboxEntries.isEmpty {
+            return groupedCategoryCache
+        }
+
+        return [
+            SnapshotCategoryGroup(
+                id: Self.mobilePendingCategoryID,
+                name: "Wartet auf Freigabe",
+                categoryIDs: [Self.mobilePendingCategoryID],
+                order: Int.min
+            )
+        ] + groupedCategoryCache
     }
 
     var tasks: [SnapshotTask] {
@@ -62,6 +78,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var filteredTasks: [SnapshotTask] {
+        if selectedCategoryID == Self.mobilePendingCategoryID {
+            let mobileTasks = mobileInboxEntries.enumerated().map { index, entry in
+                Self.snapshotTask(from: entry, sourceIndex: index)
+            }
+            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !query.isEmpty else {
+                return mobileTasks
+            }
+            return mobileTasks.filter { $0.searchableText.localizedCaseInsensitiveContains(query) }
+        }
+
         let categoryTasks: [SnapshotTask]
         if selectedCategoryID == Self.allTasksCategoryID {
             categoryTasks = tasks
@@ -132,6 +159,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func taskCount(in categoryID: String) -> Int {
+        if categoryID == Self.mobilePendingCategoryID {
+            return mobileInboxEntries.count
+        }
         if categoryID == Self.allTasksCategoryID {
             return tasks.count
         }
@@ -141,6 +171,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     var selectedCategoryTitle: String {
         if selectedCategoryID == Self.allTasksCategoryID {
             return "Alle Aufgaben"
+        }
+        if selectedCategoryID == Self.mobilePendingCategoryID {
+            return "Wartet auf Freigabe"
         }
 
         return categories.first(where: { $0.id == selectedCategoryID })?.name ?? "Aufgaben"
@@ -195,6 +228,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
 
         didAttemptStartupLoad = true
+        loadMobileInboxEntries()
         if syncSettings.providerType == .googleDriveDirect,
            !syncSettings.googleDriveFileId.isEmpty {
             updateFromGoogleDrive(
@@ -262,6 +296,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func refreshSnapshot() {
+        loadMobileInboxEntries()
         if syncSettings.providerType == .iCloudDrive {
             refreshICloudSnapshot()
             return
@@ -345,6 +380,30 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     func clearNotice() {
         noticeMessage = nil
+    }
+
+    func loadMobileInboxEntries(selectCategory: Bool = false) {
+        let reader = mobileInboxReader
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                do {
+                    return try reader.loadPendingEntries()
+                } catch {
+                    return []
+                }
+            }.value
+
+            mobileInboxEntries = result
+            if selectCategory, !result.isEmpty {
+                selectedCategoryID = Self.mobilePendingCategoryID
+                selectedTaskID = filteredTasks.first?.id
+            } else if selectedCategoryID == Self.mobilePendingCategoryID, result.isEmpty {
+                selectedCategoryID = Self.allTasksCategoryID
+                selectedTaskID = filteredTasks.first?.id
+            } else if selectedCategoryID == Self.mobilePendingCategoryID {
+                selectedTaskID = filteredTasks.first?.id
+            }
+        }
     }
 
     func resetSetup() {
@@ -606,12 +665,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
         selectedFolderURL = prepared.document.sourceURL
 
         if selectedCategoryID != Self.allTasksCategoryID,
+           selectedCategoryID != Self.mobilePendingCategoryID,
            !categories.contains(where: { $0.id == selectedCategoryID }) {
             selectedCategoryID = Self.allTasksCategoryID
         }
 
         if selectedCategoryID == Self.allTasksCategoryID {
             selectedTaskID = tasks.first?.id
+        } else if selectedCategoryID == Self.mobilePendingCategoryID {
+            selectedTaskID = filteredTasks.first?.id
         } else if filteredTasks.first(where: { $0.id == selectedTaskID }) == nil {
             selectedTaskID = filteredTasks.first?.id
         }
@@ -669,6 +731,36 @@ final class SnapshotBrowserViewModel: ObservableObject {
             document: document,
             categories: groups,
             taskCountByCategoryID: taskCounts
+        )
+    }
+
+    nonisolated private static func snapshotTask(from entry: MobileInboxPendingEntry, sourceIndex: Int) -> SnapshotTask {
+        SnapshotTask(
+            id: "mobile-inbox-\(entry.id)",
+            title: entry.displayTitle,
+            customerName: entry.customerName,
+            customerEmail: nil,
+            customerPhone: nil,
+            categoryIds: [Self.mobilePendingCategoryID],
+            categoryNames: ["Wartet auf Freigabe", entry.category].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
+            dueDate: nil,
+            reminderDate: nil,
+            createdAt: entry.createdAt,
+            updatedAt: nil,
+            materialOrderedAt: nil,
+            status: "wartet auf Freigabe",
+            notes: ([
+                entry.notes,
+                entry.attachmentSummary
+            ] as [String?]).compactMap { value in
+                guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+                    return nil
+                }
+                return value
+            }.joined(separator: "\n\n"),
+            shortText: entry.attachmentSummary,
+            attachmentRefs: [],
+            sourceIndex: sourceIndex
         )
     }
 

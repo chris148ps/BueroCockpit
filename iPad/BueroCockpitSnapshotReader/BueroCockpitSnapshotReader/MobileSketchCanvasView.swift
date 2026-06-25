@@ -1,19 +1,24 @@
+import PencilKit
 import SwiftUI
 import UIKit
 
 struct MobileSketchCanvasView: View {
-    let onSave: (Data) -> Void
+    let onSave: (MobileInspectionSketchInput) -> Void
     let onCancel: () -> Void
 
-    @State private var strokes: [[CGPoint]] = []
-    @State private var currentStroke: [CGPoint] = []
-    @State private var canvasSize: CGSize = CGSize(width: 800, height: 520)
+    @State private var drawing = PKDrawing()
     @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                drawingSurface
+            VStack(spacing: 10) {
+                PencilSketchCanvas(drawing: $drawing)
+                    .background(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                    )
 
                 if let errorMessage {
                     Label(errorMessage, systemImage: "exclamationmark.triangle")
@@ -21,7 +26,7 @@ struct MobileSketchCanvasView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding()
+            .padding(12)
             .navigationTitle("Skizze")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -29,136 +34,127 @@ struct MobileSketchCanvasView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Leeren") {
-                        strokes = []
-                        currentStroke = []
+                        drawing = PKDrawing()
                         errorMessage = nil
                     }
-                    .disabled(strokes.isEmpty && currentStroke.isEmpty)
+                    .disabled(drawing.strokes.isEmpty)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Hinzufügen") {
                         saveSketch()
                     }
-                    .disabled(strokes.isEmpty && currentStroke.isEmpty)
+                    .disabled(drawing.strokes.isEmpty)
                 }
             }
         }
-    }
-
-    private var drawingSurface: some View {
-        GeometryReader { proxy in
-            Canvas { context, size in
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white))
-                for stroke in strokes + [currentStroke] {
-                    draw(stroke, in: &context)
-                }
-            }
-            .background(.white)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-            )
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let point = clamped(value.location, in: proxy.size)
-                        if currentStroke.isEmpty {
-                            currentStroke = [point]
-                        } else {
-                            currentStroke.append(point)
-                        }
-                        canvasSize = proxy.size
-                    }
-                    .onEnded { _ in
-                        guard !currentStroke.isEmpty else { return }
-                        strokes.append(currentStroke)
-                        currentStroke = []
-                        canvasSize = proxy.size
-                    }
-            )
-            .onAppear {
-                canvasSize = proxy.size
-            }
-        }
-        .frame(minHeight: 360)
-    }
-
-    private func draw(_ stroke: [CGPoint], in context: inout GraphicsContext) {
-        guard let firstPoint = stroke.first else {
-            return
-        }
-
-        var path = Path()
-        path.move(to: firstPoint)
-        for point in stroke.dropFirst() {
-            path.addLine(to: point)
-        }
-        if stroke.count == 1 {
-            path.addEllipse(in: CGRect(x: firstPoint.x - 1, y: firstPoint.y - 1, width: 2, height: 2))
-        }
-
-        context.stroke(path, with: .color(.black), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
     }
 
     private func saveSketch() {
-        let completeStrokes = strokes + (currentStroke.isEmpty ? [] : [currentStroke])
-        guard !completeStrokes.isEmpty else {
+        guard !drawing.strokes.isEmpty else {
             errorMessage = "Bitte zuerst eine Skizze zeichnen."
             return
         }
 
-        guard canvasSize.width > 0, canvasSize.height > 0 else {
-            errorMessage = "Die Skizze konnte nicht vorbereitet werden."
-            return
-        }
-
-        guard let data = renderPNG(strokes: completeStrokes, size: canvasSize), !data.isEmpty else {
+        let bounds = exportBounds(for: drawing)
+        let image = renderImage(drawing: drawing, bounds: bounds, scale: 4)
+        guard let pngData = image.pngData(), !pngData.isEmpty else {
             errorMessage = "Die Skizze konnte nicht als PNG gespeichert werden."
             return
         }
 
-        onSave(data)
+        let drawingData = drawing.dataRepresentation()
+        onSave(MobileInspectionSketchInput(
+            id: UUID().uuidString,
+            fileName: "Skizze",
+            data: pngData,
+            drawingData: drawingData.isEmpty ? nil : drawingData
+        ))
     }
 
-    private func renderPNG(strokes: [[CGPoint]], size: CGSize) -> Data? {
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 2
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        let image = renderer.image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(origin: .zero, size: size))
-            UIColor.black.setStroke()
-
-            let cgContext = context.cgContext
-            cgContext.setLineWidth(3)
-            cgContext.setLineCap(.round)
-            cgContext.setLineJoin(.round)
-
-            for stroke in strokes {
-                guard let firstPoint = stroke.first else {
-                    continue
-                }
-                cgContext.beginPath()
-                cgContext.move(to: firstPoint)
-                for point in stroke.dropFirst() {
-                    cgContext.addLine(to: point)
-                }
-                if stroke.count == 1 {
-                    cgContext.addEllipse(in: CGRect(x: firstPoint.x - 1, y: firstPoint.y - 1, width: 2, height: 2))
-                    cgContext.fillPath()
-                } else {
-                    cgContext.strokePath()
-                }
-            }
+    private func exportBounds(for drawing: PKDrawing) -> CGRect {
+        guard !drawing.bounds.isNull, !drawing.bounds.isEmpty else {
+            return CGRect(x: 0, y: 0, width: 2400, height: 1800)
         }
-        return image.pngData()
+
+        let padded = drawing.bounds.insetBy(dx: -160, dy: -160)
+        return CGRect(
+            x: min(0, padded.origin.x),
+            y: min(0, padded.origin.y),
+            width: max(2400, padded.width),
+            height: max(1800, padded.height)
+        )
     }
 
-    private func clamped(_ point: CGPoint, in size: CGSize) -> CGPoint {
-        CGPoint(
-            x: min(max(point.x, 0), size.width),
-            y: min(max(point.y, 0), size.height)
-        )
+    private func renderImage(drawing: PKDrawing, bounds: CGRect, scale: CGFloat) -> UIImage {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: bounds.size, format: format)
+        return renderer.image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: bounds.size))
+            let image = drawing.image(from: bounds, scale: scale)
+            image.draw(in: CGRect(origin: .zero, size: bounds.size))
+        }
+    }
+}
+
+private struct PencilSketchCanvas: UIViewRepresentable {
+    @Binding var drawing: PKDrawing
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(drawing: $drawing)
+    }
+
+    func makeUIView(context: Context) -> PKCanvasView {
+        let canvasView = PKCanvasView()
+        canvasView.backgroundColor = .white
+        canvasView.isOpaque = true
+        canvasView.drawing = drawing
+        canvasView.delegate = context.coordinator
+        canvasView.drawingPolicy = .anyInput
+        canvasView.alwaysBounceVertical = true
+        canvasView.alwaysBounceHorizontal = true
+        canvasView.minimumZoomScale = 0.35
+        canvasView.maximumZoomScale = 6
+        canvasView.contentSize = CGSize(width: 3000, height: 2200)
+        canvasView.tool = PKInkingTool(.pen, color: .black, width: 5)
+        canvasView.becomeFirstResponder()
+        context.coordinator.attachToolPicker(to: canvasView)
+        return canvasView
+    }
+
+    func updateUIView(_ canvasView: PKCanvasView, context: Context) {
+        if canvasView.drawing != drawing {
+            canvasView.drawing = drawing
+        }
+        context.coordinator.attachToolPicker(to: canvasView)
+    }
+
+    final class Coordinator: NSObject, PKCanvasViewDelegate {
+        private var drawing: Binding<PKDrawing>
+        private weak var currentCanvasView: PKCanvasView?
+        private var toolPicker: PKToolPicker?
+
+        init(drawing: Binding<PKDrawing>) {
+            self.drawing = drawing
+        }
+
+        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            drawing.wrappedValue = canvasView.drawing
+        }
+
+        func attachToolPicker(to canvasView: PKCanvasView) {
+            guard currentCanvasView !== canvasView else {
+                return
+            }
+
+            currentCanvasView = canvasView
+            let picker = PKToolPicker()
+            picker.setVisible(true, forFirstResponder: canvasView)
+            picker.addObserver(canvasView)
+            canvasView.becomeFirstResponder()
+            toolPicker = picker
+        }
     }
 }
