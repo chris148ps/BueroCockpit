@@ -684,7 +684,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
         for (index, category) in categories.enumerated() {
             let trimmedName = category.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedName.isEmpty else {
+            guard !trimmedName.isEmpty,
+                  !isSystemSettingsCategory(id: category.id, name: trimmedName) else {
                 continue
             }
 
@@ -724,6 +725,11 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
+    }
+
+    nonisolated private static func isSystemSettingsCategory(id: String, name: String) -> Bool {
+        id.caseInsensitiveCompare("__settings") == .orderedSame ||
+        name.caseInsensitiveCompare("Einstellungen") == .orderedSame
     }
 }
 

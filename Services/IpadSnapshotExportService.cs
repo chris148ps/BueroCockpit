@@ -1286,8 +1286,15 @@ public sealed class IpadSnapshotExportService
 
     private static List<SnapshotCategory> GetCategoriesForSnapshot(BueroRepository repository)
     {
-        return repository.GetAllCategories()
+        return repository.GetCategories()
+            .Where(category => !IsSystemSettingsCategory(category))
             .Select(category => new SnapshotCategory(category.Id, category.Name, category.SortOrder))
             .ToList();
+    }
+
+    private static bool IsSystemSettingsCategory(CategoryItem category)
+    {
+        return string.Equals(category.Id, "__settings", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), "Einstellungen", StringComparison.OrdinalIgnoreCase);
     }
 }
