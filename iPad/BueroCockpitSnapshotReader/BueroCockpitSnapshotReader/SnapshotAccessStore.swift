@@ -92,7 +92,7 @@ enum SnapshotAccessError: LocalizedError, Sendable {
 
 final class SnapshotAccessStore: @unchecked Sendable {
     private enum Key {
-        static let bookmark = "snapshotLocationBookmark"
+        static let legacyBookmark = "snapshotLocationBookmark"
         static let sourceFileName = "snapshotSourceFileName"
         static let setupCompleted = "snapshotSetupCompleted"
     }
@@ -101,10 +101,8 @@ final class SnapshotAccessStore: @unchecked Sendable {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if defaults.data(forKey: Key.bookmark) != nil {
-            defaults.removeObject(forKey: Key.bookmark)
-            defaults.removeObject(forKey: Key.sourceFileName)
-            defaults.removeObject(forKey: Key.setupCompleted)
+        if defaults.data(forKey: Key.legacyBookmark) != nil {
+            defaults.removeObject(forKey: Key.legacyBookmark)
         }
     }
 
@@ -121,7 +119,7 @@ final class SnapshotAccessStore: @unchecked Sendable {
     }
 
     func saveLocalSnapshot(fileName: String) {
-        defaults.removeObject(forKey: Key.bookmark)
+        defaults.removeObject(forKey: Key.legacyBookmark)
         defaults.set(fileName, forKey: Key.sourceFileName)
         defaults.set(true, forKey: Key.setupCompleted)
     }
@@ -141,11 +139,39 @@ final class SnapshotAccessStore: @unchecked Sendable {
         return url
     }
 
+    func cachedLiveSnapshotURL() throws -> URL {
+        let url = try SnapshotLocalStorage.importedSnapshotsDirectory()
+            .appendingPathComponent("current.bclive", isDirectory: false)
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw SnapshotAccessError.noCachedSnapshot
+        }
+
+        return url
+    }
+
+    func installDownloadedLiveSnapshot(from sourceURL: URL) throws -> URL {
+        let fileManager = FileManager.default
+        let directory = try SnapshotLocalStorage.importedSnapshotsDirectory()
+        let destinationURL = directory.appendingPathComponent("current.bclive", isDirectory: false)
+        let stagedURL = directory.appendingPathComponent(".download-\(UUID().uuidString).bclive", isDirectory: false)
+        defer { try? fileManager.removeItem(at: stagedURL) }
+
+        try fileManager.copyItem(at: sourceURL, to: stagedURL)
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            _ = try fileManager.replaceItemAt(destinationURL, withItemAt: stagedURL)
+        } else {
+            try fileManager.moveItem(at: stagedURL, to: destinationURL)
+        }
+        saveLocalSnapshot(fileName: destinationURL.lastPathComponent)
+        return destinationURL
+    }
+
     func reset() {
         if let cachedURL = try? cachedSnapshotURL() {
             try? FileManager.default.removeItem(at: cachedURL)
         }
-        defaults.removeObject(forKey: Key.bookmark)
+        defaults.removeObject(forKey: Key.legacyBookmark)
         defaults.removeObject(forKey: Key.sourceFileName)
         defaults.removeObject(forKey: Key.setupCompleted)
     }

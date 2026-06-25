@@ -74,39 +74,17 @@ struct SnapshotRootView: View {
             case .setup:
                 setupView
             case .settings:
-                SnapshotSettingsView(
-                    fileName: viewModel.loadedFileName,
-                    snapshotDate: viewModel.metadata?.displayExportedAt,
-                    categoryCount: viewModel.document?.categories.count ?? 0,
-                    taskCount: viewModel.tasks.count,
-                    statusMessage: viewModel.noticeMessage,
-                    onRefresh: {
-                        presentedSheet = nil
-                        viewModel.refreshSnapshot()
-                    },
-                    onChooseLocation: {
-                        importModeAfterSheetDismissal = .package
-                        presentedSheet = nil
-                    },
-                    onChooseFolder: {
-                        importModeAfterSheetDismissal = .folder
-                        presentedSheet = nil
-                    },
-                    onReset: {
-                        viewModel.resetSetup()
-                        presentedSheet = nil
-                    },
-                    onDismiss: {
-                        presentedSheet = nil
-                    }
-                )
+                syncSetupView(onDismiss: { presentedSheet = nil })
             }
         }
     }
 
     @ViewBuilder
     private var contentView: some View {
-        switch viewModel.loadState {
+        if viewModel.document == nil && viewModel.loadState != .loading {
+            setupView
+        } else {
+            switch viewModel.loadState {
             case .ready:
                 browserView
             case .idle:
@@ -157,29 +135,33 @@ struct SnapshotRootView: View {
                     tertiaryButtonTitle: nil,
                     tertiaryAction: nil
                 )
+            }
         }
     }
 
     private var setupView: some View {
+        syncSetupView(onDismiss: nil)
+    }
+
+    private func syncSetupView(onDismiss: (() -> Void)?) -> some View {
         SnapshotSetupView(
+            currentProvider: viewModel.syncSettings.providerType,
+            savedGoogleDriveLink: viewModel.syncSettings.googleDriveLink,
+            hasLocalSnapshot: viewModel.hasLocalSnapshot,
             message: viewModel.setupMessage,
-            statusMessage: importStatusMessage,
+            statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
+            isWorking: viewModel.isSyncing || viewModel.loadState == .loading,
             onSelectSnapshot: {
-                if presentedSheet == .setup {
+                if presentedSheet != nil {
                     importModeAfterSheetDismissal = .package
                     presentedSheet = nil
                 } else {
                     openPackagePicker()
                 }
             },
-            onSelectFolder: {
-                if presentedSheet == .setup {
-                    importModeAfterSheetDismissal = .folder
-                    presentedSheet = nil
-                } else {
-                    openFolderPicker()
-                }
-            }
+            onReload: viewModel.refreshSnapshot,
+            onTestGoogleDrive: viewModel.testGoogleDriveConnection,
+            onDismiss: onDismiss
         )
     }
 
@@ -198,9 +180,11 @@ struct SnapshotRootView: View {
         .navigationSplitViewStyle(.balanced)
         .safeAreaInset(edge: .top) {
             if let notice = viewModel.noticeMessage {
-                Label(notice, systemImage: "exclamationmark.triangle")
+                let isFailure = notice.localizedCaseInsensitiveContains("fehlgeschlagen")
+                    || notice.localizedCaseInsensitiveContains("konnte nicht")
+                Label(notice, systemImage: isFailure ? "exclamationmark.triangle" : "checkmark.circle")
                     .font(.callout)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(isFailure ? .orange : .green)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -213,7 +197,7 @@ struct SnapshotRootView: View {
                     viewModel.refreshSnapshot()
                 }
 
-                Button("Live-Datei erneut importieren") {
+                Button("Live-Datei importieren") {
                     openPackagePicker()
                 }
 
@@ -221,7 +205,7 @@ struct SnapshotRootView: View {
                     openFolderPicker()
                 }
 
-                Button("Einrichtung") {
+                Button("Sync-Quelle") {
                     presentedSheet = .settings
                 }
             }

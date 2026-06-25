@@ -10,6 +10,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var setupRequired = false
     @Published private(set) var setupMessage: String?
     @Published private(set) var noticeMessage: String?
+    @Published private(set) var syncStatusMessage: String?
+    @Published private(set) var syncSettings: SnapshotSyncSettings
+    @Published private(set) var isSyncing = false
     @Published private(set) var loadingTitle = "Snapshot wird geladen …"
     @Published private var groupedCategoryCache: [SnapshotCategoryGroup] = []
     @Published private var taskCountByCategoryID: [String: Int] = [:]
@@ -25,14 +28,18 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     private let reader: SnapshotReader
     private let accessStore: SnapshotAccessStore
+    private let syncSettingsStore: SnapshotSyncSettingsStore
     private var didAttemptStartupLoad = false
 
     init(
         reader: SnapshotReader = SnapshotReader(),
-        accessStore: SnapshotAccessStore = SnapshotAccessStore()
+        accessStore: SnapshotAccessStore = SnapshotAccessStore(),
+        syncSettingsStore: SnapshotSyncSettingsStore = SnapshotSyncSettingsStore()
     ) {
         self.reader = reader
         self.accessStore = accessStore
+        self.syncSettingsStore = syncSettingsStore
+        syncSettings = syncSettingsStore.load()
         setupRequired = !accessStore.isSetupCompleted
         loadState = accessStore.isSetupCompleted ? .loading : .idle
         SnapshotPerformanceLog.event("ViewModel init")
@@ -148,9 +155,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var loadingDescription: String {
-        loadingTitle == "Lokale Live-Datei wird neu geladen …"
-            ? "Bitte warten. Die App liest die bereits lokal gespeicherte Datei erneut."
-            : "Bitte warten. Die ausgewählte Datei wird lokal kopiert und gelesen."
+        if loadingTitle == "Google Drive wird aktualisiert …" {
+            return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
+        }
+        return "Bitte warten. Die lokale Datei wird gelesen."
     }
 
     func restoreAtLaunch() {
@@ -159,14 +167,22 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
 
         didAttemptStartupLoad = true
-        guard accessStore.hasLocalSnapshot else {
-            SnapshotPerformanceLog.event("Start local load skipped: no imported file")
+        if syncSettings.providerType == .googleDriveDirect,
+           !syncSettings.googleDriveFileId.isEmpty {
+            updateFromGoogleDrive(
+                link: syncSettings.googleDriveLink,
+                fileID: syncSettings.googleDriveFileId,
+                saveConfigurationOnSuccess: false,
+                isLaunch: true
+            )
+        } else if accessStore.hasLocalSnapshot {
+            loadLocalSnapshot(isLaunch: true)
+        } else {
+            SnapshotPerformanceLog.event("Start local load skipped: no imported live file")
             setupRequired = true
+            setupMessage = "Bitte live.bclive einmal importieren."
             loadState = .idle
-            return
         }
-
-        loadLocalSnapshot(isLaunch: true)
     }
 
     func importSnapshot(from sourceURL: URL) {
@@ -191,6 +207,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
                 setupRequired = false
                 setupMessage = nil
+                var settings = syncSettings
+                settings.providerType = .manualFile
+                settings.lastImportDate = Date()
+                settings.lastError = nil
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                syncStatusMessage = "Lokale Datei importiert"
+                noticeMessage = "Lokale Datei importiert"
                 apply(prepared: document)
                 SnapshotPerformanceLog.event("Import processing finished")
             } catch {
@@ -211,13 +235,36 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func refreshSnapshot() {
-        guard accessStore.hasLocalSnapshot else {
-            setupRequired = true
-            setupMessage = "Bitte Sync/live.bclive erneut importieren."
+        if syncSettings.providerType == .googleDriveDirect,
+           !syncSettings.googleDriveFileId.isEmpty {
+            updateFromGoogleDrive(
+                link: syncSettings.googleDriveLink,
+                fileID: syncSettings.googleDriveFileId,
+                saveConfigurationOnSuccess: false,
+                isLaunch: false
+            )
             return
         }
 
+        guard accessStore.hasLocalSnapshot else {
+            setupRequired = true
+            setupMessage = "Bitte live.bclive einmal importieren."
+            return
+        }
         loadLocalSnapshot(isLaunch: false)
+    }
+
+    func testGoogleDriveConnection(link: String) {
+        guard let fileID = GoogleDriveDirectProvider.fileID(from: link) else {
+            syncStatusMessage = SnapshotSyncError.invalidGoogleDriveLink.localizedDescription
+            return
+        }
+        updateFromGoogleDrive(
+            link: link.trimmingCharacters(in: .whitespacesAndNewlines),
+            fileID: fileID,
+            saveConfigurationOnSuccess: true,
+            isLaunch: false
+        )
     }
 
     func resetSetup() {
@@ -230,7 +277,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         selectedTaskID = nil
         searchText = ""
         noticeMessage = nil
+        syncStatusMessage = nil
         setupMessage = nil
+        syncSettingsStore.reset()
+        syncSettings = SnapshotSyncSettings()
         setupRequired = true
         loadState = .idle
     }
@@ -242,7 +292,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     private func loadLocalSnapshot(isLaunch: Bool) {
-        SnapshotPerformanceLog.event(isLaunch ? "Start local file load started" : "Manual local file reload started")
+        SnapshotPerformanceLog.event(isLaunch ? "Start local load started" : "Manual local reload started")
         searchText = ""
         loadingTitle = isLaunch ? "Lokale Live-Datei wird geladen …" : "Lokale Live-Datei wird neu geladen …"
         loadState = .loading
@@ -263,12 +313,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
             switch outcome {
             case .loaded(let prepared):
                 noticeMessage = nil
+                syncStatusMessage = syncSettings.providerType == .manualFile ? "Lokale Datei importiert" : syncStatusMessage
                 setupRequired = false
                 setupMessage = nil
                 apply(prepared: prepared)
-                SnapshotPerformanceLog.event(isLaunch ? "Start local file load finished" : "Manual local file reload finished")
+                SnapshotPerformanceLog.event(isLaunch ? "Start local load finished" : "Manual local reload finished")
             case .failure(let message):
-                let failureMessage = "Die lokale Live-Datei konnte nicht gelesen werden. Bitte Sync/live.bclive erneut importieren. \(message)"
+                let failureMessage = "Bitte live.bclive einmal importieren. \(message)"
                 if document != nil {
                     noticeMessage = failureMessage
                     setupRequired = false
@@ -279,7 +330,93 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     setupMessage = failureMessage
                     present(errorMessage: failureMessage)
                 }
-                SnapshotPerformanceLog.event(isLaunch ? "Start local file load failed" : "Manual local file reload failed")
+                SnapshotPerformanceLog.event(isLaunch ? "Start local load failed" : "Manual local reload failed")
+            }
+        }
+    }
+
+    private func updateFromGoogleDrive(
+        link: String,
+        fileID: String,
+        saveConfigurationOnSuccess: Bool,
+        isLaunch: Bool
+    ) {
+        guard !isSyncing else { return }
+        isSyncing = true
+        searchText = ""
+        noticeMessage = nil
+        syncStatusMessage = "Google Drive wird geprüft …"
+        loadingTitle = "Google Drive wird aktualisiert …"
+        loadState = .loading
+
+        let reader = self.reader
+        let accessStore = self.accessStore
+        Task {
+            let outcome: GoogleSnapshotLoadOutcome
+            do {
+                let provider = GoogleDriveDirectProvider(fileID: fileID)
+                let downloadedURL = try await provider.downloadLatestSnapshot()
+                defer { try? FileManager.default.removeItem(at: downloadedURL) }
+                let prepared = try await Task.detached(priority: .userInitiated) {
+                    _ = try reader.readCachedSnapshot(from: downloadedURL)
+                    let installedURL = try accessStore.installDownloadedLiveSnapshot(from: downloadedURL)
+                    return Self.prepare(document: try reader.readCachedSnapshot(from: installedURL))
+                }.value
+                outcome = .online(prepared)
+            } catch {
+                let onlineError = Self.displayMessage(for: error)
+                let fallback = await Task.detached(priority: .userInitiated) { () -> PreparedSnapshot? in
+                    do {
+                        let cachedURL = try accessStore.cachedSnapshotURL()
+                        return try Self.prepare(document: reader.readCachedSnapshot(from: cachedURL))
+                    } catch {
+                        return nil
+                    }
+                }.value
+                outcome = fallback.map { .fallback($0, onlineError: onlineError) } ?? .failure(onlineError)
+            }
+
+            isSyncing = false
+            switch outcome {
+            case .online(let prepared):
+                var settings = syncSettings
+                if saveConfigurationOnSuccess {
+                    settings.providerType = .googleDriveDirect
+                    settings.googleDriveLink = link
+                    settings.googleDriveFileId = fileID
+                }
+                settings.lastSuccessfulSync = Date()
+                settings.lastError = nil
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                syncStatusMessage = saveConfigurationOnSuccess
+                    ? "Google Drive Verbindung erfolgreich"
+                    : "Online aktualisiert"
+                noticeMessage = syncStatusMessage
+                setupRequired = false
+                setupMessage = nil
+                apply(prepared: prepared)
+                SnapshotPerformanceLog.event(isLaunch ? "Start Google Drive load finished" : "Manual Google Drive load finished")
+            case .fallback(let prepared, let onlineError):
+                var settings = syncSettings
+                settings.lastError = onlineError
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                syncStatusMessage = "Online-Aktualisierung fehlgeschlagen. Lokale Kopie wird verwendet."
+                noticeMessage = syncStatusMessage
+                setupRequired = false
+                setupMessage = nil
+                apply(prepared: prepared)
+            case .failure(let onlineError):
+                var settings = syncSettings
+                settings.lastError = onlineError
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                let message = "Online-Aktualisierung fehlgeschlagen. Lokale Kopie wird verwendet. \(onlineError)"
+                syncStatusMessage = message
+                setupRequired = true
+                setupMessage = message
+                present(errorMessage: message, keepSetupState: true)
             }
         }
     }
@@ -423,6 +560,12 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
 private enum LocalSnapshotLoadOutcome: Sendable {
     case loaded(PreparedSnapshot)
+    case failure(String)
+}
+
+private enum GoogleSnapshotLoadOutcome: Sendable {
+    case online(PreparedSnapshot)
+    case fallback(PreparedSnapshot, onlineError: String)
     case failure(String)
 }
 

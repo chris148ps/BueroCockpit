@@ -12,6 +12,7 @@
 		1D77FF7E5FEB43C987AC4970 /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */; };
 		2A14F345BC9D4CA8A327AB10 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */; };
 		318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */; };
+		3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */; };
 		4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */; };
 		773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */; };
 		77A83F20D14948DC95A6B25E /* BueroCockpitSnapshotReader/SnapshotSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E19B840C5F714A2DBA33068A /* BueroCockpitSnapshotReader/SnapshotSetupView.swift */; };
@@ -25,6 +26,7 @@
 /* Begin PBXFileReference section */
 		20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift; sourceTree = SOURCE_ROOT; };
 		334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift; sourceTree = SOURCE_ROOT; };
+		4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotSync.swift; sourceTree = SOURCE_ROOT; };
 		56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotStartView.swift; sourceTree = SOURCE_ROOT; };
 		58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotAccessStore.swift; sourceTree = SOURCE_ROOT; };
 		58649F0CAC67404C9F982F96 /* BueroCockpitSnapshotReader/README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = BueroCockpitSnapshotReader/README.md; sourceTree = SOURCE_ROOT; };
@@ -92,6 +94,7 @@
 			children = (
 				C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */,
 				58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */,
+				4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */,
 				91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */,
 			);
 			sourceTree = "<group>";
@@ -185,6 +188,7 @@
 				B5D2533552974A3B9EAA8B77 /* BueroCockpitSnapshotReader/SnapshotModels.swift in Sources */,
 				CB44387C4E784A398201B151 /* BueroCockpitSnapshotReader/SnapshotReader.swift in Sources */,
 				2A14F345BC9D4CA8A327AB10 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift in Sources */,
+				3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */,
 				318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */,
 				83D4A7CAF36042D49FB99BCD /* BueroCockpitSnapshotReader/SnapshotBrowserViewModel.swift in Sources */,
 				9D5F34C9856B466E980F2266 /* BueroCockpitSnapshotReader/SnapshotRootView.swift in Sources */,
