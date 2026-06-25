@@ -5,11 +5,13 @@ struct SnapshotRootView: View {
     private enum PresentedSheet: Identifiable, Equatable {
         case setup
         case settings
+        case mobileInspection
 
         var id: String {
             switch self {
             case .setup: "setup"
             case .settings: "settings"
+            case .mobileInspection: "mobileInspection"
             }
         }
     }
@@ -19,15 +21,20 @@ struct SnapshotRootView: View {
         case metadata
         case package
         case iCloudPackage
+        case mobileInboxFolder
     }
 
     @StateObject private var viewModel = SnapshotBrowserViewModel()
+    @State private var mobileInboxStore = MobileInboxStore()
+    @State private var mobileInboxWriter = MobileInboxWriter()
     @State private var isPackageImporterPresented = false
     @State private var activeImportMode: SnapshotImportMode?
     @State private var importStatusMessage: String?
     @State private var presentedSheet: PresentedSheet?
     @State private var importModeAfterSheetDismissal: SnapshotImportMode?
     @State private var refreshNoticeMessage: String?
+    @State private var mobileInboxFolderPath: String?
+    @State private var mobileInboxMessage: String?
 
     var body: some View {
         Group {
@@ -77,6 +84,20 @@ struct SnapshotRootView: View {
                 setupView
             case .settings:
                 syncSetupView(onDismiss: { presentedSheet = nil })
+            case .mobileInspection:
+                MobileInspectionFormView(
+                    categoryNames: viewModel.categories.map(\.name),
+                    writer: mobileInboxWriter,
+                    onSaved: { result in
+                        mobileInboxMessage = "Gespeichert in \(result.entryURL.lastPathComponent)"
+                        refreshNoticeMessage = "Mobile Besichtigung gespeichert:\n\(result.entryURL.path)"
+                    },
+                    onNeedsFolderSelection: {
+                        importModeAfterSheetDismissal = .mobileInboxFolder
+                        presentedSheet = nil
+                    },
+                    onDismiss: { presentedSheet = nil }
+                )
             }
         }
         .onChange(of: viewModel.noticeMessage) { _, message in
@@ -145,6 +166,8 @@ struct SnapshotRootView: View {
             lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
+            mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
+            mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
             onSelectSnapshot: {
                 if presentedSheet != nil {
@@ -165,6 +188,17 @@ struct SnapshotRootView: View {
             onRefreshICloudSnapshot: refreshOrSelectICloudSnapshot,
             onReload: viewModel.refreshSnapshot,
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
+            onCreateMobileInspection: {
+                presentedSheet = .mobileInspection
+            },
+            onSelectMobileInboxFolder: {
+                if presentedSheet != nil {
+                    importModeAfterSheetDismissal = .mobileInboxFolder
+                    presentedSheet = nil
+                } else {
+                    openMobileInboxFolderPicker()
+                }
+            },
             onDismiss: onDismiss
         )
     }
@@ -443,6 +477,8 @@ struct SnapshotRootView: View {
             openPackagePicker()
         case .iCloudPackage:
             openICloudPicker()
+        case .mobileInboxFolder:
+            openMobileInboxFolderPicker()
         }
     }
 
@@ -464,6 +500,13 @@ struct SnapshotRootView: View {
         presentImporter(
             mode: .iCloudPackage,
             statusMessage: "iCloud-Dateiauswahl wird geöffnet …"
+        )
+    }
+
+    private func openMobileInboxFolderPicker() {
+        presentImporter(
+            mode: .mobileInboxFolder,
+            statusMessage: "Mobile-Inbox-Ordnerauswahl wird geöffnet …"
         )
     }
 
@@ -517,8 +560,21 @@ struct SnapshotRootView: View {
             loadICloudSnapshot(from: sourceURL)
         case .folder, .metadata:
             viewModel.importSnapshot(from: sourceURL)
+        case .mobileInboxFolder:
+            saveMobileInboxFolder(sourceURL)
         case .none:
             viewModel.present(errorMessage: "Die Auswahl konnte nicht zugeordnet werden.")
+        }
+    }
+
+    private func saveMobileInboxFolder(_ folderURL: URL) {
+        do {
+            try mobileInboxStore.saveSelectedFolder(folderURL)
+            mobileInboxFolderPath = folderURL.path
+            mobileInboxMessage = "Mobile-Inbox-Ordner gespeichert."
+            refreshNoticeMessage = "Mobile-Inbox-Ordner gespeichert:\n\(folderURL.path)"
+        } catch {
+            viewModel.present(errorMessage: error.localizedDescription)
         }
     }
 
@@ -564,7 +620,7 @@ struct SnapshotRootView: View {
 
     private var allowedImportContentTypes: [UTType] {
         switch activeImportMode {
-        case .folder:
+        case .folder, .mobileInboxFolder:
             return [.folder]
         case .metadata:
             return [.json]

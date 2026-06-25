@@ -8,12 +8,16 @@ struct SnapshotSetupView: View {
     let lastUpdatedText: String?
     let message: String?
     let statusMessage: String?
+    let mobileInboxFolderPath: String?
+    let mobileInboxMessage: String?
     let isWorking: Bool
     let onSelectSnapshot: () -> Void
     let onSelectICloudSnapshot: () -> Void
     let onRefreshICloudSnapshot: () -> Void
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
+    let onCreateMobileInspection: () -> Void
+    let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
 
     @State private var selectedProvider: SyncProviderType
@@ -27,12 +31,16 @@ struct SnapshotSetupView: View {
         lastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
+        mobileInboxFolderPath: String?,
+        mobileInboxMessage: String?,
         isWorking: Bool,
         onSelectSnapshot: @escaping () -> Void,
         onSelectICloudSnapshot: @escaping () -> Void,
         onRefreshICloudSnapshot: @escaping () -> Void,
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
+        onCreateMobileInspection: @escaping () -> Void,
+        onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
     ) {
         self.currentProvider = currentProvider
@@ -42,12 +50,16 @@ struct SnapshotSetupView: View {
         self.lastUpdatedText = lastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
+        self.mobileInboxFolderPath = mobileInboxFolderPath
+        self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
         self.onSelectSnapshot = onSelectSnapshot
         self.onSelectICloudSnapshot = onSelectICloudSnapshot
         self.onRefreshICloudSnapshot = onRefreshICloudSnapshot
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
+        self.onCreateMobileInspection = onCreateMobileInspection
+        self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
         _selectedProvider = State(initialValue: currentProvider)
         _googleDriveLink = State(initialValue: savedGoogleDriveLink)
@@ -107,6 +119,14 @@ struct SnapshotSetupView: View {
                             .font(.headline)
                     }
 
+                    GroupBox {
+                        mobileInboxContent
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        Label("Mobile Eingänge", systemImage: "tray.and.arrow.down")
+                            .font(.headline)
+                    }
+
                     if let message, !message.isEmpty {
                         Label(message, systemImage: "exclamationmark.triangle")
                             .font(.callout)
@@ -131,6 +151,34 @@ struct SnapshotSetupView: View {
                         Button("Fertig", action: onDismiss)
                     }
                 }
+            }
+        }
+    }
+
+    private var mobileInboxContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Button("Mobile Besichtigung anlegen", action: onCreateMobileInspection)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isWorking)
+                Button("Mobile-Inbox-Ordner wählen", action: onSelectMobileInboxFolder)
+                    .buttonStyle(.bordered)
+                    .disabled(isWorking)
+            }
+
+            if let mobileInboxFolderPath, !mobileInboxFolderPath.isEmpty {
+                Text("Ordner: \(mobileInboxFolderPath)")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Noch kein Mobile-Inbox-Ordner gewählt.")
+                    .foregroundStyle(.secondary)
+            }
+
+            if let mobileInboxMessage, !mobileInboxMessage.isEmpty {
+                Label(mobileInboxMessage, systemImage: "checkmark.circle")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
