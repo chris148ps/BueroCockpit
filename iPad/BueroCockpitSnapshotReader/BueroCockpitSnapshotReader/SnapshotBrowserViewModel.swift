@@ -343,6 +343,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
     }
 
+    func clearNotice() {
+        noticeMessage = nil
+    }
+
     func resetSetup() {
         accessStore.reset()
         document = nil

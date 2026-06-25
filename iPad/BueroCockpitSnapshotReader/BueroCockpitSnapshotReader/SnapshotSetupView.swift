@@ -72,19 +72,25 @@ struct SnapshotSetupView: View {
                     }
 
                     GroupBox {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label(currentProvider.displayName, systemImage: currentProvider.systemImage)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Aktive Sync-Quelle: \(currentProvider.displayName)", systemImage: currentProvider.systemImage)
                                 .font(.headline)
 
                             if let lastUpdatedText {
                                 Text(lastUpdatedText)
                                     .foregroundStyle(.secondary)
+                            } else {
+                                Text("Zuletzt aktualisiert: noch nicht verfügbar")
+                                    .foregroundStyle(.secondary)
                             }
 
                             if let statusMessage, !statusMessage.isEmpty {
-                                Text(statusMessage)
+                                Text("Letzter Status: \(statusMessage)")
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text("Letzter Status: noch nicht verfügbar")
+                                    .foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

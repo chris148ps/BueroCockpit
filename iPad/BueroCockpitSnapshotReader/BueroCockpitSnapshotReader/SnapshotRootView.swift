@@ -27,6 +27,7 @@ struct SnapshotRootView: View {
     @State private var importStatusMessage: String?
     @State private var presentedSheet: PresentedSheet?
     @State private var importModeAfterSheetDismissal: SnapshotImportMode?
+    @State private var refreshNoticeMessage: String?
 
     var body: some View {
         Group {
@@ -77,6 +78,26 @@ struct SnapshotRootView: View {
             case .settings:
                 syncSetupView(onDismiss: { presentedSheet = nil })
             }
+        }
+        .onChange(of: viewModel.noticeMessage) { _, message in
+            guard let message, !message.isEmpty else { return }
+            refreshNoticeMessage = message
+        }
+        .alert("Aktualisierung", isPresented: Binding(
+            get: { refreshNoticeMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    refreshNoticeMessage = nil
+                    viewModel.clearNotice()
+                }
+            }
+        )) {
+            Button("OK", role: .cancel) {
+                refreshNoticeMessage = nil
+                viewModel.clearNotice()
+            }
+        } message: {
+            Text(refreshNoticeMessage ?? "")
         }
     }
 
@@ -154,37 +175,89 @@ struct SnapshotRootView: View {
                 sidebarView
             },
             content: {
-                taskList
+                contentColumnView
             },
             detail: {
                 detailView
             }
         )
         .navigationSplitViewStyle(.balanced)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Text("BüroCockpit")
-                    .font(.headline)
+    }
+
+    private var contentColumnView: some View {
+        VStack(spacing: 0) {
+            mainHeaderView
+            if shouldShowTaskSearch {
+                taskSearchField
             }
+            Divider()
+            taskList
+        }
+    }
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
+    private var mainHeaderView: some View {
+        HStack(spacing: 12) {
+            Text("BüroCockpit")
+                .font(.headline)
+
+            Spacer()
+
+            Button {
+                refreshCurrentSyncSource()
+            } label: {
+                if viewModel.isSyncing || viewModel.loadState == .loading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+            .disabled(viewModel.isSyncing || viewModel.loadState == .loading)
+            .buttonStyle(.borderless)
+            .help("Aktualisieren")
+
+            Button {
+                presentedSheet = .settings
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .help("Sync-Einstellungen")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(minHeight: 44)
+    }
+
+    private var taskSearchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Aufträge suchen", text: $viewModel.searchText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            if !viewModel.searchText.isEmpty {
                 Button {
-                    refreshCurrentSyncSource()
+                    viewModel.searchText = ""
                 } label: {
-                    if viewModel.isSyncing || viewModel.loadState == .loading {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
                 }
-                .disabled(viewModel.isSyncing || viewModel.loadState == .loading)
-                .help("Aktualisieren")
-
-                Button("Sync-Einstellungen") {
-                    presentedSheet = .settings
-                }
+                .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    private var shouldShowTaskSearch: Bool {
+        if case .ready = viewModel.loadState {
+            return true
+        }
+        return false
     }
 
     private var sidebarView: some View {
@@ -249,7 +322,6 @@ struct SnapshotRootView: View {
                     primaryAction: openPackagePicker
                 )
                 .navigationTitle(viewModel.selectedCategoryTitle)
-                .searchable(text: $viewModel.searchText, prompt: "Aufträge suchen")
             } else {
                 List(viewModel.filteredTasks, selection: Binding(
                     get: { viewModel.selectedTaskID },
@@ -259,7 +331,6 @@ struct SnapshotRootView: View {
                         .tag(task.id)
                 }
                 .navigationTitle(viewModel.selectedCategoryTitle)
-                .searchable(text: $viewModel.searchText, prompt: "Aufträge suchen")
             }
         case .idle:
             SnapshotEmptyStateView(
