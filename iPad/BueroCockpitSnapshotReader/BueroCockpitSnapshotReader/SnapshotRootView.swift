@@ -189,9 +189,6 @@ struct SnapshotRootView: View {
             onRefreshICloudSnapshot: refreshOrSelectICloudSnapshot,
             onReload: viewModel.refreshSnapshot,
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
-            onCreateMobileInspection: {
-                presentedSheet = .mobileInspection
-            },
             onSelectMobileInboxFolder: {
                 if presentedSheet != nil {
                     importModeAfterSheetDismissal = .mobileInboxFolder

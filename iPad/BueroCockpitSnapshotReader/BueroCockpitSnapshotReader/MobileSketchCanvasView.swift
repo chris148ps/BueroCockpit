@@ -6,17 +6,21 @@ struct MobileSketchCanvasView: View {
     let onSave: (MobileInspectionSketchInput) -> Void
     let onCancel: () -> Void
 
-    @State private var drawing = PKDrawing()
+    @State private var canvasController = PencilSketchCanvasController()
+    @State private var isCanvasEmpty = true
     @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 10) {
-                PencilSketchCanvas(drawing: $drawing)
-                    .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                PencilSketchCanvas(controller: canvasController) { isEmpty in
+                    if isCanvasEmpty != isEmpty {
+                        isCanvasEmpty = isEmpty
+                    }
+                }
+                    .background(Color(uiColor: .systemBackground))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
                     )
 
@@ -34,22 +38,24 @@ struct MobileSketchCanvasView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Leeren") {
-                        drawing = PKDrawing()
+                        canvasController.clear()
+                        isCanvasEmpty = true
                         errorMessage = nil
                     }
-                    .disabled(drawing.strokes.isEmpty)
+                    .disabled(isCanvasEmpty)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Hinzufügen") {
                         saveSketch()
                     }
-                    .disabled(drawing.strokes.isEmpty)
+                    .disabled(isCanvasEmpty)
                 }
             }
         }
     }
 
     private func saveSketch() {
+        let drawing = canvasController.drawing
         guard !drawing.strokes.isEmpty else {
             errorMessage = "Bitte zuerst eine Skizze zeichnen."
             return
@@ -99,49 +105,66 @@ struct MobileSketchCanvasView: View {
     }
 }
 
-private struct PencilSketchCanvas: UIViewRepresentable {
-    @Binding var drawing: PKDrawing
+@MainActor
+private final class PencilSketchCanvasController {
+    private weak var canvasView: PKCanvasView?
+
+    var drawing: PKDrawing {
+        canvasView?.drawing ?? PKDrawing()
+    }
+
+    func attach(_ canvasView: PKCanvasView) {
+        self.canvasView = canvasView
+    }
+
+    func clear() {
+        canvasView?.drawing = PKDrawing()
+    }
+}
+
+private struct PencilSketchCanvas: UIViewControllerRepresentable {
+    let controller: PencilSketchCanvasController
+    let onDrawingEmptyChanged: (Bool) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(drawing: $drawing)
+        Coordinator(onDrawingEmptyChanged: onDrawingEmptyChanged)
     }
 
-    func makeUIView(context: Context) -> PKCanvasView {
-        let canvasView = PKCanvasView()
-        canvasView.backgroundColor = .white
-        canvasView.isOpaque = true
-        canvasView.drawing = drawing
-        canvasView.delegate = context.coordinator
-        canvasView.drawingPolicy = .anyInput
-        canvasView.alwaysBounceVertical = true
-        canvasView.alwaysBounceHorizontal = true
-        canvasView.minimumZoomScale = 0.35
-        canvasView.maximumZoomScale = 6
-        canvasView.contentSize = CGSize(width: 3000, height: 2200)
-        canvasView.tool = PKInkingTool(.pen, color: .black, width: 5)
-        canvasView.becomeFirstResponder()
-        context.coordinator.attachToolPicker(to: canvasView)
-        return canvasView
+    func makeUIViewController(context: Context) -> PencilSketchViewController {
+        let viewController = PencilSketchViewController()
+        viewController.canvasView.delegate = context.coordinator
+        viewController.canvasView.drawingPolicy = .anyInput
+        viewController.canvasView.tool = PKInkingTool(.pen, color: .black, width: 5)
+        controller.attach(viewController.canvasView)
+        context.coordinator.attachToolPicker(to: viewController.canvasView)
+        return viewController
     }
 
-    func updateUIView(_ canvasView: PKCanvasView, context: Context) {
-        if canvasView.drawing != drawing {
-            canvasView.drawing = drawing
-        }
-        context.coordinator.attachToolPicker(to: canvasView)
+    func updateUIViewController(_ viewController: PencilSketchViewController, context: Context) {
+        controller.attach(viewController.canvasView)
+        context.coordinator.attachToolPicker(to: viewController.canvasView)
     }
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
-        private var drawing: Binding<PKDrawing>
+        private let onDrawingEmptyChanged: (Bool) -> Void
+        private var lastIsEmpty = true
         private weak var currentCanvasView: PKCanvasView?
         private var toolPicker: PKToolPicker?
 
-        init(drawing: Binding<PKDrawing>) {
-            self.drawing = drawing
+        init(onDrawingEmptyChanged: @escaping (Bool) -> Void) {
+            self.onDrawingEmptyChanged = onDrawingEmptyChanged
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-            drawing.wrappedValue = canvasView.drawing
+            let isEmpty = canvasView.drawing.strokes.isEmpty
+            guard lastIsEmpty != isEmpty else {
+                return
+            }
+
+            lastIsEmpty = isEmpty
+            DispatchQueue.main.async { [onDrawingEmptyChanged] in
+                onDrawingEmptyChanged(isEmpty)
+            }
         }
 
         func attachToolPicker(to canvasView: PKCanvasView) {
@@ -156,5 +179,42 @@ private struct PencilSketchCanvas: UIViewRepresentable {
             canvasView.becomeFirstResponder()
             toolPicker = picker
         }
+    }
+}
+
+private final class PencilSketchViewController: UIViewController {
+    let canvasView = PKCanvasView()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        view.isOpaque = true
+
+        canvasView.translatesAutoresizingMaskIntoConstraints = false
+        canvasView.backgroundColor = .white
+        canvasView.isOpaque = true
+        canvasView.alwaysBounceVertical = true
+        canvasView.alwaysBounceHorizontal = true
+        canvasView.minimumZoomScale = 0.35
+        canvasView.maximumZoomScale = 6
+        canvasView.contentSize = CGSize(width: 3000, height: 2200)
+        canvasView.contentInset = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+        canvasView.contentInsetAdjustmentBehavior = .never
+        canvasView.showsVerticalScrollIndicator = true
+        canvasView.showsHorizontalScrollIndicator = true
+
+        view.addSubview(canvasView)
+        NSLayoutConstraint.activate([
+            canvasView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            canvasView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            canvasView.topAnchor.constraint(equalTo: view.topAnchor),
+            canvasView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        canvasView.becomeFirstResponder()
     }
 }

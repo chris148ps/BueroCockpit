@@ -14,8 +14,7 @@ struct MobileInspectionFormView: View {
     @State private var selectedLibraryPhotos: [MobileInspectionPhotoInput] = []
     @State private var cameraPhotos: [MobileInspectionPhotoInput] = []
     @State private var sketches: [MobileInspectionSketchInput] = []
-    @State private var isCameraPresented = false
-    @State private var isSketchCanvasPresented = false
+    @State private var activeSheet: MobileInspectionSheet?
     @State private var isSaving = false
     @State private var isLoadingPhotos = false
     @State private var errorMessage: String?
@@ -65,7 +64,7 @@ struct MobileInspectionFormView: View {
 
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
                         Button {
-                            isCameraPresented = true
+                            activeSheet = .camera
                         } label: {
                             Label("Kameraaufnahme", systemImage: "camera")
                         }
@@ -84,7 +83,7 @@ struct MobileInspectionFormView: View {
 
                 Section("Skizzen") {
                     Button {
-                        isSketchCanvasPresented = true
+                        activeSheet = .sketch
                     } label: {
                         Label("Skizze hinzufügen", systemImage: "pencil.tip")
                     }
@@ -142,21 +141,24 @@ struct MobileInspectionFormView: View {
             .onChange(of: selectedPhotoItems) { _, items in
                 loadPhotosFromPickerItems(items)
             }
-            .sheet(isPresented: $isCameraPresented) {
-                MobileCameraPicker { image in
-                    addCameraImage(image)
-                }
-            }
-            .sheet(isPresented: $isSketchCanvasPresented) {
-                MobileSketchCanvasView(
-                    onSave: { sketch in
-                        addSketch(sketch)
-                        isSketchCanvasPresented = false
-                    },
-                    onCancel: {
-                        isSketchCanvasPresented = false
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .camera:
+                    MobileCameraPicker { image in
+                        addCameraImage(image)
+                        activeSheet = nil
                     }
-                )
+                case .sketch:
+                    MobileSketchCanvasView(
+                        onSave: { sketch in
+                            addSketch(sketch)
+                            activeSheet = nil
+                        },
+                        onCancel: {
+                            activeSheet = nil
+                        }
+                    )
+                }
             }
         }
     }
@@ -292,6 +294,20 @@ struct MobileInspectionFormView: View {
 
     private func removeSketch(_ sketch: MobileInspectionSketchInput) {
         sketches.removeAll { $0.id == sketch.id }
+    }
+}
+
+private enum MobileInspectionSheet: Identifiable {
+    case camera
+    case sketch
+
+    var id: String {
+        switch self {
+        case .camera:
+            return "camera"
+        case .sketch:
+            return "sketch"
+        }
     }
 }
 

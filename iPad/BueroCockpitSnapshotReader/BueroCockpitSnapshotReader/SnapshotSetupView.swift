@@ -16,7 +16,6 @@ struct SnapshotSetupView: View {
     let onRefreshICloudSnapshot: () -> Void
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
-    let onCreateMobileInspection: () -> Void
     let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
 
@@ -39,7 +38,6 @@ struct SnapshotSetupView: View {
         onRefreshICloudSnapshot: @escaping () -> Void,
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
-        onCreateMobileInspection: @escaping () -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
     ) {
@@ -58,7 +56,6 @@ struct SnapshotSetupView: View {
         self.onRefreshICloudSnapshot = onRefreshICloudSnapshot
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
-        self.onCreateMobileInspection = onCreateMobileInspection
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
         _selectedProvider = State(initialValue: currentProvider)
@@ -157,14 +154,9 @@ struct SnapshotSetupView: View {
 
     private var mobileInboxContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Button("Mobile Besichtigung anlegen", action: onCreateMobileInspection)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isWorking)
-                Button("Mobile-Inbox-Ordner wählen", action: onSelectMobileInboxFolder)
-                    .buttonStyle(.bordered)
-                    .disabled(isWorking)
-            }
+            Button("Mobile-Inbox-Ordner wählen", action: onSelectMobileInboxFolder)
+                .buttonStyle(.bordered)
+                .disabled(isWorking)
 
             if let mobileInboxFolderPath, !mobileInboxFolderPath.isEmpty {
                 Text("Ordner: \(mobileInboxFolderPath)")
