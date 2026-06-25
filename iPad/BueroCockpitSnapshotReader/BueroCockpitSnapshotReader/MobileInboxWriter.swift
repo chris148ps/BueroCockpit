@@ -11,6 +11,9 @@ enum MobileInboxError: LocalizedError, Sendable {
     case imageCouldNotBeEncoded(String)
     case photoCouldNotBeWritten(String)
     case photoFileIsEmpty(String)
+    case sketchDataIsEmpty(String)
+    case sketchCouldNotBeWritten(String)
+    case sketchFileIsEmpty(String)
     case jsonCouldNotBeWritten(String)
 
     var errorDescription: String? {
@@ -33,6 +36,12 @@ enum MobileInboxError: LocalizedError, Sendable {
             return "Das Foto \(name) konnte nicht im Mobile-Inbox-Ordner gespeichert werden."
         case .photoFileIsEmpty(let name):
             return "Das Foto \(name) wurde ohne Inhalt gespeichert. Bitte erneut auswählen."
+        case .sketchDataIsEmpty(let name):
+            return "Die Skizze \(name) enthält keine Bilddaten."
+        case .sketchCouldNotBeWritten(let name):
+            return "Die Skizze \(name) konnte nicht im Mobile-Inbox-Ordner gespeichert werden."
+        case .sketchFileIsEmpty(let name):
+            return "Die Skizze \(name) wurde ohne Inhalt gespeichert. Bitte erneut zeichnen."
         case .jsonCouldNotBeWritten(let path):
             return "Die Aufgabe konnte nicht gespeichert werden: \(path)"
         }
@@ -137,6 +146,7 @@ final class MobileInboxWriter: @unchecked Sendable {
         let entryURL = inboxURL.appendingPathComponent(directoryName, isDirectory: true)
         let originalsURL = entryURL.appendingPathComponent("originals", isDirectory: true)
         let previewsURL = entryURL.appendingPathComponent("previews", isDirectory: true)
+        let sketchesURL = entryURL.appendingPathComponent("sketches", isDirectory: true)
         var didFinish = false
         defer {
             if !didFinish {
@@ -147,12 +157,19 @@ final class MobileInboxWriter: @unchecked Sendable {
         do {
             try fileManager.createDirectory(at: originalsURL, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: previewsURL, withIntermediateDirectories: true)
+            if !draft.sketches.isEmpty {
+                try fileManager.createDirectory(at: sketchesURL, withIntermediateDirectories: true)
+            }
         } catch {
             throw MobileInboxError.directoryCouldNotBeCreated(entryURL.path)
         }
 
         let savedPhotos = try draft.photos.enumerated().map { index, input in
             try savePhoto(input, index: index + 1, originalsURL: originalsURL, previewsURL: previewsURL)
+        }
+
+        let savedSketches = try draft.sketches.enumerated().map { index, input in
+            try saveSketch(input, index: index + 1, sketchesURL: sketchesURL)
         }
 
         let task = MobileInspectionTask(
@@ -168,7 +185,8 @@ final class MobileInboxWriter: @unchecked Sendable {
             title: draft.title.trimmedForMobileInbox,
             category: draft.category.trimmedForMobileInbox,
             notes: draft.notes.trimmedForMobileInbox,
-            photos: savedPhotos
+            photos: savedPhotos,
+            sketches: savedSketches.isEmpty ? nil : savedSketches
         )
 
         let jsonURL = entryURL.appendingPathComponent("aufgabe.json", isDirectory: false)
@@ -222,6 +240,26 @@ final class MobileInboxWriter: @unchecked Sendable {
             id: photoID,
             originalPath: "originals/\(originalFileName)",
             previewPath: "previews/\(previewFileName)"
+        )
+    }
+
+    private func saveSketch(
+        _ input: MobileInspectionSketchInput,
+        index: Int,
+        sketchesURL: URL
+    ) throws -> MobileInspectionSketch {
+        guard !input.data.isEmpty else {
+            throw MobileInboxError.sketchDataIsEmpty(input.fileName)
+        }
+
+        let sketchID = String(format: "skizze-%03d", index)
+        let fileName = "\(sketchID).png"
+        let url = sketchesURL.appendingPathComponent(fileName, isDirectory: false)
+        try writeSketchData(input.data, to: url, displayName: input.fileName)
+
+        return MobileInspectionSketch(
+            id: sketchID,
+            path: "sketches/\(fileName)"
         )
     }
 
@@ -292,6 +330,34 @@ final class MobileInboxWriter: @unchecked Sendable {
         guard size > 0 else {
             try? fileManager.removeItem(at: url)
             throw MobileInboxError.photoFileIsEmpty(displayName)
+        }
+    }
+
+    private func writeSketchData(_ data: Data, to url: URL, displayName: String) throws {
+        guard !data.isEmpty else {
+            throw MobileInboxError.sketchDataIsEmpty(displayName)
+        }
+
+        var coordinationError: NSError?
+        var writeError: Error?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(writingItemAt: url, options: [.forReplacing], error: &coordinationError) { writableURL in
+            do {
+                try data.write(to: writableURL, options: [.atomic])
+            } catch {
+                writeError = error
+            }
+        }
+
+        if coordinationError != nil || writeError != nil {
+            throw MobileInboxError.sketchCouldNotBeWritten(displayName)
+        }
+
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+        let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+        guard size > 0 else {
+            try? fileManager.removeItem(at: url)
+            throw MobileInboxError.sketchFileIsEmpty(displayName)
         }
     }
 

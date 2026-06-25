@@ -237,6 +237,14 @@ struct SnapshotRootView: View {
             Spacer()
 
             Button {
+                presentedSheet = .mobileInspection
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderless)
+            .help("Neue mobile Besichtigung")
+
+            Button {
                 refreshCurrentSyncSource()
             } label: {
                 if viewModel.isSyncing || viewModel.loadState == .loading {

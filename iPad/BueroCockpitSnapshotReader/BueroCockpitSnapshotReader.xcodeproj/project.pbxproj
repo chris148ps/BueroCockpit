@@ -12,6 +12,7 @@
 		1D77FF7E5FEB43C987AC4970 /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */; };
 		2A14F345BC9D4CA8A327AB10 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */; };
 		318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */; };
+		36EAB4B2166A4E188E13A278 /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D88295CC6BD4619A9F1EFAF /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift */; };
 		3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */; };
 		4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */; };
 		6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */; };
@@ -27,6 +28,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0D88295CC6BD4619A9F1EFAF /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobileSketchCanvasView.swift; sourceTree = SOURCE_ROOT; };
 		20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift; sourceTree = SOURCE_ROOT; };
 		334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift; sourceTree = SOURCE_ROOT; };
 		4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotSync.swift; sourceTree = SOURCE_ROOT; };
@@ -113,6 +115,7 @@
 				56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */,
 				E19B840C5F714A2DBA33068A /* BueroCockpitSnapshotReader/SnapshotSetupView.swift */,
 				94BBAE2E4C814337BB890382 /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift */,
+				0D88295CC6BD4619A9F1EFAF /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift */,
 				B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */,
 				B33A9290EEE34CEEA84F807F /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift */,
 				334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */,
@@ -205,6 +208,7 @@
 				773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */,
 				77A83F20D14948DC95A6B25E /* BueroCockpitSnapshotReader/SnapshotSetupView.swift in Sources */,
 				B89D08E5E8A14AB5903CF3CF /* BueroCockpitSnapshotReader/MobileInspectionFormView.swift in Sources */,
+				36EAB4B2166A4E188E13A278 /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift in Sources */,
 				4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */,
 				1D77FF7E5FEB43C987AC4970 /* BueroCockpitSnapshotReader/SnapshotTaskDetailView.swift in Sources */,
 				1BA907AA0F734B7D9B377022 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift in Sources */,

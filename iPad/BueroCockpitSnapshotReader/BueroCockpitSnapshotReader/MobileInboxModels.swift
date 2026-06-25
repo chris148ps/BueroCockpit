@@ -6,6 +6,11 @@ struct MobileInspectionPhoto: Codable, Equatable, Sendable {
     let previewPath: String
 }
 
+struct MobileInspectionSketch: Codable, Equatable, Sendable {
+    let id: String
+    let path: String
+}
+
 struct MobileInspectionTask: Codable, Equatable, Sendable {
     let id: String
     let schemaVersion: Int
@@ -20,9 +25,16 @@ struct MobileInspectionTask: Codable, Equatable, Sendable {
     let category: String
     let notes: String
     let photos: [MobileInspectionPhoto]
+    let sketches: [MobileInspectionSketch]?
 }
 
 struct MobileInspectionPhotoInput: Identifiable, Equatable, Sendable {
+    let id: String
+    let fileName: String
+    let data: Data
+}
+
+struct MobileInspectionSketchInput: Identifiable, Equatable, Sendable {
     let id: String
     let fileName: String
     let data: Data
@@ -37,6 +49,7 @@ struct MobileInspectionDraft: Equatable, Sendable {
     var category: String = ""
     var notes: String = ""
     var photos: [MobileInspectionPhotoInput] = []
+    var sketches: [MobileInspectionSketchInput] = []
 }
 
 struct MobileInspectionSaveResult: Equatable, Sendable {

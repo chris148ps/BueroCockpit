@@ -13,7 +13,9 @@ struct MobileInspectionFormView: View {
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var selectedLibraryPhotos: [MobileInspectionPhotoInput] = []
     @State private var cameraPhotos: [MobileInspectionPhotoInput] = []
+    @State private var sketches: [MobileInspectionSketchInput] = []
     @State private var isCameraPresented = false
+    @State private var isSketchCanvasPresented = false
     @State private var isSaving = false
     @State private var isLoadingPhotos = false
     @State private var errorMessage: String?
@@ -30,7 +32,7 @@ struct MobileInspectionFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Kunde") {
+                Section("Kunde / Auftrag") {
                     TextField("Kunde / Name", text: $draft.customerName)
                     TextField("Adresse", text: $draft.address, axis: .vertical)
                     TextField("Telefon", text: $draft.phone)
@@ -39,17 +41,17 @@ struct MobileInspectionFormView: View {
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                }
-
-                Section("Aufgabe") {
                     TextField("Titel / Betreff", text: $draft.title)
                     Picker("Kategorie", selection: $draft.category) {
                         ForEach(effectiveCategoryNames, id: \.self) { category in
                             Text(category).tag(category)
                         }
                     }
+                }
+
+                Section("Notiz") {
                     TextField("Notiz", text: $draft.notes, axis: .vertical)
-                        .lineLimit(4...8)
+                        .lineLimit(8...14)
                 }
 
                 Section("Fotos") {
@@ -77,6 +79,33 @@ struct MobileInspectionFormView: View {
                     } else {
                         Label("\(selectedLibraryPhotos.count + cameraPhotos.count) Foto(s) ausgewählt", systemImage: "checkmark.circle")
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Skizzen") {
+                    Button {
+                        isSketchCanvasPresented = true
+                    } label: {
+                        Label("Skizze hinzufügen", systemImage: "pencil.tip")
+                    }
+
+                    if sketches.isEmpty {
+                        Text("Noch keine Skizze hinzugefügt.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(sketches) { sketch in
+                            HStack(spacing: 12) {
+                                sketchPreview(sketch)
+                                Text(sketch.fileName)
+                                Spacer()
+                                Button(role: .destructive) {
+                                    removeSketch(sketch)
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
                     }
                 }
 
@@ -118,7 +147,38 @@ struct MobileInspectionFormView: View {
                     addCameraImage(image)
                 }
             }
+            .sheet(isPresented: $isSketchCanvasPresented) {
+                MobileSketchCanvasView(
+                    onSave: { data in
+                        addSketch(data)
+                        isSketchCanvasPresented = false
+                    },
+                    onCancel: {
+                        isSketchCanvasPresented = false
+                    }
+                )
+            }
         }
+    }
+
+    private func sketchPreview(_ sketch: MobileInspectionSketchInput) -> some View {
+        Group {
+            if let image = UIImage(data: sketch.data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(systemName: "scribble")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 72, height: 48)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
     }
 
     private func save() {
@@ -142,11 +202,13 @@ struct MobileInspectionFormView: View {
 
         do {
             draft.photos = selectedLibraryPhotos + cameraPhotos
+            draft.sketches = sketches
             let result = try writer.save(draft)
             draft = MobileInspectionDraft(category: effectiveCategoryNames.first ?? "")
             selectedPhotoItems = []
             selectedLibraryPhotos = []
             cameraPhotos = []
+            sketches = []
             onSaved(result)
         } catch MobileInboxError.folderNotSelected {
             errorMessage = MobileInboxError.folderNotSelected.localizedDescription
@@ -211,6 +273,24 @@ struct MobileInspectionFormView: View {
             fileName: "Kameraaufnahme \(cameraPhotos.count + 1)",
             data: data
         ))
+    }
+
+    private func addSketch(_ data: Data) {
+        guard !data.isEmpty else {
+            errorMessage = MobileInboxError.sketchDataIsEmpty("Skizze \(sketches.count + 1)").localizedDescription
+            return
+        }
+
+        sketches.append(MobileInspectionSketchInput(
+            id: UUID().uuidString,
+            fileName: "Skizze \(sketches.count + 1)",
+            data: data
+        ))
+        errorMessage = nil
+    }
+
+    private func removeSketch(_ sketch: MobileInspectionSketchInput) {
+        sketches.removeAll { $0.id == sketch.id }
     }
 }
 
