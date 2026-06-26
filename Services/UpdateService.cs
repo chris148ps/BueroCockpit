@@ -7,7 +7,7 @@ namespace BueroCockpit.Services;
 
 public sealed class UpdateService
 {
-    private const string DefaultUpdateRepositoryUrl = "https://github.com/chris148ps/BueroCockpit-Updates";
+    private const string DefaultUpdateRepositoryUrl = "https://github.com/chris148ps/BueroCockpit";
 
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
@@ -174,7 +174,50 @@ public sealed class UpdateService
 
         IUpdateSource source = Directory.Exists(feedUrl)
             ? new SimpleFileSource(new DirectoryInfo(feedUrl))
-            : new SimpleWebSource(feedUrl);
+            : CreateRemoteUpdateSource(feedUrl);
         return new UpdateManager(source);
+    }
+
+    private static IUpdateSource CreateRemoteUpdateSource(string feedUrl)
+    {
+        if (IsGithubRepositoryUrl(feedUrl))
+        {
+            return new GithubSource(feedUrl, null, false, null);
+        }
+
+        if (IsDefaultGithubReleaseDownloadUrl(feedUrl))
+        {
+            return new GithubSource(DefaultUpdateRepositoryUrl, null, false, null);
+        }
+
+        return new SimpleWebSource(feedUrl);
+    }
+
+    private static bool IsGithubRepositoryUrl(string feedUrl)
+    {
+        if (!Uri.TryCreate(feedUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase)
+            && uri.Segments.Length == 3
+            && string.Equals(uri.Segments[1], "chris148ps/", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Segments[2].TrimEnd('/'), "BueroCockpit", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDefaultGithubReleaseDownloadUrl(string feedUrl)
+    {
+        if (!Uri.TryCreate(feedUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase)
+            && uri.Segments.Length >= 6
+            && string.Equals(uri.Segments[1], "chris148ps/", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Segments[2], "BueroCockpit/", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Segments[3], "releases/", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Segments[4], "download/", StringComparison.OrdinalIgnoreCase);
     }
 }
