@@ -44,13 +44,21 @@ public sealed class UpdateService
     public string GetCurrentVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version;
+        if (version is not null)
+        {
+            return version.Build >= 0
+                ? $"{version.Major}.{version.Minor}.{version.Build}"
+                : $"{version.Major}.{version.Minor}";
+        }
+
         var productVersion = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
 
         return string.IsNullOrWhiteSpace(productVersion)
-            ? assembly.GetName().Version?.ToString() ?? "unbekannt"
-            : productVersion;
+            ? "unbekannt"
+            : productVersion.Split(['+', '-'], 2)[0];
     }
 
     public bool IsVelopackAvailable()
