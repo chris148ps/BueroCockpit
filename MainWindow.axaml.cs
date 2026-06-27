@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
@@ -32,6 +33,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string MobileInboxCategoryId = "__mobile_inbox";
     private const string MobileInboxCategoryName = "Wartet auf Freigabe";
     private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
+    private const int MobileProcessedRetentionDays = 30;
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
     private const string DeskItemTypeNote = "Note";
@@ -86,6 +88,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isGlobalSearchEnabled;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
+    private string _mobileInboxCleanupStatus = string.Empty;
     private string _backupStatus = "Noch kein Backup erstellt.";
     private string _storageLocationStatus = "Speicherort nicht geändert.";
     private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
@@ -538,6 +541,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasMobileInboxSketchPreviews => MobileInboxSketchPreviews.Count > 0;
     public bool HasNoMobileInboxPhotoPreviews => !HasMobileInboxPhotoPreviews;
     public bool HasNoMobileInboxSketchPreviews => !HasMobileInboxSketchPreviews;
+    public string MobileInboxCleanupStatus
+    {
+        get => _mobileInboxCleanupStatus;
+        set
+        {
+            if (_mobileInboxCleanupStatus != value)
+            {
+                _mobileInboxCleanupStatus = value;
+                OnPropertyChanged(nameof(MobileInboxCleanupStatus));
+                OnPropertyChanged(nameof(HasMobileInboxCleanupStatus));
+            }
+        }
+    }
+    public bool HasMobileInboxCleanupStatus => !string.IsNullOrWhiteSpace(MobileInboxCleanupStatus);
     public string DashboardDateText => $"Termine für die aktuelle und nächste Woche ab {GetWeekStart(DateTime.Today):dd.MM.yyyy}";
     public string AppDataDirectory => ResolveDisplayDirectory(AppPaths.AppDataDirectory);
     public string DefaultAppDataDirectory => ResolveDisplayDirectory(AppPaths.DefaultAppDataDirectory);
@@ -8206,7 +8223,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             var targetCategory = ResolveMobileInboxImportCategory(entry);
-            importedTask = CreateTaskFromMobileInboxEntry(entry, targetCategory);
+            var categoryWasMatched = IsMatchingMobileInboxCategory(entry.Category, targetCategory.Name);
+            importedTask = CreateTaskFromMobileInboxEntry(entry, targetCategory, categoryWasMatched);
             importedTask.SortPosition = _repository.GetTopTaskSortPosition(targetCategory.Id);
             SaveTaskAndQueueIpadSnapshot(importedTask);
             ImportMobileInboxAttachments(entry, importedTask);
@@ -8261,7 +8279,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var existingCategory = Categories.FirstOrDefault(category =>
                 !IsSpecialCategory(category) &&
-                string.Equals(category.Name, entry.Category.Trim(), StringComparison.CurrentCultureIgnoreCase));
+                IsMatchingMobileInboxCategory(entry.Category, category.Name));
             if (existingCategory is not null)
             {
                 return existingCategory;
@@ -8274,18 +8292,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                ?? Categories.First(category => !IsSpecialCategory(category));
     }
 
-    private static TaskItem CreateTaskFromMobileInboxEntry(MobileInboxEntry entry, CategoryItem category)
+    private static bool IsMatchingMobileInboxCategory(string? mobileCategoryName, string? categoryName)
+    {
+        var normalizedMobileCategory = NormalizeMobileInboxCategoryName(mobileCategoryName);
+        var normalizedCategory = NormalizeMobileInboxCategoryName(categoryName);
+        return !string.IsNullOrWhiteSpace(normalizedMobileCategory) &&
+               string.Equals(normalizedMobileCategory, normalizedCategory, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private static string NormalizeMobileInboxCategoryName(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : Regex.Replace(value.Trim(), @"\s+", " ");
+    }
+
+    private static TaskItem CreateTaskFromMobileInboxEntry(MobileInboxEntry entry, CategoryItem category, bool categoryWasMatched)
     {
         var now = DateTime.Now;
         var importNote = $"Mobiler Eingang vom iPad übernommen am {now:dd.MM.yyyy HH:mm}";
         var marker = BuildMobileInboxImportMarker(entry.Id);
-        var descriptionParts = new[]
+        var descriptionParts = new List<string?>
             {
                 entry.Notes?.Trim(),
-                importNote,
-                $"[{marker}]"
-            }
-            .Where(part => !string.IsNullOrWhiteSpace(part));
+                importNote
+            };
+
+        if (!categoryWasMatched && !string.IsNullOrWhiteSpace(entry.Category))
+        {
+            descriptionParts.Add($"Ursprüngliche iPad-Kategorie: {entry.Category.Trim()}");
+        }
+
+        descriptionParts.Add($"[{marker}]");
 
         return new TaskItem
         {
@@ -8297,7 +8335,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CustomerEmail = entry.Email,
             CustomerPhone = entry.Phone,
             Title = entry.DisplayTitle,
-            Description = string.Join(Environment.NewLine + Environment.NewLine, descriptionParts),
+            Description = string.Join(
+                Environment.NewLine + Environment.NewLine,
+                descriptionParts.Where(part => !string.IsNullOrWhiteSpace(part))),
             Status = "Offen",
             Priority = "Normal",
             CreatedAt = entry.CreatedAt == default ? now : entry.CreatedAt,
@@ -8307,10 +8347,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ImportMobileInboxAttachments(MobileInboxEntry entry, TaskItem task)
     {
-        var attachmentSources = entry.PhotoPreviews
-            .Concat(entry.SketchPreviews)
-            .Where(item => item.Exists)
-            .Select(item => item.Path)
+        var originalPhotoSources = entry.OriginalPhotoPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .ToList();
+        if (entry.OriginalPhotoPaths.Count > 0 && originalPhotoSources.Count != entry.OriginalPhotoPaths.Count)
+        {
+            throw new IOException("Originalfotos aus dem mobilen Eingang wurden nicht gefunden.");
+        }
+
+        var photoSources = originalPhotoSources.Count > 0
+            ? originalPhotoSources
+            : entry.PhotoPreviews
+                .Where(item => item.Exists)
+                .Select(item => item.Path)
+                .ToList();
+
+        var attachmentSources = photoSources
+            .Concat(GetMobileInboxSketchPngPaths(entry))
             .Concat(GetMobileInboxDrawingPaths(entry))
             .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -8338,6 +8391,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static IEnumerable<string> GetMobileInboxSketchPngPaths(MobileInboxEntry entry)
+    {
+        var previewPaths = entry.SketchPreviews
+            .Where(item => item.Exists)
+            .Select(item => item.Path);
+        var sketchesDirectory = Path.Combine(entry.DirectoryPath, "sketches");
+        var pngPaths = Directory.Exists(sketchesDirectory)
+            ? Directory.EnumerateFiles(sketchesDirectory, "*.png", SearchOption.TopDirectoryOnly)
+            : Enumerable.Empty<string>();
+
+        return previewPaths.Concat(pngPaths);
+    }
+
     private static IEnumerable<string> GetMobileInboxDrawingPaths(MobileInboxEntry entry)
     {
         var sketchesDirectory = Path.Combine(entry.DirectoryPath, "sketches");
@@ -8362,6 +8428,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var targetDirectory = GetUniqueProcessedDirectoryPath(
             Path.Combine(processedDirectory, Path.GetFileName(entry.DirectoryPath)));
         Directory.Move(entry.DirectoryPath, targetDirectory);
+        Directory.SetLastWriteTime(targetDirectory, DateTime.Now);
     }
 
     private static string GetUniqueProcessedDirectoryPath(string preferredPath)
@@ -8385,10 +8452,261 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         throw new IOException("Kein freier Zielordner unter mobile-processed gefunden.");
     }
 
+    private async void CleanupProcessedMobileInbox_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!await ShowMobileProcessedCleanupConfirmationDialogAsync())
+        {
+            return;
+        }
+
+        try
+        {
+            var cleanupResult = CleanupOldProcessedMobileInboxEntries(DateTime.Now.AddDays(-MobileProcessedRetentionDays));
+            MobileInboxCleanupStatus = cleanupResult.DeletedCount == 0 && cleanupResult.FailedCount == 0
+                ? "Keine übernommenen mobilen Eingänge älter als 30 Tage gefunden."
+                : $"{cleanupResult.DeletedCount} übernommene mobile Eingänge bereinigt. Fehler: {cleanupResult.FailedCount}.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Mobile processed cleanup failed: {ex}");
+            MobileInboxCleanupStatus = "Übernommene mobile Eingänge konnten nicht bereinigt werden.";
+        }
+    }
+
+    private MobileProcessedCleanupResult CleanupOldProcessedMobileInboxEntries(DateTime cutoff)
+    {
+        var deletedCount = 0;
+        var failedCount = 0;
+
+        foreach (var processedDirectory in ResolveMobileProcessedDirectories())
+        {
+            if (!IsSafeMobileProcessedDirectory(processedDirectory))
+            {
+                continue;
+            }
+
+            foreach (var entryDirectory in Directory.EnumerateDirectories(processedDirectory, "mobile-*", SearchOption.TopDirectoryOnly))
+            {
+                if (!IsSafeMobileProcessedEntryDirectory(processedDirectory, entryDirectory))
+                {
+                    continue;
+                }
+
+                var importedAt = GetMobileProcessedEntryAgeTime(entryDirectory);
+                if (importedAt > cutoff)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Directory.Delete(entryDirectory, recursive: true);
+                    deletedCount++;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    failedCount++;
+                    Debug.WriteLine($"Mobile processed entry cleanup failed for '{entryDirectory}': {ex}");
+                }
+            }
+        }
+
+        return new MobileProcessedCleanupResult(deletedCount, failedCount);
+    }
+
+    private IEnumerable<string> ResolveMobileProcessedDirectories()
+    {
+        var candidates = new List<string>();
+        AddMobileProcessedCandidates(IpadLiveFileTargetPath, candidates);
+        AddMobileProcessedCandidates(IpadLiveFileTargetFolder, candidates);
+        return candidates.Where(Directory.Exists);
+    }
+
+    private static void AddMobileProcessedCandidates(string? path, List<string> candidates)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
+        var baseDirectory = IsIpadLiveFilePath(fullPath) || File.Exists(fullPath)
+            ? Path.GetDirectoryName(fullPath)
+            : fullPath;
+        if (string.IsNullOrWhiteSpace(baseDirectory))
+        {
+            return;
+        }
+
+        if (string.Equals(Path.GetFileName(baseDirectory), "mobile-processed", StringComparison.OrdinalIgnoreCase))
+        {
+            AddMobileProcessedCandidate(baseDirectory, candidates);
+            return;
+        }
+
+        if (string.Equals(Path.GetFileName(baseDirectory), "mobile-inbox", StringComparison.OrdinalIgnoreCase))
+        {
+            var inboxParent = Directory.GetParent(baseDirectory);
+            if (inboxParent is not null)
+            {
+                AddMobileProcessedCandidate(Path.Combine(inboxParent.FullName, "mobile-processed"), candidates);
+            }
+
+            return;
+        }
+
+        AddMobileProcessedCandidate(Path.Combine(baseDirectory, "mobile-processed"), candidates);
+
+        var parent = Directory.GetParent(baseDirectory);
+        if (parent is not null)
+        {
+            AddMobileProcessedCandidate(Path.Combine(parent.FullName, "mobile-processed"), candidates);
+        }
+
+        if (string.Equals(Path.GetFileName(baseDirectory), "live", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileName(baseDirectory), "Sync", StringComparison.OrdinalIgnoreCase))
+        {
+            var syncParent = Directory.GetParent(baseDirectory);
+            if (syncParent is not null)
+            {
+                AddMobileProcessedCandidate(Path.Combine(syncParent.FullName, "mobile-processed"), candidates);
+            }
+        }
+    }
+
+    private static void AddMobileProcessedCandidate(string candidate, List<string> candidates)
+    {
+        if (!candidates.Any(existing => string.Equals(existing, candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidates.Add(candidate);
+        }
+    }
+
+    private static bool IsSafeMobileProcessedDirectory(string path)
+    {
+        return Directory.Exists(path) &&
+               string.Equals(Path.GetFileName(Path.GetFullPath(path)), "mobile-processed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSafeMobileProcessedEntryDirectory(string processedDirectory, string entryDirectory)
+    {
+        var processedFullPath = Path.GetFullPath(processedDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var entryFullPath = Path.GetFullPath(entryDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return string.Equals(Path.GetFileName(entryFullPath), Path.GetFileName(entryDirectory), StringComparison.Ordinal) &&
+               Path.GetFileName(entryFullPath).StartsWith("mobile-", StringComparison.OrdinalIgnoreCase) &&
+               entryFullPath.StartsWith(processedFullPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DateTime GetMobileProcessedEntryAgeTime(string entryDirectory)
+    {
+        var lastWriteTime = Directory.GetLastWriteTime(entryDirectory);
+        if (lastWriteTime.Year >= 2000)
+        {
+            return lastWriteTime;
+        }
+
+        var jsonPath = Path.Combine(entryDirectory, "aufgabe.json");
+        if (!File.Exists(jsonPath))
+        {
+            return lastWriteTime;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(jsonPath));
+            if (document.RootElement.TryGetProperty("createdAt", out var createdAtElement) &&
+                DateTime.TryParse(createdAtElement.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var createdAt))
+            {
+                return createdAt;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or JsonException)
+        {
+            Debug.WriteLine($"Mobile processed entry age could not be read from '{jsonPath}': {ex}");
+        }
+
+        return lastWriteTime;
+    }
+
+    private async Task<bool> ShowMobileProcessedCleanupConfirmationDialogAsync()
+    {
+        var dialog = new Window
+        {
+            Title = "Übernommene mobile Eingänge bereinigen",
+            Width = 500,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14),
+                Child = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Übernommene mobile Eingänge älter als 30 Tage endgültig löschen?",
+                            FontSize = 18,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "Es werden nur Ordner unter mobile-processed gelöscht. mobile-inbox bleibt unverändert.",
+                            FontSize = 13,
+                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 4, 0, 0),
+                            Children =
+                            {
+                                CreateMobileInboxDialogAction("Abbrechen", false),
+                                CreateMobileInboxDialogAction("Bereinigen", true)
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
+        var cancelAction = (Border)buttonsPanel.Children[0];
+        var cleanupAction = (Border)buttonsPanel.Children[1];
+        var result = false;
+
+        cancelAction.PointerReleased += (_, _) =>
+        {
+            result = false;
+            dialog.Close();
+        };
+
+        cleanupAction.PointerReleased += (_, _) =>
+        {
+            result = true;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
+    }
+
     private static string BuildMobileInboxImportMarker(string mobileInboxId)
     {
         return $"{MobileInboxImportMarkerPrefix} {mobileInboxId.Trim()}";
     }
+
+    private sealed record MobileProcessedCleanupResult(int DeletedCount, int FailedCount);
 
     private async Task<bool> ShowMobileInboxImportConfirmationDialogAsync()
     {

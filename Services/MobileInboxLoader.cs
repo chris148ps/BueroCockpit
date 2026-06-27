@@ -157,7 +157,7 @@ public sealed class MobileInboxLoader
             Phone = ReadFirstString(root, "phone", "telefon"),
             Email = ReadString(root, "email"),
             Title = ReadFirstString(root, "title", "titel", "Mobile Besichtigung"),
-            Category = ReadFirstString(root, "category", "kategorie"),
+            Category = ReadFirstString(root, "category", "kategorie", "categoryName", "Kategorie"),
             Notes = ReadFirstString(root, "notes", "notiz"),
             PhotoPreviews = ReadPreviewItems(entryDirectory, root, "photos", "previews"),
             SketchPreviews = ReadPreviewItems(entryDirectory, root, "sketches", "sketches"),

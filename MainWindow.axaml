@@ -1457,6 +1457,26 @@
               </StackPanel>
             </Border>
             <Border Classes="Card"
+                    IsVisible="{Binding IsMobileInboxSelected}"
+                    Margin="0,10,0,0"
+                    Padding="12">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Übernommene mobile Eingänge"
+                           FontWeight="SemiBold"
+                           FontSize="14" />
+                <TextBlock Text="Bereinigt nur mobile-processed-Einträge, die älter als 30 Tage sind."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <Button Content="Übernommene mobile Eingänge bereinigen"
+                        Click="CleanupProcessedMobileInbox_OnClick"
+                        HorizontalAlignment="Left" />
+                <TextBlock Text="{Binding MobileInboxCleanupStatus}"
+                           IsVisible="{Binding HasMobileInboxCleanupStatus}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="Card"
                     IsVisible="{Binding IsTrashSelected}"
                     Margin="0,10,0,0"
                     Padding="12">
