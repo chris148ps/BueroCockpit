@@ -165,7 +165,7 @@ struct MobileInspectionFormView: View {
 
     private func sketchPreview(_ sketch: MobileInspectionSketchInput) -> some View {
         Group {
-            if let image = UIImage(data: sketch.data) {
+            if let image = UIImage(data: sketch.previewData ?? sketch.data) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
@@ -287,6 +287,7 @@ struct MobileInspectionFormView: View {
             id: sketch.id,
             fileName: "Skizze \(sketches.count + 1)",
             data: sketch.data,
+            previewData: sketch.previewData,
             drawingData: sketch.drawingData
         ))
         errorMessage = nil

@@ -11,47 +11,56 @@ struct MobileSketchCanvasView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 10) {
-                PencilSketchCanvas(controller: canvasController) { isEmpty in
-                    if isCanvasEmpty != isEmpty {
-                        isCanvasEmpty = isEmpty
-                    }
-                }
-                    .background(Color(uiColor: .systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-                    )
-
-                if let errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 0) {
+            sketchHeader
+            Divider()
+            PencilSketchCanvas(controller: canvasController) { isEmpty in
+                if isCanvasEmpty != isEmpty {
+                    isCanvasEmpty = isEmpty
                 }
             }
-            .padding(12)
-            .navigationTitle("Skizze")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen", action: onCancel)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(uiColor: .systemBackground))
+            .clipped()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var sketchHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Button("Abbrechen", action: onCancel)
+
+                Spacer()
+
+                Text("Skizze")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Button("Leeren") {
+                    canvasController.clear()
+                    isCanvasEmpty = true
+                    errorMessage = nil
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Leeren") {
-                        canvasController.clear()
-                        isCanvasEmpty = true
-                        errorMessage = nil
-                    }
-                    .disabled(isCanvasEmpty)
+                .disabled(isCanvasEmpty)
+
+                Button("Hinzufügen") {
+                    saveSketch()
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Hinzufügen") {
-                        saveSketch()
-                    }
-                    .disabled(isCanvasEmpty)
-                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isCanvasEmpty)
+            }
+
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .padding(12)
+        .background(Color(uiColor: .systemBackground))
     }
 
     private func saveSketch() {
@@ -61,10 +70,19 @@ struct MobileSketchCanvasView: View {
             return
         }
 
-        let bounds = exportBounds(for: drawing)
-        let image = renderImage(drawing: drawing, bounds: bounds, scale: 4)
+        let image = renderImageOnWhiteBackground(
+            drawing: drawing,
+            exportRect: canvasController.exportRect(for: drawing),
+            scale: min(UIScreen.main.scale, 2)
+        )
         guard let pngData = image.pngData(), !pngData.isEmpty else {
             errorMessage = "Die Skizze konnte nicht als PNG gespeichert werden."
+            return
+        }
+
+        let previewImage = renderPreviewOnWhiteBackground(drawing: drawing, scale: min(UIScreen.main.scale, 2))
+        guard let previewData = previewImage.pngData(), !previewData.isEmpty else {
+            errorMessage = "Die Skizzenvorschau konnte nicht als PNG gespeichert werden."
             return
         }
 
@@ -73,35 +91,64 @@ struct MobileSketchCanvasView: View {
             id: UUID().uuidString,
             fileName: "Skizze",
             data: pngData,
+            previewData: previewData,
             drawingData: drawingData.isEmpty ? nil : drawingData
         ))
     }
 
-    private func exportBounds(for drawing: PKDrawing) -> CGRect {
-        guard !drawing.bounds.isNull, !drawing.bounds.isEmpty else {
-            return CGRect(x: 0, y: 0, width: 2400, height: 1800)
-        }
-
-        let padded = drawing.bounds.insetBy(dx: -160, dy: -160)
-        return CGRect(
-            x: min(0, padded.origin.x),
-            y: min(0, padded.origin.y),
-            width: max(2400, padded.width),
-            height: max(1800, padded.height)
+    private func renderImageOnWhiteBackground(drawing: PKDrawing, exportRect: CGRect, scale: CGFloat) -> UIImage {
+        let safeOutputSize = CGSize(
+            width: max(1, ceil(exportRect.width)),
+            height: max(1, ceil(exportRect.height))
         )
-    }
-
-    private func renderImage(drawing: PKDrawing, bounds: CGRect, scale: CGFloat) -> UIImage {
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = scale
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: bounds.size, format: format)
+        let renderer = UIGraphicsImageRenderer(size: safeOutputSize, format: format)
         return renderer.image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(origin: .zero, size: bounds.size))
-            let image = drawing.image(from: bounds, scale: scale)
-            image.draw(in: CGRect(origin: .zero, size: bounds.size))
+            let outputRect = CGRect(origin: .zero, size: safeOutputSize)
+            context.cgContext.setFillColor(UIColor.white.cgColor)
+            context.cgContext.fill(outputRect)
+
+            let drawingImage = drawing.image(from: exportRect, scale: scale)
+            drawingImage.draw(
+                in: outputRect,
+                blendMode: .normal,
+                alpha: 1
+            )
         }
+    }
+
+    private func renderPreviewOnWhiteBackground(drawing: PKDrawing, scale: CGFloat) -> UIImage {
+        let previewRect = previewExportRect(for: drawing)
+        let previewSize = CGSize(width: 600, height: 400)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: previewSize, format: format)
+        return renderer.image { context in
+            let outputRect = CGRect(origin: .zero, size: previewSize)
+            context.cgContext.setFillColor(UIColor.white.cgColor)
+            context.cgContext.fill(outputRect)
+
+            let drawingImage = drawing.image(from: previewRect, scale: scale)
+            drawingImage.draw(in: outputRect, blendMode: .normal, alpha: 1)
+        }
+    }
+
+    private func previewExportRect(for drawing: PKDrawing) -> CGRect {
+        guard !drawing.bounds.isNull, !drawing.bounds.isEmpty else {
+            return CGRect(x: 0, y: 0, width: 600, height: 400)
+        }
+
+        let padded = drawing.bounds.insetBy(dx: -80, dy: -80)
+        let minimumWidth: CGFloat = 600
+        let minimumHeight: CGFloat = 400
+        let width = max(minimumWidth, padded.width)
+        let height = max(minimumHeight, padded.height)
+        let originX = padded.midX - width / 2
+        let originY = padded.midY - height / 2
+        return CGRect(x: originX, y: originY, width: width, height: height).integral
     }
 }
 
@@ -113,6 +160,28 @@ private final class PencilSketchCanvasController {
         canvasView?.drawing ?? PKDrawing()
     }
 
+    func exportRect(for drawing: PKDrawing) -> CGRect {
+        var exportRect = CGRect(origin: .zero, size: CGSize(width: 2400, height: 1800))
+
+        if let canvasView {
+            let contentSize = canvasView.contentSize
+            if contentSize.width > 0, contentSize.height > 0 {
+                exportRect = CGRect(origin: .zero, size: contentSize)
+            } else {
+                let boundsSize = canvasView.bounds.size
+                if boundsSize.width > 0, boundsSize.height > 0 {
+                    exportRect = CGRect(origin: .zero, size: boundsSize)
+                }
+            }
+        }
+
+        if !drawing.bounds.isNull, !drawing.bounds.isEmpty {
+            exportRect = exportRect.union(drawing.bounds.insetBy(dx: -160, dy: -160))
+        }
+
+        return exportRect.integral
+    }
+
     func attach(_ canvasView: PKCanvasView) {
         self.canvasView = canvasView
     }
@@ -120,6 +189,7 @@ private final class PencilSketchCanvasController {
     func clear() {
         canvasView?.drawing = PKDrawing()
     }
+
 }
 
 private struct PencilSketchCanvas: UIViewControllerRepresentable {
@@ -133,14 +203,15 @@ private struct PencilSketchCanvas: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> PencilSketchViewController {
         let viewController = PencilSketchViewController()
         viewController.canvasView.delegate = context.coordinator
-        viewController.canvasView.drawingPolicy = .anyInput
-        viewController.canvasView.tool = PKInkingTool(.pen, color: .black, width: 5)
+        viewController.canvasView.drawingPolicy = .pencilOnly
+        viewController.canvasView.tool = PencilSketchDefaults.defaultDrawingTool()
         controller.attach(viewController.canvasView)
         context.coordinator.attachToolPicker(to: viewController.canvasView)
         return viewController
     }
 
     func updateUIViewController(_ viewController: PencilSketchViewController, context: Context) {
+        viewController.canvasView.drawingPolicy = .pencilOnly
         controller.attach(viewController.canvasView)
         context.coordinator.attachToolPicker(to: viewController.canvasView)
     }
@@ -194,6 +265,7 @@ private final class PencilSketchViewController: UIViewController {
         canvasView.translatesAutoresizingMaskIntoConstraints = false
         canvasView.backgroundColor = .white
         canvasView.isOpaque = true
+        canvasView.drawingPolicy = .pencilOnly
         canvasView.alwaysBounceVertical = true
         canvasView.alwaysBounceHorizontal = true
         canvasView.minimumZoomScale = 0.35
@@ -216,5 +288,11 @@ private final class PencilSketchViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         canvasView.becomeFirstResponder()
+    }
+}
+
+private enum PencilSketchDefaults {
+    static func defaultDrawingTool() -> PKInkingTool {
+        PKInkingTool(.pen, color: .black, width: 1)
     }
 }

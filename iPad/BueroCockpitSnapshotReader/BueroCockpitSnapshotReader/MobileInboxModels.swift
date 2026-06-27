@@ -39,6 +39,7 @@ struct MobileInspectionSketchInput: Identifiable, Equatable, Sendable {
     let id: String
     let fileName: String
     let data: Data
+    let previewData: Data?
     let drawingData: Data?
 }
 
