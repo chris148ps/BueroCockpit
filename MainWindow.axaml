@@ -1673,6 +1673,11 @@
                      TextWrapping="Wrap"
                      Margin="0,-4,0,2" />
 
+          <Button Content="In BüroCockpit übernehmen"
+                  Classes="Primary"
+                  HorizontalAlignment="Left"
+                  Click="ImportMobileInboxEntry_OnClick" />
+
           <TextBlock Classes="SectionTitle" Text="Besichtigung" />
           <Border Classes="Card" Padding="14">
             <StackPanel Spacing="8">

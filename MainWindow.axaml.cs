@@ -31,6 +31,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string TrashCategoryName = "Papierkorb";
     private const string MobileInboxCategoryId = "__mobile_inbox";
     private const string MobileInboxCategoryName = "Wartet auf Freigabe";
+    private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
     private const string DeskItemTypeNote = "Note";
@@ -8176,6 +8177,385 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private MobileInboxEntry? GetMobileInboxEntry(TaskItem task)
     {
         return _mobileInboxTaskMap.TryGetValue(task.Id, out var entry) ? entry : null;
+    }
+
+    private async void ImportMobileInboxEntry_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var entry = SelectedMobileInboxEntry;
+        if (entry is null)
+        {
+            return;
+        }
+
+        var existingTask = FindImportedMobileInboxTask(entry.Id);
+        if (existingTask is not null)
+        {
+            await ShowMobileInboxImportMessageDialogAsync(
+                "Bereits übernommen",
+                "Dieser mobile Eingang wurde bereits als Auftrag in BüroCockpit übernommen.");
+            SelectImportedTask(existingTask);
+            return;
+        }
+
+        if (!await ShowMobileInboxImportConfirmationDialogAsync())
+        {
+            return;
+        }
+
+        TaskItem? importedTask = null;
+        try
+        {
+            var targetCategory = ResolveMobileInboxImportCategory(entry);
+            importedTask = CreateTaskFromMobileInboxEntry(entry, targetCategory);
+            importedTask.SortPosition = _repository.GetTopTaskSortPosition(targetCategory.Id);
+            SaveTaskAndQueueIpadSnapshot(importedTask);
+            ImportMobileInboxAttachments(entry, importedTask);
+            MoveMobileInboxEntryToProcessed(entry);
+
+            ClearSearchTextWithoutRefresh();
+            LoadData(targetCategory.Id, importedTask.Id);
+        }
+        catch (Exception ex)
+        {
+            if (importedTask is not null)
+            {
+                DeleteTaskAndQueueIpadSnapshot(importedTask.Id);
+            }
+
+            Debug.WriteLine($"Mobile inbox import failed for '{entry.DirectoryPath}': {ex}");
+            await ShowMobileInboxImportMessageDialogAsync(
+                "Übernahme fehlgeschlagen",
+                "Der mobile Eingang konnte nicht übernommen werden. Es wurde kein normaler Auftrag sichtbar angelegt.");
+        }
+    }
+
+    private TaskItem? FindImportedMobileInboxTask(string mobileInboxId)
+    {
+        if (string.IsNullOrWhiteSpace(mobileInboxId))
+        {
+            return null;
+        }
+
+        var marker = BuildMobileInboxImportMarker(mobileInboxId);
+        return AllTasks.FirstOrDefault(task =>
+            !task.IsDeleted &&
+            !string.IsNullOrWhiteSpace(task.Description) &&
+            task.Description.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void SelectImportedTask(TaskItem task)
+    {
+        var category = Categories.FirstOrDefault(item => TaskBelongsToCategory(task, item.Id) && !IsSpecialCategory(item))
+            ?? Categories.FirstOrDefault(item => string.Equals(item.Id, task.CategoryId, StringComparison.OrdinalIgnoreCase));
+        if (category is null)
+        {
+            return;
+        }
+
+        SelectCategoryAndTask(category, task);
+    }
+
+    private CategoryItem ResolveMobileInboxImportCategory(MobileInboxEntry entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.Category))
+        {
+            var existingCategory = Categories.FirstOrDefault(category =>
+                !IsSpecialCategory(category) &&
+                string.Equals(category.Name, entry.Category.Trim(), StringComparison.CurrentCultureIgnoreCase));
+            if (existingCategory is not null)
+            {
+                return existingCategory;
+            }
+        }
+
+        return Categories.FirstOrDefault(category =>
+                   !IsSpecialCategory(category) &&
+                   string.Equals(category.Name, "Offene Aufgaben", StringComparison.CurrentCultureIgnoreCase))
+               ?? Categories.First(category => !IsSpecialCategory(category));
+    }
+
+    private static TaskItem CreateTaskFromMobileInboxEntry(MobileInboxEntry entry, CategoryItem category)
+    {
+        var now = DateTime.Now;
+        var importNote = $"Mobiler Eingang vom iPad übernommen am {now:dd.MM.yyyy HH:mm}";
+        var marker = BuildMobileInboxImportMarker(entry.Id);
+        var descriptionParts = new[]
+            {
+                entry.Notes?.Trim(),
+                importNote,
+                $"[{marker}]"
+            }
+            .Where(part => !string.IsNullOrWhiteSpace(part));
+
+        return new TaskItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            CategoryId = category.Id,
+            CategoryIds = new List<string> { category.Id },
+            CustomerName = entry.CustomerName,
+            CustomerAddress = entry.Address,
+            CustomerEmail = entry.Email,
+            CustomerPhone = entry.Phone,
+            Title = entry.DisplayTitle,
+            Description = string.Join(Environment.NewLine + Environment.NewLine, descriptionParts),
+            Status = "Offen",
+            Priority = "Normal",
+            CreatedAt = entry.CreatedAt == default ? now : entry.CreatedAt,
+            UpdatedAt = now
+        };
+    }
+
+    private void ImportMobileInboxAttachments(MobileInboxEntry entry, TaskItem task)
+    {
+        var attachmentSources = entry.PhotoPreviews
+            .Concat(entry.SketchPreviews)
+            .Where(item => item.Exists)
+            .Select(item => item.Path)
+            .Concat(GetMobileInboxDrawingPaths(entry))
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var sourcePath in attachmentSources)
+        {
+            var normalizedSourcePath = Path.GetFullPath(sourcePath);
+            var originalName = Path.GetFileName(normalizedSourcePath);
+            var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, task.Id);
+            var attachment = new AttachmentItem
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                TaskId = task.Id,
+                FileName = originalName,
+                StoredPath = AppPaths.ToStoredPath(destinationPath),
+                ThumbnailPath = string.Empty,
+                FileType = Path.GetExtension(originalName),
+                AddedAt = DateTime.Now
+            };
+
+            attachment.ContentHash = EnsureAttachmentContentHash(attachment, persist: false) ?? string.Empty;
+            EnsureAttachmentThumbnail(attachment);
+            SaveAttachmentAndQueueIpadSnapshot(attachment);
+        }
+    }
+
+    private static IEnumerable<string> GetMobileInboxDrawingPaths(MobileInboxEntry entry)
+    {
+        var sketchesDirectory = Path.Combine(entry.DirectoryPath, "sketches");
+        return Directory.Exists(sketchesDirectory)
+            ? Directory.EnumerateFiles(sketchesDirectory, "*.pkdrawing", SearchOption.TopDirectoryOnly)
+            : Enumerable.Empty<string>();
+    }
+
+    private static void MoveMobileInboxEntryToProcessed(MobileInboxEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.DirectoryPath) || !Directory.Exists(entry.DirectoryPath))
+        {
+            throw new DirectoryNotFoundException(entry.DirectoryPath);
+        }
+
+        var inboxDirectory = Directory.GetParent(entry.DirectoryPath)?.FullName
+            ?? throw new InvalidOperationException("Mobile-Inbox-Ordner konnte nicht ermittelt werden.");
+        var baseDirectory = Directory.GetParent(inboxDirectory)?.FullName ?? inboxDirectory;
+        var processedDirectory = Path.Combine(baseDirectory, "mobile-processed");
+        Directory.CreateDirectory(processedDirectory);
+
+        var targetDirectory = GetUniqueProcessedDirectoryPath(
+            Path.Combine(processedDirectory, Path.GetFileName(entry.DirectoryPath)));
+        Directory.Move(entry.DirectoryPath, targetDirectory);
+    }
+
+    private static string GetUniqueProcessedDirectoryPath(string preferredPath)
+    {
+        if (!Directory.Exists(preferredPath) && !File.Exists(preferredPath))
+        {
+            return preferredPath;
+        }
+
+        var parent = Path.GetDirectoryName(preferredPath) ?? string.Empty;
+        var name = Path.GetFileName(preferredPath);
+        for (var index = 1; index < 1000; index++)
+        {
+            var candidate = Path.Combine(parent, $"{name}-{DateTime.Now:yyyyMMddHHmmss}-{index}");
+            if (!Directory.Exists(candidate) && !File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new IOException("Kein freier Zielordner unter mobile-processed gefunden.");
+    }
+
+    private static string BuildMobileInboxImportMarker(string mobileInboxId)
+    {
+        return $"{MobileInboxImportMarkerPrefix} {mobileInboxId.Trim()}";
+    }
+
+    private async Task<bool> ShowMobileInboxImportConfirmationDialogAsync()
+    {
+        var dialog = new Window
+        {
+            Title = "Mobilen Eingang übernehmen",
+            Width = 460,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14),
+                Child = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Diesen mobilen Eingang als Auftrag in BüroCockpit übernehmen?",
+                            FontSize = 18,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 4, 0, 0),
+                            Children =
+                            {
+                                CreateMobileInboxDialogAction("Abbrechen", false),
+                                CreateMobileInboxDialogAction("Übernehmen", true)
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
+        var cancelAction = (Border)buttonsPanel.Children[0];
+        var importAction = (Border)buttonsPanel.Children[1];
+        var result = false;
+
+        cancelAction.PointerReleased += (_, _) =>
+        {
+            result = false;
+            dialog.Close();
+        };
+
+        importAction.PointerReleased += (_, _) =>
+        {
+            result = true;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
+    }
+
+    private async Task ShowMobileInboxImportMessageDialogAsync(string title, string message)
+    {
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 440,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14),
+                Child = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = title,
+                            FontSize = 18,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            FontSize = 13,
+                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Margin = new Thickness(0, 4, 0, 0),
+                            Children =
+                            {
+                                CreateMobileInboxDialogAction("OK", true)
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var buttonsPanel = ((StackPanel)((Border)dialog.Content!).Child!).Children.OfType<StackPanel>().Last();
+        var okAction = (Border)buttonsPanel.Children[0];
+        okAction.PointerReleased += (_, _) => dialog.Close();
+
+        await dialog.ShowDialog(this);
+    }
+
+    private static Border CreateMobileInboxDialogAction(string text, bool isPrimary)
+    {
+        var normalBackground = isPrimary ? "#2563EB" : "#F3F4F6";
+        var hoverBackground = isPrimary ? "#1D4ED8" : "#DBEAFE";
+        var normalBorder = isPrimary ? "#1D4ED8" : "#D1D5DB";
+        var hoverBorder = isPrimary ? "#1E40AF" : "#93C5FD";
+        IBrush foreground = isPrimary ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+
+        var label = new TextBlock
+        {
+            Text = text,
+            Foreground = foreground,
+            FontWeight = FontWeight.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var action = new Border
+        {
+            MinWidth = isPrimary ? 130 : 105,
+            Height = 34,
+            Background = new SolidColorBrush(Color.Parse(normalBackground)),
+            BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 6),
+            Child = label
+        };
+
+        action.PointerEntered += (_, _) =>
+        {
+            action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
+            action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+        };
+
+        action.PointerExited += (_, _) =>
+        {
+            action.Background = new SolidColorBrush(Color.Parse(normalBackground));
+            action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+        };
+
+        return action;
     }
 
     private void LoadSelectedAttachmentEditSession()
