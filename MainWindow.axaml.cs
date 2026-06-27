@@ -3295,12 +3295,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (mobileInboxEntry is not null)
         {
             SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == MobileInboxCategoryId);
-            foreach (var preview in mobileInboxEntry.PhotoPreviews.Where(item => item.Exists))
+            foreach (var preview in mobileInboxEntry.PhotoPreviews)
             {
                 MobileInboxPhotoPreviews.Add(preview);
             }
 
-            foreach (var preview in mobileInboxEntry.SketchPreviews.Where(item => item.Exists))
+            foreach (var preview in mobileInboxEntry.SketchPreviews)
             {
                 MobileInboxSketchPreviews.Add(preview);
             }
@@ -8363,22 +8363,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 .ToList();
 
         var attachmentSources = photoSources
-            .Concat(GetMobileInboxSketchPngPaths(entry))
-            .Concat(GetMobileInboxDrawingPaths(entry))
-            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(path => new MobileInboxAttachmentSource(path, GetMobileInboxPhotoKind(path)))
+            .Concat(GetMobileInboxSketchPngPaths(entry).Select(path => new MobileInboxAttachmentSource(path, "Skizze")))
+            .Concat(GetMobileInboxDrawingPaths(entry).Select(path => new MobileInboxAttachmentSource(path, "Skizzen-Rohdaten")))
+            .Where(source => !string.IsNullOrWhiteSpace(source.Path) && File.Exists(source.Path))
+            .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToList();
 
-        foreach (var sourcePath in attachmentSources)
+        foreach (var source in attachmentSources)
         {
-            var normalizedSourcePath = Path.GetFullPath(sourcePath);
+            var normalizedSourcePath = Path.GetFullPath(source.Path);
             var originalName = Path.GetFileName(normalizedSourcePath);
             var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, task.Id);
             var attachment = new AttachmentItem
             {
                 Id = Guid.NewGuid().ToString("N"),
                 TaskId = task.Id,
-                FileName = originalName,
+                FileName = BuildMobileInboxAttachmentFileName(source.Kind, originalName),
                 StoredPath = AppPaths.ToStoredPath(destinationPath),
                 ThumbnailPath = string.Empty,
                 FileType = Path.GetExtension(originalName),
@@ -8389,6 +8391,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             EnsureAttachmentThumbnail(attachment);
             SaveAttachmentAndQueueIpadSnapshot(attachment);
         }
+    }
+
+    private static string GetMobileInboxPhotoKind(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.Contains("/annotated/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Contains("-markiert", StringComparison.OrdinalIgnoreCase)
+            ? "Markiertes Foto"
+            : "Originalfoto";
+    }
+
+    private static string BuildMobileInboxAttachmentFileName(string kind, string originalName)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return originalName;
+        }
+
+        return originalName.StartsWith($"{kind} - ", StringComparison.CurrentCultureIgnoreCase)
+            ? originalName
+            : $"{kind} - {originalName}";
     }
 
     private static IEnumerable<string> GetMobileInboxSketchPngPaths(MobileInboxEntry entry)
@@ -9478,6 +9501,8 @@ public sealed class DashboardSection
 }
 
 public sealed record TaskUndoSnapshot(TaskItem Task, IReadOnlyList<MaterialItem> Materials, IReadOnlyList<AttachmentItem> Attachments);
+
+internal sealed record MobileInboxAttachmentSource(string Path, string Kind);
 
 public sealed class TaskSearchResult
 {

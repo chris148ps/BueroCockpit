@@ -17,6 +17,8 @@ final class MobileInboxReader: @unchecked Sendable {
         let id: String?
         let originalPath: String?
         let previewPath: String?
+        let annotatedPath: String?
+        let annotatedPreviewPath: String?
     }
 
     private struct RawSketch: Decodable {
@@ -88,6 +90,10 @@ final class MobileInboxReader: @unchecked Sendable {
                 createdAt: raw.createdAt?.nonEmptyValue ?? "",
                 status: status,
                 photoCount: raw.photos?.count ?? 0,
+                annotatedPhotoCount: raw.photos?.filter { photo in
+                    photo.annotatedPath?.nonEmptyValue != nil ||
+                    photo.annotatedPreviewPath?.nonEmptyValue != nil
+                }.count ?? 0,
                 sketchCount: raw.sketches?.count ?? 0,
                 entryURL: directoryURL
             )

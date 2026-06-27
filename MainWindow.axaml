@@ -1698,6 +1698,11 @@
                   HorizontalAlignment="Left"
                   Click="ImportMobileInboxEntry_OnClick" />
 
+          <TextBlock Text="{Binding SelectedMobileInboxEntry.MobileAttachmentOverviewText}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="12"
+                     TextWrapping="Wrap" />
+
           <TextBlock Classes="SectionTitle" Text="Besichtigung" />
           <Border Classes="Card" Padding="14">
             <StackPanel Spacing="8">
@@ -1734,7 +1739,7 @@
             </StackPanel>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Foto-Vorschauen" Margin="0,12,0,0" />
+          <TextBlock Classes="SectionTitle" Text="Fotos" Margin="0,12,0,0" />
           <Border Classes="Card"
                   IsVisible="{Binding HasMobileInboxPhotoPreviews}"
                   Padding="12">
@@ -1746,15 +1751,41 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Width="150"
-                          Height="118"
+                  <Border Width="170"
+                          MinHeight="154"
                           Margin="0,0,8,8"
                           CornerRadius="8"
                           Background="{DynamicResource InputBackgroundBrush}"
-                          ClipToBounds="True">
-                    <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                          Padding="8">
+                    <StackPanel Spacing="6">
+                      <TextBlock Text="{Binding DisplayKind}"
+                                 FontWeight="SemiBold"
+                                 FontSize="12"
+                                 TextWrapping="Wrap" />
+                      <Border Height="92"
+                              CornerRadius="6"
+                              Background="{DynamicResource SurfaceElevatedBrush}"
+                              ClipToBounds="True">
+                        <Grid>
+                          <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
+                                 Stretch="Uniform"
+                                 RenderOptions.BitmapInterpolationMode="HighQuality"
+                                 IsVisible="{Binding Exists}" />
+                          <TextBlock Text="{Binding StatusText}"
+                                     IsVisible="{Binding IsMissing}"
+                                     Foreground="{DynamicResource DangerBrush}"
+                                     FontSize="11"
+                                     TextWrapping="Wrap"
+                                     Margin="8"
+                                     VerticalAlignment="Center"
+                                     HorizontalAlignment="Center" />
+                        </Grid>
+                      </Border>
+                      <TextBlock Text="{Binding FileName}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 FontSize="11"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
@@ -1767,7 +1798,7 @@
                        Foreground="{DynamicResource TextSecondaryBrush}" />
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Skizzen-Vorschauen" Margin="0,12,0,0" />
+          <TextBlock Classes="SectionTitle" Text="Skizzen" Margin="0,12,0,0" />
           <Border Classes="Card"
                   IsVisible="{Binding HasMobileInboxSketchPreviews}"
                   Padding="12">
@@ -1779,15 +1810,41 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Width="150"
-                          Height="118"
+                  <Border Width="170"
+                          MinHeight="154"
                           Margin="0,0,8,8"
                           CornerRadius="8"
                           Background="{DynamicResource InputBackgroundBrush}"
-                          ClipToBounds="True">
-                    <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                          Padding="8">
+                    <StackPanel Spacing="6">
+                      <TextBlock Text="{Binding DisplayKind}"
+                                 FontWeight="SemiBold"
+                                 FontSize="12"
+                                 TextWrapping="Wrap" />
+                      <Border Height="92"
+                              CornerRadius="6"
+                              Background="{DynamicResource SurfaceElevatedBrush}"
+                              ClipToBounds="True">
+                        <Grid>
+                          <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
+                                 Stretch="Uniform"
+                                 RenderOptions.BitmapInterpolationMode="HighQuality"
+                                 IsVisible="{Binding Exists}" />
+                          <TextBlock Text="{Binding StatusText}"
+                                     IsVisible="{Binding IsMissing}"
+                                     Foreground="{DynamicResource DangerBrush}"
+                                     FontSize="11"
+                                     TextWrapping="Wrap"
+                                     Margin="8"
+                                     VerticalAlignment="Center"
+                                     HorizontalAlignment="Center" />
+                        </Grid>
+                      </Border>
+                      <TextBlock Text="{Binding FileName}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 FontSize="11"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

@@ -204,7 +204,7 @@ struct MobileInspectionFormView: View {
 
     private func photoPreview(_ photo: MobileInspectionPhotoInput) -> some View {
         Group {
-            if let image = UIImage(data: photo.annotatedData ?? photo.data) {
+            if let image = UIImage(data: photo.annotatedPreviewData ?? photo.previewData ?? photo.annotatedData ?? photo.data) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -311,11 +311,14 @@ struct MobileInspectionFormView: View {
             guard !data.isEmpty else {
                 throw MobileInboxError.imageDataIsEmpty("Foto \(index + 1)")
             }
+            let previewData = makePreviewJPEGData(from: data)
             inputs.append(MobileInspectionPhotoInput(
                 id: UUID().uuidString,
                 fileName: "Auswahl \(index + 1)",
                 data: data,
-                annotatedData: nil
+                previewData: previewData,
+                annotatedData: nil,
+                annotatedPreviewData: nil
             ))
         }
         return inputs
@@ -335,7 +338,9 @@ struct MobileInspectionFormView: View {
             id: UUID().uuidString,
             fileName: "Kameraaufnahme \(cameraPhotos.count + 1)",
             data: data,
-            annotatedData: nil
+            previewData: makePreviewJPEGData(from: data),
+            annotatedData: nil,
+            annotatedPreviewData: nil
         ))
     }
 
@@ -373,7 +378,9 @@ struct MobileInspectionFormView: View {
                 id: photo.id,
                 fileName: photo.fileName,
                 data: photo.data,
-                annotatedData: annotatedData
+                previewData: photo.previewData,
+                annotatedData: annotatedData,
+                annotatedPreviewData: makePreviewJPEGData(from: annotatedData)
             )
         }
         cameraPhotos = cameraPhotos.map { photo in
@@ -385,10 +392,43 @@ struct MobileInspectionFormView: View {
                 id: photo.id,
                 fileName: photo.fileName,
                 data: photo.data,
-                annotatedData: annotatedData
+                previewData: photo.previewData,
+                annotatedData: annotatedData,
+                annotatedPreviewData: makePreviewJPEGData(from: annotatedData)
             )
         }
         errorMessage = nil
+    }
+
+    private func makePreviewJPEGData(from data: Data) -> Data? {
+        guard let image = UIImage(data: data) else {
+            return nil
+        }
+
+        let longestSide = max(image.size.width, image.size.height)
+        guard longestSide > 0 else {
+            return nil
+        }
+
+        let maxPixelLength: CGFloat = 400
+        let targetSize: CGSize
+        if longestSide > maxPixelLength {
+            let scale = maxPixelLength / longestSide
+            targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        } else {
+            targetSize = image.size
+        }
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let renderedImage = renderer.image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: targetSize))
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return renderedImage.jpegData(compressionQuality: 0.7)
     }
 }
 

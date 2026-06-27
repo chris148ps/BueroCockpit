@@ -213,6 +213,12 @@ public sealed class MobileInboxLoader
         {
             foreach (var path in Directory.EnumerateFiles(fallbackDirectory).OrderBy(Path.GetFileName))
             {
+                if (string.Equals(fallbackDirectoryName, "sketches", StringComparison.OrdinalIgnoreCase) &&
+                    !IsPreviewImagePath(path))
+                {
+                    continue;
+                }
+
                 AddPreviewItem(entryDirectory, items, path, fallbackDirectoryName);
             }
         }
@@ -237,6 +243,15 @@ public sealed class MobileInboxLoader
                         "annotatedPreviewPath",
                         "annotatedPreview",
                         "markedPreviewPath");
+                    if (string.IsNullOrWhiteSpace(annotatedPreviewPath))
+                    {
+                        annotatedPreviewPath = ReadFirstString(
+                            itemElement,
+                            "annotatedPath",
+                            "annotated",
+                            "markedPath");
+                    }
+
                     AddPreviewItem(entryDirectory, items, annotatedPreviewPath, "annotated");
                 }
             }
@@ -361,6 +376,16 @@ public sealed class MobileInboxLoader
     {
         var normalized = path.Replace('\\', '/');
         return normalized.Contains("/originals/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPreviewImagePath(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryGetProperty(JsonElement element, string propertyName, out JsonElement value)

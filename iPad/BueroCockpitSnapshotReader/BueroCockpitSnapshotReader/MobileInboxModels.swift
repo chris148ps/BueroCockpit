@@ -35,7 +35,9 @@ struct MobileInspectionPhotoInput: Identifiable, Equatable, Sendable {
     let id: String
     let fileName: String
     let data: Data
+    let previewData: Data?
     let annotatedData: Data?
+    let annotatedPreviewData: Data?
 }
 
 struct MobileInspectionSketchInput: Identifiable, Equatable, Sendable {
@@ -72,6 +74,7 @@ struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
     let createdAt: String
     let status: String
     let photoCount: Int
+    let annotatedPhotoCount: Int
     let sketchCount: Int
     let entryURL: URL
 
@@ -90,6 +93,11 @@ struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
             parts.append("1 Foto")
         } else if photoCount > 1 {
             parts.append("\(photoCount) Fotos")
+        }
+        if annotatedPhotoCount == 1 {
+            parts.append("1 markierte Version")
+        } else if annotatedPhotoCount > 1 {
+            parts.append("\(annotatedPhotoCount) markierte Versionen")
         }
         if sketchCount == 1 {
             parts.append("1 Skizze")
