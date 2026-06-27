@@ -1478,6 +1478,7 @@
           <Button Grid.Column="1"
                   Classes="Primary"
                   Content="Neue Aufgabe"
+                  IsVisible="{Binding CanCreateTaskInSelectedCategory}"
                   Click="NewTask_OnClick"
                   VerticalAlignment="Top" />
         </Grid>
@@ -1536,6 +1537,20 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="Card"
+                Padding="12"
+                Margin="0,0,0,14"
+                IsVisible="{Binding HasNoVisibleMobileInboxEntries}">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Keine mobilen Eingänge vorhanden."
+                       FontWeight="SemiBold"
+                       FontSize="14" />
+            <TextBlock Text="Neue iPad-Eingänge mit Status new erscheinen hier, sobald sie im gemeinsamen mobile-inbox-Ordner liegen."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap" />
           </StackPanel>
         </Border>
 
@@ -1635,7 +1650,133 @@
             BorderThickness="1,0,0,0"
             IsVisible="{Binding IsTaskAreaVisible}">
       <ScrollViewer>
-        <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasSelectedTask}">
+        <StackPanel>
+        <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasSelectedMobileInboxEntry}">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBlock Text="Mobiler Eingang" FontSize="24" FontWeight="SemiBold" />
+            <Border Grid.Column="1"
+                    Background="{DynamicResource AccentSoftBrush}"
+                    BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8,4"
+                    VerticalAlignment="Center">
+              <TextBlock Text="Wartet auf Freigabe"
+                         FontSize="12"
+                         Foreground="{DynamicResource AccentBrush}" />
+            </Border>
+          </Grid>
+
+          <TextBlock Text="Dieser Eingang wird nur gelesen und noch nicht in die Auftragsdatenbank übernommen."
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="12"
+                     TextWrapping="Wrap"
+                     Margin="0,-4,0,2" />
+
+          <TextBlock Classes="SectionTitle" Text="Besichtigung" />
+          <Border Classes="Card" Padding="14">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Kunde" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Text="{Binding SelectedMobileInboxEntry.DisplayCustomerName}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+
+              <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="{Binding SelectedMobileInboxEntry.DisplayTitle}"
+                         TextWrapping="Wrap" />
+
+              <TextBlock Text="Erstellt" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="{Binding SelectedMobileInboxEntry.CreatedAtText}" />
+
+              <TextBlock Text="Adresse" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="{Binding SelectedMobileInboxEntry.Address}"
+                         TextWrapping="Wrap" />
+
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,6,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Telefon" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="{Binding SelectedMobileInboxEntry.Phone}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="6">
+                  <TextBlock Text="E-Mail" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="{Binding SelectedMobileInboxEntry.Email}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Text="Notiz" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="{Binding SelectedMobileInboxEntry.Notes}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <TextBlock Classes="SectionTitle" Text="Foto-Vorschauen" Margin="0,12,0,0" />
+          <Border Classes="Card"
+                  IsVisible="{Binding HasMobileInboxPhotoPreviews}"
+                  Padding="12">
+            <ItemsControl ItemsSource="{Binding MobileInboxPhotoPreviews}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Width="150"
+                          Height="118"
+                          Margin="0,0,8,8"
+                          CornerRadius="8"
+                          Background="{DynamicResource InputBackgroundBrush}"
+                          ClipToBounds="True">
+                    <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+          <Border Classes="Card"
+                  IsVisible="{Binding HasNoMobileInboxPhotoPreviews}"
+                  Padding="12">
+            <TextBlock Text="Keine Foto-Vorschauen vorhanden."
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </Border>
+
+          <TextBlock Classes="SectionTitle" Text="Skizzen-Vorschauen" Margin="0,12,0,0" />
+          <Border Classes="Card"
+                  IsVisible="{Binding HasMobileInboxSketchPreviews}"
+                  Padding="12">
+            <ItemsControl ItemsSource="{Binding MobileInboxSketchPreviews}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Width="150"
+                          Height="118"
+                          Margin="0,0,8,8"
+                          CornerRadius="8"
+                          Background="{DynamicResource InputBackgroundBrush}"
+                          ClipToBounds="True">
+                    <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+          <Border Classes="Card"
+                  IsVisible="{Binding HasNoMobileInboxSketchPreviews}"
+                  Padding="12">
+            <TextBlock Text="Keine Skizzen-Vorschauen vorhanden."
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </Border>
+        </StackPanel>
+
+        <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasNormalSelectedTask}">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
             <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
@@ -2041,6 +2182,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+        </StackPanel>
         </StackPanel>
       </ScrollViewer>
     </Border>

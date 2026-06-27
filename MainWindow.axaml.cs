@@ -29,6 +29,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string OverviewCategoryName = "Übersicht";
     private const string TrashCategoryId = "__trash";
     private const string TrashCategoryName = "Papierkorb";
+    private const string MobileInboxCategoryId = "__mobile_inbox";
+    private const string MobileInboxCategoryName = "Wartet auf Freigabe";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
     private const string DeskItemTypeNote = "Note";
@@ -54,7 +56,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly AppSettingsService _settingsService;
     private readonly FileHashService _hashService;
     private readonly IpadSnapshotExportService _ipadSnapshotExportService;
+    private readonly MobileInboxLoader _mobileInboxLoader = new();
     private readonly HashSet<string> _tasksPendingDuplicateCheck = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, MobileInboxEntry> _mobileInboxTaskMap = new(StringComparer.OrdinalIgnoreCase);
     private AppSettings _appSettings = new();
     private TaskUndoSnapshot? _taskUndoSnapshot;
     private bool _hasPendingTaskUndo;
@@ -175,6 +179,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<TaskSearchResult> GlobalSearchResults { get; } = new();
     public ObservableCollection<MaterialItem> Materials { get; } = new();
     public ObservableCollection<AttachmentItem> Attachments { get; } = new();
+    public ObservableCollection<MobileInboxEntry> MobileInboxEntries { get; } = new();
+    public ObservableCollection<MobileInboxPreviewItem> MobileInboxPhotoPreviews { get; } = new();
+    public ObservableCollection<MobileInboxPreviewItem> MobileInboxSketchPreviews { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
     public ObservableCollection<TaskItem> FollowUpTasks { get; } = new();
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
@@ -312,9 +319,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsOverviewSelected));
             OnPropertyChanged(nameof(IsDeskSelected));
             OnPropertyChanged(nameof(IsTrashSelected));
+            OnPropertyChanged(nameof(IsMobileInboxSelected));
             OnPropertyChanged(nameof(IsNotTrashSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsTaskAreaVisible));
+            OnPropertyChanged(nameof(CanCreateTaskInSelectedCategory));
+            OnPropertyChanged(nameof(HasNoVisibleMobileInboxEntries));
             OnPropertyChanged(nameof(IsTrashEmpty));
             CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
             CategoryMessage = string.Empty;
@@ -354,6 +364,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             OnPropertyChanged(nameof(SelectedTask));
             OnPropertyChanged(nameof(HasSelectedTask));
+            OnPropertyChanged(nameof(HasNormalSelectedTask));
+            OnPropertyChanged(nameof(SelectedMobileInboxEntry));
+            OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
             LoadTaskDetails();
 
             if (_selectedTask is not null)
@@ -475,7 +488,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasDateInputMessage => !string.IsNullOrWhiteSpace(DateInputMessage);
 
     public bool HasSelectedTask => SelectedTask is not null;
+    public bool HasNormalSelectedTask => SelectedTask is not null && !IsMobileInboxTask(SelectedTask);
+    public bool HasSelectedMobileInboxEntry => SelectedMobileInboxEntry is not null;
     public bool HasVisibleTasks => VisibleTasks.Count > 0;
+    public bool HasNoVisibleMobileInboxEntries =>
+        IsMobileInboxSelected &&
+        MobileInboxEntries.Count == 0 &&
+        VisibleTasks.Count == 0 &&
+        string.IsNullOrWhiteSpace(SearchText);
     public bool IsTrashEmpty => IsTrashSelected && !HasVisibleTasks;
     public bool HasTrashItems => AllTasks.Any(task => task.IsDeleted);
     public bool HasFollowUpTasks => FollowUpTasks.Count > 0;
@@ -506,9 +526,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsOverviewSelected => SelectedCategory?.Id == OverviewCategoryId;
     public bool IsDeskSelected => SelectedCategory?.Id == DeskCategoryId;
     public bool IsTrashSelected => SelectedCategory?.Id == TrashCategoryId;
+    public bool IsMobileInboxSelected => SelectedCategory?.Id == MobileInboxCategoryId;
     public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
+    public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible && !IsTrashSelected && !IsMobileInboxSelected;
+    public MobileInboxEntry? SelectedMobileInboxEntry =>
+        SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
+    public bool HasMobileInboxPhotoPreviews => MobileInboxPhotoPreviews.Count > 0;
+    public bool HasMobileInboxSketchPreviews => MobileInboxSketchPreviews.Count > 0;
+    public bool HasNoMobileInboxPhotoPreviews => !HasMobileInboxPhotoPreviews;
+    public bool HasNoMobileInboxSketchPreviews => !HasMobileInboxSketchPreviews;
     public string DashboardDateText => $"Termine für die aktuelle und nächste Woche ab {GetWeekStart(DateTime.Today):dd.MM.yyyy}";
     public string AppDataDirectory => ResolveDisplayDirectory(AppPaths.AppDataDirectory);
     public string DefaultAppDataDirectory => ResolveDisplayDirectory(AppPaths.DefaultAppDataDirectory);
@@ -1846,6 +1874,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Categories.Clear();
             Categories.Add(CreateOverviewCategory());
             Categories.Add(CreateDeskCategory());
+            Categories.Add(CreateMobileInboxCategory());
             foreach (var category in _repository.GetCategories())
             {
                 if (IsSpecialCategory(category) ||
@@ -1867,6 +1896,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 AllTasks.Add(task);
             }
+            LoadMobileInboxEntries();
 
             LoadDeskItems();
             UpdateCategoryCounts();
@@ -1924,7 +1954,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var selected = SelectedCategory;
             IEnumerable<TaskItem> tasks;
 
-            if (string.IsNullOrWhiteSpace(SearchText))
+            if (IsMobileInboxSelected)
+            {
+                tasks = GetMobileInboxTasks(SearchText);
+            }
+            else if (string.IsNullOrWhiteSpace(SearchText))
             {
                 tasks = selected is null
                     ? AllTasks.Where(t => !t.IsDeleted)
@@ -1945,7 +1979,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             TaskListCaption = string.IsNullOrWhiteSpace(SearchText)
-                ? IsTrashSelected
+                ? IsMobileInboxSelected
+                    ? (VisibleTasks.Count == 1 ? "1 mobiler Eingang" : $"{VisibleTasks.Count} mobile Eingänge")
+                    : IsTrashSelected
                     ? (VisibleTasks.Count == 1 ? "1 gelöschte Aufgabe" : $"{VisibleTasks.Count} gelöschte Aufgaben")
                     : (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
                 : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
@@ -1953,8 +1989,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 TaskListCaption = "Papierkorb ist leer";
             }
+            if (IsMobileInboxSelected && VisibleTasks.Count == 0 && string.IsNullOrWhiteSpace(SearchText))
+            {
+                TaskListCaption = "Keine mobilen Eingänge";
+            }
             OnPropertyChanged(nameof(HasVisibleTasks));
             OnPropertyChanged(nameof(IsTrashEmpty));
+            OnPropertyChanged(nameof(HasNoVisibleMobileInboxEntries));
 
             var taskToSelect = selectedTaskId is null
                 ? VisibleTasks.FirstOrDefault()
@@ -2799,6 +2840,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 category.TaskCount = AllTasks.Count(task => task.IsDeleted);
             }
+            else if (category.Id == MobileInboxCategoryId)
+            {
+                category.TaskCount = MobileInboxEntries.Count;
+            }
             else if (category.Id == DeskCategoryId || category.Id == SettingsCategoryId)
             {
                 category.TaskCount = 0;
@@ -3224,9 +3269,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Materials.Clear();
         Attachments.Clear();
         SelectedAttachment = null;
+        MobileInboxPhotoPreviews.Clear();
+        MobileInboxSketchPreviews.Clear();
         OnPropertyChanged(nameof(HasNoMaterials));
 
-        if (SelectedTask is not null)
+        var mobileInboxEntry = SelectedMobileInboxEntry;
+        if (mobileInboxEntry is not null)
+        {
+            SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == MobileInboxCategoryId);
+            foreach (var preview in mobileInboxEntry.PhotoPreviews.Where(item => item.Exists))
+            {
+                MobileInboxPhotoPreviews.Add(preview);
+            }
+
+            foreach (var preview in mobileInboxEntry.SketchPreviews.Where(item => item.Exists))
+            {
+                MobileInboxSketchPreviews.Add(preview);
+            }
+
+            RefreshTaskCategorySelections();
+            OnPropertyChanged(nameof(HasMobileInboxPhotoPreviews));
+            OnPropertyChanged(nameof(HasMobileInboxSketchPreviews));
+            OnPropertyChanged(nameof(HasNoMobileInboxPhotoPreviews));
+            OnPropertyChanged(nameof(HasNoMobileInboxSketchPreviews));
+        }
+        else if (SelectedTask is not null)
         {
             EnsureTaskCategoryState(SelectedTask);
             SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == SelectedTask.CategoryId);
@@ -3256,6 +3323,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RefreshTaskCategorySelections();
         }
 
+        OnPropertyChanged(nameof(HasMobileInboxPhotoPreviews));
+        OnPropertyChanged(nameof(HasMobileInboxSketchPreviews));
+        OnPropertyChanged(nameof(HasNoMobileInboxPhotoPreviews));
+        OnPropertyChanged(nameof(HasNoMobileInboxSketchPreviews));
         _isLoadingSelection = false;
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
@@ -7922,6 +7993,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private static CategoryItem CreateMobileInboxCategory()
+    {
+        return new CategoryItem
+        {
+            Id = MobileInboxCategoryId,
+            Name = MobileInboxCategoryName,
+            SortOrder = int.MinValue + 2,
+            Color = "#EAF7EF",
+            IsVisible = true
+        };
+    }
+
     private static CategoryItem CreateOverviewCategory()
     {
         return new CategoryItem
@@ -8014,8 +8097,85 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return category.Id == OverviewCategoryId ||
                category.Id == DeskCategoryId ||
                category.Id == TrashCategoryId ||
+               category.Id == MobileInboxCategoryId ||
                category.Id == SettingsCategoryId ||
                category.Name == OverviewCategoryName;
+    }
+
+    private void LoadMobileInboxEntries()
+    {
+        MobileInboxEntries.Clear();
+        _mobileInboxTaskMap.Clear();
+
+        foreach (var entry in _mobileInboxLoader.Load(
+                     IpadLiveFileTargetPath,
+                     IpadLiveFileTargetFolder,
+                     AppPaths.AppDataDirectory))
+        {
+            MobileInboxEntries.Add(entry);
+        }
+    }
+
+    private IEnumerable<TaskItem> GetMobileInboxTasks(string? searchText)
+    {
+        _mobileInboxTaskMap.Clear();
+        IEnumerable<MobileInboxEntry> entries = MobileInboxEntries;
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            var query = searchText.Trim();
+            entries = entries.Where(entry =>
+                MobileInboxContains(entry.CustomerName, query) ||
+                MobileInboxContains(entry.Title, query) ||
+                MobileInboxContains(entry.Address, query) ||
+                MobileInboxContains(entry.Phone, query) ||
+                MobileInboxContains(entry.Email, query) ||
+                MobileInboxContains(entry.Notes, query) ||
+                MobileInboxContains(entry.Category, query));
+        }
+
+        foreach (var entry in entries.OrderByDescending(entry => entry.CreatedAt))
+        {
+            var task = CreateMobileInboxTask(entry);
+            _mobileInboxTaskMap[task.Id] = entry;
+            yield return task;
+        }
+    }
+
+    private static TaskItem CreateMobileInboxTask(MobileInboxEntry entry)
+    {
+        return new TaskItem
+        {
+            Id = $"{MobileInboxCategoryId}:{entry.Id}",
+            CategoryId = MobileInboxCategoryId,
+            CategoryIds = new List<string> { MobileInboxCategoryId },
+            CustomerName = entry.DisplayCustomerName,
+            CustomerAddress = entry.Address,
+            CustomerEmail = entry.Email,
+            CustomerPhone = entry.Phone,
+            Title = entry.DisplayTitle,
+            Description = entry.Notes,
+            Status = $"Mobiler Eingang - {entry.CreatedAtText}",
+            CreatedAt = entry.CreatedAt,
+            UpdatedAt = entry.CreatedAt,
+            CategoryNameChips = new List<string> { "Mobiler Eingang" },
+            ShowCategoryHint = true
+        };
+    }
+
+    private static bool MobileInboxContains(string? value, string query)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private bool IsMobileInboxTask(TaskItem? task)
+    {
+        return task is not null && _mobileInboxTaskMap.ContainsKey(task.Id);
+    }
+
+    private MobileInboxEntry? GetMobileInboxEntry(TaskItem task)
+    {
+        return _mobileInboxTaskMap.TryGetValue(task.Id, out var entry) ? entry : null;
     }
 
     private void LoadSelectedAttachmentEditSession()
