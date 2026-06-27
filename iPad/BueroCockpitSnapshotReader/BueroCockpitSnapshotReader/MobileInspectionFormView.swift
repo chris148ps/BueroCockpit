@@ -76,8 +76,29 @@ struct MobileInspectionFormView: View {
                         Text("Noch keine Fotos ausgewählt.")
                             .foregroundStyle(.secondary)
                     } else {
-                        Label("\(selectedLibraryPhotos.count + cameraPhotos.count) Foto(s) ausgewählt", systemImage: "checkmark.circle")
-                            .foregroundStyle(.secondary)
+                        ForEach(allPhotosForDisplay) { photo in
+                            HStack(spacing: 12) {
+                                photoPreview(photo)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(photo.fileName)
+                                    if photo.annotatedData != nil {
+                                        Label("Markierte Version vorhanden", systemImage: "pencil.tip.crop.circle")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Button {
+                                    activeSheet = .annotatePhoto(photo.id)
+                                } label: {
+                                    Label(
+                                        photo.annotatedData == nil ? "Markieren" : "Bearbeiten",
+                                        systemImage: "pencil.tip"
+                                    )
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
                     }
                 }
 
@@ -158,9 +179,48 @@ struct MobileInspectionFormView: View {
                             activeSheet = nil
                         }
                     )
+                case .annotatePhoto(let photoID):
+                    if let photo = photoInput(for: photoID) {
+                        MobilePhotoMarkupView(
+                            photoData: photo.annotatedData ?? photo.data,
+                            title: photo.fileName,
+                            onSave: { markedData in
+                                updateAnnotatedPhoto(id: photoID, annotatedData: markedData)
+                                activeSheet = nil
+                            },
+                            onCancel: {
+                                activeSheet = nil
+                            }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    private var allPhotosForDisplay: [MobileInspectionPhotoInput] {
+        selectedLibraryPhotos + cameraPhotos
+    }
+
+    private func photoPreview(_ photo: MobileInspectionPhotoInput) -> some View {
+        Group {
+            if let image = UIImage(data: photo.annotatedData ?? photo.data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "photo")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 72, height: 54)
+        .clipped()
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
     }
 
     private func sketchPreview(_ sketch: MobileInspectionSketchInput) -> some View {
@@ -254,7 +314,8 @@ struct MobileInspectionFormView: View {
             inputs.append(MobileInspectionPhotoInput(
                 id: UUID().uuidString,
                 fileName: "Auswahl \(index + 1)",
-                data: data
+                data: data,
+                annotatedData: nil
             ))
         }
         return inputs
@@ -273,7 +334,8 @@ struct MobileInspectionFormView: View {
         cameraPhotos.append(MobileInspectionPhotoInput(
             id: UUID().uuidString,
             fileName: "Kameraaufnahme \(cameraPhotos.count + 1)",
-            data: data
+            data: data,
+            annotatedData: nil
         ))
     }
 
@@ -296,11 +358,44 @@ struct MobileInspectionFormView: View {
     private func removeSketch(_ sketch: MobileInspectionSketchInput) {
         sketches.removeAll { $0.id == sketch.id }
     }
+
+    private func photoInput(for id: String) -> MobileInspectionPhotoInput? {
+        selectedLibraryPhotos.first { $0.id == id } ?? cameraPhotos.first { $0.id == id }
+    }
+
+    private func updateAnnotatedPhoto(id: String, annotatedData: Data) {
+        selectedLibraryPhotos = selectedLibraryPhotos.map { photo in
+            guard photo.id == id else {
+                return photo
+            }
+
+            return MobileInspectionPhotoInput(
+                id: photo.id,
+                fileName: photo.fileName,
+                data: photo.data,
+                annotatedData: annotatedData
+            )
+        }
+        cameraPhotos = cameraPhotos.map { photo in
+            guard photo.id == id else {
+                return photo
+            }
+
+            return MobileInspectionPhotoInput(
+                id: photo.id,
+                fileName: photo.fileName,
+                data: photo.data,
+                annotatedData: annotatedData
+            )
+        }
+        errorMessage = nil
+    }
 }
 
 private enum MobileInspectionSheet: Identifiable {
     case camera
     case sketch
+    case annotatePhoto(String)
 
     var id: String {
         switch self {
@@ -308,6 +403,8 @@ private enum MobileInspectionSheet: Identifiable {
             return "camera"
         case .sketch:
             return "sketch"
+        case .annotatePhoto(let photoID):
+            return "annotate-photo-\(photoID)"
         }
     }
 }

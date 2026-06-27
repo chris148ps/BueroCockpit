@@ -160,6 +160,7 @@ final class MobileInboxWriter: @unchecked Sendable {
         let entryURL = inboxURL.appendingPathComponent(directoryName, isDirectory: true)
         let originalsURL = entryURL.appendingPathComponent("originals", isDirectory: true)
         let previewsURL = entryURL.appendingPathComponent("previews", isDirectory: true)
+        let annotatedURL = entryURL.appendingPathComponent("annotated", isDirectory: true)
         let sketchesURL = entryURL.appendingPathComponent("sketches", isDirectory: true)
         var didFinish = false
         defer {
@@ -171,6 +172,9 @@ final class MobileInboxWriter: @unchecked Sendable {
         do {
             try fileManager.createDirectory(at: originalsURL, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: previewsURL, withIntermediateDirectories: true)
+            if draft.photos.contains(where: { $0.annotatedData != nil }) {
+                try fileManager.createDirectory(at: annotatedURL, withIntermediateDirectories: true)
+            }
             if !draft.sketches.isEmpty {
                 try fileManager.createDirectory(at: sketchesURL, withIntermediateDirectories: true)
             }
@@ -179,7 +183,13 @@ final class MobileInboxWriter: @unchecked Sendable {
         }
 
         let savedPhotos = try draft.photos.enumerated().map { index, input in
-            try savePhoto(input, index: index + 1, originalsURL: originalsURL, previewsURL: previewsURL)
+            try savePhoto(
+                input,
+                index: index + 1,
+                originalsURL: originalsURL,
+                previewsURL: previewsURL,
+                annotatedURL: annotatedURL
+            )
         }
 
         let savedSketches = try draft.sketches.enumerated().map { index, input in
@@ -218,7 +228,8 @@ final class MobileInboxWriter: @unchecked Sendable {
         _ input: MobileInspectionPhotoInput,
         index: Int,
         originalsURL: URL,
-        previewsURL: URL
+        previewsURL: URL,
+        annotatedURL: URL
     ) throws -> MobileInspectionPhoto {
         let photoID = String(format: "foto-%03d", index)
         let originalFileName = "\(photoID).jpg"
@@ -242,10 +253,47 @@ final class MobileInboxWriter: @unchecked Sendable {
         try writePhotoData(originalData, to: originalURL, displayName: input.fileName)
         try writePhotoData(previewData, to: previewURL, displayName: input.fileName)
 
+        let annotatedPath: String?
+        let annotatedPreviewPath: String?
+        if let annotatedData = input.annotatedData {
+            let annotatedFileName = "\(photoID)-markiert.jpg"
+            let annotatedPreviewFileName = "\(photoID)-markiert-thumb.jpg"
+            let markedDisplayName = "\(input.fileName) markiert"
+            let markedData = try resizedJPEGData(
+                from: annotatedData,
+                maxPixelLength: 2400,
+                compressionQuality: 0.85,
+                displayName: markedDisplayName
+            )
+            let markedPreviewData = try resizedJPEGData(
+                from: annotatedData,
+                maxPixelLength: 400,
+                compressionQuality: 0.7,
+                displayName: markedDisplayName
+            )
+            try writePhotoData(
+                markedData,
+                to: annotatedURL.appendingPathComponent(annotatedFileName, isDirectory: false),
+                displayName: markedDisplayName
+            )
+            try writePhotoData(
+                markedPreviewData,
+                to: annotatedURL.appendingPathComponent(annotatedPreviewFileName, isDirectory: false),
+                displayName: markedDisplayName
+            )
+            annotatedPath = "annotated/\(annotatedFileName)"
+            annotatedPreviewPath = "annotated/\(annotatedPreviewFileName)"
+        } else {
+            annotatedPath = nil
+            annotatedPreviewPath = nil
+        }
+
         return MobileInspectionPhoto(
             id: photoID,
             originalPath: "originals/\(originalFileName)",
-            previewPath: "previews/\(previewFileName)"
+            previewPath: "previews/\(previewFileName)",
+            annotatedPath: annotatedPath,
+            annotatedPreviewPath: annotatedPreviewPath
         )
     }
 

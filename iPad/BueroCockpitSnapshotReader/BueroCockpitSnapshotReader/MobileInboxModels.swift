@@ -4,6 +4,8 @@ struct MobileInspectionPhoto: Codable, Equatable, Sendable {
     let id: String
     let originalPath: String
     let previewPath: String
+    let annotatedPath: String?
+    let annotatedPreviewPath: String?
 }
 
 struct MobileInspectionSketch: Codable, Equatable, Sendable {
@@ -33,6 +35,7 @@ struct MobileInspectionPhotoInput: Identifiable, Equatable, Sendable {
     let id: String
     let fileName: String
     let data: Data
+    let annotatedData: Data?
 }
 
 struct MobileInspectionSketchInput: Identifiable, Equatable, Sendable {

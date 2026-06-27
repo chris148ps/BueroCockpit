@@ -152,6 +152,147 @@ struct MobileSketchCanvasView: View {
     }
 }
 
+struct MobilePhotoMarkupView: View {
+    let photoData: Data
+    let title: String
+    let onSave: (Data) -> Void
+    let onCancel: () -> Void
+
+    @State private var canvasController = PhotoMarkupCanvasController()
+    @State private var isCanvasEmpty = true
+    @State private var errorMessage: String?
+
+    private var image: UIImage? {
+        UIImage(data: photoData)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            markupHeader
+            Divider()
+            if let image {
+                GeometryReader { proxy in
+                    let fit = fittedImageRect(imageSize: image.size, containerSize: proxy.size)
+                    ZStack(alignment: .topLeading) {
+                        Color(uiColor: .systemBackground)
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: fit.width, height: fit.height)
+                            .position(x: fit.midX, y: fit.midY)
+                        PhotoMarkupCanvas(controller: canvasController) { isEmpty in
+                            if isCanvasEmpty != isEmpty {
+                                isCanvasEmpty = isEmpty
+                            }
+                        }
+                        .frame(width: fit.width, height: fit.height)
+                        .position(x: fit.midX, y: fit.midY)
+                    }
+                }
+            } else {
+                ContentUnavailableView(
+                    "Foto nicht lesbar",
+                    systemImage: "photo",
+                    description: Text("Dieses Foto kann nicht markiert werden.")
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground))
+    }
+
+    private var markupHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Button("Abbrechen", action: onCancel)
+
+                Spacer()
+
+                Text(title.isEmpty ? "Foto markieren" : title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+
+                Spacer()
+
+                Button("Leeren") {
+                    canvasController.clear()
+                    isCanvasEmpty = true
+                    errorMessage = nil
+                }
+                .disabled(isCanvasEmpty)
+
+                Button("Speichern") {
+                    saveMarkedPhoto()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(image == nil || isCanvasEmpty)
+            }
+
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(12)
+        .background(Color(uiColor: .systemBackground))
+    }
+
+    private func saveMarkedPhoto() {
+        guard let image else {
+            errorMessage = "Das Foto konnte nicht gelesen werden."
+            return
+        }
+
+        let drawing = canvasController.drawing
+        guard !drawing.strokes.isEmpty else {
+            errorMessage = "Bitte zuerst eine Markierung zeichnen."
+            return
+        }
+
+        let renderedImage = renderMarkedImage(image: image, drawing: drawing)
+        guard let jpgData = renderedImage.jpegData(compressionQuality: 0.9), !jpgData.isEmpty else {
+            errorMessage = "Die markierte Version konnte nicht als JPG gespeichert werden."
+            return
+        }
+
+        onSave(jpgData)
+    }
+
+    private func renderMarkedImage(image: UIImage, drawing: PKDrawing) -> UIImage {
+        let outputSize = CGSize(width: max(1, image.size.width), height: max(1, image.size.height))
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = image.scale
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: outputSize, format: format)
+        return renderer.image { context in
+            let outputRect = CGRect(origin: .zero, size: outputSize)
+            UIColor.white.setFill()
+            context.fill(outputRect)
+            image.draw(in: outputRect)
+
+            let drawingImage = drawing.image(from: canvasController.exportRect, scale: image.scale)
+            drawingImage.draw(in: outputRect, blendMode: .normal, alpha: 1)
+        }
+    }
+
+    private func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0, containerSize.width > 0, containerSize.height > 0 else {
+            return CGRect(origin: .zero, size: containerSize)
+        }
+
+        let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(
+            x: (containerSize.width - size.width) / 2,
+            y: (containerSize.height - size.height) / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+}
+
 @MainActor
 private final class PencilSketchCanvasController {
     private weak var canvasView: PKCanvasView?
@@ -294,5 +435,125 @@ private final class PencilSketchViewController: UIViewController {
 private enum PencilSketchDefaults {
     static func defaultDrawingTool() -> PKInkingTool {
         PKInkingTool(.pen, color: .black, width: 1)
+    }
+}
+
+@MainActor
+private final class PhotoMarkupCanvasController {
+    private weak var canvasView: PKCanvasView?
+
+    var drawing: PKDrawing {
+        canvasView?.drawing ?? PKDrawing()
+    }
+
+    var exportRect: CGRect {
+        if let canvasView, canvasView.bounds.width > 0, canvasView.bounds.height > 0 {
+            return CGRect(origin: .zero, size: canvasView.bounds.size)
+        }
+
+        return CGRect(x: 0, y: 0, width: 1200, height: 900)
+    }
+
+    func attach(_ canvasView: PKCanvasView) {
+        self.canvasView = canvasView
+    }
+
+    func clear() {
+        canvasView?.drawing = PKDrawing()
+    }
+}
+
+private struct PhotoMarkupCanvas: UIViewControllerRepresentable {
+    let controller: PhotoMarkupCanvasController
+    let onDrawingEmptyChanged: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onDrawingEmptyChanged: onDrawingEmptyChanged)
+    }
+
+    func makeUIViewController(context: Context) -> PhotoMarkupViewController {
+        let viewController = PhotoMarkupViewController()
+        viewController.canvasView.delegate = context.coordinator
+        viewController.canvasView.drawingPolicy = .anyInput
+        viewController.canvasView.tool = PencilSketchDefaults.defaultDrawingTool()
+        controller.attach(viewController.canvasView)
+        context.coordinator.attachToolPicker(to: viewController.canvasView)
+        return viewController
+    }
+
+    func updateUIViewController(_ viewController: PhotoMarkupViewController, context: Context) {
+        viewController.canvasView.drawingPolicy = .anyInput
+        controller.attach(viewController.canvasView)
+        context.coordinator.attachToolPicker(to: viewController.canvasView)
+    }
+
+    final class Coordinator: NSObject, PKCanvasViewDelegate {
+        private let onDrawingEmptyChanged: (Bool) -> Void
+        private var lastIsEmpty = true
+        private weak var currentCanvasView: PKCanvasView?
+        private var toolPicker: PKToolPicker?
+
+        init(onDrawingEmptyChanged: @escaping (Bool) -> Void) {
+            self.onDrawingEmptyChanged = onDrawingEmptyChanged
+        }
+
+        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            let isEmpty = canvasView.drawing.strokes.isEmpty
+            guard lastIsEmpty != isEmpty else {
+                return
+            }
+
+            lastIsEmpty = isEmpty
+            DispatchQueue.main.async { [onDrawingEmptyChanged] in
+                onDrawingEmptyChanged(isEmpty)
+            }
+        }
+
+        func attachToolPicker(to canvasView: PKCanvasView) {
+            guard currentCanvasView !== canvasView else {
+                return
+            }
+
+            currentCanvasView = canvasView
+            let picker = PKToolPicker()
+            picker.setVisible(true, forFirstResponder: canvasView)
+            picker.addObserver(canvasView)
+            canvasView.becomeFirstResponder()
+            toolPicker = picker
+        }
+    }
+}
+
+private final class PhotoMarkupViewController: UIViewController {
+    let canvasView = PKCanvasView()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .clear
+        view.isOpaque = false
+
+        canvasView.translatesAutoresizingMaskIntoConstraints = false
+        canvasView.backgroundColor = .clear
+        canvasView.isOpaque = false
+        canvasView.drawingPolicy = .anyInput
+        canvasView.alwaysBounceVertical = false
+        canvasView.alwaysBounceHorizontal = false
+        canvasView.minimumZoomScale = 1
+        canvasView.maximumZoomScale = 1
+        canvasView.contentInsetAdjustmentBehavior = .never
+
+        view.addSubview(canvasView)
+        NSLayoutConstraint.activate([
+            canvasView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            canvasView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            canvasView.topAnchor.constraint(equalTo: view.topAnchor),
+            canvasView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        canvasView.becomeFirstResponder()
     }
 }

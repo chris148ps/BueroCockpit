@@ -159,7 +159,7 @@ public sealed class MobileInboxLoader
             Title = ReadFirstString(root, "title", "titel", "Mobile Besichtigung"),
             Category = ReadFirstString(root, "category", "kategorie", "categoryName", "Kategorie"),
             Notes = ReadFirstString(root, "notes", "notiz"),
-            PhotoPreviews = ReadPreviewItems(entryDirectory, root, "photos", "previews"),
+            PhotoPreviews = ReadPhotoPreviewItems(entryDirectory, root),
             SketchPreviews = ReadPreviewItems(entryDirectory, root, "sketches", "sketches"),
             OriginalPhotoPaths = ReadOriginalPhotoPaths(entryDirectory, root)
         };
@@ -220,6 +220,49 @@ public sealed class MobileInboxLoader
         return items;
     }
 
+    private static List<MobileInboxPreviewItem> ReadPhotoPreviewItems(string entryDirectory, JsonElement root)
+    {
+        var items = new List<MobileInboxPreviewItem>();
+        if (TryGetProperty(root, "photos", out var arrayElement) && arrayElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var itemElement in arrayElement.EnumerateArray())
+            {
+                var path = ReadPreviewPath(itemElement);
+                AddPreviewItem(entryDirectory, items, path, "previews");
+
+                if (itemElement.ValueKind == JsonValueKind.Object)
+                {
+                    var annotatedPreviewPath = ReadFirstString(
+                        itemElement,
+                        "annotatedPreviewPath",
+                        "annotatedPreview",
+                        "markedPreviewPath");
+                    AddPreviewItem(entryDirectory, items, annotatedPreviewPath, "annotated");
+                }
+            }
+        }
+
+        var previewsDirectory = Path.Combine(entryDirectory, "previews");
+        if (Directory.Exists(previewsDirectory))
+        {
+            foreach (var path in Directory.EnumerateFiles(previewsDirectory).OrderBy(Path.GetFileName))
+            {
+                AddPreviewItem(entryDirectory, items, path, "previews");
+            }
+        }
+
+        var annotatedDirectory = Path.Combine(entryDirectory, "annotated");
+        if (Directory.Exists(annotatedDirectory))
+        {
+            foreach (var path in Directory.EnumerateFiles(annotatedDirectory, "*thumb*", SearchOption.TopDirectoryOnly).OrderBy(Path.GetFileName))
+            {
+                AddPreviewItem(entryDirectory, items, path, "annotated");
+            }
+        }
+
+        return items;
+    }
+
     private static string ReadPreviewPath(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.String)
@@ -245,10 +288,16 @@ public sealed class MobileInboxLoader
                 var originalPath = photoElement.ValueKind == JsonValueKind.Object
                     ? ReadString(photoElement, "originalPath", "original")
                     : ConvertToString(photoElement);
-                var resolvedPath = ResolveEntryPath(entryDirectory, originalPath);
-                if (!string.IsNullOrWhiteSpace(resolvedPath) && !paths.Contains(resolvedPath, StringComparer.OrdinalIgnoreCase))
+                AddResolvedPhotoPath(entryDirectory, paths, originalPath);
+
+                if (photoElement.ValueKind == JsonValueKind.Object)
                 {
-                    paths.Add(resolvedPath);
+                    var annotatedPath = ReadFirstString(
+                        photoElement,
+                        "annotatedPath",
+                        "annotated",
+                        "markedPath");
+                    AddResolvedPhotoPath(entryDirectory, paths, annotatedPath);
                 }
             }
         }
@@ -266,6 +315,15 @@ public sealed class MobileInboxLoader
         }
 
         return paths;
+    }
+
+    private static void AddResolvedPhotoPath(string entryDirectory, List<string> paths, string? path)
+    {
+        var resolvedPath = ResolveEntryPath(entryDirectory, path);
+        if (!string.IsNullOrWhiteSpace(resolvedPath) && !paths.Contains(resolvedPath, StringComparer.OrdinalIgnoreCase))
+        {
+            paths.Add(resolvedPath);
+        }
     }
 
     private static void AddPreviewItem(string entryDirectory, List<MobileInboxPreviewItem> items, string? path, string kind)
