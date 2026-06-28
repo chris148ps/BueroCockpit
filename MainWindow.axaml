@@ -1461,18 +1461,23 @@
                     Margin="0,10,0,0"
                     Padding="12">
               <StackPanel Spacing="8">
-                <TextBlock Text="Übernommene mobile Eingänge"
+                <TextBlock Text="Verwaltung"
                            FontWeight="SemiBold"
-                           FontSize="14" />
-                <TextBlock Text="Bereinigt nur mobile-processed-Einträge, die älter als 30 Tage sind."
+                           FontSize="12"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" />
-                <Button Content="Übernommene mobile Eingänge bereinigen"
+                <TextBlock Text="Alte bereits übernommene mobile Eingänge können nach 30 Tagen aus mobile-processed entfernt werden."
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <Button Content="Alte übernommene Eingänge bereinigen"
                         Click="CleanupProcessedMobileInbox_OnClick"
-                        HorizontalAlignment="Left" />
+                        HorizontalAlignment="Left"
+                        FontSize="12" />
                 <TextBlock Text="{Binding MobileInboxCleanupStatus}"
                            IsVisible="{Binding HasMobileInboxCleanupStatus}"
                            Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
                            TextWrapping="Wrap" />
               </StackPanel>
             </Border>

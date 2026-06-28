@@ -8514,20 +8514,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (preview.IsMissing)
             {
-                warnings.Add($"{preview.DisplayKind} fehlt: {preview.Path}");
+                warnings.Add($"{preview.DisplayKind} fehlt: {FormatMobileInboxPathForMessage(preview.Path)}");
             }
             else if (preview.IsUnreadable)
             {
-                warnings.Add($"{preview.DisplayKind} ist nicht lesbar: {preview.Path}");
+                warnings.Add($"{preview.DisplayKind} ist nicht lesbar: {FormatMobileInboxPathForMessage(preview.Path)}");
             }
 
             if (preview.IsDetailMissing)
             {
-                warnings.Add($"{preview.DisplayKind} Detaildatei fehlt: {preview.EffectiveDetailPath}");
+                warnings.Add($"{preview.DisplayKind} Detaildatei fehlt: {FormatMobileInboxPathForMessage(preview.EffectiveDetailPath)}");
             }
             else if (preview.IsDetailUnreadable)
             {
-                warnings.Add($"{preview.DisplayKind} Detaildatei ist nicht lesbar: {preview.EffectiveDetailPath}");
+                warnings.Add($"{preview.DisplayKind} Detaildatei ist nicht lesbar: {FormatMobileInboxPathForMessage(preview.EffectiveDetailPath)}");
             }
         }
 
@@ -8612,14 +8612,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (!File.Exists(path))
         {
-            errors.Add($"{kind} fehlt: {path}");
+            errors.Add($"{kind} fehlt: {FormatMobileInboxPathForMessage(path)}");
             return;
         }
 
         if (!IsMobileInboxImportSourceReadable(path, kind))
         {
-            errors.Add($"{kind} ist nicht lesbar: {path}");
+            errors.Add($"{kind} ist nicht lesbar: {FormatMobileInboxPathForMessage(path)}");
         }
+    }
+
+    private static string FormatMobileInboxPathForMessage(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        return string.IsNullOrWhiteSpace(fileName) ? "Datei ohne Namen" : fileName;
     }
 
     private static bool IsMobileInboxImportSourceReadable(string path, string kind)

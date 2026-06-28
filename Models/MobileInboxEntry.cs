@@ -170,10 +170,10 @@ public sealed class MobileInboxPreviewItem
         {
             if (!Exists)
             {
-                return $"Datei fehlt: {Path}";
+                return "Datei fehlt.";
             }
 
-            return IsUnreadable ? $"Vorschau ist nicht lesbar: {Path}" : "Vorschau verfügbar";
+            return IsUnreadable ? "Vorschau ist nicht lesbar." : "Vorschau verfügbar";
         }
     }
     public bool IsDetailUnreadable => DetailExists && IsPreviewImagePath(EffectiveDetailPath) && !CanLoadBitmap(EffectiveDetailPath);
@@ -184,11 +184,11 @@ public sealed class MobileInboxPreviewItem
         {
             if (!DetailExists)
             {
-                return $"Datei fehlt oder kann nicht geladen werden: {EffectiveDetailPath}";
+                return "Datei fehlt oder kann nicht geladen werden.";
             }
 
             return IsDetailUnreadable
-                ? $"Die Detailvorschau ist nicht lesbar: {EffectiveDetailPath}"
+                ? "Die Detailvorschau ist nicht lesbar."
                 : "Detailansicht verfügbar";
         }
     }

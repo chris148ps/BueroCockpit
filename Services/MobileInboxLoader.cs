@@ -160,7 +160,7 @@ public sealed class MobileInboxLoader
             Category = ReadFirstString(root, "category", "kategorie", "categoryName", "Kategorie"),
             Notes = ReadFirstString(root, "notes", "notiz"),
             PhotoPreviews = ReadPhotoPreviewItems(entryDirectory, root),
-            SketchPreviews = ReadPreviewItems(entryDirectory, root, "sketches", "sketches"),
+            SketchPreviews = ReadSketchPreviewItems(entryDirectory, root),
             OriginalPhotoPaths = ReadOriginalPhotoPaths(entryDirectory, root)
         };
     }
@@ -188,6 +188,20 @@ public sealed class MobileInboxLoader
         return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
     }
 
+    private static string ReadFirstExistingString(JsonElement root, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            var value = ReadString(root, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return string.Empty;
+    }
+
     private static DateTime? ReadDateTime(JsonElement root, string propertyName)
     {
         var value = ReadString(root, propertyName);
@@ -196,30 +210,29 @@ public sealed class MobileInboxLoader
             : null;
     }
 
-    private static List<MobileInboxPreviewItem> ReadPreviewItems(string entryDirectory, JsonElement root, string arrayName, string fallbackDirectoryName)
+    private static List<MobileInboxPreviewItem> ReadSketchPreviewItems(string entryDirectory, JsonElement root)
     {
         var items = new List<MobileInboxPreviewItem>();
-        if (TryGetProperty(root, arrayName, out var arrayElement) && arrayElement.ValueKind == JsonValueKind.Array)
+        if (TryGetProperty(root, "sketches", out var arrayElement) && arrayElement.ValueKind == JsonValueKind.Array)
         {
             foreach (var itemElement in arrayElement.EnumerateArray())
             {
                 var path = ReadPreviewPath(itemElement);
-                AddPreviewItem(entryDirectory, items, path, fallbackDirectoryName);
+                AddPreviewItem(entryDirectory, items, path, "sketches");
             }
         }
 
-        var fallbackDirectory = Path.Combine(entryDirectory, fallbackDirectoryName);
+        var fallbackDirectory = Path.Combine(entryDirectory, "sketches");
         if (Directory.Exists(fallbackDirectory))
         {
             foreach (var path in Directory.EnumerateFiles(fallbackDirectory).OrderBy(Path.GetFileName))
             {
-                if (string.Equals(fallbackDirectoryName, "sketches", StringComparison.OrdinalIgnoreCase) &&
-                    !IsPreviewImagePath(path))
+                if (!IsPreviewImagePath(path))
                 {
                     continue;
                 }
 
-                AddPreviewItem(entryDirectory, items, path, fallbackDirectoryName);
+                AddPreviewItem(entryDirectory, items, path, "sketches");
             }
         }
 
@@ -241,12 +254,12 @@ public sealed class MobileInboxLoader
 
                 if (itemElement.ValueKind == JsonValueKind.Object)
                 {
-                    var annotatedPath = ReadFirstString(
+                    var annotatedPath = ReadFirstExistingString(
                         itemElement,
                         "annotatedPath",
                         "annotated",
                         "markedPath");
-                    var annotatedPreviewPath = ReadFirstString(
+                    var annotatedPreviewPath = ReadFirstExistingString(
                         itemElement,
                         "annotatedPreviewPath",
                         "annotatedPreview",
@@ -294,7 +307,7 @@ public sealed class MobileInboxLoader
             return string.Empty;
         }
 
-        return ReadFirstString(element, "previewPath", "preview", "thumbnailPath", "path");
+        return ReadFirstExistingString(element, "previewPath", "preview", "thumbnailPath", "path");
     }
 
     private static IReadOnlyList<string> ReadOriginalPhotoPaths(string entryDirectory, JsonElement root)
@@ -307,16 +320,16 @@ public sealed class MobileInboxLoader
                 var originalPath = photoElement.ValueKind == JsonValueKind.Object
                     ? ReadString(photoElement, "originalPath", "original")
                     : ConvertToString(photoElement);
-                AddResolvedPhotoPath(entryDirectory, paths, originalPath);
+                AddResolvedPhotoPath(entryDirectory, paths, originalPath, "originals");
 
                 if (photoElement.ValueKind == JsonValueKind.Object)
                 {
-                    var annotatedPath = ReadFirstString(
+                    var annotatedPath = ReadFirstExistingString(
                         photoElement,
                         "annotatedPath",
                         "annotated",
                         "markedPath");
-                    AddResolvedPhotoPath(entryDirectory, paths, annotatedPath);
+                    AddResolvedPhotoPath(entryDirectory, paths, annotatedPath, "annotated");
                 }
             }
         }
@@ -336,9 +349,9 @@ public sealed class MobileInboxLoader
         return paths;
     }
 
-    private static void AddResolvedPhotoPath(string entryDirectory, List<string> paths, string? path)
+    private static void AddResolvedPhotoPath(string entryDirectory, List<string> paths, string? path, string fallbackDirectoryName)
     {
-        var resolvedPath = ResolveEntryPath(entryDirectory, path);
+        var resolvedPath = ResolveEntryPath(entryDirectory, path, fallbackDirectoryName);
         if (!string.IsNullOrWhiteSpace(resolvedPath) && !paths.Contains(resolvedPath, StringComparer.OrdinalIgnoreCase))
         {
             paths.Add(resolvedPath);
@@ -352,7 +365,7 @@ public sealed class MobileInboxLoader
         string kind,
         string? detailPath = null)
     {
-        var resolvedPath = ResolveEntryPath(entryDirectory, path);
+        var resolvedPath = ResolveEntryPath(entryDirectory, path, kind);
         if (string.IsNullOrWhiteSpace(resolvedPath) ||
             (string.Equals(kind, "previews", StringComparison.OrdinalIgnoreCase) && IsOriginalsPath(resolvedPath)) ||
             items.Any(item => string.Equals(item.Path, resolvedPath, StringComparison.OrdinalIgnoreCase)))
@@ -364,12 +377,12 @@ public sealed class MobileInboxLoader
         {
             FileName = Path.GetFileName(resolvedPath),
             Path = resolvedPath,
-            DetailPath = ResolveEntryPath(entryDirectory, detailPath),
+            DetailPath = ResolveEntryPath(entryDirectory, detailPath, GetDetailFallbackDirectoryName(kind)),
             Kind = kind
         });
     }
 
-    private static string ResolveEntryPath(string entryDirectory, string? path)
+    private static string ResolveEntryPath(string entryDirectory, string? path, string fallbackDirectoryName)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -377,9 +390,66 @@ public sealed class MobileInboxLoader
         }
 
         var trimmedPath = path.Trim();
-        return Path.IsPathRooted(trimmedPath)
-            ? Path.GetFullPath(trimmedPath)
-            : Path.GetFullPath(Path.Combine(entryDirectory, trimmedPath));
+        if (!Path.IsPathRooted(trimmedPath))
+        {
+            return Path.GetFullPath(Path.Combine(entryDirectory, trimmedPath));
+        }
+
+        var fullPath = Path.GetFullPath(trimmedPath);
+        if (IsPathInsideDirectory(fullPath, entryDirectory))
+        {
+            return fullPath;
+        }
+
+        return TryResolveLocalCopy(entryDirectory, fullPath, fallbackDirectoryName) ?? fullPath;
+    }
+
+    private static string GetDetailFallbackDirectoryName(string kind)
+    {
+        return string.Equals(kind, "annotated", StringComparison.OrdinalIgnoreCase)
+            ? "annotated"
+            : kind;
+    }
+
+    private static string? TryResolveLocalCopy(string entryDirectory, string absolutePath, string fallbackDirectoryName)
+    {
+        if (string.IsNullOrWhiteSpace(fallbackDirectoryName))
+        {
+            return null;
+        }
+
+        var fallbackDirectory = Path.Combine(entryDirectory, fallbackDirectoryName);
+        if (!Directory.Exists(fallbackDirectory))
+        {
+            return null;
+        }
+
+        var fileName = Path.GetFileName(absolutePath);
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            var exactMatch = Directory
+                .EnumerateFiles(fallbackDirectory, fileName, SearchOption.TopDirectoryOnly)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(exactMatch))
+            {
+                return Path.GetFullPath(exactMatch);
+            }
+        }
+
+        var imageMatches = Directory
+            .EnumerateFiles(fallbackDirectory, "*", SearchOption.TopDirectoryOnly)
+            .Where(IsPreviewImagePath)
+            .ToList();
+        return imageMatches.Count == 1 ? Path.GetFullPath(imageMatches[0]) : null;
+    }
+
+    private static bool IsPathInsideDirectory(string path, string directory)
+    {
+        var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedDirectory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return normalizedPath.StartsWith(
+            normalizedDirectory + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsOriginalsPath(string path)
