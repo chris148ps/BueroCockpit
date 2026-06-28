@@ -6,6 +6,8 @@ struct SnapshotTaskDetailView: View {
     let task: SnapshotTask?
     let attachments: [SnapshotAttachmentIndex]
     let attachmentLoader: (SnapshotAttachmentIndex) async throws -> URL
+    var onEditMobileInbox: (() -> Void)?
+    var onDeleteMobileInbox: (() -> Void)?
     @State private var previewItem: SnapshotPreviewItem?
     @State private var attachmentNotice: String?
     @State private var loadingAttachmentID: String?
@@ -17,6 +19,9 @@ struct SnapshotTaskDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         header(task)
+                        if isMobileInboxTask(task) {
+                            mobileInboxActions
+                        }
                         section(title: "Kunde / Auftrag") {
                             keyValue("Kunde", task.customerName)
                             keyValue("E-Mail", task.customerEmail)
@@ -133,6 +138,28 @@ struct SnapshotTaskDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var mobileInboxActions: some View {
+        HStack(spacing: 12) {
+            Button {
+                onEditMobileInbox?()
+            } label: {
+                Label("Bearbeiten", systemImage: "square.and.pencil")
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button(role: .destructive) {
+                onDeleteMobileInbox?()
+            } label: {
+                Label("Verwerfen", systemImage: "trash")
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private func isMobileInboxTask(_ task: SnapshotTask) -> Bool {
+        task.categoryIds.contains(SnapshotBrowserViewModel.mobilePendingCategoryID)
     }
 
     @ViewBuilder

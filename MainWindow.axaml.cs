@@ -188,6 +188,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<MobileInboxEntry> MobileInboxEntries { get; } = new();
     public ObservableCollection<MobileInboxPreviewItem> MobileInboxPhotoPreviews { get; } = new();
     public ObservableCollection<MobileInboxPreviewItem> MobileInboxSketchPreviews { get; } = new();
+    public ObservableCollection<MobileInboxPreviewItem> MobileInboxFilePreviews { get; } = new();
     public ObservableCollection<DashboardSection> DashboardSections { get; } = new();
     public ObservableCollection<TaskItem> FollowUpTasks { get; } = new();
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
@@ -542,8 +543,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
     public bool HasMobileInboxPhotoPreviews => MobileInboxPhotoPreviews.Count > 0;
     public bool HasMobileInboxSketchPreviews => MobileInboxSketchPreviews.Count > 0;
+    public bool HasMobileInboxFilePreviews => MobileInboxFilePreviews.Count > 0;
     public bool HasNoMobileInboxPhotoPreviews => !HasMobileInboxPhotoPreviews;
     public bool HasNoMobileInboxSketchPreviews => !HasMobileInboxSketchPreviews;
+    public bool HasNoMobileInboxFilePreviews => !HasMobileInboxFilePreviews;
     public MobileInboxPreviewItem? SelectedMobileInboxPreviewItem
     {
         get => _selectedMobileInboxPreviewItem;
@@ -3333,6 +3336,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectedAttachment = null;
         MobileInboxPhotoPreviews.Clear();
         MobileInboxSketchPreviews.Clear();
+        MobileInboxFilePreviews.Clear();
         OnPropertyChanged(nameof(HasNoMaterials));
 
         var mobileInboxEntry = SelectedMobileInboxEntry;
@@ -3349,11 +3353,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 MobileInboxSketchPreviews.Add(preview);
             }
 
+            foreach (var preview in mobileInboxEntry.FilePreviews)
+            {
+                MobileInboxFilePreviews.Add(preview);
+            }
+
             RefreshTaskCategorySelections();
             OnPropertyChanged(nameof(HasMobileInboxPhotoPreviews));
             OnPropertyChanged(nameof(HasMobileInboxSketchPreviews));
+            OnPropertyChanged(nameof(HasMobileInboxFilePreviews));
             OnPropertyChanged(nameof(HasNoMobileInboxPhotoPreviews));
             OnPropertyChanged(nameof(HasNoMobileInboxSketchPreviews));
+            OnPropertyChanged(nameof(HasNoMobileInboxFilePreviews));
         }
         else if (SelectedTask is not null)
         {
@@ -3387,8 +3398,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasMobileInboxPhotoPreviews));
         OnPropertyChanged(nameof(HasMobileInboxSketchPreviews));
+        OnPropertyChanged(nameof(HasMobileInboxFilePreviews));
         OnPropertyChanged(nameof(HasNoMobileInboxPhotoPreviews));
         OnPropertyChanged(nameof(HasNoMobileInboxSketchPreviews));
+        OnPropertyChanged(nameof(HasNoMobileInboxFilePreviews));
         _isLoadingSelection = false;
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
@@ -8510,7 +8523,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 .Select(item => item.Path)
                 .ToList();
 
-        foreach (var preview in entry.PhotoPreviews.Concat(entry.SketchPreviews))
+        foreach (var preview in entry.PhotoPreviews.Concat(entry.SketchPreviews).Concat(entry.FilePreviews))
         {
             if (preview.IsMissing)
             {
@@ -8535,6 +8548,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Select(path => new MobileInboxAttachmentSource(path, GetMobileInboxPhotoKind(path)))
             .Concat(GetMobileInboxSketchPngPaths(entry).Select(path => new MobileInboxAttachmentSource(path, "Skizze")))
             .Concat(GetMobileInboxDrawingPaths(entry).Select(path => new MobileInboxAttachmentSource(path, "Skizzen-Rohdaten")))
+            .Concat(entry.FilePreviews
+                .Where(item => item.DetailExists)
+                .Select(item => new MobileInboxAttachmentSource(item.EffectiveDetailPath, "Sonstige Datei")))
             .Where(source => !string.IsNullOrWhiteSpace(source.Path))
             .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
@@ -8545,7 +8561,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AddMobileInboxAttachmentProblem(errors, source.Path, source.Kind);
         }
 
-        if (errors.Count == 0 && attachmentSources.Count == 0 && (entry.OriginalPhotoPaths.Count > 0 || entry.SketchPreviews.Count > 0))
+        if (errors.Count == 0 && attachmentSources.Count == 0 && (entry.OriginalPhotoPaths.Count > 0 || entry.SketchPreviews.Count > 0 || entry.FilePreviews.Count > 0))
         {
             errors.Add("Es wurden Anhänge referenziert, aber keine übernehmbare Datei gefunden.");
         }

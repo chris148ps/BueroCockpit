@@ -5,13 +5,15 @@ struct SnapshotRootView: View {
     private enum PresentedSheet: Identifiable, Equatable {
         case setup
         case settings
-        case mobileInspection
+        case mobileInspectionNew
+        case mobileInspectionEdit(String)
 
         var id: String {
             switch self {
             case .setup: "setup"
             case .settings: "settings"
-            case .mobileInspection: "mobileInspection"
+            case .mobileInspectionNew: "mobileInspectionNew"
+            case .mobileInspectionEdit(let entryID): "mobileInspectionEdit-\(entryID)"
             }
         }
     }
@@ -37,6 +39,7 @@ struct SnapshotRootView: View {
     @State private var mobileInboxFolderPath: String?
     @State private var mobileInboxMessage: String?
     @State private var hasMobileInspectionDraft = false
+    @State private var pendingEntryDeletionID: String?
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -96,15 +99,37 @@ struct SnapshotRootView: View {
                 setupView
             case .settings:
                 syncSetupView(onDismiss: { presentedSheet = nil })
-            case .mobileInspection:
+            case .mobileInspectionNew:
                 MobileInspectionFormView(
                     categoryNames: viewModel.categories.map(\.name),
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
+                    editingEntryID: nil,
                     onSaved: { result in
                         hasMobileInspectionDraft = false
                         mobileInboxMessage = "Gespeichert in \(result.entryURL.lastPathComponent)"
                         refreshNoticeMessage = "Mobile Besichtigung gespeichert:\n\(result.entryURL.path)"
+                        viewModel.loadMobileInboxEntries(selectCategory: true)
+                    },
+                    onNeedsFolderSelection: {
+                        importModeAfterSheetDismissal = .mobileInboxFolder
+                        presentedSheet = nil
+                    },
+                    onDraftStateChanged: { hasDraft in
+                        hasMobileInspectionDraft = hasDraft
+                    },
+                    onDismiss: { presentedSheet = nil }
+                )
+            case .mobileInspectionEdit(let entryID):
+                MobileInspectionFormView(
+                    categoryNames: viewModel.categories.map(\.name),
+                    writer: mobileInboxWriter,
+                    draftStore: mobileInspectionDraftStore,
+                    editingEntryID: entryID,
+                    onSaved: { result in
+                        hasMobileInspectionDraft = false
+                        mobileInboxMessage = "Aktualisiert: \(result.entryURL.lastPathComponent)"
+                        refreshNoticeMessage = "Mobiler Eingang aktualisiert:\n\(result.entryURL.path)"
                         viewModel.loadMobileInboxEntries(selectCategory: true)
                     },
                     onNeedsFolderSelection: {
@@ -137,6 +162,23 @@ struct SnapshotRootView: View {
             }
         } message: {
             Text(refreshNoticeMessage ?? "")
+        }
+        .alert("Mobilen Eingang verwerfen?", isPresented: Binding(
+            get: { pendingEntryDeletionID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingEntryDeletionID = nil
+                }
+            }
+        )) {
+            Button("Behalten", role: .cancel) {
+                pendingEntryDeletionID = nil
+            }
+            Button("Verwerfen", role: .destructive) {
+                deletePendingMobileEntry()
+            }
+        } message: {
+            Text("Der wartende mobile Eingang wird aus mobile-inbox entfernt. Bereits übernommene Eingänge werden nicht angerührt.")
         }
     }
 
@@ -253,7 +295,7 @@ struct SnapshotRootView: View {
 
             if hasMobileInspectionDraft {
                 Button {
-                    presentedSheet = .mobileInspection
+                    presentMobileInspectionDraftIfNeeded()
                 } label: {
                     Label("Entwurf fortsetzen", systemImage: "doc.text")
                 }
@@ -262,7 +304,7 @@ struct SnapshotRootView: View {
             }
 
             Button {
-                presentedSheet = .mobileInspection
+                presentedSheet = .mobileInspectionNew
             } label: {
                 Image(systemName: "plus")
             }
@@ -495,7 +537,9 @@ struct SnapshotRootView: View {
             SnapshotTaskDetailView(
                 task: viewModel.selectedTask,
                 attachments: viewModel.selectedTask.map(viewModel.attachments(for:)) ?? [],
-                attachmentLoader: viewModel.prepareAttachment
+                attachmentLoader: viewModel.prepareAttachment,
+                onEditMobileInbox: editSelectedMobileEntry,
+                onDeleteMobileInbox: requestDeleteSelectedMobileEntry
             )
         case .idle:
             SnapshotEmptyStateView(
@@ -652,7 +696,7 @@ struct SnapshotRootView: View {
             mobileInboxMessage = "Mobile-Inbox-Ordner gespeichert."
             refreshNoticeMessage = "Mobile-Inbox-Ordner gespeichert:\n\(folderURL.path)"
             if hasMobileInspectionDraft {
-                presentedSheet = .mobileInspection
+                presentMobileInspectionDraftIfNeeded()
             }
         } catch {
             viewModel.present(errorMessage: error.localizedDescription)
@@ -668,7 +712,59 @@ struct SnapshotRootView: View {
             return
         }
 
-        presentedSheet = .mobileInspection
+        do {
+            guard let draft = try mobileInspectionDraftStore.load() else {
+                return
+            }
+            if let entryID = draft.editingEntryID {
+                presentedSheet = .mobileInspectionEdit(entryID)
+            } else {
+                presentedSheet = .mobileInspectionNew
+            }
+        } catch {
+            presentedSheet = .mobileInspectionNew
+        }
+    }
+
+    private func editSelectedMobileEntry() {
+        guard let task = viewModel.selectedTask,
+              let entry = viewModel.mobileInboxEntry(forTaskID: task.id) else {
+            refreshNoticeMessage = "Der mobile Eingang ist nicht mehr vorhanden."
+            viewModel.loadMobileInboxEntries(selectCategory: true)
+            return
+        }
+
+        presentedSheet = .mobileInspectionEdit(entry.id)
+    }
+
+    private func requestDeleteSelectedMobileEntry() {
+        guard let task = viewModel.selectedTask,
+              let entry = viewModel.mobileInboxEntry(forTaskID: task.id) else {
+            refreshNoticeMessage = "Der mobile Eingang ist nicht mehr vorhanden."
+            viewModel.loadMobileInboxEntries(selectCategory: true)
+            return
+        }
+
+        pendingEntryDeletionID = entry.id
+    }
+
+    private func deletePendingMobileEntry() {
+        guard let entryID = pendingEntryDeletionID else {
+            return
+        }
+        do {
+            try mobileInboxWriter.deletePendingEntry(entryID: entryID)
+            pendingEntryDeletionID = nil
+            try? mobileInspectionDraftStore.discard()
+            updateMobileInspectionDraftState()
+            mobileInboxMessage = "Mobiler Eingang verworfen."
+            refreshNoticeMessage = "Der wartende mobile Eingang wurde verworfen."
+            viewModel.loadMobileInboxEntries(selectCategory: true)
+        } catch {
+            pendingEntryDeletionID = nil
+            refreshNoticeMessage = error.localizedDescription
+            viewModel.loadMobileInboxEntries(selectCategory: true)
+        }
     }
 
     private func handleImporterFailure(_ error: Error) {

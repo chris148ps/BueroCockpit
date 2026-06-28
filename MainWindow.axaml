@@ -1916,6 +1916,56 @@
                        Foreground="{DynamicResource TextSecondaryBrush}" />
           </Border>
 
+          <TextBlock Classes="SectionTitle" Text="Dateien" Margin="0,12,0,0" />
+          <Border Classes="Card"
+                  IsVisible="{Binding HasMobileInboxFilePreviews}"
+                  Padding="12">
+            <ItemsControl ItemsSource="{Binding MobileInboxFilePreviews}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Tag="{Binding}"
+                          Click="ShowMobileInboxPreview_OnClick"
+                          Padding="0"
+                          Margin="0,0,8,8"
+                          Background="Transparent"
+                          BorderThickness="0">
+                    <Border Width="190"
+                            MinHeight="120"
+                            CornerRadius="8"
+                            Background="{DynamicResource InputBackgroundBrush}"
+                            Padding="8">
+                      <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding DisplayKind}"
+                                   FontWeight="SemiBold"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding FileName}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding DetailStatusText}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+          <Border Classes="Card"
+                  IsVisible="{Binding HasNoMobileInboxFilePreviews}"
+                  Padding="12">
+            <TextBlock Text="Keine sonstigen Dateien vorhanden."
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </Border>
+
           <Border Classes="Card"
                   IsVisible="{Binding HasSelectedMobileInboxPreviewItem}"
                   Padding="14"

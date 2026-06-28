@@ -16,7 +16,12 @@ enum MobileInboxError: LocalizedError, Sendable {
     case sketchFileIsEmpty(String)
     case drawingCouldNotBeWritten(String)
     case drawingFileIsEmpty(String)
+    case fileCouldNotBeRead(String)
+    case fileCouldNotBeWritten(String)
+    case fileIsEmpty(String)
     case jsonCouldNotBeWritten(String)
+    case entryNotFound
+    case entryAlreadyProcessed
 
     var errorDescription: String? {
         switch self {
@@ -48,8 +53,18 @@ enum MobileInboxError: LocalizedError, Sendable {
             return "Die bearbeitbare Skizze \(name) konnte nicht gespeichert werden."
         case .drawingFileIsEmpty(let name):
             return "Die bearbeitbare Skizze \(name) wurde ohne Inhalt gespeichert."
+        case .fileCouldNotBeRead(let name):
+            return "Die Datei \(name) konnte nicht gelesen werden."
+        case .fileCouldNotBeWritten(let name):
+            return "Die Datei \(name) konnte nicht im Mobile-Inbox-Ordner gespeichert werden."
+        case .fileIsEmpty(let name):
+            return "Die Datei \(name) enthält keine Daten."
         case .jsonCouldNotBeWritten(let path):
             return "Die Aufgabe konnte nicht gespeichert werden: \(path)"
+        case .entryNotFound:
+            return "Der mobile Eingang existiert nicht mehr."
+        case .entryAlreadyProcessed:
+            return "Dieser mobile Eingang wurde bereits übernommen und kann nicht mehr bearbeitet werden."
         }
     }
 }
@@ -127,6 +142,42 @@ final class MobileInboxStore: @unchecked Sendable {
 }
 
 final class MobileInboxWriter: @unchecked Sendable {
+    private struct EditableTask: Decodable {
+        let id: String?
+        let createdAt: String?
+        let status: String?
+        let customerName: String?
+        let address: String?
+        let phone: String?
+        let email: String?
+        let title: String?
+        let category: String?
+        let notes: String?
+        let photos: [EditablePhoto]?
+        let sketches: [EditableSketch]?
+        let files: [EditableFile]?
+    }
+
+    private struct EditablePhoto: Decodable {
+        let id: String?
+        let originalPath: String?
+        let previewPath: String?
+        let annotatedPath: String?
+        let annotatedPreviewPath: String?
+    }
+
+    private struct EditableSketch: Decodable {
+        let id: String?
+        let path: String?
+        let drawingPath: String?
+    }
+
+    private struct EditableFile: Decodable {
+        let id: String?
+        let fileName: String?
+        let path: String?
+    }
+
     private let store: MobileInboxStore
     private let fileManager: FileManager
     private let encoder: JSONEncoder
@@ -162,6 +213,7 @@ final class MobileInboxWriter: @unchecked Sendable {
         let previewsURL = entryURL.appendingPathComponent("previews", isDirectory: true)
         let annotatedURL = entryURL.appendingPathComponent("annotated", isDirectory: true)
         let sketchesURL = entryURL.appendingPathComponent("sketches", isDirectory: true)
+        let filesURL = entryURL.appendingPathComponent("files", isDirectory: true)
         var didFinish = false
         defer {
             if !didFinish {
@@ -177,6 +229,9 @@ final class MobileInboxWriter: @unchecked Sendable {
             }
             if !draft.sketches.isEmpty {
                 try fileManager.createDirectory(at: sketchesURL, withIntermediateDirectories: true)
+            }
+            if !draft.files.isEmpty {
+                try fileManager.createDirectory(at: filesURL, withIntermediateDirectories: true)
             }
         } catch {
             throw MobileInboxError.directoryCouldNotBeCreated(entryURL.path)
@@ -195,6 +250,9 @@ final class MobileInboxWriter: @unchecked Sendable {
         let savedSketches = try draft.sketches.enumerated().map { index, input in
             try saveSketch(input, index: index + 1, sketchesURL: sketchesURL)
         }
+        let savedFiles = try draft.files.enumerated().map { index, input in
+            try saveFile(input, index: index + 1, filesURL: filesURL)
+        }
 
         let task = MobileInspectionTask(
             id: entryID,
@@ -210,7 +268,8 @@ final class MobileInboxWriter: @unchecked Sendable {
             category: draft.category.trimmedForMobileInbox,
             notes: draft.notes.trimmedForMobileInbox,
             photos: savedPhotos,
-            sketches: savedSketches.isEmpty ? nil : savedSketches
+            sketches: savedSketches.isEmpty ? nil : savedSketches,
+            files: savedFiles.isEmpty ? nil : savedFiles
         )
 
         let jsonURL = entryURL.appendingPathComponent("aufgabe.json", isDirectory: false)
@@ -222,6 +281,165 @@ final class MobileInboxWriter: @unchecked Sendable {
         }
         didFinish = true
         return MobileInspectionSaveResult(entryID: entryID, entryURL: entryURL)
+    }
+
+    func loadDraftForEditing(entryID: String) throws -> MobileInspectionDraft {
+        let selectedFolder = try store.resolveSelectedFolder()
+        let accessGranted = selectedFolder.startAccessingSecurityScopedResource()
+        guard accessGranted else {
+            throw MobileInboxError.folderUnavailable
+        }
+        defer {
+            selectedFolder.stopAccessingSecurityScopedResource()
+        }
+
+        let located = try locatePendingEntry(entryID: entryID, selectedFolder: selectedFolder)
+        let raw = located.task
+        let photos = try (raw.photos ?? []).enumerated().map { index, photo in
+            MobileInspectionPhotoInput(
+                id: photo.id?.trimmedForMobileInbox.isEmpty == false ? photo.id! : UUID().uuidString,
+                fileName: "Foto \(index + 1)",
+                data: try readEntryFile(photo.originalPath, entryURL: located.entryURL, displayName: "Foto \(index + 1)"),
+                previewData: try? readEntryFile(photo.previewPath, entryURL: located.entryURL, displayName: "Vorschau \(index + 1)"),
+                annotatedData: try? readEntryFile(photo.annotatedPath, entryURL: located.entryURL, displayName: "Markiertes Foto \(index + 1)"),
+                annotatedPreviewData: try? readEntryFile(photo.annotatedPreviewPath, entryURL: located.entryURL, displayName: "Markierte Vorschau \(index + 1)")
+            )
+        }
+        let sketches = try (raw.sketches ?? []).enumerated().map { index, sketch in
+            MobileInspectionSketchInput(
+                id: sketch.id?.trimmedForMobileInbox.isEmpty == false ? sketch.id! : UUID().uuidString,
+                fileName: "Skizze \(index + 1)",
+                data: try readEntryFile(sketch.path, entryURL: located.entryURL, displayName: "Skizze \(index + 1)"),
+                previewData: nil,
+                drawingData: try? readEntryFile(sketch.drawingPath, entryURL: located.entryURL, displayName: "Skizzen-Rohdaten \(index + 1)")
+            )
+        }
+        let files = try (raw.files ?? []).enumerated().map { index, file in
+            let fileName = file.fileName?.trimmedForMobileInbox.isEmpty == false
+                ? file.fileName!
+                : file.path.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Datei \(index + 1)"
+            return MobileInspectionFileInput(
+                id: file.id?.trimmedForMobileInbox.isEmpty == false ? file.id! : UUID().uuidString,
+                fileName: fileName,
+                data: try readEntryFile(file.path, entryURL: located.entryURL, displayName: fileName)
+            )
+        }
+
+        return MobileInspectionDraft(
+            editingEntryID: located.entryID,
+            editingEntryDirectoryName: located.entryURL.lastPathComponent,
+            originalCreatedAt: raw.createdAt,
+            customerName: raw.customerName ?? "",
+            address: raw.address ?? "",
+            phone: raw.phone ?? "",
+            email: raw.email ?? "",
+            title: raw.title ?? "",
+            category: raw.category ?? "",
+            notes: raw.notes ?? "",
+            photos: photos,
+            sketches: sketches,
+            files: files
+        )
+    }
+
+    func update(entryID: String, draft: MobileInspectionDraft) throws -> MobileInspectionSaveResult {
+        let selectedFolder = try store.resolveSelectedFolder()
+        let accessGranted = selectedFolder.startAccessingSecurityScopedResource()
+        guard accessGranted else {
+            throw MobileInboxError.folderUnavailable
+        }
+        defer {
+            selectedFolder.stopAccessingSecurityScopedResource()
+        }
+
+        let located = try locatePendingEntry(entryID: entryID, selectedFolder: selectedFolder)
+        let createdAt = located.task.createdAt?.trimmedForMobileInbox.isEmpty == false
+            ? located.task.createdAt!
+            : isoFormatter.string(from: Date())
+
+        let stagingURL = located.entryURL.appendingPathComponent(".edit-\(UUID().uuidString)", isDirectory: true)
+        let originalsURL = stagingURL.appendingPathComponent("originals", isDirectory: true)
+        let previewsURL = stagingURL.appendingPathComponent("previews", isDirectory: true)
+        let annotatedURL = stagingURL.appendingPathComponent("annotated", isDirectory: true)
+        let sketchesURL = stagingURL.appendingPathComponent("sketches", isDirectory: true)
+        let filesURL = stagingURL.appendingPathComponent("files", isDirectory: true)
+        defer {
+            try? fileManager.removeItem(at: stagingURL)
+        }
+
+        do {
+            try fileManager.createDirectory(at: originalsURL, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: previewsURL, withIntermediateDirectories: true)
+            if draft.photos.contains(where: { $0.annotatedData != nil }) {
+                try fileManager.createDirectory(at: annotatedURL, withIntermediateDirectories: true)
+            }
+            if !draft.sketches.isEmpty {
+                try fileManager.createDirectory(at: sketchesURL, withIntermediateDirectories: true)
+            }
+            if !draft.files.isEmpty {
+                try fileManager.createDirectory(at: filesURL, withIntermediateDirectories: true)
+            }
+        } catch {
+            throw MobileInboxError.directoryCouldNotBeCreated(located.entryURL.path)
+        }
+
+        let savedPhotos = try draft.photos.enumerated().map { index, input in
+            try savePhoto(input, index: index + 1, originalsURL: originalsURL, previewsURL: previewsURL, annotatedURL: annotatedURL)
+        }
+        let savedSketches = try draft.sketches.enumerated().map { index, input in
+            try saveSketch(input, index: index + 1, sketchesURL: sketchesURL)
+        }
+        let savedFiles = try draft.files.enumerated().map { index, input in
+            try saveFile(input, index: index + 1, filesURL: filesURL)
+        }
+        let task = MobileInspectionTask(
+            id: located.entryID,
+            schemaVersion: 1,
+            createdAt: createdAt,
+            source: "ios",
+            status: "new",
+            customerName: draft.customerName.trimmedForMobileInbox,
+            address: draft.address.trimmedForMobileInbox,
+            phone: draft.phone.trimmedForMobileInbox,
+            email: draft.email.trimmedForMobileInbox,
+            title: draft.title.trimmedForMobileInbox,
+            category: draft.category.trimmedForMobileInbox,
+            notes: draft.notes.trimmedForMobileInbox,
+            photos: savedPhotos,
+            sketches: savedSketches.isEmpty ? nil : savedSketches,
+            files: savedFiles.isEmpty ? nil : savedFiles
+        )
+        let jsonURL = located.entryURL.appendingPathComponent("aufgabe.json", isDirectory: false)
+        let jsonData = try encoder.encode(task)
+
+        for directoryName in ["originals", "previews", "annotated", "sketches", "files"] {
+            let targetURL = located.entryURL.appendingPathComponent(directoryName, isDirectory: true)
+            try? fileManager.removeItem(at: targetURL)
+            let stagedDirectory = stagingURL.appendingPathComponent(directoryName, isDirectory: true)
+            if fileManager.fileExists(atPath: stagedDirectory.path) {
+                try fileManager.moveItem(at: stagedDirectory, to: targetURL)
+            }
+        }
+        do {
+            try jsonData.write(to: jsonURL, options: [.atomic])
+        } catch {
+            throw MobileInboxError.jsonCouldNotBeWritten(jsonURL.path)
+        }
+        return MobileInspectionSaveResult(entryID: located.entryID, entryURL: located.entryURL)
+    }
+
+    func deletePendingEntry(entryID: String) throws {
+        let selectedFolder = try store.resolveSelectedFolder()
+        let accessGranted = selectedFolder.startAccessingSecurityScopedResource()
+        guard accessGranted else {
+            throw MobileInboxError.folderUnavailable
+        }
+        defer {
+            selectedFolder.stopAccessingSecurityScopedResource()
+        }
+
+        let located = try locatePendingEntry(entryID: entryID, selectedFolder: selectedFolder)
+        try fileManager.removeItem(at: located.entryURL)
     }
 
     private func savePhoto(
@@ -325,6 +543,26 @@ final class MobileInboxWriter: @unchecked Sendable {
             id: sketchID,
             path: "sketches/\(pngFileName)",
             drawingPath: drawingPath
+        )
+    }
+
+    private func saveFile(
+        _ input: MobileInspectionFileInput,
+        index: Int,
+        filesURL: URL
+    ) throws -> MobileInspectionFile {
+        guard !input.data.isEmpty else {
+            throw MobileInboxError.fileIsEmpty(input.fileName)
+        }
+
+        let fileID = String(format: "datei-%03d", index)
+        let fileName = "\(fileID)-\(sanitizedFileName(input.fileName))"
+        let fileURL = filesURL.appendingPathComponent(fileName, isDirectory: false)
+        try writeFileData(input.data, to: fileURL, displayName: input.fileName)
+        return MobileInspectionFile(
+            id: fileID,
+            fileName: input.fileName,
+            path: "files/\(fileName)"
         )
     }
 
@@ -454,6 +692,92 @@ final class MobileInboxWriter: @unchecked Sendable {
         }
     }
 
+    private func writeFileData(_ data: Data, to url: URL, displayName: String) throws {
+        guard !data.isEmpty else {
+            throw MobileInboxError.fileIsEmpty(displayName)
+        }
+
+        var coordinationError: NSError?
+        var writeError: Error?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(writingItemAt: url, options: [.forReplacing], error: &coordinationError) { writableURL in
+            do {
+                try data.write(to: writableURL, options: [.atomic])
+            } catch {
+                writeError = error
+            }
+        }
+
+        if coordinationError != nil || writeError != nil {
+            throw MobileInboxError.fileCouldNotBeWritten(displayName)
+        }
+
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+        let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+        guard size > 0 else {
+            try? fileManager.removeItem(at: url)
+            throw MobileInboxError.fileIsEmpty(displayName)
+        }
+    }
+
+    private func locatePendingEntry(entryID: String, selectedFolder: URL) throws -> (entryID: String, entryURL: URL, task: EditableTask) {
+        let inboxURL = store.mobileInboxURL(for: selectedFolder)
+        guard fileManager.fileExists(atPath: inboxURL.path) else {
+            throw MobileInboxError.entryNotFound
+        }
+
+        let directories = try fileManager.contentsOfDirectory(
+            at: inboxURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        for directoryURL in directories where directoryURL.lastPathComponent.hasPrefix("mobile-") {
+            let jsonURL = directoryURL.appendingPathComponent("aufgabe.json", isDirectory: false)
+            guard let data = try? Data(contentsOf: jsonURL),
+                  let task = try? JSONDecoder().decode(EditableTask.self, from: data) else {
+                continue
+            }
+            let taskID = task.id?.trimmedForMobileInbox.isEmpty == false ? task.id! : directoryURL.lastPathComponent
+            guard taskID == entryID || directoryURL.lastPathComponent == entryID else {
+                continue
+            }
+            let status = task.status?.trimmedForMobileInbox ?? ""
+            guard status.caseInsensitiveCompare("new") == .orderedSame else {
+                throw MobileInboxError.entryAlreadyProcessed
+            }
+            return (taskID, directoryURL, task)
+        }
+
+        throw MobileInboxError.entryNotFound
+    }
+
+    private func readEntryFile(_ path: String?, entryURL: URL, displayName: String) throws -> Data {
+        guard let resolvedURL = resolvedEntryURL(path, entryURL: entryURL) else {
+            throw MobileInboxError.fileCouldNotBeRead(displayName)
+        }
+        do {
+            let data = try Data(contentsOf: resolvedURL)
+            guard !data.isEmpty else {
+                throw MobileInboxError.fileIsEmpty(displayName)
+            }
+            return data
+        } catch let error as MobileInboxError {
+            throw error
+        } catch {
+            throw MobileInboxError.fileCouldNotBeRead(displayName)
+        }
+    }
+
+    private func resolvedEntryURL(_ path: String?, entryURL: URL) -> URL? {
+        guard let value = path?.trimmedForMobileInbox, !value.isEmpty else {
+            return nil
+        }
+        if value.hasPrefix("/") {
+            return URL(fileURLWithPath: value)
+        }
+        return entryURL.appendingPathComponent(value, isDirectory: false)
+    }
+
     private func makeEntryID(createdAt: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -476,6 +800,17 @@ final class MobileInboxWriter: @unchecked Sendable {
         let result = components.joined(separator: "-").lowercased()
         return result.isEmpty ? "ohne-name" : result
     }
+
+    private func sanitizedFileName(_ name: String) -> String {
+        let trimmed = name.trimmedForMobileInbox
+        let fallback = trimmed.isEmpty ? "datei" : trimmed
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+            .union(.controlCharacters)
+            .union(.whitespacesAndNewlines)
+        let components = fallback.components(separatedBy: invalidCharacters).filter { !$0.isEmpty }
+        let result = components.joined(separator: "-")
+        return result.isEmpty ? "datei" : result
+    }
 }
 
 private extension String {
@@ -488,6 +823,9 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
     private struct StoredDraft: Codable {
         let schemaVersion: Int
         let updatedAt: Date
+        let editingEntryID: String?
+        let editingEntryDirectoryName: String?
+        let originalCreatedAt: String?
         let customerName: String
         let address: String
         let phone: String
@@ -497,6 +835,7 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         let notes: String
         let photos: [StoredPhoto]
         let sketches: [StoredSketch]
+        let files: [StoredFile]?
     }
 
     private struct StoredPhoto: Codable {
@@ -514,6 +853,12 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         let dataPath: String
         let previewPath: String?
         let drawingPath: String?
+    }
+
+    private struct StoredFile: Codable {
+        let id: String
+        let fileName: String
+        let dataPath: String
     }
 
     private let fileManager: FileManager
@@ -541,7 +886,11 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         let storedDraft = try decoder.decode(StoredDraft.self, from: Data(contentsOf: draftURL))
         let photos = storedDraft.photos.compactMap(loadPhoto)
         let sketches = storedDraft.sketches.compactMap(loadSketch)
+        let files = (storedDraft.files ?? []).compactMap(loadFile)
         return MobileInspectionDraft(
+            editingEntryID: storedDraft.editingEntryID,
+            editingEntryDirectoryName: storedDraft.editingEntryDirectoryName,
+            originalCreatedAt: storedDraft.originalCreatedAt,
             customerName: storedDraft.customerName,
             address: storedDraft.address,
             phone: storedDraft.phone,
@@ -550,7 +899,8 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
             category: storedDraft.category,
             notes: storedDraft.notes,
             photos: photos,
-            sketches: sketches
+            sketches: sketches,
+            files: files
         )
     }
 
@@ -563,6 +913,7 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         try fileManager.createDirectory(at: draftDirectoryURL, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: photosDirectoryURL, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: sketchesDirectoryURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: filesDirectoryURL, withIntermediateDirectories: true)
 
         let storedPhotos = try draft.photos.enumerated().map { index, photo in
             try savePhoto(photo, index: index + 1)
@@ -578,9 +929,17 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
             [$0.dataPath, $0.previewPath, $0.drawingPath].compactMap { $0 }
         })
 
+        let storedFiles = try draft.files.enumerated().map { index, file in
+            try saveFile(file, index: index + 1)
+        }
+        try removeStaleFiles(in: filesDirectoryURL, keeping: storedFiles.map(\.dataPath))
+
         let storedDraft = StoredDraft(
             schemaVersion: 1,
             updatedAt: Date(),
+            editingEntryID: draft.editingEntryID,
+            editingEntryDirectoryName: draft.editingEntryDirectoryName,
+            originalCreatedAt: draft.originalCreatedAt,
             customerName: draft.customerName,
             address: draft.address,
             phone: draft.phone,
@@ -589,7 +948,8 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
             category: draft.category,
             notes: draft.notes,
             photos: storedPhotos,
-            sketches: storedSketches
+            sketches: storedSketches,
+            files: storedFiles
         )
         try encoder.encode(storedDraft).write(to: draftURL, options: [.atomic])
     }
@@ -625,6 +985,10 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
 
     private var sketchesDirectoryURL: URL {
         draftDirectoryURL.appendingPathComponent("sketches", isDirectory: true)
+    }
+
+    private var filesDirectoryURL: URL {
+        draftDirectoryURL.appendingPathComponent("files", isDirectory: true)
     }
 
     private func savePhoto(_ photo: MobileInspectionPhotoInput, index: Int) throws -> StoredPhoto {
@@ -678,6 +1042,18 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         )
     }
 
+    private func saveFile(_ file: MobileInspectionFileInput, index: Int) throws -> StoredFile {
+        let name = String(format: "file-%03d", index)
+        let dataPath = "files/\(name)-\(draftSafeFileName(file.fileName))"
+
+        try write(file.data, relativePath: dataPath)
+        return StoredFile(
+            id: file.id,
+            fileName: file.fileName,
+            dataPath: dataPath
+        )
+    }
+
     private func loadPhoto(_ photo: StoredPhoto) -> MobileInspectionPhotoInput? {
         guard let data = try? read(relativePath: photo.dataPath) else {
             return nil
@@ -707,6 +1083,18 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         )
     }
 
+    private func loadFile(_ file: StoredFile) -> MobileInspectionFileInput? {
+        guard let data = try? read(relativePath: file.dataPath) else {
+            return nil
+        }
+
+        return MobileInspectionFileInput(
+            id: file.id,
+            fileName: file.fileName,
+            data: data
+        )
+    }
+
     private func write(_ data: Data, relativePath: String) throws {
         let url = draftDirectoryURL.appendingPathComponent(relativePath, isDirectory: false)
         try data.write(to: url, options: [.atomic])
@@ -727,5 +1115,16 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
                 try fileManager.removeItem(at: url)
             }
         }
+    }
+
+    private func draftSafeFileName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = trimmed.isEmpty ? "datei" : trimmed
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+            .union(.controlCharacters)
+            .union(.whitespacesAndNewlines)
+        let components = fallback.components(separatedBy: invalidCharacters).filter { !$0.isEmpty }
+        let result = components.joined(separator: "-")
+        return result.isEmpty ? "datei" : result
     }
 }

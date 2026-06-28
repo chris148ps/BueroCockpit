@@ -7,11 +7,15 @@ final class MobileInboxReader: @unchecked Sendable {
         let createdAt: String?
         let status: String?
         let customerName: String?
+        let address: String?
+        let phone: String?
+        let email: String?
         let title: String?
         let category: String?
         let notes: String?
         let photos: [RawPhoto]?
         let sketches: [RawSketch]?
+        let files: [RawFile]?
     }
 
     private struct RawPhoto: Decodable {
@@ -26,6 +30,12 @@ final class MobileInboxReader: @unchecked Sendable {
         let id: String?
         let path: String?
         let drawingPath: String?
+    }
+
+    private struct RawFile: Decodable {
+        let id: String?
+        let fileName: String?
+        let path: String?
     }
 
     private let store: MobileInboxStore
@@ -85,6 +95,9 @@ final class MobileInboxReader: @unchecked Sendable {
             return MobileInboxPendingEntry(
                 id: raw.id?.nonEmptyValue ?? directoryURL.lastPathComponent,
                 customerName: raw.customerName?.nonEmptyValue ?? "",
+                address: raw.address?.nonEmptyValue ?? "",
+                phone: raw.phone?.nonEmptyValue ?? "",
+                email: raw.email?.nonEmptyValue ?? "",
                 title: raw.title?.nonEmptyValue ?? "",
                 category: raw.category?.nonEmptyValue ?? "",
                 notes: raw.notes ?? "",
@@ -96,6 +109,7 @@ final class MobileInboxReader: @unchecked Sendable {
                     photo.annotatedPreviewPath?.nonEmptyValue != nil
                 }.count ?? 0,
                 sketchCount: raw.sketches?.count ?? 0,
+                fileCount: raw.files?.count ?? 0,
                 attachmentIssueSummary: Self.attachmentIssueSummary(for: raw, entryURL: directoryURL, fileManager: fileManager),
                 entryURL: directoryURL
             )
@@ -141,6 +155,15 @@ final class MobileInboxReader: @unchecked Sendable {
             )
             inspectFileReference(
                 sketch.drawingPath,
+                entryURL: entryURL,
+                fileManager: fileManager,
+                missingCount: &missingCount
+            )
+        }
+
+        for file in raw.files ?? [] {
+            inspectFileReference(
+                file.path,
                 entryURL: entryURL,
                 fileManager: fileManager,
                 missingCount: &missingCount

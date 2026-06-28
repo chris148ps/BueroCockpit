@@ -161,6 +161,7 @@ public sealed class MobileInboxLoader
             Notes = ReadFirstString(root, "notes", "notiz"),
             PhotoPreviews = ReadPhotoPreviewItems(entryDirectory, root),
             SketchPreviews = ReadSketchPreviewItems(entryDirectory, root),
+            FilePreviews = ReadFilePreviewItems(entryDirectory, root),
             OriginalPhotoPaths = ReadOriginalPhotoPaths(entryDirectory, root)
         };
     }
@@ -289,6 +290,32 @@ public sealed class MobileInboxLoader
             foreach (var path in Directory.EnumerateFiles(annotatedDirectory, "*thumb*", SearchOption.TopDirectoryOnly).OrderBy(Path.GetFileName))
             {
                 AddPreviewItem(entryDirectory, items, path, "annotated");
+            }
+        }
+
+        return items;
+    }
+
+    private static List<MobileInboxPreviewItem> ReadFilePreviewItems(string entryDirectory, JsonElement root)
+    {
+        var items = new List<MobileInboxPreviewItem>();
+        if (TryGetProperty(root, "files", out var arrayElement) && arrayElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var itemElement in arrayElement.EnumerateArray())
+            {
+                var path = itemElement.ValueKind == JsonValueKind.Object
+                    ? ReadFirstExistingString(itemElement, "path", "filePath")
+                    : ConvertToString(itemElement);
+                AddPreviewItem(entryDirectory, items, path, "file", path);
+            }
+        }
+
+        var filesDirectory = Path.Combine(entryDirectory, "files");
+        if (Directory.Exists(filesDirectory))
+        {
+            foreach (var path in Directory.EnumerateFiles(filesDirectory).OrderBy(Path.GetFileName))
+            {
+                AddPreviewItem(entryDirectory, items, path, "file", path);
             }
         }
 

@@ -16,6 +16,7 @@ public sealed class MobileInboxEntry
     public string Notes { get; init; } = string.Empty;
     public IReadOnlyList<MobileInboxPreviewItem> PhotoPreviews { get; init; } = Array.Empty<MobileInboxPreviewItem>();
     public IReadOnlyList<MobileInboxPreviewItem> SketchPreviews { get; init; } = Array.Empty<MobileInboxPreviewItem>();
+    public IReadOnlyList<MobileInboxPreviewItem> FilePreviews { get; init; } = Array.Empty<MobileInboxPreviewItem>();
     public IReadOnlyList<string> OriginalPhotoPaths { get; init; } = Array.Empty<string>();
 
     public string CreatedAtText => CreatedAt.ToString("dd.MM.yyyy HH:mm");
@@ -27,6 +28,7 @@ public sealed class MobileInboxEntry
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasPhotoPreviews => PhotoPreviews.Count > 0;
     public bool HasSketchPreviews => SketchPreviews.Count > 0;
+    public bool HasFilePreviews => FilePreviews.Count > 0;
     public string DisplayStatusText => HasAttachmentIssues ? "Fehler" : Status.Trim().ToLowerInvariant() switch
     {
         "approved" or "released" or "freigegeben" => "Freigegeben",
@@ -59,6 +61,7 @@ public sealed class MobileInboxEntry
     public bool HasAttachmentIssues =>
         PhotoPreviews.Any(item => item.HasIssue) ||
         SketchPreviews.Any(item => item.HasIssue) ||
+        FilePreviews.Any(item => item.HasIssue) ||
         OriginalPhotoPaths.Any(path => string.IsNullOrWhiteSpace(path) || !File.Exists(path));
     public string AttachmentIssueText
     {
@@ -67,9 +70,11 @@ public sealed class MobileInboxEntry
             var missingCount =
                 PhotoPreviews.Count(item => item.IsMissing || item.IsDetailMissing) +
                 SketchPreviews.Count(item => item.IsMissing || item.IsDetailMissing) +
+                FilePreviews.Count(item => item.IsMissing || item.IsDetailMissing) +
                 OriginalPhotoPaths.Count(path => string.IsNullOrWhiteSpace(path) || !File.Exists(path));
             var unreadableCount = PhotoPreviews.Count(item => item.IsUnreadable) +
-                                  SketchPreviews.Count(item => item.IsUnreadable);
+                                  SketchPreviews.Count(item => item.IsUnreadable) +
+                                  FilePreviews.Count(item => item.IsUnreadable);
             var parts = new List<string>();
             if (missingCount == 1)
             {
@@ -125,6 +130,15 @@ public sealed class MobileInboxEntry
             else if (SketchPreviews.Count > 1)
             {
                 parts.Add($"{SketchPreviews.Count} Skizzen");
+            }
+
+            if (FilePreviews.Count == 1)
+            {
+                parts.Add("1 Datei");
+            }
+            else if (FilePreviews.Count > 1)
+            {
+                parts.Add($"{FilePreviews.Count} Dateien");
             }
 
             return parts.Count == 0 ? "Keine Anhänge referenziert." : string.Join(" · ", parts);

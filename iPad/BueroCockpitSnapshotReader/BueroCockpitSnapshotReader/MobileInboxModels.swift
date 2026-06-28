@@ -14,6 +14,12 @@ struct MobileInspectionSketch: Codable, Equatable, Sendable {
     let drawingPath: String?
 }
 
+struct MobileInspectionFile: Codable, Equatable, Sendable {
+    let id: String
+    let fileName: String
+    let path: String
+}
+
 struct MobileInspectionTask: Codable, Equatable, Sendable {
     let id: String
     let schemaVersion: Int
@@ -29,6 +35,7 @@ struct MobileInspectionTask: Codable, Equatable, Sendable {
     let notes: String
     let photos: [MobileInspectionPhoto]
     let sketches: [MobileInspectionSketch]?
+    let files: [MobileInspectionFile]?
 }
 
 struct MobileInspectionPhotoInput: Identifiable, Equatable, Sendable {
@@ -48,7 +55,16 @@ struct MobileInspectionSketchInput: Identifiable, Equatable, Sendable {
     let drawingData: Data?
 }
 
+struct MobileInspectionFileInput: Identifiable, Equatable, Sendable {
+    let id: String
+    let fileName: String
+    let data: Data
+}
+
 struct MobileInspectionDraft: Equatable, Sendable {
+    var editingEntryID: String?
+    var editingEntryDirectoryName: String?
+    var originalCreatedAt: String?
     var customerName: String = ""
     var address: String = ""
     var phone: String = ""
@@ -58,12 +74,18 @@ struct MobileInspectionDraft: Equatable, Sendable {
     var notes: String = ""
     var photos: [MobileInspectionPhotoInput] = []
     var sketches: [MobileInspectionSketchInput] = []
+    var files: [MobileInspectionFileInput] = []
 
     var hasUserContent: Bool {
         let textValues = [customerName, address, phone, email, title, notes]
         return textValues.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             || !photos.isEmpty
             || !sketches.isEmpty
+            || !files.isEmpty
+    }
+
+    var isEditingExistingEntry: Bool {
+        editingEntryID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 }
 
@@ -75,6 +97,9 @@ struct MobileInspectionSaveResult: Equatable, Sendable {
 struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
     let id: String
     let customerName: String
+    let address: String
+    let phone: String
+    let email: String
     let title: String
     let category: String
     let notes: String
@@ -83,6 +108,7 @@ struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
     let photoCount: Int
     let annotatedPhotoCount: Int
     let sketchCount: Int
+    let fileCount: Int
     let attachmentIssueSummary: String?
     let entryURL: URL
 
@@ -111,6 +137,11 @@ struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
             parts.append("1 Skizze")
         } else if sketchCount > 1 {
             parts.append("\(sketchCount) Skizzen")
+        }
+        if fileCount == 1 {
+            parts.append("1 Datei")
+        } else if fileCount > 1 {
+            parts.append("\(fileCount) Dateien")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

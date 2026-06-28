@@ -1,11 +1,13 @@
 import PhotosUI
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct MobileInspectionFormView: View {
     let categoryNames: [String]
     let writer: MobileInboxWriter
     let draftStore: MobileInspectionDraftStore
+    let editingEntryID: String?
     let onSaved: (MobileInspectionSaveResult) -> Void
     let onNeedsFolderSelection: () -> Void
     let onDraftStateChanged: (Bool) -> Void
@@ -17,19 +19,27 @@ struct MobileInspectionFormView: View {
     @State private var selectedLibraryPhotos: [MobileInspectionPhotoInput] = []
     @State private var cameraPhotos: [MobileInspectionPhotoInput] = []
     @State private var sketches: [MobileInspectionSketchInput] = []
+    @State private var files: [MobileInspectionFileInput] = []
     @State private var activeSheet: MobileInspectionSheet?
     @State private var activePreview: MobileInspectionPreview?
+    @State private var isFileImporterPresented = false
     @State private var isSaving = false
     @State private var isLoadingPhotos = false
     @State private var errorMessage: String?
     @State private var hasRestoredDraft = false
     @State private var isRestoringDraft = false
     @State private var isDiscardConfirmationPresented = false
+    @State private var pendingDeletion: MobileInspectionDeletion?
 
     private var effectiveCategoryNames: [String] {
-        let snapshotCategories = categoryNames
+        var snapshotCategories = categoryNames
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+        let currentCategory = draft.category.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !currentCategory.isEmpty,
+           !snapshotCategories.contains(where: { $0.caseInsensitiveCompare(currentCategory) == .orderedSame }) {
+            snapshotCategories.append(currentCategory)
+        }
         return snapshotCategories.isEmpty
             ? ["Angebot erstellen", "Besichtigung", "Material bestellen", "Rückfrage"]
             : snapshotCategories
@@ -47,9 +57,10 @@ struct MobileInspectionFormView: View {
             notesSection
             photosSection
             sketchesSection
+            filesSection
             errorSection
         }
-        .navigationTitle("Neue Besichtigung")
+        .navigationTitle(editingEntryID == nil ? "Neue Besichtigung" : "Eingang bearbeiten")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Abbrechen", action: cancel)
@@ -65,7 +76,6 @@ struct MobileInspectionFormView: View {
         .onAppear {
             restoreDraftIfNeeded()
             normalizeCategory()
-            persistCurrentDraft()
         }
         .onChange(of: categoryNames) { _, _ in
             normalizeCategory()
@@ -77,6 +87,13 @@ struct MobileInspectionFormView: View {
         .onChange(of: scenePhase) { _, phase in
             handleScenePhaseChange(phase)
         }
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            loadFilesFromImporterResult(result)
+        }
         .interactiveDismissDisabled(currentDraft.hasUserContent)
         .alert("Entwurf verwerfen?", isPresented: $isDiscardConfirmationPresented) {
             Button("Weiter bearbeiten", role: .cancel) {
@@ -86,6 +103,23 @@ struct MobileInspectionFormView: View {
             }
         } message: {
             Text("Der angefangene mobile Eingang bleibt sonst lokal gespeichert.")
+        }
+        .alert("Anhang löschen?", isPresented: Binding(
+            get: { pendingDeletion != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingDeletion = nil
+                }
+            }
+        )) {
+            Button("Behalten", role: .cancel) {
+                pendingDeletion = nil
+            }
+            Button("Löschen", role: .destructive) {
+                confirmPendingDeletion()
+            }
+        } message: {
+            Text("Der Anhang wird erst beim Speichern dauerhaft aus diesem wartenden mobilen Eingang entfernt.")
         }
         .sheet(item: $activeSheet) { sheet in
             activeSheetView(sheet)
@@ -138,6 +172,7 @@ struct MobileInspectionFormView: View {
         var current = draft
         current.photos = selectedLibraryPhotos + cameraPhotos
         current.sketches = sketches
+        current.files = files
         return current
     }
 
@@ -225,6 +260,25 @@ struct MobileInspectionFormView: View {
         })
     }
 
+    private var filesSection: AnyView {
+        AnyView(Section("Dateien") {
+            Button {
+                isFileImporterPresented = true
+            } label: {
+                Label("Dateien auswählen", systemImage: "paperclip")
+            }
+
+            if files.isEmpty {
+                Text("Noch keine Datei hinzugefügt.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(files) { file in
+                    fileRow(file)
+                }
+            }
+        })
+    }
+
     private var errorSection: AnyView {
         guard let errorMessage else {
             return AnyView(EmptyView())
@@ -257,6 +311,12 @@ struct MobileInspectionFormView: View {
                         fullData: annotatedData,
                         systemImage: "pencil.tip.crop.circle"
                     )
+                    Button(role: .destructive) {
+                        pendingDeletion = .photoAnnotation(photo.id)
+                    } label: {
+                        Label("Markierung löschen", systemImage: "eraser")
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
             VStack(alignment: .leading, spacing: 4) {
@@ -274,6 +334,12 @@ struct MobileInspectionFormView: View {
                 Label(annotateTitle, systemImage: "pencil.tip")
             }
             .buttonStyle(.borderless)
+            Button(role: .destructive) {
+                pendingDeletion = .photo(photo.id)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
         }
     }
 
@@ -289,7 +355,23 @@ struct MobileInspectionFormView: View {
             Text(sketch.fileName)
             Spacer()
             Button(role: .destructive) {
-                removeSketch(sketch)
+                pendingDeletion = .sketch(sketch.id)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private func fileRow(_ file: MobileInspectionFileInput) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc")
+                .frame(width: 32)
+            Text(file.fileName)
+                .lineLimit(2)
+            Spacer()
+            Button(role: .destructive) {
+                pendingDeletion = .file(file.id)
             } label: {
                 Image(systemName: "trash")
             }
@@ -389,13 +471,24 @@ struct MobileInspectionFormView: View {
 
         hasRestoredDraft = true
         do {
-            guard let restoredDraft = try draftStore.load() else {
-                onDraftStateChanged(false)
+            let storedDraft = try draftStore.load()
+            let restoredDraft: MobileInspectionDraft
+            if let storedDraft, storedDraft.editingEntryID == editingEntryID {
+                restoredDraft = storedDraft
+            } else if let editingEntryID {
+                restoredDraft = try writer.loadDraftForEditing(entryID: editingEntryID)
+            } else if let storedDraft, storedDraft.editingEntryID == nil {
+                restoredDraft = storedDraft
+            } else {
+                onDraftStateChanged(storedDraft != nil)
                 return
             }
 
             isRestoringDraft = true
             draft = MobileInspectionDraft(
+                editingEntryID: restoredDraft.editingEntryID,
+                editingEntryDirectoryName: restoredDraft.editingEntryDirectoryName,
+                originalCreatedAt: restoredDraft.originalCreatedAt,
                 customerName: restoredDraft.customerName,
                 address: restoredDraft.address,
                 phone: restoredDraft.phone,
@@ -408,6 +501,7 @@ struct MobileInspectionFormView: View {
             selectedLibraryPhotos = []
             cameraPhotos = restoredDraft.photos
             sketches = restoredDraft.sketches
+            files = restoredDraft.files
             isRestoringDraft = false
             onDraftStateChanged(true)
         } catch {
@@ -475,13 +569,20 @@ struct MobileInspectionFormView: View {
         do {
             draft.photos = selectedLibraryPhotos + cameraPhotos
             draft.sketches = sketches
-            let result = try writer.save(draft)
+            draft.files = files
+            let result: MobileInspectionSaveResult
+            if let editingEntryID {
+                result = try writer.update(entryID: editingEntryID, draft: draft)
+            } else {
+                result = try writer.save(draft)
+            }
             try? draftStore.discard()
             draft = MobileInspectionDraft(category: effectiveCategoryNames.first ?? "")
             selectedPhotoItems = []
             selectedLibraryPhotos = []
             cameraPhotos = []
             sketches = []
+            files = []
             onDraftStateChanged(false)
             onSaved(result)
         } catch MobileInboxError.folderNotSelected {
@@ -576,11 +677,6 @@ struct MobileInspectionFormView: View {
         persistCurrentDraft()
     }
 
-    private func removeSketch(_ sketch: MobileInspectionSketchInput) {
-        sketches.removeAll { $0.id == sketch.id }
-        persistCurrentDraft()
-    }
-
     private func photoInput(for id: String) -> MobileInspectionPhotoInput? {
         selectedLibraryPhotos.first { $0.id == id } ?? cameraPhotos.first { $0.id == id }
     }
@@ -648,6 +744,82 @@ struct MobileInspectionFormView: View {
         }
         return renderedImage.jpegData(compressionQuality: 0.7)
     }
+
+    private func loadFilesFromImporterResult(_ result: Result<[URL], Error>) {
+        do {
+            let urls = try result.get()
+            for url in urls {
+                let accessGranted = url.startAccessingSecurityScopedResource()
+                defer {
+                    if accessGranted {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+                let data = try Data(contentsOf: url)
+                guard !data.isEmpty else {
+                    throw MobileInboxError.fileIsEmpty(url.lastPathComponent)
+                }
+                files.append(MobileInspectionFileInput(
+                    id: UUID().uuidString,
+                    fileName: url.lastPathComponent,
+                    data: data
+                ))
+            }
+            errorMessage = nil
+            persistCurrentDraft()
+        } catch {
+            errorMessage = error.localizedDescription
+            persistCurrentDraft()
+        }
+    }
+
+    private func confirmPendingDeletion() {
+        guard let pendingDeletion else {
+            return
+        }
+        switch pendingDeletion {
+        case .photo(let id):
+            selectedLibraryPhotos.removeAll { $0.id == id }
+            cameraPhotos.removeAll { $0.id == id }
+        case .photoAnnotation(let id):
+            removePhotoAnnotation(id: id)
+        case .sketch(let id):
+            sketches.removeAll { $0.id == id }
+        case .file(let id):
+            files.removeAll { $0.id == id }
+        }
+        self.pendingDeletion = nil
+        persistCurrentDraft()
+    }
+
+    private func removePhotoAnnotation(id: String) {
+        selectedLibraryPhotos = selectedLibraryPhotos.map { photo in
+            guard photo.id == id else {
+                return photo
+            }
+            return MobileInspectionPhotoInput(
+                id: photo.id,
+                fileName: photo.fileName,
+                data: photo.data,
+                previewData: photo.previewData,
+                annotatedData: nil,
+                annotatedPreviewData: nil
+            )
+        }
+        cameraPhotos = cameraPhotos.map { photo in
+            guard photo.id == id else {
+                return photo
+            }
+            return MobileInspectionPhotoInput(
+                id: photo.id,
+                fileName: photo.fileName,
+                data: photo.data,
+                previewData: photo.previewData,
+                annotatedData: nil,
+                annotatedPreviewData: nil
+            )
+        }
+    }
 }
 
 private enum MobileInspectionSheet: Identifiable {
@@ -663,6 +835,26 @@ private enum MobileInspectionSheet: Identifiable {
             return "sketch"
         case .annotatePhoto(let photoID):
             return "annotate-photo-\(photoID)"
+        }
+    }
+}
+
+private enum MobileInspectionDeletion: Identifiable {
+    case photo(String)
+    case photoAnnotation(String)
+    case sketch(String)
+    case file(String)
+
+    var id: String {
+        switch self {
+        case .photo(let id):
+            return "photo-\(id)"
+        case .photoAnnotation(let id):
+            return "photo-annotation-\(id)"
+        case .sketch(let id):
+            return "sketch-\(id)"
+        case .file(let id):
+            return "file-\(id)"
         }
     }
 }

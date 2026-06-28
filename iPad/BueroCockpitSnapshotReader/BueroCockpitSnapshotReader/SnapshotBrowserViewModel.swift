@@ -133,6 +133,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
         selectedTaskID = taskID
     }
 
+    func mobileInboxEntry(forTaskID taskID: String) -> MobileInboxPendingEntry? {
+        guard taskID.hasPrefix("mobile-inbox-") else {
+            return nil
+        }
+
+        let entryID = String(taskID.dropFirst("mobile-inbox-".count))
+        return mobileInboxEntries.first { $0.id == entryID }
+    }
+
     func attachments(for task: SnapshotTask) -> [SnapshotAttachmentIndex] {
         let directMatches = attachments.filter { $0.taskId == task.id }
         guard !task.attachmentRefs.isEmpty else {
@@ -739,8 +748,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
             id: "mobile-inbox-\(entry.id)",
             title: entry.displayTitle,
             customerName: entry.customerName,
-            customerEmail: nil,
-            customerPhone: nil,
+            customerEmail: entry.email,
+            customerPhone: entry.phone,
             categoryIds: [Self.mobilePendingCategoryID],
             categoryNames: ["Wartet auf Freigabe", entry.category].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
             dueDate: nil,
