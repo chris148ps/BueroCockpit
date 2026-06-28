@@ -6,6 +6,12 @@ struct MobileSketchCanvasView: View {
     let onSave: (MobileInspectionSketchInput) -> Void
     let onCancel: () -> Void
 
+    private static let exportPaddingRatio: CGFloat = 0.08
+    private static let minimumSourceLength: CGFloat = 180
+    private static let minimumOutputLength: CGFloat = 900
+    private static let maximumOutputLength: CGFloat = 1800
+    private static let previewSize = CGSize(width: 600, height: 400)
+
     @State private var canvasController = PencilSketchCanvasController()
     @State private var isCanvasEmpty = true
     @State private var errorMessage: String?
@@ -70,17 +76,14 @@ struct MobileSketchCanvasView: View {
             return
         }
 
-        let image = renderImageOnWhiteBackground(
-            drawing: drawing,
-            exportRect: canvasController.exportRect(for: drawing),
-            scale: min(UIScreen.main.scale, 2)
-        )
+        let exportLayout = sketchExportLayout(for: drawing)
+        let image = renderImageOnWhiteBackground(drawing: drawing, layout: exportLayout)
         guard let pngData = image.pngData(), !pngData.isEmpty else {
             errorMessage = "Die Skizze konnte nicht als PNG gespeichert werden."
             return
         }
 
-        let previewImage = renderPreviewOnWhiteBackground(drawing: drawing, scale: min(UIScreen.main.scale, 2))
+        let previewImage = renderPreviewOnWhiteBackground(image: image)
         guard let previewData = previewImage.pngData(), !previewData.isEmpty else {
             errorMessage = "Die Skizzenvorschau konnte nicht als PNG gespeichert werden."
             return
@@ -96,21 +99,55 @@ struct MobileSketchCanvasView: View {
         ))
     }
 
-    private func renderImageOnWhiteBackground(drawing: PKDrawing, exportRect: CGRect, scale: CGFloat) -> UIImage {
-        let safeOutputSize = CGSize(
-            width: max(1, ceil(exportRect.width)),
-            height: max(1, ceil(exportRect.height))
+    private func sketchExportLayout(for drawing: PKDrawing) -> SketchExportLayout {
+        guard !drawing.bounds.isNull, !drawing.bounds.isEmpty else {
+            return SketchExportLayout(
+                sourceRect: CGRect(origin: .zero, size: Self.previewSize),
+                outputSize: Self.previewSize
+            )
+        }
+
+        let bounds = drawing.bounds.integral
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let paddedWidth = max(
+            bounds.width * (1 + Self.exportPaddingRatio * 2),
+            Self.minimumSourceLength
         )
+        let paddedHeight = max(
+            bounds.height * (1 + Self.exportPaddingRatio * 2),
+            Self.minimumSourceLength
+        )
+        let sourceRect = CGRect(
+            x: center.x - paddedWidth / 2,
+            y: center.y - paddedHeight / 2,
+            width: paddedWidth,
+            height: paddedHeight
+        ).integral
+        let longestSourceLength = max(sourceRect.width, sourceRect.height)
+        let targetLongestLength = min(
+            Self.maximumOutputLength,
+            max(Self.minimumOutputLength, longestSourceLength)
+        )
+        let outputScale = targetLongestLength / longestSourceLength
+        let outputSize = CGSize(
+            width: max(1, ceil(sourceRect.width * outputScale)),
+            height: max(1, ceil(sourceRect.height * outputScale))
+        )
+
+        return SketchExportLayout(sourceRect: sourceRect, outputSize: outputSize)
+    }
+
+    private func renderImageOnWhiteBackground(drawing: PKDrawing, layout: SketchExportLayout) -> UIImage {
         let format = UIGraphicsImageRendererFormat.default()
-        format.scale = scale
+        format.scale = 1
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: safeOutputSize, format: format)
+        let renderer = UIGraphicsImageRenderer(size: layout.outputSize, format: format)
         return renderer.image { context in
-            let outputRect = CGRect(origin: .zero, size: safeOutputSize)
+            let outputRect = CGRect(origin: .zero, size: layout.outputSize)
             context.cgContext.setFillColor(UIColor.white.cgColor)
             context.cgContext.fill(outputRect)
 
-            let drawingImage = drawing.image(from: exportRect, scale: scale)
+            let drawingImage = drawing.image(from: layout.sourceRect, scale: 1)
             drawingImage.draw(
                 in: outputRect,
                 blendMode: .normal,
@@ -119,37 +156,39 @@ struct MobileSketchCanvasView: View {
         }
     }
 
-    private func renderPreviewOnWhiteBackground(drawing: PKDrawing, scale: CGFloat) -> UIImage {
-        let previewRect = previewExportRect(for: drawing)
-        let previewSize = CGSize(width: 600, height: 400)
+    private func renderPreviewOnWhiteBackground(image: UIImage) -> UIImage {
         let format = UIGraphicsImageRendererFormat.default()
-        format.scale = scale
+        format.scale = 1
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: previewSize, format: format)
+        let renderer = UIGraphicsImageRenderer(size: Self.previewSize, format: format)
         return renderer.image { context in
-            let outputRect = CGRect(origin: .zero, size: previewSize)
+            let outputRect = CGRect(origin: .zero, size: Self.previewSize)
             context.cgContext.setFillColor(UIColor.white.cgColor)
             context.cgContext.fill(outputRect)
 
-            let drawingImage = drawing.image(from: previewRect, scale: scale)
-            drawingImage.draw(in: outputRect, blendMode: .normal, alpha: 1)
+            image.draw(in: fittedImageRect(imageSize: image.size, containerSize: Self.previewSize))
         }
     }
 
-    private func previewExportRect(for drawing: PKDrawing) -> CGRect {
-        guard !drawing.bounds.isNull, !drawing.bounds.isEmpty else {
-            return CGRect(x: 0, y: 0, width: 600, height: 400)
+    private func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0, containerSize.width > 0, containerSize.height > 0 else {
+            return CGRect(origin: .zero, size: containerSize)
         }
 
-        let padded = drawing.bounds.insetBy(dx: -80, dy: -80)
-        let minimumWidth: CGFloat = 600
-        let minimumHeight: CGFloat = 400
-        let width = max(minimumWidth, padded.width)
-        let height = max(minimumHeight, padded.height)
-        let originX = padded.midX - width / 2
-        let originY = padded.midY - height / 2
-        return CGRect(x: originX, y: originY, width: width, height: height).integral
+        let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(
+            x: (containerSize.width - size.width) / 2,
+            y: (containerSize.height - size.height) / 2,
+            width: size.width,
+            height: size.height
+        )
     }
+}
+
+private struct SketchExportLayout {
+    let sourceRect: CGRect
+    let outputSize: CGSize
 }
 
 struct MobilePhotoMarkupView: View {
