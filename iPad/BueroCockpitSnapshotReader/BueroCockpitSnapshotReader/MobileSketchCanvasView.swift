@@ -9,8 +9,8 @@ struct MobileSketchCanvasView: View {
     private static let exportPaddingRatio: CGFloat = 0.08
     private static let finalExportMarginRatio: CGFloat = 0.10
     private static let minimumSourceLength: CGFloat = 180
-    private static let minimumOutputLength: CGFloat = 900
-    private static let maximumOutputLength: CGFloat = 1600
+    private static let minimumOutputLength: CGFloat = 2000
+    private static let maximumOutputLength: CGFloat = 4096
     private static let previewSize = CGSize(width: 600, height: 400)
 
     @State private var canvasController = PencilSketchCanvasController()
