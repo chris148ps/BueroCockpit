@@ -483,3 +483,249 @@ private extension String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
+
+final class MobileInspectionDraftStore: @unchecked Sendable {
+    private struct StoredDraft: Codable {
+        let schemaVersion: Int
+        let updatedAt: Date
+        let customerName: String
+        let address: String
+        let phone: String
+        let email: String
+        let title: String
+        let category: String
+        let notes: String
+        let photos: [StoredPhoto]
+        let sketches: [StoredSketch]
+    }
+
+    private struct StoredPhoto: Codable {
+        let id: String
+        let fileName: String
+        let dataPath: String
+        let previewPath: String?
+        let annotatedPath: String?
+        let annotatedPreviewPath: String?
+    }
+
+    private struct StoredSketch: Codable {
+        let id: String
+        let fileName: String
+        let dataPath: String
+        let previewPath: String?
+        let drawingPath: String?
+    }
+
+    private let fileManager: FileManager
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
+    init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+        encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+    }
+
+    func hasDraft() -> Bool {
+        fileManager.fileExists(atPath: draftURL.path)
+    }
+
+    func load() throws -> MobileInspectionDraft? {
+        guard fileManager.fileExists(atPath: draftURL.path) else {
+            return nil
+        }
+
+        let storedDraft = try decoder.decode(StoredDraft.self, from: Data(contentsOf: draftURL))
+        let photos = storedDraft.photos.compactMap(loadPhoto)
+        let sketches = storedDraft.sketches.compactMap(loadSketch)
+        return MobileInspectionDraft(
+            customerName: storedDraft.customerName,
+            address: storedDraft.address,
+            phone: storedDraft.phone,
+            email: storedDraft.email,
+            title: storedDraft.title,
+            category: storedDraft.category,
+            notes: storedDraft.notes,
+            photos: photos,
+            sketches: sketches
+        )
+    }
+
+    func save(_ draft: MobileInspectionDraft) throws {
+        guard draft.hasUserContent else {
+            try discard()
+            return
+        }
+
+        try fileManager.createDirectory(at: draftDirectoryURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: photosDirectoryURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: sketchesDirectoryURL, withIntermediateDirectories: true)
+
+        let storedPhotos = try draft.photos.enumerated().map { index, photo in
+            try savePhoto(photo, index: index + 1)
+        }
+        try removeStaleFiles(in: photosDirectoryURL, keeping: storedPhotos.flatMap {
+            [$0.dataPath, $0.previewPath, $0.annotatedPath, $0.annotatedPreviewPath].compactMap { $0 }
+        })
+
+        let storedSketches = try draft.sketches.enumerated().map { index, sketch in
+            try saveSketch(sketch, index: index + 1)
+        }
+        try removeStaleFiles(in: sketchesDirectoryURL, keeping: storedSketches.flatMap {
+            [$0.dataPath, $0.previewPath, $0.drawingPath].compactMap { $0 }
+        })
+
+        let storedDraft = StoredDraft(
+            schemaVersion: 1,
+            updatedAt: Date(),
+            customerName: draft.customerName,
+            address: draft.address,
+            phone: draft.phone,
+            email: draft.email,
+            title: draft.title,
+            category: draft.category,
+            notes: draft.notes,
+            photos: storedPhotos,
+            sketches: storedSketches
+        )
+        try encoder.encode(storedDraft).write(to: draftURL, options: [.atomic])
+    }
+
+    func discard() throws {
+        guard fileManager.fileExists(atPath: draftDirectoryURL.path) else {
+            return
+        }
+
+        try fileManager.removeItem(at: draftDirectoryURL)
+    }
+
+    private var draftDirectoryURL: URL {
+        let applicationSupportURL = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let rootURL = applicationSupportURL ?? fileManager.temporaryDirectory
+        return rootURL
+            .appendingPathComponent("BueroCockpit", isDirectory: true)
+            .appendingPathComponent("MobileInspectionDraft", isDirectory: true)
+    }
+
+    private var draftURL: URL {
+        draftDirectoryURL.appendingPathComponent("draft.json", isDirectory: false)
+    }
+
+    private var photosDirectoryURL: URL {
+        draftDirectoryURL.appendingPathComponent("photos", isDirectory: true)
+    }
+
+    private var sketchesDirectoryURL: URL {
+        draftDirectoryURL.appendingPathComponent("sketches", isDirectory: true)
+    }
+
+    private func savePhoto(_ photo: MobileInspectionPhotoInput, index: Int) throws -> StoredPhoto {
+        let name = String(format: "photo-%03d", index)
+        let dataPath = "photos/\(name).jpg"
+        let previewPath = photo.previewData == nil ? nil : "photos/\(name)-thumb.jpg"
+        let annotatedPath = photo.annotatedData == nil ? nil : "photos/\(name)-marked.jpg"
+        let annotatedPreviewPath = photo.annotatedPreviewData == nil ? nil : "photos/\(name)-marked-thumb.jpg"
+
+        try write(photo.data, relativePath: dataPath)
+        if let previewData = photo.previewData, let previewPath {
+            try write(previewData, relativePath: previewPath)
+        }
+        if let annotatedData = photo.annotatedData, let annotatedPath {
+            try write(annotatedData, relativePath: annotatedPath)
+        }
+        if let annotatedPreviewData = photo.annotatedPreviewData, let annotatedPreviewPath {
+            try write(annotatedPreviewData, relativePath: annotatedPreviewPath)
+        }
+
+        return StoredPhoto(
+            id: photo.id,
+            fileName: photo.fileName,
+            dataPath: dataPath,
+            previewPath: previewPath,
+            annotatedPath: annotatedPath,
+            annotatedPreviewPath: annotatedPreviewPath
+        )
+    }
+
+    private func saveSketch(_ sketch: MobileInspectionSketchInput, index: Int) throws -> StoredSketch {
+        let name = String(format: "sketch-%03d", index)
+        let dataPath = "sketches/\(name).png"
+        let previewPath = sketch.previewData == nil ? nil : "sketches/\(name)-thumb.jpg"
+        let drawingPath = sketch.drawingData == nil ? nil : "sketches/\(name).pkdrawing"
+
+        try write(sketch.data, relativePath: dataPath)
+        if let previewData = sketch.previewData, let previewPath {
+            try write(previewData, relativePath: previewPath)
+        }
+        if let drawingData = sketch.drawingData, let drawingPath {
+            try write(drawingData, relativePath: drawingPath)
+        }
+
+        return StoredSketch(
+            id: sketch.id,
+            fileName: sketch.fileName,
+            dataPath: dataPath,
+            previewPath: previewPath,
+            drawingPath: drawingPath
+        )
+    }
+
+    private func loadPhoto(_ photo: StoredPhoto) -> MobileInspectionPhotoInput? {
+        guard let data = try? read(relativePath: photo.dataPath) else {
+            return nil
+        }
+
+        return MobileInspectionPhotoInput(
+            id: photo.id,
+            fileName: photo.fileName,
+            data: data,
+            previewData: photo.previewPath.flatMap { try? read(relativePath: $0) },
+            annotatedData: photo.annotatedPath.flatMap { try? read(relativePath: $0) },
+            annotatedPreviewData: photo.annotatedPreviewPath.flatMap { try? read(relativePath: $0) }
+        )
+    }
+
+    private func loadSketch(_ sketch: StoredSketch) -> MobileInspectionSketchInput? {
+        guard let data = try? read(relativePath: sketch.dataPath) else {
+            return nil
+        }
+
+        return MobileInspectionSketchInput(
+            id: sketch.id,
+            fileName: sketch.fileName,
+            data: data,
+            previewData: sketch.previewPath.flatMap { try? read(relativePath: $0) },
+            drawingData: sketch.drawingPath.flatMap { try? read(relativePath: $0) }
+        )
+    }
+
+    private func write(_ data: Data, relativePath: String) throws {
+        let url = draftDirectoryURL.appendingPathComponent(relativePath, isDirectory: false)
+        try data.write(to: url, options: [.atomic])
+    }
+
+    private func read(relativePath: String) throws -> Data {
+        try Data(contentsOf: draftDirectoryURL.appendingPathComponent(relativePath, isDirectory: false))
+    }
+
+    private func removeStaleFiles(in directoryURL: URL, keeping relativePaths: [String]) throws {
+        guard fileManager.fileExists(atPath: directoryURL.path) else {
+            return
+        }
+
+        let keepNames = Set(relativePaths.map { URL(fileURLWithPath: $0).lastPathComponent })
+        for url in try fileManager.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil) {
+            if !keepNames.contains(url.lastPathComponent) {
+                try fileManager.removeItem(at: url)
+            }
+        }
+    }
+}

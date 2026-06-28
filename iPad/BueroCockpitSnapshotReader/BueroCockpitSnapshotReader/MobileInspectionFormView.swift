@@ -5,10 +5,13 @@ import UIKit
 struct MobileInspectionFormView: View {
     let categoryNames: [String]
     let writer: MobileInboxWriter
+    let draftStore: MobileInspectionDraftStore
     let onSaved: (MobileInspectionSaveResult) -> Void
     let onNeedsFolderSelection: () -> Void
+    let onDraftStateChanged: (Bool) -> Void
     let onDismiss: () -> Void
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var draft = MobileInspectionDraft()
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var selectedLibraryPhotos: [MobileInspectionPhotoInput] = []
@@ -19,6 +22,9 @@ struct MobileInspectionFormView: View {
     @State private var isSaving = false
     @State private var isLoadingPhotos = false
     @State private var errorMessage: String?
+    @State private var hasRestoredDraft = false
+    @State private var isRestoringDraft = false
+    @State private var isDiscardConfirmationPresented = false
 
     private var effectiveCategoryNames: [String] {
         let snapshotCategories = categoryNames
@@ -31,202 +37,276 @@ struct MobileInspectionFormView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Kunde / Auftrag") {
-                    TextField("Kunde / Name", text: $draft.customerName)
-                    TextField("Adresse", text: $draft.address, axis: .vertical)
-                    TextField("Telefon", text: $draft.phone)
-                        .keyboardType(.phonePad)
-                    TextField("E-Mail", text: $draft.email)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    TextField("Titel / Betreff", text: $draft.title)
-                    Picker("Kategorie", selection: $draft.category) {
-                        ForEach(effectiveCategoryNames, id: \.self) { category in
-                            Text(category).tag(category)
-                        }
-                    }
-                }
+            formView
+        }
+    }
 
-                Section("Notiz") {
-                    TextField("Notiz", text: $draft.notes, axis: .vertical)
-                        .lineLimit(8...14)
-                }
-
-                Section("Fotos") {
-                    PhotosPicker(
-                        selection: $selectedPhotoItems,
-                        maxSelectionCount: 30,
-                        matching: .images
-                    ) {
-                        Label("Fotos auswählen", systemImage: "photo.on.rectangle")
-                    }
-
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button {
-                            activeSheet = .camera
-                        } label: {
-                            Label("Kameraaufnahme", systemImage: "camera")
-                        }
-                    }
-
-                    if isLoadingPhotos {
-                        ProgressView("Fotos werden vorbereitet ...")
-                    } else if selectedLibraryPhotos.isEmpty && cameraPhotos.isEmpty {
-                        Text("Noch keine Fotos ausgewählt.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(allPhotosForDisplay) { photo in
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    previewButton(
-                                        title: "Originalfoto",
-                                        fileName: photo.fileName,
-                                        previewData: photo.previewData,
-                                        fullData: photo.data,
-                                        systemImage: "photo"
-                                    )
-                                    if let annotatedData = photo.annotatedData {
-                                        previewButton(
-                                            title: "Markiertes Foto",
-                                            fileName: photo.fileName,
-                                            previewData: photo.annotatedPreviewData,
-                                            fullData: annotatedData,
-                                            systemImage: "pencil.tip.crop.circle"
-                                        )
-                                    }
-                                }
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(photo.fileName)
-                                    if photo.annotatedData != nil {
-                                        Label("Markierte Version vorhanden", systemImage: "pencil.tip.crop.circle")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                Button {
-                                    activeSheet = .annotatePhoto(photo.id)
-                                } label: {
-                                    Label(
-                                        photo.annotatedData == nil ? "Markieren" : "Bearbeiten",
-                                        systemImage: "pencil.tip"
-                                    )
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                        }
-                    }
-                }
-
-                Section("Skizzen") {
-                    Button {
-                        activeSheet = .sketch
-                    } label: {
-                        Label("Skizze hinzufügen", systemImage: "pencil.tip")
-                    }
-
-                    if sketches.isEmpty {
-                        Text("Noch keine Skizze hinzugefügt.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(sketches) { sketch in
-                            HStack(spacing: 12) {
-                                previewButton(
-                                    title: "Skizze",
-                                    fileName: sketch.fileName,
-                                    previewData: sketch.previewData,
-                                    fullData: sketch.data,
-                                    systemImage: "scribble"
-                                )
-                                Text(sketch.fileName)
-                                Spacer()
-                                Button(role: .destructive) {
-                                    removeSketch(sketch)
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                        }
-                    }
-                }
-
-                if let errorMessage {
-                    Section {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
-                    }
-                }
+    private var formView: some View {
+        Form {
+            customerSection
+            notesSection
+            photosSection
+            sketchesSection
+            errorSection
+        }
+        .navigationTitle("Neue Besichtigung")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Abbrechen", action: cancel)
+                    .disabled(isSaving)
             }
-            .navigationTitle("Neue Besichtigung")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen", action: onDismiss)
-                        .disabled(isSaving)
+            ToolbarItem(placement: .confirmationAction) {
+                Button(isSaving ? "Speichert ..." : "Speichern") {
+                    save()
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Speichert ..." : "Speichern") {
-                        save()
-                    }
-                    .disabled(isSaving || isLoadingPhotos)
+                .disabled(isSaving || isLoadingPhotos)
+            }
+        }
+        .onAppear {
+            restoreDraftIfNeeded()
+            normalizeCategory()
+            persistCurrentDraft()
+        }
+        .onChange(of: categoryNames) { _, _ in
+            normalizeCategory()
+            persistCurrentDraft()
+        }
+        .onChange(of: selectedPhotoItems) { _, items in
+            loadPhotosFromPickerItems(items)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            handleScenePhaseChange(phase)
+        }
+        .interactiveDismissDisabled(currentDraft.hasUserContent)
+        .alert("Entwurf verwerfen?", isPresented: $isDiscardConfirmationPresented) {
+            Button("Weiter bearbeiten", role: .cancel) {
+            }
+            Button("Entwurf verwerfen", role: .destructive) {
+                discardDraftAndDismiss()
+            }
+        } message: {
+            Text("Der angefangene mobile Eingang bleibt sonst lokal gespeichert.")
+        }
+        .sheet(item: $activeSheet) { sheet in
+            activeSheetView(sheet)
+        }
+        .fullScreenCover(item: $activePreview) { preview in
+            MobileInspectionPreviewView(preview: preview)
+        }
+    }
+
+    @ViewBuilder
+    private func activeSheetView(_ sheet: MobileInspectionSheet) -> some View {
+        switch sheet {
+        case .camera:
+            MobileCameraPicker { image in
+                addCameraImage(image)
+                activeSheet = nil
+            }
+        case .sketch:
+            MobileSketchCanvasView(
+                onSave: { sketch in
+                    addSketch(sketch)
+                    activeSheet = nil
+                },
+                onCancel: {
+                    activeSheet = nil
                 }
-            }
-            .onAppear {
-                if draft.category.isEmpty {
-                    draft.category = effectiveCategoryNames.first ?? ""
-                }
-            }
-            .onChange(of: categoryNames) { _, _ in
-                if draft.category.isEmpty || !effectiveCategoryNames.contains(draft.category) {
-                    draft.category = effectiveCategoryNames.first ?? ""
-                }
-            }
-            .onChange(of: selectedPhotoItems) { _, items in
-                loadPhotosFromPickerItems(items)
-            }
-            .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .camera:
-                    MobileCameraPicker { image in
-                        addCameraImage(image)
+            )
+        case .annotatePhoto(let photoID):
+            if let photo = photoInput(for: photoID) {
+                MobilePhotoMarkupView(
+                    photoData: photo.annotatedData ?? photo.data,
+                    title: photo.fileName,
+                    onSave: { markedData in
+                        updateAnnotatedPhoto(id: photoID, annotatedData: markedData)
+                        activeSheet = nil
+                    },
+                    onCancel: {
                         activeSheet = nil
                     }
-                case .sketch:
-                    MobileSketchCanvasView(
-                        onSave: { sketch in
-                            addSketch(sketch)
-                            activeSheet = nil
-                        },
-                        onCancel: {
-                            activeSheet = nil
-                        }
-                    )
-                case .annotatePhoto(let photoID):
-                    if let photo = photoInput(for: photoID) {
-                        MobilePhotoMarkupView(
-                            photoData: photo.annotatedData ?? photo.data,
-                            title: photo.fileName,
-                            onSave: { markedData in
-                                updateAnnotatedPhoto(id: photoID, annotatedData: markedData)
-                                activeSheet = nil
-                            },
-                            onCancel: {
-                                activeSheet = nil
-                            }
-                        )
-                    }
-                }
-            }
-            .fullScreenCover(item: $activePreview) { preview in
-                MobileInspectionPreviewView(preview: preview)
+                )
             }
         }
     }
 
     private var allPhotosForDisplay: [MobileInspectionPhotoInput] {
         selectedLibraryPhotos + cameraPhotos
+    }
+
+    private var currentDraft: MobileInspectionDraft {
+        var current = draft
+        current.photos = selectedLibraryPhotos + cameraPhotos
+        current.sketches = sketches
+        return current
+    }
+
+    private var categoryPicker: some View {
+        Picker("Kategorie", selection: draftTextBinding(\.category)) {
+            ForEach(effectiveCategoryNames, id: \.self) { category in
+                categoryOption(category)
+            }
+        }
+    }
+
+    private func categoryOption(_ category: String) -> some View {
+        Text(category).tag(category)
+    }
+
+    private var customerSection: AnyView {
+        AnyView(Section("Kunde / Auftrag") {
+            TextField("Kunde / Name", text: draftTextBinding(\.customerName))
+            TextField("Adresse", text: draftTextBinding(\.address), axis: .vertical)
+            TextField("Telefon", text: draftTextBinding(\.phone))
+                .keyboardType(.phonePad)
+            TextField("E-Mail", text: draftTextBinding(\.email))
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            TextField("Titel / Betreff", text: draftTextBinding(\.title))
+            categoryPicker
+        })
+    }
+
+    private var notesSection: AnyView {
+        AnyView(Section("Notiz") {
+            TextField("Notiz", text: draftTextBinding(\.notes), axis: .vertical)
+                .lineLimit(8...14)
+        })
+    }
+
+    private var photosSection: AnyView {
+        AnyView(Section("Fotos") {
+            PhotosPicker(
+                selection: $selectedPhotoItems,
+                maxSelectionCount: 30,
+                matching: .images
+            ) {
+                Label("Fotos auswählen", systemImage: "photo.on.rectangle")
+            }
+
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button {
+                    activeSheet = .camera
+                } label: {
+                    Label("Kameraaufnahme", systemImage: "camera")
+                }
+            }
+
+            if isLoadingPhotos {
+                ProgressView("Fotos werden vorbereitet ...")
+            } else if selectedLibraryPhotos.isEmpty && cameraPhotos.isEmpty {
+                Text("Noch keine Fotos ausgewählt.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(allPhotosForDisplay) { photo in
+                    photoRow(photo)
+                }
+            }
+        })
+    }
+
+    private var sketchesSection: AnyView {
+        AnyView(Section("Skizzen") {
+            Button {
+                activeSheet = .sketch
+            } label: {
+                Label("Skizze hinzufügen", systemImage: "pencil.tip")
+            }
+
+            if sketches.isEmpty {
+                Text("Noch keine Skizze hinzugefügt.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(sketches) { sketch in
+                    sketchRow(sketch)
+                }
+            }
+        })
+    }
+
+    private var errorSection: AnyView {
+        guard let errorMessage else {
+            return AnyView(EmptyView())
+        }
+
+        return AnyView(
+            Section {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+        )
+    }
+
+    private func photoRow(_ photo: MobileInspectionPhotoInput) -> some View {
+        let annotateTitle = photo.annotatedData == nil ? "Markieren" : "Bearbeiten"
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                previewButton(
+                    title: "Originalfoto",
+                    fileName: photo.fileName,
+                    previewData: photo.previewData,
+                    fullData: photo.data,
+                    systemImage: "photo"
+                )
+                if let annotatedData = photo.annotatedData {
+                    previewButton(
+                        title: "Markiertes Foto",
+                        fileName: photo.fileName,
+                        previewData: photo.annotatedPreviewData,
+                        fullData: annotatedData,
+                        systemImage: "pencil.tip.crop.circle"
+                    )
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(photo.fileName)
+                if photo.annotatedData != nil {
+                    Label("Markierte Version vorhanden", systemImage: "pencil.tip.crop.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button {
+                activeSheet = .annotatePhoto(photo.id)
+            } label: {
+                Label(annotateTitle, systemImage: "pencil.tip")
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private func sketchRow(_ sketch: MobileInspectionSketchInput) -> some View {
+        HStack(spacing: 12) {
+            previewButton(
+                title: "Skizze",
+                fileName: sketch.fileName,
+                previewData: sketch.previewData,
+                fullData: sketch.data,
+                systemImage: "scribble"
+            )
+            Text(sketch.fileName)
+            Spacer()
+            Button(role: .destructive) {
+                removeSketch(sketch)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private func draftTextBinding(_ keyPath: WritableKeyPath<MobileInspectionDraft, String>) -> Binding<String> {
+        Binding(
+            get: {
+                draft[keyPath: keyPath]
+            },
+            set: { value in
+                draft[keyPath: keyPath] = value
+                persistCurrentDraft()
+            }
+        )
     }
 
     private func previewButton(
@@ -292,6 +372,93 @@ struct MobileInspectionFormView: View {
         }
     }
 
+    private func cancel() {
+        if currentDraft.hasUserContent {
+            persistCurrentDraft()
+            isDiscardConfirmationPresented = true
+            return
+        }
+
+        discardDraftAndDismiss()
+    }
+
+    private func restoreDraftIfNeeded() {
+        guard !hasRestoredDraft else {
+            return
+        }
+
+        hasRestoredDraft = true
+        do {
+            guard let restoredDraft = try draftStore.load() else {
+                onDraftStateChanged(false)
+                return
+            }
+
+            isRestoringDraft = true
+            draft = MobileInspectionDraft(
+                customerName: restoredDraft.customerName,
+                address: restoredDraft.address,
+                phone: restoredDraft.phone,
+                email: restoredDraft.email,
+                title: restoredDraft.title,
+                category: restoredDraft.category,
+                notes: restoredDraft.notes
+            )
+            selectedPhotoItems = []
+            selectedLibraryPhotos = []
+            cameraPhotos = restoredDraft.photos
+            sketches = restoredDraft.sketches
+            isRestoringDraft = false
+            onDraftStateChanged(true)
+        } catch {
+            errorMessage = "Der lokale Entwurf konnte nicht geladen werden: \(error.localizedDescription)"
+            onDraftStateChanged(draftStore.hasDraft())
+        }
+    }
+
+    private func normalizeCategory() {
+        if draft.category.isEmpty || !effectiveCategoryNames.contains(draft.category) {
+            draft.category = effectiveCategoryNames.first ?? ""
+        }
+    }
+
+    private func persistCurrentDraft() {
+        guard !isRestoringDraft else {
+            return
+        }
+
+        do {
+            let current = currentDraft
+            try draftStore.save(current)
+            onDraftStateChanged(current.hasUserContent)
+        } catch {
+            errorMessage = "Der lokale Entwurf konnte nicht gespeichert werden: \(error.localizedDescription)"
+            onDraftStateChanged(draftStore.hasDraft())
+        }
+    }
+
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .inactive, .background:
+            persistCurrentDraft()
+        case .active:
+            break
+        @unknown default:
+            persistCurrentDraft()
+        }
+    }
+
+    private func discardDraftAndDismiss() {
+        do {
+            try draftStore.discard()
+            onDraftStateChanged(false)
+            onDismiss()
+        } catch {
+            errorMessage = "Der lokale Entwurf konnte nicht verworfen werden: \(error.localizedDescription)"
+            onDraftStateChanged(draftStore.hasDraft())
+        }
+    }
+
     @MainActor
     private func saveAsync() async {
         if selectedPhotoItems.count != selectedLibraryPhotos.count {
@@ -309,11 +476,13 @@ struct MobileInspectionFormView: View {
             draft.photos = selectedLibraryPhotos + cameraPhotos
             draft.sketches = sketches
             let result = try writer.save(draft)
+            try? draftStore.discard()
             draft = MobileInspectionDraft(category: effectiveCategoryNames.first ?? "")
             selectedPhotoItems = []
             selectedLibraryPhotos = []
             cameraPhotos = []
             sketches = []
+            onDraftStateChanged(false)
             onSaved(result)
         } catch MobileInboxError.folderNotSelected {
             errorMessage = MobileInboxError.folderNotSelected.localizedDescription
@@ -339,9 +508,11 @@ struct MobileInspectionFormView: View {
 
         do {
             selectedLibraryPhotos = try await loadSelectedPhotos(items)
+            persistCurrentDraft()
         } catch {
             selectedLibraryPhotos = []
             errorMessage = error.localizedDescription
+            persistCurrentDraft()
         }
     }
 
@@ -385,6 +556,7 @@ struct MobileInspectionFormView: View {
             annotatedData: nil,
             annotatedPreviewData: nil
         ))
+        persistCurrentDraft()
     }
 
     private func addSketch(_ sketch: MobileInspectionSketchInput) {
@@ -401,10 +573,12 @@ struct MobileInspectionFormView: View {
             drawingData: sketch.drawingData
         ))
         errorMessage = nil
+        persistCurrentDraft()
     }
 
     private func removeSketch(_ sketch: MobileInspectionSketchInput) {
         sketches.removeAll { $0.id == sketch.id }
+        persistCurrentDraft()
     }
 
     private func photoInput(for id: String) -> MobileInspectionPhotoInput? {
@@ -441,6 +615,7 @@ struct MobileInspectionFormView: View {
             )
         }
         errorMessage = nil
+        persistCurrentDraft()
     }
 
     private func makePreviewJPEGData(from data: Data) -> Data? {

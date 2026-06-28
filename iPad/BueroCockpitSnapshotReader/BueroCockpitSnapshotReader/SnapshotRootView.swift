@@ -27,6 +27,7 @@ struct SnapshotRootView: View {
     @StateObject private var viewModel = SnapshotBrowserViewModel()
     @State private var mobileInboxStore = MobileInboxStore()
     @State private var mobileInboxWriter = MobileInboxWriter()
+    @State private var mobileInspectionDraftStore = MobileInspectionDraftStore()
     @State private var isPackageImporterPresented = false
     @State private var activeImportMode: SnapshotImportMode?
     @State private var importStatusMessage: String?
@@ -35,6 +36,8 @@ struct SnapshotRootView: View {
     @State private var refreshNoticeMessage: String?
     @State private var mobileInboxFolderPath: String?
     @State private var mobileInboxMessage: String?
+    @State private var hasMobileInspectionDraft = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -46,10 +49,18 @@ struct SnapshotRootView: View {
         }
         .task {
             viewModel.restoreAtLaunch()
+            updateMobileInspectionDraftState()
+            presentMobileInspectionDraftIfNeeded()
         }
         .onChange(of: viewModel.setupRequired) { _, isRequired in
             if isRequired, viewModel.document != nil {
                 presentedSheet = .setup
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                updateMobileInspectionDraftState()
+                presentMobileInspectionDraftIfNeeded()
             }
         }
         .fileImporter(
@@ -74,6 +85,7 @@ struct SnapshotRootView: View {
             }
         }
         .sheet(item: $presentedSheet, onDismiss: {
+            updateMobileInspectionDraftState()
             if let importModeAfterSheetDismissal {
                 self.importModeAfterSheetDismissal = nil
                 openImporter(importModeAfterSheetDismissal)
@@ -88,7 +100,9 @@ struct SnapshotRootView: View {
                 MobileInspectionFormView(
                     categoryNames: viewModel.categories.map(\.name),
                     writer: mobileInboxWriter,
+                    draftStore: mobileInspectionDraftStore,
                     onSaved: { result in
+                        hasMobileInspectionDraft = false
                         mobileInboxMessage = "Gespeichert in \(result.entryURL.lastPathComponent)"
                         refreshNoticeMessage = "Mobile Besichtigung gespeichert:\n\(result.entryURL.path)"
                         viewModel.loadMobileInboxEntries(selectCategory: true)
@@ -96,6 +110,9 @@ struct SnapshotRootView: View {
                     onNeedsFolderSelection: {
                         importModeAfterSheetDismissal = .mobileInboxFolder
                         presentedSheet = nil
+                    },
+                    onDraftStateChanged: { hasDraft in
+                        hasMobileInspectionDraft = hasDraft
                     },
                     onDismiss: { presentedSheet = nil }
                 )
@@ -233,6 +250,16 @@ struct SnapshotRootView: View {
                 .font(.headline)
 
             Spacer()
+
+            if hasMobileInspectionDraft {
+                Button {
+                    presentedSheet = .mobileInspection
+                } label: {
+                    Label("Entwurf fortsetzen", systemImage: "doc.text")
+                }
+                .buttonStyle(.borderless)
+                .help("Lokalen Entwurf fortsetzen")
+            }
 
             Button {
                 presentedSheet = .mobileInspection
@@ -624,9 +651,24 @@ struct SnapshotRootView: View {
             mobileInboxFolderPath = folderURL.path
             mobileInboxMessage = "Mobile-Inbox-Ordner gespeichert."
             refreshNoticeMessage = "Mobile-Inbox-Ordner gespeichert:\n\(folderURL.path)"
+            if hasMobileInspectionDraft {
+                presentedSheet = .mobileInspection
+            }
         } catch {
             viewModel.present(errorMessage: error.localizedDescription)
         }
+    }
+
+    private func updateMobileInspectionDraftState() {
+        hasMobileInspectionDraft = mobileInspectionDraftStore.hasDraft()
+    }
+
+    private func presentMobileInspectionDraftIfNeeded() {
+        guard hasMobileInspectionDraft, presentedSheet == nil, !isPackageImporterPresented else {
+            return
+        }
+
+        presentedSheet = .mobileInspection
     }
 
     private func handleImporterFailure(_ error: Error) {

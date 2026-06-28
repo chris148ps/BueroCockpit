@@ -58,6 +58,13 @@ struct MobileInspectionDraft: Equatable, Sendable {
     var notes: String = ""
     var photos: [MobileInspectionPhotoInput] = []
     var sketches: [MobileInspectionSketchInput] = []
+
+    var hasUserContent: Bool {
+        let textValues = [customerName, address, phone, email, title, notes]
+        return textValues.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            || !photos.isEmpty
+            || !sketches.isEmpty
+    }
 }
 
 struct MobileInspectionSaveResult: Equatable, Sendable {
