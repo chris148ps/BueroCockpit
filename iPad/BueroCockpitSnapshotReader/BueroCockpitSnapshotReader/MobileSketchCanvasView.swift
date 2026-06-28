@@ -7,9 +7,10 @@ struct MobileSketchCanvasView: View {
     let onCancel: () -> Void
 
     private static let exportPaddingRatio: CGFloat = 0.08
+    private static let finalExportMarginRatio: CGFloat = 0.10
     private static let minimumSourceLength: CGFloat = 180
     private static let minimumOutputLength: CGFloat = 900
-    private static let maximumOutputLength: CGFloat = 1800
+    private static let maximumOutputLength: CGFloat = 1600
     private static let previewSize = CGSize(width: 600, height: 400)
 
     @State private var canvasController = PencilSketchCanvasController()
@@ -77,7 +78,13 @@ struct MobileSketchCanvasView: View {
         }
 
         let exportLayout = sketchExportLayout(for: drawing)
-        let image = renderImageOnWhiteBackground(drawing: drawing, layout: exportLayout)
+        let renderedImage = renderImageOnWhiteBackground(drawing: drawing, layout: exportLayout)
+        guard let visibleBounds = visiblePixelBounds(in: renderedImage) else {
+            errorMessage = "Die Skizze enthaelt keine sichtbare Zeichnung."
+            return
+        }
+
+        let image = renderCroppedSketchImage(from: renderedImage, visibleBounds: visibleBounds)
         guard let pngData = image.pngData(), !pngData.isEmpty else {
             errorMessage = "Die Skizze konnte nicht als PNG gespeichert werden."
             return
@@ -168,6 +175,133 @@ struct MobileSketchCanvasView: View {
 
             image.draw(in: fittedImageRect(imageSize: image.size, containerSize: Self.previewSize))
         }
+    }
+
+    private func visiblePixelBounds(in image: UIImage) -> CGRect? {
+        guard let cgImage = image.cgImage else {
+            return nil
+        }
+
+        let width = cgImage.width
+        let height = cgImage.height
+        guard width > 0, height > 0 else {
+            return nil
+        }
+
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        var pixels = [UInt8](repeating: 255, count: height * bytesPerRow)
+        let didRenderPixels = pixels.withUnsafeMutableBytes { pixelBuffer in
+            guard let baseAddress = pixelBuffer.baseAddress,
+                  let context = CGContext(
+                    data: baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                  ) else {
+                return false
+            }
+
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+            return true
+        }
+
+        guard didRenderPixels else {
+            return nil
+        }
+
+        let whiteThreshold: UInt8 = 250
+        let alphaThreshold: UInt8 = 8
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+
+        for y in 0..<height {
+            let rowOffset = y * bytesPerRow
+            for x in 0..<width {
+                let offset = rowOffset + x * bytesPerPixel
+                let red = pixels[offset]
+                let green = pixels[offset + 1]
+                let blue = pixels[offset + 2]
+                let alpha = pixels[offset + 3]
+
+                guard alpha > alphaThreshold else {
+                    continue
+                }
+
+                if red < whiteThreshold || green < whiteThreshold || blue < whiteThreshold {
+                    minX = min(minX, x)
+                    minY = min(minY, y)
+                    maxX = max(maxX, x)
+                    maxY = max(maxY, y)
+                }
+            }
+        }
+
+        guard maxX >= minX, maxY >= minY else {
+            return nil
+        }
+
+        return CGRect(
+            x: CGFloat(minX),
+            y: CGFloat(minY),
+            width: CGFloat(maxX - minX + 1),
+            height: CGFloat(maxY - minY + 1)
+        )
+    }
+
+    private func renderCroppedSketchImage(from image: UIImage, visibleBounds: CGRect) -> UIImage {
+        guard let cgImage = image.cgImage else {
+            return image
+        }
+
+        let imageRect = CGRect(x: 0, y: 0, width: CGFloat(cgImage.width), height: CGFloat(cgImage.height))
+        let sourceRect = paddedSourceRect(for: visibleBounds, constrainedTo: imageRect)
+        guard let croppedImage = cgImage.cropping(to: sourceRect.integral) else {
+            return image
+        }
+
+        let outputSize = targetOutputSize(for: sourceRect.size)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: outputSize, format: format)
+
+        return renderer.image { context in
+            let outputRect = CGRect(origin: .zero, size: outputSize)
+            context.cgContext.setFillColor(UIColor.white.cgColor)
+            context.cgContext.fill(outputRect)
+
+            UIImage(cgImage: croppedImage, scale: 1, orientation: .up).draw(in: outputRect)
+        }
+    }
+
+    private func paddedSourceRect(for visibleBounds: CGRect, constrainedTo imageRect: CGRect) -> CGRect {
+        let horizontalPadding = max(12, visibleBounds.width * Self.finalExportMarginRatio / (1 - Self.finalExportMarginRatio * 2))
+        let verticalPadding = max(12, visibleBounds.height * Self.finalExportMarginRatio / (1 - Self.finalExportMarginRatio * 2))
+        let paddedRect = visibleBounds.insetBy(dx: -horizontalPadding, dy: -verticalPadding)
+        return paddedRect.intersection(imageRect).integral
+    }
+
+    private func targetOutputSize(for sourceSize: CGSize) -> CGSize {
+        let longestSourceLength = max(sourceSize.width, sourceSize.height)
+        guard longestSourceLength > 0 else {
+            return Self.previewSize
+        }
+
+        let targetLongestLength = min(
+            Self.maximumOutputLength,
+            max(Self.minimumOutputLength, longestSourceLength)
+        )
+        let scale = targetLongestLength / longestSourceLength
+        return CGSize(
+            width: max(1, ceil(sourceSize.width * scale)),
+            height: max(1, ceil(sourceSize.height * scale))
+        )
     }
 
     private func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
