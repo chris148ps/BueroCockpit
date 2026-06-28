@@ -15,6 +15,7 @@ struct MobileInspectionFormView: View {
     @State private var cameraPhotos: [MobileInspectionPhotoInput] = []
     @State private var sketches: [MobileInspectionSketchInput] = []
     @State private var activeSheet: MobileInspectionSheet?
+    @State private var activePreview: MobileInspectionPreview?
     @State private var isSaving = false
     @State private var isLoadingPhotos = false
     @State private var errorMessage: String?
@@ -78,7 +79,24 @@ struct MobileInspectionFormView: View {
                     } else {
                         ForEach(allPhotosForDisplay) { photo in
                             HStack(spacing: 12) {
-                                photoPreview(photo)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    previewButton(
+                                        title: "Originalfoto",
+                                        fileName: photo.fileName,
+                                        previewData: photo.previewData,
+                                        fullData: photo.data,
+                                        systemImage: "photo"
+                                    )
+                                    if let annotatedData = photo.annotatedData {
+                                        previewButton(
+                                            title: "Markiertes Foto",
+                                            fileName: photo.fileName,
+                                            previewData: photo.annotatedPreviewData,
+                                            fullData: annotatedData,
+                                            systemImage: "pencil.tip.crop.circle"
+                                        )
+                                    }
+                                }
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(photo.fileName)
                                     if photo.annotatedData != nil {
@@ -115,7 +133,13 @@ struct MobileInspectionFormView: View {
                     } else {
                         ForEach(sketches) { sketch in
                             HStack(spacing: 12) {
-                                sketchPreview(sketch)
+                                previewButton(
+                                    title: "Skizze",
+                                    fileName: sketch.fileName,
+                                    previewData: sketch.previewData,
+                                    fullData: sketch.data,
+                                    systemImage: "scribble"
+                                )
                                 Text(sketch.fileName)
                                 Spacer()
                                 Button(role: .destructive) {
@@ -195,6 +219,9 @@ struct MobileInspectionFormView: View {
                     }
                 }
             }
+            .fullScreenCover(item: $activePreview) { preview in
+                MobileInspectionPreviewView(preview: preview)
+            }
         }
     }
 
@@ -202,45 +229,51 @@ struct MobileInspectionFormView: View {
         selectedLibraryPhotos + cameraPhotos
     }
 
-    private func photoPreview(_ photo: MobileInspectionPhotoInput) -> some View {
-        Group {
-            if let image = UIImage(data: photo.annotatedPreviewData ?? photo.previewData ?? photo.annotatedData ?? photo.data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "photo")
-                    .font(.title2)
+    private func previewButton(
+        title: String,
+        fileName: String,
+        previewData: Data?,
+        fullData: Data,
+        systemImage: String
+    ) -> some View {
+        Button {
+            activePreview = MobileInspectionPreview(
+                title: title,
+                fileName: fileName,
+                data: fullData,
+                systemImage: systemImage
+            )
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                previewImage(data: previewData ?? fullData, systemImage: systemImage)
+                    .frame(width: 116, height: 86)
+                    .clipped()
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                Text(title)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(width: 72, height: 54)
-        .clipped()
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title) öffnen")
     }
 
-    private func sketchPreview(_ sketch: MobileInspectionSketchInput) -> some View {
+    private func previewImage(data: Data, systemImage: String) -> some View {
         Group {
-            if let image = UIImage(data: sketch.previewData ?? sketch.data) {
+            if let image = UIImage(data: data) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
             } else {
-                Image(systemName: "scribble")
+                Image(systemName: systemImage)
                     .font(.title2)
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(width: 72, height: 48)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
     }
 
     private func save() {
@@ -445,6 +478,64 @@ private enum MobileInspectionSheet: Identifiable {
             return "sketch"
         case .annotatePhoto(let photoID):
             return "annotate-photo-\(photoID)"
+        }
+    }
+}
+
+private struct MobileInspectionPreview: Identifiable {
+    let id = UUID()
+    let title: String
+    let fileName: String
+    let data: Data
+    let systemImage: String
+}
+
+private struct MobileInspectionPreviewView: View {
+    let preview: MobileInspectionPreview
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                VStack(spacing: 4) {
+                    Text(preview.title)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text(preview.fileName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.secondary.opacity(0.08))
+
+                    if let image = UIImage(data: preview.data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(8)
+                    } else {
+                        ContentUnavailableView(
+                            "Datei kann nicht angezeigt werden",
+                            systemImage: preview.systemImage,
+                            description: Text("Die Datei fehlt oder das Bildformat konnte nicht geladen werden.")
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .padding()
+            .navigationTitle("Detailansicht")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Schließen") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

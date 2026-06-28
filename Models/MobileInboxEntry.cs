@@ -77,9 +77,13 @@ public sealed class MobileInboxPreviewItem
 {
     public string FileName { get; init; } = string.Empty;
     public string Path { get; init; } = string.Empty;
+    public string DetailPath { get; init; } = string.Empty;
     public string Kind { get; init; } = string.Empty;
     public bool Exists => !string.IsNullOrWhiteSpace(Path) && File.Exists(Path);
+    public string EffectiveDetailPath => !string.IsNullOrWhiteSpace(DetailPath) ? DetailPath : Path;
+    public bool DetailExists => !string.IsNullOrWhiteSpace(EffectiveDetailPath) && File.Exists(EffectiveDetailPath);
     public bool IsMissing => !Exists;
+    public bool IsDetailMissing => !DetailExists;
     public string DisplayKind => Kind switch
     {
         "annotated" => "Markiertes Foto",
@@ -88,5 +92,7 @@ public sealed class MobileInboxPreviewItem
         _ => "Originalfoto"
     };
     public string DisplayName => string.IsNullOrWhiteSpace(FileName) ? DisplayKind : $"{DisplayKind}: {FileName}";
+    public string DetailFileName => string.IsNullOrWhiteSpace(EffectiveDetailPath) ? FileName : System.IO.Path.GetFileName(EffectiveDetailPath);
     public string StatusText => Exists ? "Vorschau verfügbar" : $"Datei fehlt: {Path}";
+    public string DetailStatusText => DetailExists ? "Detailansicht verfügbar" : $"Datei fehlt oder kann nicht geladen werden: {EffectiveDetailPath}";
 }

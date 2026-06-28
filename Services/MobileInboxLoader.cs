@@ -234,10 +234,18 @@ public sealed class MobileInboxLoader
             foreach (var itemElement in arrayElement.EnumerateArray())
             {
                 var path = ReadPreviewPath(itemElement);
-                AddPreviewItem(entryDirectory, items, path, "previews");
+                var originalPath = itemElement.ValueKind == JsonValueKind.Object
+                    ? ReadString(itemElement, "originalPath", "original")
+                    : ConvertToString(itemElement);
+                AddPreviewItem(entryDirectory, items, path, "previews", originalPath);
 
                 if (itemElement.ValueKind == JsonValueKind.Object)
                 {
+                    var annotatedPath = ReadFirstString(
+                        itemElement,
+                        "annotatedPath",
+                        "annotated",
+                        "markedPath");
                     var annotatedPreviewPath = ReadFirstString(
                         itemElement,
                         "annotatedPreviewPath",
@@ -245,14 +253,10 @@ public sealed class MobileInboxLoader
                         "markedPreviewPath");
                     if (string.IsNullOrWhiteSpace(annotatedPreviewPath))
                     {
-                        annotatedPreviewPath = ReadFirstString(
-                            itemElement,
-                            "annotatedPath",
-                            "annotated",
-                            "markedPath");
+                        annotatedPreviewPath = annotatedPath;
                     }
 
-                    AddPreviewItem(entryDirectory, items, annotatedPreviewPath, "annotated");
+                    AddPreviewItem(entryDirectory, items, annotatedPreviewPath, "annotated", annotatedPath);
                 }
             }
         }
@@ -341,7 +345,12 @@ public sealed class MobileInboxLoader
         }
     }
 
-    private static void AddPreviewItem(string entryDirectory, List<MobileInboxPreviewItem> items, string? path, string kind)
+    private static void AddPreviewItem(
+        string entryDirectory,
+        List<MobileInboxPreviewItem> items,
+        string? path,
+        string kind,
+        string? detailPath = null)
     {
         var resolvedPath = ResolveEntryPath(entryDirectory, path);
         if (string.IsNullOrWhiteSpace(resolvedPath) ||
@@ -355,6 +364,7 @@ public sealed class MobileInboxLoader
         {
             FileName = Path.GetFileName(resolvedPath),
             Path = resolvedPath,
+            DetailPath = ResolveEntryPath(entryDirectory, detailPath),
             Kind = kind
         });
     }

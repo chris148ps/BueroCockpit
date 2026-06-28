@@ -85,6 +85,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _materialOrderedAtText = string.Empty;
     private string _dateInputMessage = string.Empty;
     private string _taskUndoMessage = string.Empty;
+    private MobileInboxPreviewItem? _selectedMobileInboxPreviewItem;
+    private string _mobileInboxPreviewStatus = string.Empty;
     private bool _isGlobalSearchEnabled;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
@@ -371,6 +373,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(HasNormalSelectedTask));
             OnPropertyChanged(nameof(SelectedMobileInboxEntry));
             OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
+            SelectedMobileInboxPreviewItem = null;
             LoadTaskDetails();
 
             if (_selectedTask is not null)
@@ -541,6 +544,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool HasMobileInboxSketchPreviews => MobileInboxSketchPreviews.Count > 0;
     public bool HasNoMobileInboxPhotoPreviews => !HasMobileInboxPhotoPreviews;
     public bool HasNoMobileInboxSketchPreviews => !HasMobileInboxSketchPreviews;
+    public MobileInboxPreviewItem? SelectedMobileInboxPreviewItem
+    {
+        get => _selectedMobileInboxPreviewItem;
+        set
+        {
+            if (_selectedMobileInboxPreviewItem == value)
+            {
+                return;
+            }
+
+            _selectedMobileInboxPreviewItem = value;
+            MobileInboxPreviewStatus = string.Empty;
+            OnPropertyChanged(nameof(SelectedMobileInboxPreviewItem));
+            OnPropertyChanged(nameof(HasSelectedMobileInboxPreviewItem));
+            OnPropertyChanged(nameof(MobileInboxPreviewDetailPath));
+            OnPropertyChanged(nameof(HasMobileInboxPreviewDetailImage));
+            OnPropertyChanged(nameof(HasMobileInboxPreviewDetailMessage));
+            OnPropertyChanged(nameof(MobileInboxPreviewDetailMessage));
+            OnPropertyChanged(nameof(CanOpenSelectedMobileInboxPreview));
+        }
+    }
+    public bool HasSelectedMobileInboxPreviewItem => SelectedMobileInboxPreviewItem is not null;
+    public string MobileInboxPreviewDetailPath => SelectedMobileInboxPreviewItem?.EffectiveDetailPath ?? string.Empty;
+    public bool HasMobileInboxPreviewDetailImage => SelectedMobileInboxPreviewItem?.DetailExists == true;
+    public bool HasMobileInboxPreviewDetailMessage => SelectedMobileInboxPreviewItem is not null && !HasMobileInboxPreviewDetailImage;
+    public string MobileInboxPreviewDetailMessage => SelectedMobileInboxPreviewItem?.DetailStatusText ?? string.Empty;
+    public bool CanOpenSelectedMobileInboxPreview => SelectedMobileInboxPreviewItem?.DetailExists == true;
+    public string MobileInboxPreviewStatus
+    {
+        get => _mobileInboxPreviewStatus;
+        set
+        {
+            if (_mobileInboxPreviewStatus != value)
+            {
+                _mobileInboxPreviewStatus = value;
+                OnPropertyChanged(nameof(MobileInboxPreviewStatus));
+                OnPropertyChanged(nameof(HasMobileInboxPreviewStatus));
+            }
+        }
+    }
+    public bool HasMobileInboxPreviewStatus => !string.IsNullOrWhiteSpace(MobileInboxPreviewStatus);
     public string MobileInboxCleanupStatus
     {
         get => _mobileInboxCleanupStatus;
@@ -7100,6 +7144,57 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static bool TryShowFileInFolder(string path, out string? errorMessage)
+    {
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            errorMessage = $"Datei nicht gefunden: {path}";
+            return false;
+        }
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{path}\"",
+                    UseShellExecute = true
+                });
+                return true;
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "open",
+                    ArgumentList = { "-R", path },
+                    UseShellExecute = false
+                });
+                return true;
+            }
+
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                return TryOpenExternalFile(directory, out errorMessage);
+            }
+
+            errorMessage = $"Ordner konnte nicht ermittelt werden: {path}";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not show file in folder '{path}': {ex}");
+            errorMessage = $"Datei konnte nicht im Ordner angezeigt werden: {path}";
+            return false;
+        }
+    }
+
     private void CategoryList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_suppressCategorySelectionChanged || _isUpdatingSelection || _selectionNavigationDepth > 0)
@@ -8194,6 +8289,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private MobileInboxEntry? GetMobileInboxEntry(TaskItem task)
     {
         return _mobileInboxTaskMap.TryGetValue(task.Id, out var entry) ? entry : null;
+    }
+
+    private void ShowMobileInboxPreview_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: MobileInboxPreviewItem item })
+        {
+            SelectedMobileInboxPreviewItem = item;
+        }
+    }
+
+    private void CloseMobileInboxPreview_OnClick(object? sender, RoutedEventArgs e)
+    {
+        SelectedMobileInboxPreviewItem = null;
+    }
+
+    private void OpenMobileInboxPreview_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var path = SelectedMobileInboxPreviewItem?.EffectiveDetailPath;
+        if (!TryOpenExternalFile(path ?? string.Empty, out var errorMessage))
+        {
+            MobileInboxPreviewStatus = errorMessage ?? "Datei konnte nicht geöffnet werden.";
+        }
+    }
+
+    private void ShowMobileInboxPreviewInFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var path = SelectedMobileInboxPreviewItem?.EffectiveDetailPath;
+        if (!TryShowFileInFolder(path ?? string.Empty, out var errorMessage))
+        {
+            MobileInboxPreviewStatus = errorMessage ?? "Datei konnte nicht im Ordner angezeigt werden.";
+        }
     }
 
     private async void ImportMobileInboxEntry_OnClick(object? sender, RoutedEventArgs e)
