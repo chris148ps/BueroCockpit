@@ -27,13 +27,34 @@ public sealed class MobileInboxEntry
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasPhotoPreviews => PhotoPreviews.Count > 0;
     public bool HasSketchPreviews => SketchPreviews.Count > 0;
-    public string DisplayStatusText => Status.Trim().ToLowerInvariant() switch
+    public string DisplayStatusText => HasAttachmentIssues ? "Fehler" : Status.Trim().ToLowerInvariant() switch
     {
-        "approved" or "released" or "freigegeben" => "Freigegeben / wartend",
-        "imported" or "processed" or "done" or "verarbeitet" or "uebernommen" or "übernommen" => "Übernommen / verarbeitet",
-        "cleanup" or "ready-for-cleanup" or "bereinigung" => "Bereit zur Bereinigung",
-        "error" or "failed" or "fehlerhaft" => "Fehlerhaft / Datei fehlt",
-        _ => HasAttachmentIssues ? "Fehlerhaft / Datei fehlt" : "Noch nicht freigegeben"
+        "approved" or "released" or "freigegeben" => "Freigegeben",
+        "imported" or "processed" or "done" or "verarbeitet" or "uebernommen" or "übernommen" => "Übernommen",
+        "cleanup" or "ready-for-cleanup" or "bereinigung" => "Übernommen",
+        "error" or "failed" or "fehlerhaft" => "Fehler",
+        _ => "Neu"
+    };
+    public string StatusBadgeBackground => DisplayStatusText switch
+    {
+        "Fehler" => "#FFF1F0",
+        "Freigegeben" => "#E8F1FF",
+        "Übernommen" => "#E9F7EF",
+        _ => "#F4F1EA"
+    };
+    public string StatusBadgeBorderBrush => DisplayStatusText switch
+    {
+        "Fehler" => "#E48A8A",
+        "Freigegeben" => "#8FB8F6",
+        "Übernommen" => "#88C9A1",
+        _ => "#DAD4C7"
+    };
+    public string StatusBadgeForeground => DisplayStatusText switch
+    {
+        "Fehler" => "#B42318",
+        "Freigegeben" => "#2457A6",
+        "Übernommen" => "#1F7A3F",
+        _ => "#6E6255"
     };
     public bool HasAttachmentIssues =>
         PhotoPreviews.Any(item => item.HasIssue) ||

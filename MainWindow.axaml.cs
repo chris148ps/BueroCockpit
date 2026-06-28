@@ -8267,11 +8267,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CustomerPhone = entry.Phone,
             Title = entry.DisplayTitle,
             Description = entry.Notes,
-            Status = $"{entry.DisplayStatusText} - {entry.CreatedAtText}",
+            Status = entry.DisplayStatusText,
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.CreatedAt,
-            CategoryNameChips = new List<string> { "Mobiler Eingang" },
-            ShowCategoryHint = true
+            CategoryNameChips = string.IsNullOrWhiteSpace(entry.Category)
+                ? new List<string>()
+                : new List<string> { entry.Category.Trim() },
+            ShowCategoryHint = !string.IsNullOrWhiteSpace(entry.Category),
+            IsMobileInboxCard = true,
+            MobileInboxCreatedAtText = entry.CreatedAtText,
+            MobileInboxAttachmentOverviewText = entry.MobileAttachmentOverviewText,
+            MobileInboxStatusBadgeBackground = entry.StatusBadgeBackground,
+            MobileInboxStatusBadgeBorderBrush = entry.StatusBadgeBorderBrush,
+            MobileInboxStatusBadgeForeground = entry.StatusBadgeForeground
         };
     }
 

@@ -1609,7 +1609,26 @@
                   </ContextMenu>
                 </Border.ContextMenu>
                 <StackPanel Spacing="8">
-                  <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" FontSize="15" />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding CustomerName}"
+                               FontWeight="SemiBold"
+                               FontSize="15"
+                               TextWrapping="Wrap" />
+                    <Border Grid.Column="1"
+                            Background="{Binding MobileInboxStatusBadgeBackground}"
+                            BorderBrush="{Binding MobileInboxStatusBadgeBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            Padding="7,2"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Top"
+                            IsVisible="{Binding IsMobileInboxCard}">
+                      <TextBlock Text="{Binding Status}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"
+                                 Foreground="{Binding MobileInboxStatusBadgeForeground}" />
+                    </Border>
+                  </Grid>
                   <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                   <ItemsControl ItemsSource="{Binding CategoryNameChips}"
                                 IsVisible="{Binding ShowCategoryHint}"
@@ -1645,7 +1664,17 @@
                              Foreground="{DynamicResource TextSecondaryBrush}"
                              TextWrapping="Wrap"
                              MaxHeight="48" />
-                  <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
+                  <StackPanel Spacing="3" IsVisible="{Binding IsMobileInboxCard}">
+                    <TextBlock Text="{Binding MobileInboxCreatedAtText, StringFormat='Datum: {0}'}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12" />
+                    <TextBlock Text="{Binding MobileInboxAttachmentOverviewText}"
+                               IsVisible="{Binding HasMobileInboxAttachmentOverviewText}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+                  <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding IsStandardTaskCard}">
                     <TextBlock Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <TextBlock Grid.Column="1" Text="Termin" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <TextBlock Grid.Row="1" Text="{Binding Status}" />
@@ -1655,6 +1684,7 @@
                              IsVisible="{Binding HasSentAt}"
                              Foreground="{DynamicResource TextSecondaryBrush}" />
                   <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
+                             IsVisible="{Binding IsStandardTaskCard}"
                              Foreground="{DynamicResource TextSecondaryBrush}" />
                 </StackPanel>
               </Border>

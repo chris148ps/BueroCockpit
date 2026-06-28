@@ -25,6 +25,12 @@ public sealed class TaskItem : ObservableObject
     private List<string> _categoryNameChips = new();
     private bool _showCategoryHint;
     private bool _isSelected;
+    private bool _isMobileInboxCard;
+    private string _mobileInboxCreatedAtText = string.Empty;
+    private string _mobileInboxAttachmentOverviewText = string.Empty;
+    private string _mobileInboxStatusBadgeBackground = "#F4F1EA";
+    private string _mobileInboxStatusBadgeBorderBrush = "#DAD4C7";
+    private string _mobileInboxStatusBadgeForeground = "#6E6255";
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get => _title; set => SetProperty(ref _title, value); }
@@ -157,8 +163,37 @@ public sealed class TaskItem : ObservableObject
     public bool HasTechnician => !string.IsNullOrWhiteSpace(Technician);
     public bool HasCustomerAddress => !string.IsNullOrWhiteSpace(CustomerAddress);
     public bool HasSentAt => SentAt.HasValue;
+    public bool IsMobileInboxCard
+    {
+        get => _isMobileInboxCard;
+        set
+        {
+            if (SetProperty(ref _isMobileInboxCard, value))
+            {
+                OnPropertyChanged(nameof(IsStandardTaskCard));
+                OnPropertyChanged(nameof(CardBorderBrush));
+            }
+        }
+    }
+    public bool IsStandardTaskCard => !IsMobileInboxCard;
+    public string MobileInboxCreatedAtText { get => _mobileInboxCreatedAtText; set => SetProperty(ref _mobileInboxCreatedAtText, value); }
+    public string MobileInboxAttachmentOverviewText
+    {
+        get => _mobileInboxAttachmentOverviewText;
+        set
+        {
+            if (SetProperty(ref _mobileInboxAttachmentOverviewText, value))
+            {
+                OnPropertyChanged(nameof(HasMobileInboxAttachmentOverviewText));
+            }
+        }
+    }
+    public bool HasMobileInboxAttachmentOverviewText => !string.IsNullOrWhiteSpace(MobileInboxAttachmentOverviewText);
+    public string MobileInboxStatusBadgeBackground { get => _mobileInboxStatusBadgeBackground; set => SetProperty(ref _mobileInboxStatusBadgeBackground, value); }
+    public string MobileInboxStatusBadgeBorderBrush { get => _mobileInboxStatusBadgeBorderBrush; set => SetProperty(ref _mobileInboxStatusBadgeBorderBrush, value); }
+    public string MobileInboxStatusBadgeForeground { get => _mobileInboxStatusBadgeForeground; set => SetProperty(ref _mobileInboxStatusBadgeForeground, value); }
     public string CardBackground => "#FFFFFF";
-    public string CardBorderBrush => IsSelected ? "#000000" : "#00000000";
+    public string CardBorderBrush => IsSelected ? "#000000" : IsMobileInboxCard && Status == "Fehler" ? "#E48A8A" : "#00000000";
     public string ReminderCardBackground => IsFollowUpOverdue ? "#FFF6EAEA" : "#FFFFFF";
     public string ReminderCardBorderBrush => IsFollowUpOverdue ? "#E48A8A" : "#00000000";
 
@@ -191,7 +226,13 @@ public sealed class TaskItem : ObservableObject
             SortPosition = SortPosition,
             CategoryHint = CategoryHint,
             CategoryNameChips = new List<string>(CategoryNameChips),
-            ShowCategoryHint = ShowCategoryHint
+            ShowCategoryHint = ShowCategoryHint,
+            IsMobileInboxCard = IsMobileInboxCard,
+            MobileInboxCreatedAtText = MobileInboxCreatedAtText,
+            MobileInboxAttachmentOverviewText = MobileInboxAttachmentOverviewText,
+            MobileInboxStatusBadgeBackground = MobileInboxStatusBadgeBackground,
+            MobileInboxStatusBadgeBorderBrush = MobileInboxStatusBadgeBorderBrush,
+            MobileInboxStatusBadgeForeground = MobileInboxStatusBadgeForeground
         };
     }
 }
