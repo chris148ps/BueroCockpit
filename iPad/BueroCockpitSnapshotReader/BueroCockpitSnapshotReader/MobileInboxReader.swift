@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 final class MobileInboxReader: @unchecked Sendable {
     private struct RawTask: Decodable {
@@ -95,6 +96,7 @@ final class MobileInboxReader: @unchecked Sendable {
                     photo.annotatedPreviewPath?.nonEmptyValue != nil
                 }.count ?? 0,
                 sketchCount: raw.sketches?.count ?? 0,
+                attachmentIssueSummary: Self.attachmentIssueSummary(for: raw, entryURL: directoryURL, fileManager: fileManager),
                 entryURL: directoryURL
             )
         }
@@ -102,6 +104,111 @@ final class MobileInboxReader: @unchecked Sendable {
         return entries.sorted {
             $0.createdAt.localizedStandardCompare($1.createdAt) == .orderedDescending
         }
+    }
+
+    private static func attachmentIssueSummary(
+        for raw: RawTask,
+        entryURL: URL,
+        fileManager: FileManager
+    ) -> String? {
+        var missingCount = 0
+        var unreadableCount = 0
+
+        for photo in raw.photos ?? [] {
+            for path in [
+                photo.originalPath,
+                photo.previewPath,
+                photo.annotatedPath,
+                photo.annotatedPreviewPath
+            ] {
+                inspectImageReference(
+                    path,
+                    entryURL: entryURL,
+                    fileManager: fileManager,
+                    missingCount: &missingCount,
+                    unreadableCount: &unreadableCount
+                )
+            }
+        }
+
+        for sketch in raw.sketches ?? [] {
+            inspectImageReference(
+                sketch.path,
+                entryURL: entryURL,
+                fileManager: fileManager,
+                missingCount: &missingCount,
+                unreadableCount: &unreadableCount
+            )
+            inspectFileReference(
+                sketch.drawingPath,
+                entryURL: entryURL,
+                fileManager: fileManager,
+                missingCount: &missingCount
+            )
+        }
+
+        var parts: [String] = []
+        if missingCount == 1 {
+            parts.append("1 Anhang fehlt")
+        } else if missingCount > 1 {
+            parts.append("\(missingCount) Anhänge fehlen")
+        }
+
+        if unreadableCount == 1 {
+            parts.append("1 Vorschau ist nicht lesbar")
+        } else if unreadableCount > 1 {
+            parts.append("\(unreadableCount) Vorschauen sind nicht lesbar")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private static func inspectImageReference(
+        _ path: String?,
+        entryURL: URL,
+        fileManager: FileManager,
+        missingCount: inout Int,
+        unreadableCount: inout Int
+    ) {
+        guard let url = resolvedURL(path, entryURL: entryURL) else {
+            return
+        }
+
+        guard fileManager.fileExists(atPath: url.path) else {
+            missingCount += 1
+            return
+        }
+
+        if UIImage(contentsOfFile: url.path) == nil {
+            unreadableCount += 1
+        }
+    }
+
+    private static func inspectFileReference(
+        _ path: String?,
+        entryURL: URL,
+        fileManager: FileManager,
+        missingCount: inout Int
+    ) {
+        guard let url = resolvedURL(path, entryURL: entryURL) else {
+            return
+        }
+
+        if !fileManager.fileExists(atPath: url.path) {
+            missingCount += 1
+        }
+    }
+
+    private static func resolvedURL(_ path: String?, entryURL: URL) -> URL? {
+        guard let value = path?.nonEmptyValue else {
+            return nil
+        }
+
+        if value.hasPrefix("/") {
+            return URL(fileURLWithPath: value)
+        }
+
+        return entryURL.appendingPathComponent(value, isDirectory: false)
     }
 }
 

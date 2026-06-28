@@ -567,7 +567,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public bool HasSelectedMobileInboxPreviewItem => SelectedMobileInboxPreviewItem is not null;
     public string MobileInboxPreviewDetailPath => SelectedMobileInboxPreviewItem?.EffectiveDetailPath ?? string.Empty;
-    public bool HasMobileInboxPreviewDetailImage => SelectedMobileInboxPreviewItem?.DetailExists == true;
+    public bool HasMobileInboxPreviewDetailImage => SelectedMobileInboxPreviewItem?.HasDetailImage == true;
     public bool HasMobileInboxPreviewDetailMessage => SelectedMobileInboxPreviewItem is not null && !HasMobileInboxPreviewDetailImage;
     public string MobileInboxPreviewDetailMessage => SelectedMobileInboxPreviewItem?.DetailStatusText ?? string.Empty;
     public bool CanOpenSelectedMobileInboxPreview => SelectedMobileInboxPreviewItem?.DetailExists == true;
@@ -8267,7 +8267,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CustomerPhone = entry.Phone,
             Title = entry.DisplayTitle,
             Description = entry.Notes,
-            Status = $"Mobiler Eingang - {entry.CreatedAtText}",
+            Status = $"{entry.DisplayStatusText} - {entry.CreatedAtText}",
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.CreatedAt,
             CategoryNameChips = new List<string> { "Mobiler Eingang" },
@@ -8352,8 +8352,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var categoryWasMatched = IsMatchingMobileInboxCategory(entry.Category, targetCategory.Name);
             importedTask = CreateTaskFromMobileInboxEntry(entry, targetCategory, categoryWasMatched);
             importedTask.SortPosition = _repository.GetTopTaskSortPosition(targetCategory.Id);
+            var importResult = PrepareMobileInboxImport(entry);
+            if (!importResult.CanImport)
+            {
+                await ShowMobileInboxImportMessageDialogAsync(
+                    "Übernahme nicht vollständig möglich",
+                    importResult.ToUserMessage());
+                return;
+            }
+
             SaveTaskAndQueueIpadSnapshot(importedTask);
-            ImportMobileInboxAttachments(entry, importedTask);
+            ImportMobileInboxAttachments(importResult, importedTask);
             MoveMobileInboxEntryToProcessed(entry);
 
             ClearSearchTextWithoutRefresh();
@@ -8369,7 +8378,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Debug.WriteLine($"Mobile inbox import failed for '{entry.DirectoryPath}': {ex}");
             await ShowMobileInboxImportMessageDialogAsync(
                 "Übernahme fehlgeschlagen",
-                "Der mobile Eingang konnte nicht übernommen werden. Es wurde kein normaler Auftrag sichtbar angelegt.");
+                ex is MobileInboxImportException importException
+                    ? importException.Result.ToUserMessage()
+                    : "Der mobile Eingang konnte nicht übernommen werden. Es wurde kein normaler Auftrag sichtbar angelegt.");
         }
     }
 
@@ -8471,14 +8482,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
-    private void ImportMobileInboxAttachments(MobileInboxEntry entry, TaskItem task)
+    private MobileInboxImportResult PrepareMobileInboxImport(MobileInboxEntry entry)
     {
+        var errors = new List<string>();
+        var warnings = new List<string>();
         var originalPhotoSources = entry.OriginalPhotoPaths
-            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToList();
-        if (entry.OriginalPhotoPaths.Count > 0 && originalPhotoSources.Count != entry.OriginalPhotoPaths.Count)
+
+        foreach (var path in originalPhotoSources)
         {
-            throw new IOException("Originalfotos aus dem mobilen Eingang wurden nicht gefunden.");
+            AddMobileInboxAttachmentProblem(errors, path, "Originalfoto");
         }
 
         var photoSources = originalPhotoSources.Count > 0
@@ -8488,16 +8502,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 .Select(item => item.Path)
                 .ToList();
 
+        foreach (var preview in entry.PhotoPreviews.Concat(entry.SketchPreviews))
+        {
+            if (preview.IsMissing)
+            {
+                warnings.Add($"{preview.DisplayKind} fehlt: {preview.Path}");
+            }
+            else if (preview.IsUnreadable)
+            {
+                warnings.Add($"{preview.DisplayKind} ist nicht lesbar: {preview.Path}");
+            }
+
+            if (preview.IsDetailMissing)
+            {
+                warnings.Add($"{preview.DisplayKind} Detaildatei fehlt: {preview.EffectiveDetailPath}");
+            }
+            else if (preview.IsDetailUnreadable)
+            {
+                warnings.Add($"{preview.DisplayKind} Detaildatei ist nicht lesbar: {preview.EffectiveDetailPath}");
+            }
+        }
+
         var attachmentSources = photoSources
             .Select(path => new MobileInboxAttachmentSource(path, GetMobileInboxPhotoKind(path)))
             .Concat(GetMobileInboxSketchPngPaths(entry).Select(path => new MobileInboxAttachmentSource(path, "Skizze")))
             .Concat(GetMobileInboxDrawingPaths(entry).Select(path => new MobileInboxAttachmentSource(path, "Skizzen-Rohdaten")))
-            .Where(source => !string.IsNullOrWhiteSpace(source.Path) && File.Exists(source.Path))
+            .Where(source => !string.IsNullOrWhiteSpace(source.Path))
             .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
 
         foreach (var source in attachmentSources)
+        {
+            AddMobileInboxAttachmentProblem(errors, source.Path, source.Kind);
+        }
+
+        if (errors.Count == 0 && attachmentSources.Count == 0 && (entry.OriginalPhotoPaths.Count > 0 || entry.SketchPreviews.Count > 0))
+        {
+            errors.Add("Es wurden Anhänge referenziert, aber keine übernehmbare Datei gefunden.");
+        }
+
+        return new MobileInboxImportResult(
+            attachmentSources
+                .Where(source => File.Exists(source.Path) && IsMobileInboxImportSourceReadable(source.Path, source.Kind))
+                .ToList(),
+            errors.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList(),
+            warnings.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList());
+    }
+
+    private void ImportMobileInboxAttachments(MobileInboxImportResult importResult, TaskItem task)
+    {
+        if (!importResult.CanImport)
+        {
+            throw new MobileInboxImportException(importResult);
+        }
+
+        var importedAttachments = new List<string>();
+        foreach (var source in importResult.AttachmentSources)
         {
             var normalizedSourcePath = Path.GetFullPath(source.Path);
             var originalName = Path.GetFileName(normalizedSourcePath);
@@ -8516,7 +8577,66 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             attachment.ContentHash = EnsureAttachmentContentHash(attachment, persist: false) ?? string.Empty;
             EnsureAttachmentThumbnail(attachment);
             SaveAttachmentAndQueueIpadSnapshot(attachment);
+            importedAttachments.Add($"{source.Kind}: {originalName}");
         }
+
+        if (importedAttachments.Count > 0)
+        {
+            task.Description = string.Join(
+                Environment.NewLine + Environment.NewLine,
+                new[]
+                {
+                    task.Description,
+                    "Übernommene mobile Anhänge:" + Environment.NewLine + string.Join(Environment.NewLine, importedAttachments.Select(item => $"- {item}"))
+                }.Where(part => !string.IsNullOrWhiteSpace(part)));
+            task.UpdatedAt = DateTime.Now;
+            SaveTaskAndQueueIpadSnapshot(task);
+        }
+    }
+
+    private static void AddMobileInboxAttachmentProblem(List<string> errors, string path, string kind)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            errors.Add($"{kind}: Dateipfad fehlt.");
+            return;
+        }
+
+        if (!File.Exists(path))
+        {
+            errors.Add($"{kind} fehlt: {path}");
+            return;
+        }
+
+        if (!IsMobileInboxImportSourceReadable(path, kind))
+        {
+            errors.Add($"{kind} ist nicht lesbar: {path}");
+        }
+    }
+
+    private static bool IsMobileInboxImportSourceReadable(string path, string kind)
+    {
+        if (!IsMobileInboxImageAttachmentKind(kind))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var _ = new Avalonia.Media.Imaging.Bitmap(path);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsMobileInboxImageAttachmentKind(string kind)
+    {
+        return string.Equals(kind, "Originalfoto", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(kind, "Markiertes Foto", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(kind, "Skizze", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetMobileInboxPhotoKind(string path)
@@ -9629,6 +9749,55 @@ public sealed class DashboardSection
 public sealed record TaskUndoSnapshot(TaskItem Task, IReadOnlyList<MaterialItem> Materials, IReadOnlyList<AttachmentItem> Attachments);
 
 internal sealed record MobileInboxAttachmentSource(string Path, string Kind);
+
+internal sealed record MobileInboxImportResult(
+    IReadOnlyList<MobileInboxAttachmentSource> AttachmentSources,
+    IReadOnlyList<string> Errors,
+    IReadOnlyList<string> Warnings)
+{
+    public bool CanImport => Errors.Count == 0;
+
+    public string ToUserMessage()
+    {
+        var parts = new List<string>
+        {
+            CanImport
+                ? "Der mobile Eingang kann vollständig übernommen werden."
+                : "Der mobile Eingang wurde nicht übernommen, weil mindestens ein benötigter Anhang fehlt oder nicht lesbar ist."
+        };
+
+        if (AttachmentSources.Count > 0)
+        {
+            parts.Add("Übernehmbare Anhänge:" + Environment.NewLine +
+                      string.Join(Environment.NewLine, AttachmentSources.Select(source => $"- {source.Kind}: {Path.GetFileName(source.Path)}")));
+        }
+
+        if (Errors.Count > 0)
+        {
+            parts.Add("Fehler:" + Environment.NewLine +
+                      string.Join(Environment.NewLine, Errors.Select(error => $"- {error}")));
+        }
+
+        if (Warnings.Count > 0)
+        {
+            parts.Add("Hinweise:" + Environment.NewLine +
+                      string.Join(Environment.NewLine, Warnings.Select(warning => $"- {warning}")));
+        }
+
+        return string.Join(Environment.NewLine + Environment.NewLine, parts);
+    }
+}
+
+internal sealed class MobileInboxImportException : Exception
+{
+    public MobileInboxImportException(MobileInboxImportResult result)
+        : base(result.ToUserMessage())
+    {
+        Result = result;
+    }
+
+    public MobileInboxImportResult Result { get; }
+}
 
 public sealed class TaskSearchResult
 {

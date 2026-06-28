@@ -76,6 +76,7 @@ struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
     let photoCount: Int
     let annotatedPhotoCount: Int
     let sketchCount: Int
+    let attachmentIssueSummary: String?
     let entryURL: URL
 
     var displayTitle: String {
@@ -105,6 +106,10 @@ struct MobileInboxPendingEntry: Identifiable, Equatable, Sendable {
             parts.append("\(sketchCount) Skizzen")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    var hasAttachmentIssue: Bool {
+        attachmentIssueSummary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
     var displayCreatedAt: String? {

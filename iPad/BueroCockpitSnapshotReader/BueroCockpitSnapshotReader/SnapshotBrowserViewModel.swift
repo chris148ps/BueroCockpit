@@ -751,14 +751,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
             status: "wartet auf Freigabe",
             notes: ([
                 entry.notes,
-                entry.attachmentSummary
+                entry.attachmentSummary,
+                entry.attachmentIssueSummary
             ] as [String?]).compactMap { value in
                 guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
                     return nil
                 }
                 return value
             }.joined(separator: "\n\n"),
-            shortText: entry.attachmentSummary,
+            shortText: entry.attachmentIssueSummary ?? entry.attachmentSummary,
             attachmentRefs: [],
             sourceIndex: sourceIndex
         )

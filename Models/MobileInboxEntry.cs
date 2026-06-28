@@ -27,6 +27,51 @@ public sealed class MobileInboxEntry
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasPhotoPreviews => PhotoPreviews.Count > 0;
     public bool HasSketchPreviews => SketchPreviews.Count > 0;
+    public string DisplayStatusText => Status.Trim().ToLowerInvariant() switch
+    {
+        "approved" or "released" or "freigegeben" => "Freigegeben / wartend",
+        "imported" or "processed" or "done" or "verarbeitet" or "uebernommen" or "übernommen" => "Übernommen / verarbeitet",
+        "cleanup" or "ready-for-cleanup" or "bereinigung" => "Bereit zur Bereinigung",
+        "error" or "failed" or "fehlerhaft" => "Fehlerhaft / Datei fehlt",
+        _ => HasAttachmentIssues ? "Fehlerhaft / Datei fehlt" : "Noch nicht freigegeben"
+    };
+    public bool HasAttachmentIssues =>
+        PhotoPreviews.Any(item => item.HasIssue) ||
+        SketchPreviews.Any(item => item.HasIssue) ||
+        OriginalPhotoPaths.Any(path => string.IsNullOrWhiteSpace(path) || !File.Exists(path));
+    public string AttachmentIssueText
+    {
+        get
+        {
+            var missingCount =
+                PhotoPreviews.Count(item => item.IsMissing || item.IsDetailMissing) +
+                SketchPreviews.Count(item => item.IsMissing || item.IsDetailMissing) +
+                OriginalPhotoPaths.Count(path => string.IsNullOrWhiteSpace(path) || !File.Exists(path));
+            var unreadableCount = PhotoPreviews.Count(item => item.IsUnreadable) +
+                                  SketchPreviews.Count(item => item.IsUnreadable);
+            var parts = new List<string>();
+            if (missingCount == 1)
+            {
+                parts.Add("1 referenzierte Datei fehlt");
+            }
+            else if (missingCount > 1)
+            {
+                parts.Add($"{missingCount} referenzierte Dateien fehlen");
+            }
+
+            if (unreadableCount == 1)
+            {
+                parts.Add("1 Vorschau ist nicht lesbar");
+            }
+            else if (unreadableCount > 1)
+            {
+                parts.Add($"{unreadableCount} Vorschauen sind nicht lesbar");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+    public bool HasAttachmentIssueText => !string.IsNullOrWhiteSpace(AttachmentIssueText);
     public string MobileAttachmentOverviewText
     {
         get
@@ -84,15 +129,69 @@ public sealed class MobileInboxPreviewItem
     public bool DetailExists => !string.IsNullOrWhiteSpace(EffectiveDetailPath) && File.Exists(EffectiveDetailPath);
     public bool IsMissing => !Exists;
     public bool IsDetailMissing => !DetailExists;
+    public bool IsUnreadable => Exists && IsPreviewImagePath(Path) && !CanLoadBitmap(Path);
+    public bool HasIssue => IsMissing || IsDetailMissing || IsUnreadable || IsDetailUnreadable;
+    public bool HasPreviewImage => Exists && !IsUnreadable;
+    public bool HasPreviewMessage => !HasPreviewImage;
     public string DisplayKind => Kind switch
     {
         "annotated" => "Markiertes Foto",
         "sketches" => "Skizze",
         "drawing" => "Skizzen-Rohdaten",
+        "file" => "Sonstige Datei",
         _ => "Originalfoto"
     };
     public string DisplayName => string.IsNullOrWhiteSpace(FileName) ? DisplayKind : $"{DisplayKind}: {FileName}";
     public string DetailFileName => string.IsNullOrWhiteSpace(EffectiveDetailPath) ? FileName : System.IO.Path.GetFileName(EffectiveDetailPath);
-    public string StatusText => Exists ? "Vorschau verfügbar" : $"Datei fehlt: {Path}";
-    public string DetailStatusText => DetailExists ? "Detailansicht verfügbar" : $"Datei fehlt oder kann nicht geladen werden: {EffectiveDetailPath}";
+    public string StatusText
+    {
+        get
+        {
+            if (!Exists)
+            {
+                return $"Datei fehlt: {Path}";
+            }
+
+            return IsUnreadable ? $"Vorschau ist nicht lesbar: {Path}" : "Vorschau verfügbar";
+        }
+    }
+    public bool IsDetailUnreadable => DetailExists && IsPreviewImagePath(EffectiveDetailPath) && !CanLoadBitmap(EffectiveDetailPath);
+    public bool HasDetailImage => DetailExists && !IsDetailUnreadable;
+    public string DetailStatusText
+    {
+        get
+        {
+            if (!DetailExists)
+            {
+                return $"Datei fehlt oder kann nicht geladen werden: {EffectiveDetailPath}";
+            }
+
+            return IsDetailUnreadable
+                ? $"Die Detailvorschau ist nicht lesbar: {EffectiveDetailPath}"
+                : "Detailansicht verfügbar";
+        }
+    }
+
+    private static bool IsPreviewImagePath(string path)
+    {
+        var extension = System.IO.Path.GetExtension(path);
+        return extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanLoadBitmap(string path)
+    {
+        try
+        {
+            using var _ = new Avalonia.Media.Imaging.Bitmap(path);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

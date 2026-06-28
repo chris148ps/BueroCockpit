@@ -245,7 +245,11 @@ struct MobileInspectionFormView: View {
             )
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                previewImage(data: previewData ?? fullData, systemImage: systemImage)
+                previewImage(
+                    data: previewData ?? fullData,
+                    systemImage: systemImage,
+                    message: "\(title) kann nicht angezeigt werden."
+                )
                     .frame(width: 116, height: 86)
                     .clipped()
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
@@ -262,16 +266,22 @@ struct MobileInspectionFormView: View {
         .accessibilityLabel("\(title) öffnen")
     }
 
-    private func previewImage(data: Data, systemImage: String) -> some View {
+    private func previewImage(data: Data, systemImage: String, message: String) -> some View {
         Group {
             if let image = UIImage(data: data) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
             } else {
-                Image(systemName: systemImage)
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 4) {
+                    Image(systemName: systemImage)
+                        .font(.title3)
+                    Text(message)
+                        .font(.caption2)
+                        .multilineTextAlignment(.center)
+                }
+                .foregroundStyle(.orange)
+                .padding(6)
             }
         }
     }

@@ -1681,7 +1681,7 @@
                     CornerRadius="8"
                     Padding="8,4"
                     VerticalAlignment="Center">
-              <TextBlock Text="Wartet auf Freigabe"
+              <TextBlock Text="{Binding SelectedMobileInboxEntry.DisplayStatusText}"
                          FontSize="12"
                          Foreground="{DynamicResource AccentBrush}" />
             </Border>
@@ -1702,6 +1702,16 @@
                      Foreground="{DynamicResource TextSecondaryBrush}"
                      FontSize="12"
                      TextWrapping="Wrap" />
+
+          <Border Classes="Card"
+                  IsVisible="{Binding SelectedMobileInboxEntry.HasAttachmentIssueText}"
+                  Padding="12"
+                  BorderBrush="{DynamicResource DangerBrush}">
+            <TextBlock Text="{Binding SelectedMobileInboxEntry.AttachmentIssueText}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </Border>
 
           <TextBlock Classes="SectionTitle" Text="Besichtigung" />
           <Border Classes="Card" Padding="14">
@@ -1775,9 +1785,9 @@
                             <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
                                    Stretch="Uniform"
                                    RenderOptions.BitmapInterpolationMode="HighQuality"
-                                   IsVisible="{Binding Exists}" />
+                                   IsVisible="{Binding HasPreviewImage}" />
                             <TextBlock Text="{Binding StatusText}"
-                                       IsVisible="{Binding IsMissing}"
+                                       IsVisible="{Binding HasPreviewMessage}"
                                        Foreground="{DynamicResource DangerBrush}"
                                        FontSize="11"
                                        TextWrapping="Wrap"
@@ -1840,9 +1850,9 @@
                             <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
                                    Stretch="Uniform"
                                    RenderOptions.BitmapInterpolationMode="HighQuality"
-                                   IsVisible="{Binding Exists}" />
+                                   IsVisible="{Binding HasPreviewImage}" />
                             <TextBlock Text="{Binding StatusText}"
-                                       IsVisible="{Binding IsMissing}"
+                                       IsVisible="{Binding HasPreviewMessage}"
                                        Foreground="{DynamicResource DangerBrush}"
                                        FontSize="11"
                                        TextWrapping="Wrap"
