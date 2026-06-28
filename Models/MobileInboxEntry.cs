@@ -154,6 +154,10 @@ public sealed class MobileInboxPreviewItem
     public bool HasIssue => IsMissing || IsDetailMissing || IsUnreadable || IsDetailUnreadable;
     public bool HasPreviewImage => Exists && !IsUnreadable;
     public bool HasPreviewMessage => !HasPreviewImage;
+    public bool IsSketchPreview =>
+        string.Equals(Kind, "sketches", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Kind, "drawing", StringComparison.OrdinalIgnoreCase);
+    public bool IsDefaultPreview => !IsSketchPreview;
     public string DisplayKind => Kind switch
     {
         "annotated" => "Markiertes Foto",

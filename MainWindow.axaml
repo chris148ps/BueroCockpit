@@ -1814,7 +1814,9 @@
                                    TextWrapping="Wrap" />
                         <Border Height="112"
                                 CornerRadius="6"
-                                Background="{DynamicResource SurfaceElevatedBrush}"
+                                Background="#FFFFFF"
+                                BorderBrush="#D8DEE8"
+                                BorderThickness="1"
                                 ClipToBounds="True">
                           <Grid>
                             <Image Source="{Binding Path, Converter={StaticResource ThumbnailImageConverter}}"
@@ -1937,7 +1939,29 @@
               <Border Height="360"
                       CornerRadius="8"
                       Background="{DynamicResource SurfaceElevatedBrush}"
-                      ClipToBounds="True">
+                      ClipToBounds="True"
+                      IsVisible="{Binding SelectedMobileInboxPreviewItem.IsDefaultPreview}">
+                <Grid>
+                  <Image Source="{Binding MobileInboxPreviewDetailPath, Converter={StaticResource ThumbnailImageConverter}}"
+                         Stretch="Uniform"
+                         RenderOptions.BitmapInterpolationMode="HighQuality"
+                         IsVisible="{Binding HasMobileInboxPreviewDetailImage}" />
+                  <TextBlock Text="{Binding MobileInboxPreviewDetailMessage}"
+                             IsVisible="{Binding HasMobileInboxPreviewDetailMessage}"
+                             Foreground="{DynamicResource DangerBrush}"
+                             TextWrapping="Wrap"
+                             Margin="16"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Center" />
+                </Grid>
+              </Border>
+              <Border Height="360"
+                      CornerRadius="8"
+                      Background="#FFFFFF"
+                      BorderBrush="#D8DEE8"
+                      BorderThickness="1"
+                      ClipToBounds="True"
+                      IsVisible="{Binding SelectedMobileInboxPreviewItem.IsSketchPreview}">
                 <Grid>
                   <Image Source="{Binding MobileInboxPreviewDetailPath, Converter={StaticResource ThumbnailImageConverter}}"
                          Stretch="Uniform"
