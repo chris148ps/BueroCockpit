@@ -97,6 +97,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private MobileInboxPreviewItem? _selectedMobileInboxPreviewItem;
     private string _mobileInboxPreviewStatus = string.Empty;
     private bool _isGlobalSearchEnabled;
+    private bool _includeArchiveInSearch;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
     private string _mobileInboxCleanupStatus = string.Empty;
@@ -408,7 +409,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(CanCreateTaskInSelectedCategory));
             OnPropertyChanged(nameof(HasNoVisibleMobileInboxEntries));
             OnPropertyChanged(nameof(IsTrashEmpty));
-            CategoryEditorName = _selectedCategory?.Name ?? string.Empty;
+            CategoryEditorName = IsSettingsSelected ? string.Empty : _selectedCategory?.Name ?? string.Empty;
             CategoryMessage = string.Empty;
         }
     }
@@ -973,6 +974,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isGlobalSearchEnabled = value;
             OnPropertyChanged(nameof(IsGlobalSearchEnabled));
             OnPropertyChanged(nameof(IsGlobalSearchPanelVisible));
+            RefreshVisibleTasks();
+            RefreshGlobalSearchResults();
+        }
+    }
+
+    public bool IncludeArchiveInSearch
+    {
+        get => _includeArchiveInSearch;
+        set
+        {
+            if (_includeArchiveInSearch == value)
+            {
+                return;
+            }
+
+            _includeArchiveInSearch = value;
+            OnPropertyChanged(nameof(IncludeArchiveInSearch));
             RefreshVisibleTasks();
             RefreshGlobalSearchResults();
         }
@@ -2488,6 +2506,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var categoryName = categoryNames.FirstOrDefault() ?? string.Empty;
         var preferredCategoryId = GetSearchPreferredCategoryId(task, query);
         var matchInfo = GetSearchMatchInfo(task, categoryNames, query);
+        var isArchived = IsArchivedForSearch(task);
         return new TaskSearchResult(
             task,
             categoryName,
@@ -2499,7 +2518,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             task.Technician,
             task.CustomerAddress,
             task.DueDate,
-            task.SentAt);
+            task.SentAt,
+            isArchived);
     }
 
     private string GetSearchMatchInfo(TaskItem task, IReadOnlyList<string> categoryNames, string query)
@@ -2541,6 +2561,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return AllTasks
             .Where(task => IsTrashSelected ? task.IsDeleted : !task.IsDeleted)
+            .Where(task => IsTrashSelected || IncludeArchiveInSearch || !IsArchivedForSearch(task))
             .Where(task => TaskMatchesSearch(task, query))
             .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First());
@@ -5336,7 +5357,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Name = name,
-                SortOrder = _repository.GetNextCategorySortOrder(),
+                SortOrder = GetNextVisibleCategorySortOrder(),
                 SortMode = "Erstellt am",
                 Color = "#F2F3F5",
                 IsVisible = true
@@ -5344,7 +5365,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             SubscribeCategoryItem(category);
             InsertBeforeSettings(category);
-            RefreshTaskCategories();
+            RefreshCategoryDependentViews();
             UpdateCategoryCounts();
 
             SaveCategoryAndQueueIpadSnapshot(category, "Kategorie erstellt");
@@ -5358,6 +5379,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private int GetNextVisibleCategorySortOrder()
+    {
+        var maxSortOrder = Categories
+            .Where(category => !IsSpecialCategory(category))
+            .Select(category => category.SortOrder)
+            .DefaultIfEmpty(-1)
+            .Max();
+
+        return maxSortOrder + 1;
+    }
+
     private void RenameCategory_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
@@ -5367,21 +5399,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var name = NormalizeCategoryName(CategoryEditorName);
+        RenameCategory(SelectedCategory, name);
+    }
+
+    private void RenameCategory(CategoryItem category, string name)
+    {
         if (string.IsNullOrWhiteSpace(name))
         {
             CategoryMessage = "Bitte einen Kategorienamen eingeben.";
             return;
         }
 
-        if (FindCategoryByName(name, SelectedCategory.Id) is not null)
+        if (FindCategoryByName(name, category.Id) is not null)
         {
             CategoryMessage = "Diese Kategorie gibt es bereits.";
             return;
         }
 
-        SelectedCategory.Name = name;
-        SaveCategoryAndQueueIpadSnapshot(SelectedCategory, "Kategorie umbenannt");
+        category.Name = name;
+        SaveCategoryAndQueueIpadSnapshot(category, "Kategorie umbenannt");
         OnPropertyChanged(nameof(SelectedCategory));
+        RefreshCategoryDependentViews();
+        ApplySelectedCategoryContent();
+        UpdateCategoryCounts();
         CategoryMessage = "Kategorie umbenannt.";
     }
 
@@ -5483,24 +5523,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
         {
-            CategoryMessage = "Diese Kategorie kann nicht ausgeblendet werden.";
+            CategoryMessage = "Diese Kategorie kann nicht entfernt werden.";
             return;
         }
 
-        if (_repository.GetTaskCountForCategory(SelectedCategory.Id) > 0)
+        RemoveCategory(SelectedCategory);
+    }
+
+    private void RemoveCategory(CategoryItem category)
+    {
+        if (IsSpecialCategory(category))
         {
-            CategoryMessage = "Kategorie enthält Aufgaben und wurde nicht ausgeblendet.";
+            CategoryMessage = "Diese Kategorie kann nicht entfernt werden.";
             return;
         }
 
-        var category = SelectedCategory;
-        _repository.HideCategory(category.Id);
+        if (AllTasks.Any(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id)))
+        {
+            CategoryMessage = "Kategorie enthält noch Aufgaben und wurde nicht entfernt.";
+            return;
+        }
+
+        category.IsVisible = false;
+        SaveCategoryAndQueueIpadSnapshot(category, "Kategorie entfernt");
         Categories.Remove(category);
-        RefreshTaskCategories();
-        SelectedCategory = Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben") ?? Categories.FirstOrDefault();
-        ApplySelectedCategoryContent();
+        RefreshCategoryDependentViews();
+        if (SelectedCategory is null ||
+            string.Equals(SelectedCategory.Id, category.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedCategory = GetDefaultStartupCategory() ?? Categories.FirstOrDefault();
+            ApplySelectedCategoryContent();
+        }
+
         UpdateCategoryCounts();
-        CategoryMessage = "Kategorie ausgeblendet.";
+        CategoryMessage = "Kategorie entfernt.";
+    }
+
+    private void RefreshCategoryDependentViews()
+    {
+        RefreshTaskCategories();
+        foreach (var task in AllTasks)
+        {
+            UpdateTaskCategoryPresentation(task);
+        }
+
+        RefreshGlobalSearchResults();
     }
 
     private async void DuplicateTask_OnClick(object? sender, RoutedEventArgs e)
@@ -5743,7 +5810,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void CategoryRenameFromMenu_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not MenuItem { DataContext: CategoryItem category })
+        await RenameCategoryFromSenderAsync(sender, e);
+    }
+
+    private async void CategoryRenameFromSettings_OnClick(object? sender, RoutedEventArgs e)
+    {
+        await RenameCategoryFromSenderAsync(sender, e);
+    }
+
+    private async Task RenameCategoryFromSenderAsync(object? sender, RoutedEventArgs e)
+    {
+        if (GetCategoryFromSender(sender) is not { } category)
         {
             return;
         }
@@ -5765,9 +5842,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SelectedCategory = category;
-        CategoryEditorName = newName;
-        RenameCategory_OnClick(sender, e);
+        RenameCategory(category, NormalizeCategoryName(newName));
+    }
+
+    private void CategoryRemoveFromSettings_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (GetCategoryFromSender(sender) is not { } category)
+        {
+            return;
+        }
+
+        RemoveCategory(category);
+    }
+
+    private static CategoryItem? GetCategoryFromSender(object? sender)
+    {
+        return sender switch
+        {
+            Control { DataContext: CategoryItem category } => category,
+            _ => null
+        };
     }
 
     private async Task<string?> ShowRenameCategoryDialog(string currentName)
@@ -5851,11 +5945,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategoryDeleteFromMenu_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: CategoryItem category } && !IsSpecialCategory(category))
+        if (GetCategoryFromSender(sender) is { } category && !IsSpecialCategory(category))
         {
             SelectedCategory = category;
             CategoryEditorName = category.Name;
-            HideCategory_OnClick(sender, e);
+            RemoveCategory(category);
         }
     }
 
@@ -8047,6 +8141,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var archiveCategory = Categories.FirstOrDefault(category =>
             category.Name.Equals("Archiv", StringComparison.OrdinalIgnoreCase));
         return archiveCategory is not null && TaskBelongsToCategory(task, archiveCategory.Id);
+    }
+
+    private bool IsArchivedForSearch(TaskItem task)
+    {
+        return IsDoneOrArchived(task) || IsInArchiveCategory(task);
     }
 
     private static bool Contains(string? value, string query)
@@ -10372,7 +10471,8 @@ public sealed class TaskSearchResult
         string technician,
         string customerAddress,
         DateTime? dueDate,
-        DateTime? sentAt)
+        DateTime? sentAt,
+        bool isArchived)
     {
         Task = task;
         CategoryName = categoryName;
@@ -10385,6 +10485,7 @@ public sealed class TaskSearchResult
         CustomerAddress = customerAddress;
         DueDate = dueDate;
         SentAt = sentAt;
+        IsArchived = isArchived;
     }
 
     public TaskItem Task { get; }
@@ -10399,6 +10500,7 @@ public sealed class TaskSearchResult
     public string CustomerAddress { get; }
     public DateTime? DueDate { get; }
     public DateTime? SentAt { get; }
+    public bool IsArchived { get; }
 }
 
 public sealed class TaskCategorySelection

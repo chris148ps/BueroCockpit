@@ -1052,7 +1052,7 @@
           <Border Classes="Card">
             <StackPanel Spacing="10">
               <TextBlock Text="Kategorie-Vorgaben" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,0" />
-            <TextBlock Text="Hier werden neue Kategorien angelegt. Umbenennen und Löschen erfolgt per Rechtsklick auf eine Kategorie in der linken Liste."
+            <TextBlock Text="Hier werden Kategorien angelegt und verwaltet."
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap"
                        Margin="0,4,0,8" />
@@ -1072,6 +1072,29 @@
                        FontSize="12"
                        TextWrapping="Wrap"
                        Margin="0,6,0,0" />
+
+            <ItemsControl ItemsSource="{Binding TaskCategories}" Margin="0,8,0,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                      <TextBlock Grid.Column="0"
+                                 Text="{Binding Name}"
+                                 VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                      <Button Grid.Column="1"
+                              Content="Umbenennen"
+                              Classes="Secondary"
+                              Click="CategoryRenameFromSettings_OnClick" />
+                      <Button Grid.Column="2"
+                              Content="Entfernen"
+                              Classes="Secondary"
+                              Click="CategoryRemoveFromSettings_OnClick" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             </StackPanel>
           </Border>
@@ -1423,9 +1446,14 @@
                      TextChanged="SearchBox_OnTextChanged"
                      PlaceholderText="Suchen nach Kunde, Titel, Adresse, Monteur, Status, Material, Anhang"
                      Margin="0,12,0,0" />
-            <CheckBox IsChecked="{Binding IsGlobalSearchEnabled}"
-                      Content="Alle Bereiche durchsuchen"
-                      Margin="0,8,0,0" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="14"
+                        Margin="0,8,0,0">
+              <CheckBox IsChecked="{Binding IsGlobalSearchEnabled}"
+                        Content="Alle Bereiche durchsuchen" />
+              <CheckBox IsChecked="{Binding IncludeArchiveInSearch}"
+                        Content="Archiv mit durchsuchen" />
+            </StackPanel>
 
             <StackPanel Orientation="Horizontal"
                         Spacing="6"
@@ -1555,9 +1583,17 @@
                     <StackPanel Spacing="4">
                       <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                        <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="8,2">
-                          <TextBlock Text="{Binding CategoryName}" FontSize="12" Foreground="{DynamicResource AccentBrush}" />
-                        </Border>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                          <Border Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="8,2">
+                            <TextBlock Text="{Binding CategoryName}" FontSize="12" Foreground="{DynamicResource AccentBrush}" />
+                          </Border>
+                          <Border Background="{DynamicResource InputBackgroundBrush}"
+                                  CornerRadius="8"
+                                  Padding="8,2"
+                                  IsVisible="{Binding IsArchived}">
+                            <TextBlock Text="Archiv" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                          </Border>
+                        </StackPanel>
                       </Grid>
                       <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                       <ItemsControl ItemsSource="{Binding CategoryNameChips}"
