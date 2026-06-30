@@ -23,12 +23,15 @@ public sealed class AppSettingsService
     {
         try
         {
-            if (!File.Exists(AppPaths.SettingsPath))
+            var settingsPath = File.Exists(AppPaths.LocalSettingsPath)
+                ? AppPaths.LocalSettingsPath
+                : AppPaths.SettingsPath;
+            if (!File.Exists(settingsPath))
             {
                 return new AppSettings();
             }
 
-            var json = File.ReadAllText(AppPaths.SettingsPath);
+            var json = File.ReadAllText(settingsPath);
             return JsonSerializer.Deserialize<AppSettings>(json, Options) ?? new AppSettings();
         }
         catch (Exception ex)
@@ -42,9 +45,9 @@ public sealed class AppSettingsService
     {
         try
         {
-            Directory.CreateDirectory(AppPaths.AppDataDirectory);
+            Directory.CreateDirectory(AppPaths.LocalConfigDirectory);
             var json = JsonSerializer.Serialize(settings, Options);
-            File.WriteAllText(AppPaths.SettingsPath, json);
+            File.WriteAllText(AppPaths.LocalSettingsPath, json);
         }
         catch (Exception ex)
         {

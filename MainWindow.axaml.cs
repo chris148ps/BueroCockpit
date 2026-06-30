@@ -187,8 +187,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly Dictionary<string, TaskItem> _dirtyTasks = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, CategoryItem> _dirtyCategories = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MaterialItem> _dirtyMaterials = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, AttachmentItem> _dirtyAttachments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DeskItem> _dirtyDeskItems = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _deletedMaterials = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _deletedAttachments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _deletedDeskItems = new(StringComparer.OrdinalIgnoreCase);
     private bool _hasDirtyData;
     private bool _isSavingDirtyData;
+    private bool _suppressRepositoryExportsDuringSave;
+    private bool _repositoryDataWrittenDuringSave;
+    private bool _emptyTrashRequested;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -740,7 +748,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _selectedAttachment = value;
             if (_selectedAttachment is not null)
             {
-                EnsureAttachmentThumbnail(_selectedAttachment);
                 _selectedAttachment.IsSelected = true;
             }
 
@@ -1204,7 +1211,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void MarkDirty()
+    private void MarkDataDirty(string reason)
     {
         if (_isLoadingData || _isLoadingSelection)
         {
@@ -1212,6 +1219,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _hasDirtyData = true;
+        AutoSaveStatus = "Ungespeicherte Änderungen";
+        Console.WriteLine($"MarkDataDirty: {DateTime.Now:O} reason={reason}");
         if (!_autoSaveTimer.IsEnabled)
         {
             _autoSaveTimer.Start();
@@ -1226,7 +1235,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _dirtyTasks[task.Id] = task;
-        MarkDirty();
+        MarkDataDirty($"task:{task.Id}");
     }
 
     private void MarkCategoryDirty(CategoryItem? category)
@@ -1237,7 +1246,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _dirtyCategories[category.Id] = category;
-        MarkDirty();
+        MarkDataDirty($"category:{category.Id}");
     }
 
     private void MarkMaterialDirty(MaterialItem? material)
@@ -1247,8 +1256,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        _deletedMaterials.Remove(material.Id);
         _dirtyMaterials[material.Id] = material;
-        MarkDirty();
+        MarkDataDirty($"material:{material.Id}");
+    }
+
+    private void MarkAttachmentDirty(AttachmentItem? attachment)
+    {
+        if (attachment is null || string.IsNullOrWhiteSpace(attachment.Id))
+        {
+            return;
+        }
+
+        _deletedAttachments.Remove(attachment.Id);
+        _dirtyAttachments[attachment.Id] = attachment;
+        MarkDataDirty($"attachment:{attachment.Id}");
+    }
+
+    private void MarkDeskItemDirty(DeskItem? deskItem)
+    {
+        if (deskItem is null || string.IsNullOrWhiteSpace(deskItem.Id))
+        {
+            return;
+        }
+
+        _deletedDeskItems.Remove(deskItem.Id);
+        _dirtyDeskItems[deskItem.Id] = deskItem;
+        MarkDataDirty($"desk-item:{deskItem.Id}");
     }
 
     private Task SaveNowAsync(string reason)
@@ -1267,15 +1301,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!_hasDirtyData &&
             _dirtyTasks.Count == 0 &&
             _dirtyCategories.Count == 0 &&
-            _dirtyMaterials.Count == 0)
+            _dirtyMaterials.Count == 0 &&
+            _dirtyAttachments.Count == 0 &&
+            _dirtyDeskItems.Count == 0 &&
+            _deletedMaterials.Count == 0 &&
+            _deletedAttachments.Count == 0 &&
+            _deletedDeskItems.Count == 0 &&
+            !_emptyTrashRequested)
         {
             _autoSaveTimer.Stop();
             return true;
         }
 
+        Console.WriteLine($"SaveNow: {DateTime.Now:O} reason={reason}");
         _isSavingDirtyData = true;
+        _suppressRepositoryExportsDuringSave = true;
+        _repositoryDataWrittenDuringSave = false;
         try
         {
+            if (_emptyTrashRequested)
+            {
+                _repository.EmptyTrash();
+            }
+
+            foreach (var materialId in _deletedMaterials.ToList())
+            {
+                _dirtyMaterials.Remove(materialId);
+                _repository.DeleteMaterial(materialId);
+            }
+
+            foreach (var attachmentId in _deletedAttachments.ToList())
+            {
+                _dirtyAttachments.Remove(attachmentId);
+                _repository.DeleteAttachment(attachmentId);
+            }
+
+            foreach (var deskItemId in _deletedDeskItems.ToList())
+            {
+                _dirtyDeskItems.Remove(deskItemId);
+                _repository.DeleteDeskItem(deskItemId);
+            }
+
             foreach (var category in _dirtyCategories.Values.ToList())
             {
                 _repository.SaveCategory(category);
@@ -1291,12 +1357,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _repository.SaveMaterial(material);
             }
 
+            foreach (var attachment in _dirtyAttachments.Values.ToList())
+            {
+                _repository.SaveAttachment(attachment);
+            }
+
+            foreach (var deskItem in _dirtyDeskItems.Values.ToList())
+            {
+                _repository.SaveDeskItem(deskItem);
+            }
+
             _dirtyCategories.Clear();
             _dirtyTasks.Clear();
             _dirtyMaterials.Clear();
+            _dirtyAttachments.Clear();
+            _dirtyDeskItems.Clear();
+            _deletedMaterials.Clear();
+            _deletedAttachments.Clear();
+            _deletedDeskItems.Clear();
+            _emptyTrashRequested = false;
             _hasDirtyData = false;
             _autoSaveTimer.Stop();
-            AutoSaveStatus = string.Empty;
+            AutoSaveStatus = "Gespeichert";
+            TriggerRepositoryExportsAfterSave(reason);
             return true;
         }
         catch (Exception ex)
@@ -1307,8 +1390,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         finally
         {
+            _suppressRepositoryExportsDuringSave = false;
             _isSavingDirtyData = false;
         }
+    }
+
+    private void TriggerRepositoryExportsAfterSave(string reason)
+    {
+        if (!_repositoryDataWrittenDuringSave)
+        {
+            return;
+        }
+
+        var exportReason = $"save:{reason}";
+        TriggerIpadSnapshotExport(exportReason);
+        TriggerIpadLiveFileExport(exportReason);
+        _repositoryDataWrittenDuringSave = false;
     }
 
     private void SubscribeCategoryItem(CategoryItem category)
@@ -1942,7 +2039,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         RefreshDeskFileCard(deskItem);
-        _repository.SaveDeskItem(deskItem);
+        MarkDeskItemDirty(deskItem);
         DeskStatus = $"Datei neu zugeordnet: {newPath}";
     }
 
@@ -1986,7 +2083,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (!hadDeskContentHash && !string.IsNullOrWhiteSpace(deskItem.ContentHash))
             {
-                _repository.SaveDeskItem(deskItem);
+                MarkDeskItemDirty(deskItem);
             }
 
             return;
@@ -2075,7 +2172,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             e.PropertyName == nameof(DeskItem.Type))
         {
             deskItem.UpdatedAt = DateTime.Now;
-            _repository.SaveDeskItem(deskItem);
+            MarkDeskItemDirty(deskItem);
             UpdateDeskSurfaceBounds();
         }
     }
@@ -2207,7 +2304,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isApplyingDeskDrag = false;
         }
 
-        _repository.SaveDeskItem(_draggedDeskItem);
+        MarkDeskItemDirty(_draggedDeskItem);
         UpdateDeskSurfaceBounds();
     }
 
@@ -2917,14 +3014,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var materialId in currentMaterialIds.Where(id => !snapshotMaterialIds.Contains(id)).ToList())
         {
-            _repository.DeleteMaterial(materialId);
+            _dirtyMaterials.Remove(materialId);
+            _deletedMaterials.Add(materialId);
+            MarkDataDirty($"material-delete:{materialId}");
         }
 
         foreach (var material in snapshotMaterials)
         {
             var copy = CloneMaterialItem(material);
             copy.TaskId = taskId;
-            _repository.SaveMaterial(copy);
+            MarkMaterialDirty(copy);
         }
 
         if (SelectedTask?.Id == taskId)
@@ -3222,30 +3321,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Dictionary<string, string?>? attachmentHashIndex = null;
             foreach (var item in _repository.GetDeskItems())
             {
-                var needsSave = false;
-                if (TryMigrateDeskItemFile(item, out _, out _))
-                {
-                    needsSave = true;
-                }
-
                 var normalizedSize = NormalizeDeskItemSize(item);
                 if (Math.Abs(item.Width - normalizedSize.Width) > 0.5 ||
                     Math.Abs(item.Height - normalizedSize.Height) > 0.5)
                 {
                     item.Width = normalizedSize.Width;
                     item.Height = normalizedSize.Height;
-                    needsSave = true;
                 }
 
                 var resolvedLinkedTaskId = TryResolveDeskItemLinkedTaskIdFromPath(item);
                 if (string.IsNullOrWhiteSpace(resolvedLinkedTaskId) && item.IsFileCard)
                 {
-                    var contentHashBefore = item.ContentHash;
                     var deskContentHash = EnsureDeskItemContentHash(item);
-                    if (!string.Equals(contentHashBefore, item.ContentHash, StringComparison.OrdinalIgnoreCase))
-                    {
-                        needsSave = true;
-                    }
 
                     if (!string.IsNullOrWhiteSpace(deskContentHash))
                     {
@@ -3258,12 +3345,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     !string.Equals(item.LinkedTaskId, resolvedLinkedTaskId, StringComparison.OrdinalIgnoreCase))
                 {
                     item.LinkedTaskId = resolvedLinkedTaskId;
-                    needsSave = true;
-                }
-
-                if (needsSave)
-                {
-                    _repository.SaveDeskItem(item);
                 }
 
                 SubscribeDeskItem(item);
@@ -3274,9 +3355,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _isLoadingDeskItems = false;
         }
-
         UpdateDeskSurfaceBounds();
-        RefreshDeskFileCards();
     }
 
     private void RefreshDeskFileCards()
@@ -3311,7 +3390,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             !string.Equals(previewPath, deskItem.ThumbnailPath, StringComparison.OrdinalIgnoreCase))
         {
             deskItem.ThumbnailPath = previewPath;
-            _repository.SaveDeskItem(deskItem);
+            MarkDeskItemDirty(deskItem);
         }
     }
 
@@ -3526,7 +3605,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isApplyingDeskResize = false;
         }
 
-        _repository.SaveDeskItem(_resizedDeskItem);
+        MarkDeskItemDirty(_resizedDeskItem);
         UpdateDeskSurfaceBounds();
     }
 
@@ -3667,12 +3746,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var item in _repository.GetAttachments(SelectedTask.Id))
             {
-                if (TryMigrateAttachmentFile(item, out _, out _))
-                {
-                    SaveAttachmentAndQueueIpadSnapshot(item);
-                }
-
-                EnsureAttachmentThumbnail(item);
                 Attachments.Insert(0, item);
             }
         }
@@ -3731,8 +3804,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AllTasks.Insert(0, task);
 
         ClearSearchTextWithoutRefresh();
-        category.SortMode = "Erstellt am";
-        SaveCategoryAndQueueIpadSnapshot(category);
         SelectedCategory = category;
         RefreshVisibleTasks();
         SelectedTask = task;
@@ -3813,7 +3884,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         deskItem.X = logicalPosition.X;
         deskItem.Y = logicalPosition.Y;
 
-        _repository.SaveDeskItem(deskItem);
+        MarkDeskItemDirty(deskItem);
         SubscribeDeskItem(deskItem);
         DeskItems.Add(deskItem);
         EnsureDeskFilePreview(deskItem);
@@ -3840,7 +3911,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             UpdatedAt = now
         };
 
-        _repository.SaveDeskItem(deskItem);
+        MarkDeskItemDirty(deskItem);
         SubscribeDeskItem(deskItem);
         DeskItems.Add(deskItem);
         UpdateDeskSurfaceBounds();
@@ -3856,17 +3927,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DeleteDeskItem(deskItem);
     }
 
+    private async void ManualSave_OnClick(object? sender, RoutedEventArgs e)
+    {
+        await SaveManuallyAsync(validateSelectedTask: true);
+    }
+
     private async void SaveTask_OnClick(object? sender, RoutedEventArgs e)
+    {
+        await SaveManuallyAsync(validateSelectedTask: true);
+    }
+
+    private async Task SaveManuallyAsync(bool validateSelectedTask)
     {
         if (SelectedTask is null)
         {
+            SaveCurrentMaterials();
+            await SaveNowAsync("manual-save");
             return;
         }
 
         CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
         ApplySelectedTaskStatusRules();
 
-        if (_tasksPendingDuplicateCheck.Contains(SelectedTask.Id) &&
+        if (validateSelectedTask &&
+            _tasksPendingDuplicateCheck.Contains(SelectedTask.Id) &&
             await HandleNewTaskDuplicateAsync(SelectedTask))
         {
             return;
@@ -4196,7 +4280,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CaptureTaskUndoState(task);
-        DeleteTaskAndQueueIpadSnapshot(task.Id);
         if (!task.IsDeleted)
         {
             task.IsDeleted = true;
@@ -4707,7 +4790,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
         _dirtyMaterials.Remove(item.Id);
-        _repository.DeleteMaterial(item.Id);
+        _deletedMaterials.Add(item.Id);
+        MarkDataDirty($"material-delete:{item.Id}");
         Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
     }
@@ -4743,12 +4827,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            SaveTaskAndQueueIpadSnapshot(SelectedTask);
-            if (!SaveNow("attachment-add"))
-            {
-                return false;
-            }
-
             var normalizedSourcePath = Path.GetFullPath(sourcePath);
             var originalName = Path.GetFileName(normalizedSourcePath);
             var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, SelectedTask.Id);
@@ -4767,6 +4845,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             attachment.ContentHash = EnsureAttachmentContentHash(attachment, persist: false) ?? string.Empty;
             EnsureAttachmentThumbnail(attachment);
             SaveAttachmentAndQueueIpadSnapshot(attachment);
+            SaveTaskAndQueueIpadSnapshot(SelectedTask);
             Attachments.Insert(0, attachment);
 
             return true;
@@ -5095,7 +5174,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             UnsubscribeDeskItem(deskItem);
-            _repository.DeleteDeskItem(deskItem.Id);
+            _dirtyDeskItems.Remove(deskItem.Id);
+            _deletedDeskItems.Add(deskItem.Id);
+            MarkDataDirty($"desk-item-delete:{deskItem.Id}");
             DeskItems.Remove(deskItem);
             removedAny = true;
         }
@@ -5402,11 +5483,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SaveCurrentMaterials();
-        if (!SaveNow("duplicate-source"))
-        {
-            return;
-        }
-
         var source = SelectedTask;
         var now = DateTime.Now;
         var copy = new TaskItem
@@ -5434,14 +5510,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         SaveTaskAndQueueIpadSnapshot(copy);
-        if (!SaveNow("duplicate-copy"))
+        foreach (var material in Materials.Where(item => string.Equals(item.TaskId, source.Id, StringComparison.OrdinalIgnoreCase)).ToList())
         {
-            return;
-        }
-
-        foreach (var material in _repository.GetMaterials(source.Id))
-        {
-            _repository.SaveMaterial(new MaterialItem
+            var materialCopy = new MaterialItem
             {
                 Id = Guid.NewGuid().ToString("N"),
                 TaskId = copy.Id,
@@ -5452,7 +5523,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Supplier = material.Supplier,
                 OrderedAt = material.OrderedAt,
                 Note = material.Note
-            });
+            };
+            MarkMaterialDirty(materialCopy);
         }
 
         AllTasks.Insert(0, copy);
@@ -6104,7 +6176,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             if (TryUpdateLoadedDeskItem(deskItem))
             {
-                _repository.SaveDeskItem(deskItem);
+                MarkDeskItemDirty(deskItem);
             }
         }
 
@@ -6127,7 +6199,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
                 if (TryUpdateLoadedAttachment(attachment))
                 {
-                    SaveAttachmentAndQueueIpadSnapshot(attachment);
+                    MarkAttachmentDirty(attachment);
                 }
             }
         }
@@ -6568,6 +6640,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (_suppressRepositoryExportsDuringSave)
+        {
+            _repositoryDataWrittenDuringSave = true;
+            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export deferred ({reason}): save is running.");
+            return;
+        }
+
         TriggerIpadSnapshotExport(reason);
         TriggerIpadLiveFileExport(reason);
     }
@@ -6673,7 +6752,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveAttachmentAndQueueIpadSnapshot(AttachmentItem attachment)
     {
-        _repository.SaveAttachment(attachment);
+        MarkAttachmentDirty(attachment);
     }
 
     private void DeleteTaskAndQueueIpadSnapshot(string taskId)
@@ -6692,12 +6771,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DeleteAttachmentAndQueueIpadSnapshot(string attachmentId)
     {
-        _repository.DeleteAttachment(attachmentId);
+        _dirtyAttachments.Remove(attachmentId);
+        _deletedAttachments.Add(attachmentId);
+        MarkDataDirty($"attachment-delete:{attachmentId}");
     }
 
     private void EmptyTrashAndQueueIpadSnapshot()
     {
-        _repository.EmptyTrash();
+        _emptyTrashRequested = true;
+        MarkDataDirty("empty-trash");
     }
 
     private async void RefreshIpadSnapshot_OnClick(object? sender, RoutedEventArgs e)
@@ -7772,10 +7854,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SaveCurrentMaterials()
     {
         MergeDuplicateMaterials();
+        var storedMaterialsById = Materials
+            .Where(m => !string.IsNullOrWhiteSpace(m.TaskId))
+            .Select(m => m.TaskId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .SelectMany(taskId => _repository.GetMaterials(taskId))
+            .ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
+
         foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)))
         {
-            MarkMaterialDirty(item);
+            if (!storedMaterialsById.TryGetValue(item.Id, out var storedMaterial) ||
+                !MaterialMatchesStored(item, storedMaterial))
+            {
+                MarkMaterialDirty(item);
+            }
         }
+    }
+
+    private static bool MaterialMatchesStored(MaterialItem current, MaterialItem stored)
+    {
+        return string.Equals(current.TaskId, stored.TaskId, StringComparison.OrdinalIgnoreCase) &&
+               current.Quantity == stored.Quantity &&
+               string.Equals(current.Unit, stored.Unit, StringComparison.Ordinal) &&
+               string.Equals(current.Name, stored.Name, StringComparison.Ordinal) &&
+               string.Equals(current.Status, stored.Status, StringComparison.Ordinal) &&
+               string.Equals(current.Supplier, stored.Supplier, StringComparison.Ordinal) &&
+               current.OrderedAt == stored.OrderedAt &&
+               string.Equals(current.Note, stored.Note, StringComparison.Ordinal);
     }
 
     private void MergeDuplicateMaterials()
@@ -7809,7 +7914,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var duplicate in duplicates)
         {
             _dirtyMaterials.Remove(duplicate.Id);
-            _repository.DeleteMaterial(duplicate.Id);
+            _deletedMaterials.Add(duplicate.Id);
+            MarkDataDirty($"material-delete:{duplicate.Id}");
             Materials.Remove(duplicate);
         }
 
@@ -8351,7 +8457,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RemovePendingNewTask(TaskItem task)
     {
         _tasksPendingDuplicateCheck.Remove(task.Id);
-        DeleteTaskAndQueueIpadSnapshot(task.Id);
+        _dirtyTasks.Remove(task.Id);
         AllTasks.Remove(task);
         ClearTaskSelectionAfterRemoval(task);
         UpdateCategoryCounts();
@@ -9946,7 +10052,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         UnsubscribeDeskItem(deskItem);
-        _repository.DeleteDeskItem(deskItem.Id);
+        _dirtyDeskItems.Remove(deskItem.Id);
+        _deletedDeskItems.Add(deskItem.Id);
+        MarkDataDirty($"desk-item-delete:{deskItem.Id}");
         if (deskItem.IsFileCard)
         {
             DeleteDeskItemStorageFileIfUnreferenced(deskItem.ThumbnailPath);
