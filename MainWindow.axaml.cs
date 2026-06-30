@@ -1238,7 +1238,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         MarkDataDirty($"task:{task.Id}");
     }
 
-    private void MarkCategoryDirty(CategoryItem? category)
+    private void MarkCategoryDirty(CategoryItem? category, string? reason = null)
     {
         if (category is null || IsSpecialCategory(category))
         {
@@ -1246,7 +1246,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _dirtyCategories[category.Id] = category;
-        MarkDataDirty($"category:{category.Id}");
+        MarkDataDirty(string.IsNullOrWhiteSpace(reason) ? $"category:{category.Id}" : $"{reason}:{category.Id}");
     }
 
     private void MarkMaterialDirty(MaterialItem? material)
@@ -5300,40 +5300,62 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private CategoryItem? FindCategoryByName(string name, string? excludedCategoryId = null)
+    {
+        var normalizedName = NormalizeCategoryName(name);
+        return Categories.FirstOrDefault(category =>
+            !string.Equals(category.Id, excludedCategoryId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(NormalizeCategoryName(category.Name), normalizedName, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private static string NormalizeCategoryName(string? name)
+    {
+        return string.Join(' ', (name ?? string.Empty)
+            .Trim()
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
     private void AddCategory_OnClick(object? sender, RoutedEventArgs e)
     {
-        var name = CategoryEditorName.Trim();
+        var name = NormalizeCategoryName(CategoryEditorName);
         if (string.IsNullOrWhiteSpace(name))
         {
             CategoryMessage = "Bitte einen Kategorienamen eingeben.";
             return;
         }
 
-        var category = new CategoryItem
+        if (FindCategoryByName(name) is not null)
         {
-            Id = Guid.NewGuid().ToString("N"),
-            Name = name,
-            SortOrder = _repository.GetNextCategorySortOrder(),
-            SortMode = "Erstellt am",
-            Color = "#F2F3F5",
-            IsVisible = true
-        };
-
-        SubscribeCategoryItem(category);
-        SaveCategoryAndQueueIpadSnapshot(category);
-        InsertBeforeSettings(category);
-        RefreshTaskCategories();
-        SelectedCategory = category;
-        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
-        {
-            SelectedCategory = GetDefaultStartupCategory();
+            CategoryMessage = "Diese Kategorie gibt es bereits.";
+            return;
         }
 
-        ApplySelectedCategoryContent();
-        UpdateCategoryCounts();
+        try
+        {
+            var category = new CategoryItem
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = name,
+                SortOrder = _repository.GetNextCategorySortOrder(),
+                SortMode = "Erstellt am",
+                Color = "#F2F3F5",
+                IsVisible = true
+            };
 
-        ForceStartupTaskCategory();
-        CategoryMessage = "Kategorie angelegt.";
+            SubscribeCategoryItem(category);
+            InsertBeforeSettings(category);
+            RefreshTaskCategories();
+            UpdateCategoryCounts();
+
+            SaveCategoryAndQueueIpadSnapshot(category, "Kategorie erstellt");
+            CategoryEditorName = string.Empty;
+            CategoryMessage = "Kategorie angelegt.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Category could not be created: {ex}");
+            CategoryMessage = "Kategorie konnte nicht angelegt werden.";
+        }
     }
 
     private void RenameCategory_OnClick(object? sender, RoutedEventArgs e)
@@ -5344,15 +5366,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var name = CategoryEditorName.Trim();
+        var name = NormalizeCategoryName(CategoryEditorName);
         if (string.IsNullOrWhiteSpace(name))
         {
             CategoryMessage = "Bitte einen Kategorienamen eingeben.";
             return;
         }
 
+        if (FindCategoryByName(name, SelectedCategory.Id) is not null)
+        {
+            CategoryMessage = "Diese Kategorie gibt es bereits.";
+            return;
+        }
+
         SelectedCategory.Name = name;
-        SaveCategoryAndQueueIpadSnapshot(SelectedCategory);
+        SaveCategoryAndQueueIpadSnapshot(SelectedCategory, "Kategorie umbenannt");
         OnPropertyChanged(nameof(SelectedCategory));
         CategoryMessage = "Kategorie umbenannt.";
     }
@@ -6732,7 +6760,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         MarkTaskDirty(task);
     }
 
-    private void SaveCategoryAndQueueIpadSnapshot(CategoryItem category)
+    private void SaveCategoryAndQueueIpadSnapshot(CategoryItem category, string? reason = null)
     {
         if (_isSavingCategorySnapshot)
         {
@@ -6742,7 +6770,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isSavingCategorySnapshot = true;
         try
         {
-            MarkCategoryDirty(category);
+            MarkCategoryDirty(category, reason);
         }
         finally
         {
