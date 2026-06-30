@@ -108,6 +108,43 @@ public sealed class IpadSnapshotExportService
         LogExportMessage(message);
     }
 
+    public static string ResolveSyncRootDirectory(string sharedDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(sharedDirectory))
+        {
+            return string.Empty;
+        }
+
+        var candidate = NormalizeDirectoryPath(sharedDirectory);
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return string.Empty;
+        }
+
+        if (IsLivePackageFilePath(candidate))
+        {
+            var parentDirectory = GetDirectoryNamePortable(candidate);
+            return string.IsNullOrWhiteSpace(parentDirectory)
+                ? string.Empty
+                : NormalizeDirectoryPath(parentDirectory);
+        }
+
+        if (LooksLikeSyncRoot(candidate))
+        {
+            return candidate;
+        }
+
+        return Path.Combine(candidate, "Sync");
+    }
+
+    public static string ResolveLivePackagePath(string sharedDirectory)
+    {
+        var syncDirectory = ResolveSyncRootDirectory(sharedDirectory);
+        return string.IsNullOrWhiteSpace(syncDirectory)
+            ? string.Empty
+            : Path.Combine(syncDirectory, LivePackageFileName);
+    }
+
     public async Task<SnapshotExportResult> ExportNowAsync(
         BueroRepository repository,
         string sharedDirectory,
@@ -283,7 +320,14 @@ public sealed class IpadSnapshotExportService
         bool includeFullSnapshot)
     {
         var stopwatch = Stopwatch.StartNew();
-        var syncDirectory = Path.Combine(sharedDirectory, "Sync");
+        var syncDirectory = ResolveSyncRootDirectory(sharedDirectory);
+        if (string.IsNullOrWhiteSpace(syncDirectory))
+        {
+            LogExportMessage("iPad live sync failed: no valid sync root could be resolved.");
+            return SnapshotExportResult.CreateFailure("iPad-Sync-Zielordner konnte nicht ermittelt werden.");
+        }
+
+        LogExportMessage($"iPad live sync target syncRoot={syncDirectory}");
         var liveDirectory = Path.Combine(syncDirectory, "live");
         var previewsDirectory = Path.Combine(liveDirectory, "previews");
         var attachmentsDirectory = Path.Combine(liveDirectory, "attachments");
@@ -403,6 +447,69 @@ public sealed class IpadSnapshotExportService
         }
 
         return SnapshotExportResult.CreateSuccess(liveDirectory);
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+    {
+        var expandedPath = Environment.ExpandEnvironmentVariables(path.Trim());
+        try
+        {
+            return Path.GetFullPath(expandedPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return expandedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+    }
+
+    private static bool LooksLikeSyncRoot(string directory)
+    {
+        if (IsNamedSyncDirectory(directory))
+        {
+            return true;
+        }
+
+        if (File.Exists(Path.Combine(directory, LivePackageFileName)))
+        {
+            return true;
+        }
+
+        var liveDirectory = Path.Combine(directory, "live");
+        return Directory.Exists(liveDirectory) &&
+               (File.Exists(Path.Combine(liveDirectory, "tasks.json")) ||
+                File.Exists(Path.Combine(liveDirectory, "categories.json")) ||
+                File.Exists(Path.Combine(liveDirectory, "metadata.json")));
+    }
+
+    private static bool IsNamedSyncDirectory(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        return string.Equals(GetPortableFileName(normalized), "Sync", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsLivePackageFilePath(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        return string.Equals(GetPortableFileName(normalized), LivePackageFileName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetDirectoryNamePortable(string path)
+    {
+        if (path.Contains('\\', StringComparison.Ordinal) && !path.Contains('/', StringComparison.Ordinal))
+        {
+            var separatorIndex = path.LastIndexOf('\\');
+            return separatorIndex > 0 ? path[..separatorIndex] : string.Empty;
+        }
+
+        return Path.GetDirectoryName(path) ?? string.Empty;
+    }
+
+    private static string GetPortableFileName(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        var separatorIndex = normalized.LastIndexOf('/');
+        return separatorIndex >= 0 ? normalized[(separatorIndex + 1)..] : normalized;
     }
 
     private static SnapshotTask CreateTaskSnapshot(TaskItem task, IReadOnlyDictionary<string, string> categoryLookup, BueroRepository repository)

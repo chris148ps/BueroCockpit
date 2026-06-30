@@ -1332,6 +1332,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         Console.WriteLine($"SaveNow: {DateTime.Now:O} reason={reason}");
+        LogSaveNowIpadSyncTarget(reason);
         _isSavingDirtyData = true;
         _suppressRepositoryExportsDuringSave = true;
         _repositoryDataWrittenDuringSave = false;
@@ -1421,9 +1422,104 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var exportReason = $"save:{reason}";
-        TriggerIpadSnapshotExport(exportReason);
-        TriggerIpadLiveFileExport(exportReason);
-        _repositoryDataWrittenDuringSave = false;
+        try
+        {
+            if (ShouldWaitForRepositoryExports(reason))
+            {
+                ExportIpadTargetsNow(exportReason);
+            }
+            else
+            {
+                TriggerIpadSnapshotExport(exportReason);
+                TriggerIpadLiveFileExport(exportReason);
+            }
+        }
+        finally
+        {
+            _repositoryDataWrittenDuringSave = false;
+        }
+    }
+
+    private static bool ShouldWaitForRepositoryExports(string reason)
+    {
+        return string.Equals(reason, "app-closing", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(reason, "manual-save", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ExportIpadTargetsNow(string reason)
+    {
+        if (HasOneDriveEditDirectory)
+        {
+            var result = _ipadSnapshotExportService.ExportLiveNowAsync(
+                    _repository,
+                    OneDriveEditDirectory,
+                    _updateService.GetCurrentVersion(),
+                    Environment.MachineName)
+                .GetAwaiter()
+                .GetResult();
+            SetIpadSnapshotStatus(
+                result.Success
+                    ? "iPad-Sync erfolgreich aktualisiert."
+                    : "iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.",
+                autoHide: result.Success);
+        }
+        else
+        {
+            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export skipped ({reason}): no OneDrive edit directory configured.");
+        }
+
+        if (HasIpadLiveFileTargetPath)
+        {
+            var liveFileResult = _ipadSnapshotExportService.ExportLivePackageToFileAsync(
+                    _repository,
+                    IpadLiveFileTargetPath,
+                    _updateService.GetCurrentVersion(),
+                    Environment.MachineName)
+                .GetAwaiter()
+                .GetResult();
+
+            if (liveFileResult.Success)
+            {
+                IpadLiveFileLastSuccessfulExport = $"Letzter erfolgreicher Exportzeitpunkt: {DateTime.Now:dd.MM.yyyy HH:mm:ss}";
+                IpadLiveFileLastError = string.Empty;
+                IpadLiveFileStatus = $"Live-Datei geschrieben: {IpadLiveFileTargetPath}";
+            }
+            else
+            {
+                var errorMessage = liveFileResult.ErrorMessage ?? "Details siehe Log.";
+                IpadLiveFileLastError = $"Letzte Fehlermeldung: {errorMessage}";
+                IpadLiveFileStatus = $"Fehler beim Schreiben der Live-Datei: {errorMessage}";
+            }
+        }
+        else
+        {
+            _ipadSnapshotExportService.LogDiagnostic($"iPad live file export skipped ({reason}): no target file configured.");
+        }
+    }
+
+    private void LogSaveNowIpadSyncTarget(string reason)
+    {
+        var oneDriveEditDirectory = OneDriveEditDirectory;
+        if (string.IsNullOrWhiteSpace(oneDriveEditDirectory))
+        {
+            Console.WriteLine($"SaveNow target missing: {DateTime.Now:O} reason={reason} syncRoot=<not configured>");
+            _ipadSnapshotExportService.LogDiagnostic($"SaveNow target missing ({reason}): no OneDrive edit directory configured.");
+            return;
+        }
+
+        var syncRoot = IpadSnapshotExportService.ResolveSyncRootDirectory(oneDriveEditDirectory);
+        var liveFile = IpadSnapshotExportService.ResolveLivePackagePath(oneDriveEditDirectory);
+        if (string.IsNullOrWhiteSpace(syncRoot) || string.IsNullOrWhiteSpace(liveFile))
+        {
+            Console.WriteLine($"SaveNow target invalid: {DateTime.Now:O} reason={reason} oneDriveEditDirectory={oneDriveEditDirectory}");
+            _ipadSnapshotExportService.LogDiagnostic($"SaveNow target invalid ({reason}): oneDriveEditDirectory={oneDriveEditDirectory}");
+            return;
+        }
+
+        Console.WriteLine($"SaveNow target syncRoot={syncRoot}");
+        Console.WriteLine($"SaveNow target liveFile={liveFile}");
+        _ipadSnapshotExportService.LogDiagnostic($"SaveNow target ({reason}) syncRoot={syncRoot}");
+        _ipadSnapshotExportService.LogDiagnostic($"SaveNow target ({reason}) liveFile={liveFile}");
     }
 
     private void SubscribeCategoryItem(CategoryItem category)
@@ -6041,19 +6137,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
         if (!OperatingSystem.IsMacOS())
         {
-            return trimmedPath;
+            return GetOneDriveEditWorkDirectory(trimmedPath);
         }
 
         // Windows bleibt das produktive Zielsystem; auf macOS nur Legacy-Windows-Pfade
         // fuer lokale Entwicklung und Tests auf den passenden CloudStorage-Pfad umbiegen.
         if (!IsWindowsStylePath(trimmedPath))
         {
-            return trimmedPath;
+            return GetOneDriveEditWorkDirectory(trimmedPath);
         }
 
         if (!IsLegacyOneDriveEditDirectory(trimmedPath))
         {
-            return trimmedPath;
+            return GetOneDriveEditWorkDirectory(trimmedPath);
         }
 
         return GetMacDevelopmentOneDriveEditDirectory();
@@ -6066,7 +6162,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return string.Empty;
         }
 
-        var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
+        var trimmedPath = GetOneDriveEditWorkDirectory(Environment.ExpandEnvironmentVariables(path.Trim()));
         if (!OperatingSystem.IsMacOS())
         {
             return trimmedPath;
@@ -6078,6 +6174,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return IsKnownMacDevelopmentOneDriveEditDirectory(trimmedPath)
             ? GetProductiveWindowsOneDriveEditDirectory()
             : trimmedPath;
+    }
+
+    private static string GetOneDriveEditWorkDirectory(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var candidate = path.Trim();
+        if (IsIpadLiveFilePath(candidate))
+        {
+            candidate = GetIpadLiveFileDirectory(candidate);
+        }
+
+        var syncRoot = IpadSnapshotExportService.ResolveSyncRootDirectory(candidate);
+        if (string.IsNullOrWhiteSpace(syncRoot) || !AreSameResolvedDirectory(candidate, syncRoot))
+        {
+            return candidate;
+        }
+
+        var parentDirectory = GetIpadLiveFileDirectory(candidate);
+        return string.IsNullOrWhiteSpace(parentDirectory) ? candidate : parentDirectory;
     }
 
     private static string ResolveIpadLiveFileTargetFolder(string? path)
