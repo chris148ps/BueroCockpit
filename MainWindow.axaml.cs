@@ -174,6 +174,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const double DeskMinZoom = 0.2;
     private const double DeskMaxZoom = 10.0;
     private const double DeskFitMargin = 120;
+    private static readonly TimeSpan AutoSaveInterval = TimeSpan.FromMinutes(5);
+    private readonly DispatcherTimer _autoSaveTimer = new() { Interval = AutoSaveInterval };
+    private readonly Dictionary<string, TaskItem> _dirtyTasks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CategoryItem> _dirtyCategories = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, MaterialItem> _dirtyMaterials = new(StringComparer.OrdinalIgnoreCase);
+    private bool _hasDirtyData;
+    private bool _isSavingDirtyData;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -236,7 +243,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    public string[] SortModeOptions { get; } = ["Manuell", "Name", "Termin", "Erstellt am", "Wiedervorlage", "Gesendet am", "Geändert am"];
+    public string[] SortModeOptions { get; } =
+    [
+        "Datum: alt -> neu",
+        "Datum: neu -> alt",
+        "Name: A -> Z",
+        "Name: Z -> A",
+        "Manuell",
+        "Erstellt am",
+        "Wiedervorlage",
+        "Gesendet am",
+        "Geändert am"
+    ];
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public ObservableCollection<string> TechnicianOptions { get; } = new();
     private string _newTechnicianName = string.Empty;
@@ -263,6 +281,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string DeskZoomLabel => $"{Math.Min(Math.Round(_deskUserZoom * 100), 300):0} %";
 
     public double DeskZoom => _deskFitZoom * _deskUserZoom;
+
+    private string _autoSaveStatus = string.Empty;
+
+    public string AutoSaveStatus
+    {
+        get => _autoSaveStatus;
+        private set
+        {
+            if (_autoSaveStatus == value)
+            {
+                return;
+            }
+
+            _autoSaveStatus = value;
+            OnPropertyChanged(nameof(AutoSaveStatus));
+            OnPropertyChanged(nameof(HasAutoSaveStatus));
+        }
+    }
+
+    public bool HasAutoSaveStatus => !string.IsNullOrWhiteSpace(AutoSaveStatus);
 
     public Avalonia.Media.ITransform DeskZoomTransform => new ScaleTransform(DeskZoom, DeskZoom);
 
@@ -353,10 +391,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 RemovePendingNewTask(_selectedTask);
                 removedPendingPlaceholder = true;
-            }
-            else if (!_suppressSavingDuringSelection)
-            {
-                SaveCurrentMaterials();
             }
             if (_selectedTask is not null)
             {
@@ -1087,13 +1121,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
+        _autoSaveTimer.Tick += AutoSaveTimer_OnTick;
         if (!lockResult.IsAcquired)
         {
             Title = "BüroCockpit - Datenordner-Warnung";
         }
 
+        Closing += MainWindow_OnClosing;
         Closed += (_, _) =>
         {
+            _autoSaveTimer.Stop();
             _appInstanceLockService.Release();
         };
         AppDomain.CurrentDomain.ProcessExit += (_, _) => _appInstanceLockService.Release();
@@ -1121,6 +1158,222 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         ApplyResponsiveStartupBounds();
         base.OnOpened(e);
+    }
+
+    private async void AutoSaveTimer_OnTick(object? sender, EventArgs e)
+    {
+        await SaveNowAsync("auto-save");
+    }
+
+    private void MainWindow_OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        _autoSaveTimer.Stop();
+        SaveCurrentMaterials();
+        if (!SaveNow("app-closing"))
+        {
+            e.Cancel = true;
+        }
+    }
+
+    private void MarkDirty()
+    {
+        if (_isLoadingData || _isLoadingSelection)
+        {
+            return;
+        }
+
+        _hasDirtyData = true;
+        if (!_autoSaveTimer.IsEnabled)
+        {
+            _autoSaveTimer.Start();
+        }
+    }
+
+    private void MarkTaskDirty(TaskItem? task)
+    {
+        if (task is null || task.IsMobileInboxCard)
+        {
+            return;
+        }
+
+        _dirtyTasks[task.Id] = task;
+        MarkDirty();
+    }
+
+    private void MarkCategoryDirty(CategoryItem? category)
+    {
+        if (category is null || IsSpecialCategory(category))
+        {
+            return;
+        }
+
+        _dirtyCategories[category.Id] = category;
+        MarkDirty();
+    }
+
+    private void MarkMaterialDirty(MaterialItem? material)
+    {
+        if (material is null || string.IsNullOrWhiteSpace(material.TaskId))
+        {
+            return;
+        }
+
+        _dirtyMaterials[material.Id] = material;
+        MarkDirty();
+    }
+
+    private Task SaveNowAsync(string reason)
+    {
+        SaveNow(reason);
+        return Task.CompletedTask;
+    }
+
+    private bool SaveNow(string reason)
+    {
+        if (_isSavingDirtyData)
+        {
+            return true;
+        }
+
+        if (!_hasDirtyData &&
+            _dirtyTasks.Count == 0 &&
+            _dirtyCategories.Count == 0 &&
+            _dirtyMaterials.Count == 0)
+        {
+            _autoSaveTimer.Stop();
+            return true;
+        }
+
+        _isSavingDirtyData = true;
+        try
+        {
+            foreach (var category in _dirtyCategories.Values.ToList())
+            {
+                _repository.SaveCategory(category);
+            }
+
+            foreach (var task in _dirtyTasks.Values.ToList())
+            {
+                _repository.SaveTask(task);
+            }
+
+            foreach (var material in _dirtyMaterials.Values.ToList())
+            {
+                _repository.SaveMaterial(material);
+            }
+
+            _dirtyCategories.Clear();
+            _dirtyTasks.Clear();
+            _dirtyMaterials.Clear();
+            _hasDirtyData = false;
+            _autoSaveTimer.Stop();
+            AutoSaveStatus = string.Empty;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Save failed ({reason}): {ex}");
+            AutoSaveStatus = "Speichern fehlgeschlagen. Die Änderung bleibt vorgemerkt und wird erneut versucht.";
+            return false;
+        }
+        finally
+        {
+            _isSavingDirtyData = false;
+        }
+    }
+
+    private void SubscribeCategoryItem(CategoryItem category)
+    {
+        category.PropertyChanged -= CategoryItem_OnPropertyChanged;
+        category.PropertyChanged += CategoryItem_OnPropertyChanged;
+    }
+
+    private void SubscribeTaskItem(TaskItem task)
+    {
+        task.PropertyChanged -= TaskItem_OnPropertyChanged;
+        task.PropertyChanged += TaskItem_OnPropertyChanged;
+    }
+
+    private void SubscribeMaterialItem(MaterialItem material)
+    {
+        material.PropertyChanged -= MaterialItem_OnPropertyChanged;
+        material.PropertyChanged += MaterialItem_OnPropertyChanged;
+    }
+
+    private void CategoryItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not CategoryItem category || !IsCategoryDataProperty(e.PropertyName))
+        {
+            return;
+        }
+
+        MarkCategoryDirty(category);
+    }
+
+    private void TaskItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not TaskItem task || !IsTaskDataProperty(e.PropertyName))
+        {
+            return;
+        }
+
+        MarkTaskDirty(task);
+    }
+
+    private void MaterialItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not MaterialItem material || !IsMaterialDataProperty(e.PropertyName))
+        {
+            return;
+        }
+
+        MarkMaterialDirty(material);
+    }
+
+    private static bool IsCategoryDataProperty(string? propertyName)
+    {
+        return propertyName is
+            nameof(CategoryItem.Name) or
+            nameof(CategoryItem.SortOrder) or
+            nameof(CategoryItem.SortMode) or
+            nameof(CategoryItem.Color) or
+            nameof(CategoryItem.IsVisible);
+    }
+
+    private static bool IsTaskDataProperty(string? propertyName)
+    {
+        return propertyName is
+            nameof(TaskItem.Title) or
+            nameof(TaskItem.CustomerName) or
+            nameof(TaskItem.CustomerAddress) or
+            nameof(TaskItem.CustomerEmail) or
+            nameof(TaskItem.CustomerPhone) or
+            nameof(TaskItem.Description) or
+            nameof(TaskItem.CategoryId) or
+            nameof(TaskItem.Status) or
+            nameof(TaskItem.Priority) or
+            nameof(TaskItem.DueDate) or
+            nameof(TaskItem.FollowUpDate) or
+            nameof(TaskItem.SentAt) or
+            nameof(TaskItem.MaterialOrderedAt) or
+            nameof(TaskItem.AssignedTo) or
+            nameof(TaskItem.Technician) or
+            nameof(TaskItem.CompletedAt) or
+            nameof(TaskItem.IsDeleted) or
+            nameof(TaskItem.DeletedAt) or
+            nameof(TaskItem.SortPosition);
+    }
+
+    private static bool IsMaterialDataProperty(string? propertyName)
+    {
+        return propertyName is
+            nameof(MaterialItem.Quantity) or
+            nameof(MaterialItem.Unit) or
+            nameof(MaterialItem.Name) or
+            nameof(MaterialItem.Status) or
+            nameof(MaterialItem.Supplier) or
+            nameof(MaterialItem.OrderedAt) or
+            nameof(MaterialItem.Note);
     }
 
     private static string FormatAppInstanceLockStatus(AppInstanceLockResult lockResult)
@@ -1950,6 +2203,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     continue;
                 }
 
+                category.SortMode = NormalizeCategorySortMode(category.SortMode);
+                SubscribeCategoryItem(category);
                 Categories.Add(category);
             }
             Categories.Add(CreateTrashCategory());
@@ -1959,6 +2214,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AllTasks.Clear();
             foreach (var task in _repository.GetTasks())
             {
+                SubscribeTaskItem(task);
                 AllTasks.Add(task);
             }
             LoadMobileInboxEntries();
@@ -2467,10 +2723,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!_suppressSavingDuringSelection)
-        {
-            SaveCurrentMaterials();
-        }
         if (_selectedTask is not null)
         {
             _selectedTask.IsSelected = false;
@@ -2576,6 +2828,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SaveTaskAndQueueIpadSnapshot(task);
+        if (!SaveNow("undo-task-restore"))
+        {
+            return false;
+        }
+
         SyncTaskMaterials(task.Id, snapshot.Materials);
         SyncTaskAttachments(task.Id, snapshot.Attachments);
         _tasksPendingDuplicateCheck.Remove(task.Id);
@@ -3375,6 +3632,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var item in _repository.GetMaterials(SelectedTask.Id))
             {
+                SubscribeMaterialItem(item);
                 Materials.Add(item);
             }
             OnPropertyChanged(nameof(HasNoMaterials));
@@ -3439,6 +3697,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             UpdatedAt = now
         };
 
+        SubscribeTaskItem(task);
         SaveTaskAndQueueIpadSnapshot(task);
         _tasksPendingDuplicateCheck.Add(task.Id);
         AllTasks.Insert(0, task);
@@ -3588,6 +3847,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SaveTaskAndQueueIpadSnapshot(SelectedTask);
         _tasksPendingDuplicateCheck.Remove(SelectedTask.Id);
         SaveCurrentMaterials();
+        await SaveNowAsync("manual-save");
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -3748,23 +4008,54 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private static string NormalizeCategorySortMode(string? sortMode)
+    {
+        return string.IsNullOrWhiteSpace(sortMode)
+            ? "Erstellt am"
+            : sortMode.Trim() switch
+            {
+                "Name" or "Name A-Z" or "Kunde" or "Kunde A-Z" => "Name: A -> Z",
+                "Termin" => "Datum: alt -> neu",
+                var value => value
+            };
+    }
+
     private static IEnumerable<TaskItem> SortTasksForCategory(IEnumerable<TaskItem> tasks, string? sortMode)
     {
-        var mode = string.IsNullOrWhiteSpace(sortMode) ? "Erstellt am" : sortMode.Trim();
+        var mode = NormalizeCategorySortMode(sortMode);
 
         return mode switch
         {
             "Name" or "Name A-Z" or "Kunde" or "Kunde A-Z" => tasks
                 .OrderBy(GetNameSortGroup)
                 .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
                 .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Termin" => tasks
+            "Name: A -> Z" => tasks
+                .OrderBy(GetNameSortGroup)
+                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+
+            "Name: Z -> A" => tasks
+                .OrderBy(GetNameSortGroup)
+                .ThenByDescending(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+
+            "Termin" or "Datum: alt -> neu" => tasks
                 .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
                 .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(task => task.CreatedAt)
+                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+
+            "Datum: neu -> alt" => tasks
+                .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
+                .ThenByDescending(task => task.DueDate ?? DateTime.MinValue)
+                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
                 .ThenByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             "Erstellt am" => tasks
@@ -4336,9 +4627,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Status = "benötigt"
         };
 
+        SubscribeMaterialItem(item);
         Materials.Insert(0, item);
         OnPropertyChanged(nameof(HasNoMaterials));
-        _repository.SaveMaterial(item);
+        MarkMaterialDirty(item);
     }
 
     private void DeleteMaterial_OnClick(object? sender, RoutedEventArgs e)
@@ -4349,6 +4641,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
+        _dirtyMaterials.Remove(item.Id);
         _repository.DeleteMaterial(item.Id);
         Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
@@ -4386,6 +4679,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             SaveTaskAndQueueIpadSnapshot(SelectedTask);
+            if (!SaveNow("attachment-add"))
+            {
+                return false;
+            }
+
             var normalizedSourcePath = Path.GetFullPath(sourcePath);
             var originalName = Path.GetFileName(normalizedSourcePath);
             var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, SelectedTask.Id);
@@ -4875,6 +5173,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             IsVisible = true
         };
 
+        SubscribeCategoryItem(category);
         SaveCategoryAndQueueIpadSnapshot(category);
         InsertBeforeSettings(category);
         RefreshTaskCategories();
@@ -5038,6 +5337,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SaveCurrentMaterials();
+        if (!SaveNow("duplicate-source"))
+        {
+            return;
+        }
+
         var source = SelectedTask;
         var now = DateTime.Now;
         var copy = new TaskItem
@@ -5065,6 +5369,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         SaveTaskAndQueueIpadSnapshot(copy);
+        if (!SaveNow("duplicate-copy"))
+        {
+            return;
+        }
+
         foreach (var material in _repository.GetMaterials(source.Id))
         {
             _repository.SaveMaterial(new MaterialItem
@@ -6276,7 +6585,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
     {
-        _repository.SaveTask(task);
+        MarkTaskDirty(task);
     }
 
     private void SaveCategoryAndQueueIpadSnapshot(CategoryItem category)
@@ -6289,7 +6598,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isSavingCategorySnapshot = true;
         try
         {
-            _repository.SaveCategory(category);
+            MarkCategoryDirty(category);
         }
         finally
         {
@@ -6304,6 +6613,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DeleteTaskAndQueueIpadSnapshot(string taskId)
     {
+        _dirtyTasks.Remove(taskId);
+        foreach (var materialId in _dirtyMaterials
+                     .Where(item => string.Equals(item.Value.TaskId, taskId, StringComparison.OrdinalIgnoreCase))
+                     .Select(item => item.Key)
+                     .ToList())
+        {
+            _dirtyMaterials.Remove(materialId);
+        }
+
         _repository.DeleteTask(taskId);
     }
 
@@ -6435,6 +6753,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (SelectedTask is not null && !IsUnsavedPlaceholderTask(SelectedTask))
             {
                 SaveTaskAndQueueIpadSnapshot(SelectedTask);
+                if (!SaveNow("backup-restore-before-safety-backup"))
+                {
+                    return;
+                }
             }
 
             BackupResult safetyBackup;
@@ -7391,7 +7713,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         MergeDuplicateMaterials();
         foreach (var item in Materials.Where(m => !string.IsNullOrWhiteSpace(m.TaskId)))
         {
-            _repository.SaveMaterial(item);
+            MarkMaterialDirty(item);
         }
     }
 
@@ -7425,6 +7747,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var duplicate in duplicates)
         {
+            _dirtyMaterials.Remove(duplicate.Id);
             _repository.DeleteMaterial(duplicate.Id);
             Materials.Remove(duplicate);
         }
@@ -8383,7 +8706,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             SaveTaskAndQueueIpadSnapshot(importedTask);
+            if (!SaveNow("mobile-inbox-import"))
+            {
+                return;
+            }
+
             ImportMobileInboxAttachments(importResult, importedTask);
+            if (!SaveNow("mobile-inbox-import-finish"))
+            {
+                return;
+            }
+
             MoveMobileInboxEntryToProcessed(entry);
 
             ClearSearchTextWithoutRefresh();

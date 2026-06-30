@@ -1437,10 +1437,16 @@
               <ComboBox ItemsSource="{Binding SortModeOptions}"
                         SelectedItem="{Binding SelectedCategory.SortMode, Mode=TwoWay}"
                         SelectionChanged="CategorySortMode_OnSelectionChanged"
-                        Width="135"
+                        Width="165"
                         MinHeight="28"
                         FontSize="12" />
             </StackPanel>
+            <TextBlock Text="{Binding AutoSaveStatus}"
+                       IsVisible="{Binding HasAutoSaveStatus}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       Margin="0,6,0,0" />
             <Border Classes="Card"
                     Margin="0,10,0,0"
                     Padding="12"
