@@ -1439,13 +1439,21 @@
                         Width="130"
                         MinHeight="28"
                         FontSize="12" />
-              <Button Content="{Binding SortDirectionGlyph}"
-                      Click="ReverseSortDirection_OnClick"
+              <Button Click="ReverseSortDirection_OnClick"
                       ToolTip.Tip="{Binding SortDirectionTooltip}"
                       Width="34"
+                      Height="28"
                       MinHeight="28"
                       Padding="0"
-                      FontSize="14" />
+                      HorizontalContentAlignment="Center"
+                      VerticalContentAlignment="Center">
+                <TextBlock Text="{Binding SortDirectionGlyph}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           FontSize="14"
+                           LineHeight="14" />
+              </Button>
             </StackPanel>
             <TextBlock Text="{Binding AutoSaveStatus}"
                        IsVisible="{Binding HasAutoSaveStatus}"
