@@ -36,6 +36,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const int MobileProcessedRetentionDays = 30;
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
+    private const string SortFieldDate = "Datum";
+    private const string SortFieldName = "Name";
+    private const string SortFieldManual = "Manuell";
+    private const string SortFieldCreatedAt = "Erstellt am";
+    private const string SortFieldFollowUp = "Wiedervorlage";
+    private const string SortFieldSentAt = "Gesendet am";
+    private const string SortFieldUpdatedAt = "Geändert am";
     private const string DeskItemTypeNote = "Note";
     private const string DeskItemTypeFile = "File";
     private const string DeskItemTypePdf = "Pdf";
@@ -78,6 +85,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _taskListCaption = "0 Aufgaben";
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
+    private string _selectedSortField = SortFieldCreatedAt;
+    private bool _isSortDescending = true;
     private string _dueDateText = string.Empty;
     private string _dueTimeText = string.Empty;
     private string _followUpDateText = string.Empty;
@@ -121,7 +130,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CancellationTokenSource? _ipadSnapshotStatusHideCts;
     private bool _suppressTaskListSelectionChanged;
     private bool _suppressCategorySelectionChanged;
-    private bool _suppressCategorySortModeSave;
     private bool _suppressStatusSelectionChanged;
     private bool _suppressSavingDuringSelection;
     private bool _isUpdatingDateFields;
@@ -243,18 +251,39 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    public string[] SortModeOptions { get; } =
+    public string[] SortFieldOptions { get; } =
     [
-        "Datum: alt -> neu",
-        "Datum: neu -> alt",
-        "Name: A -> Z",
-        "Name: Z -> A",
-        "Manuell",
-        "Erstellt am",
-        "Wiedervorlage",
-        "Gesendet am",
-        "Geändert am"
+        SortFieldDate,
+        SortFieldName,
+        SortFieldCreatedAt,
+        SortFieldFollowUp,
+        SortFieldSentAt,
+        SortFieldUpdatedAt,
+        SortFieldManual
     ];
+
+    public string SelectedSortField
+    {
+        get => _selectedSortField;
+        set
+        {
+            var normalized = NormalizeSortField(value);
+            if (string.Equals(_selectedSortField, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _selectedSortField = normalized;
+            OnPropertyChanged(nameof(SelectedSortField));
+            RefreshVisibleTasks();
+        }
+    }
+
+    public string SortDirectionGlyph => _isSortDescending ? "↓" : "↑";
+    public string SortDirectionTooltip => _isSortDescending
+        ? "Sortierung umkehren (aktuell absteigend)"
+        : "Sortierung umkehren (aktuell aufsteigend)";
+
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public ObservableCollection<string> TechnicianOptions { get; } = new();
     private string _newTechnicianName = string.Empty;
@@ -1335,7 +1364,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return propertyName is
             nameof(CategoryItem.Name) or
             nameof(CategoryItem.SortOrder) or
-            nameof(CategoryItem.SortMode) or
             nameof(CategoryItem.Color) or
             nameof(CategoryItem.IsVisible);
     }
@@ -2285,12 +2313,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? AllTasks.Where(t => !t.IsDeleted)
                     : IsTrashSelected
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
-                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)), selected.SortMode);
+                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)));
             }
             else
             {
                 var query = SearchText.Trim();
-                tasks = SortTasksForCategory(GetSearchMatches(query), selected?.SortMode);
+                tasks = SortTasksForCategory(GetSearchMatches(query));
             }
 
             foreach (var task in tasks)
@@ -2346,7 +2374,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var query = SearchText.Trim();
-        foreach (var task in SortTasksForCategory(GetSearchMatches(query), SelectedCategory?.SortMode).Take(50))
+        foreach (var task in SortTasksForCategory(GetSearchMatches(query)).Take(50))
         {
             GlobalSearchResults.Add(CreateSearchResult(task, query));
         }
@@ -3961,19 +3989,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
 
 
-    private void CategorySortMode_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void ReverseSortDirection_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (_isLoadingData ||
-            _suppressCategorySortModeSave ||
-            _isRefreshingVisibleTasks ||
-            _isUpdatingSelection ||
-            _selectionNavigationDepth > 0 ||
-            SelectedCategory is not { } category)
-        {
-            return;
-        }
-
-        SaveCategoryAndQueueIpadSnapshot(category);
+        _isSortDescending = !_isSortDescending;
+        OnPropertyChanged(nameof(SortDirectionGlyph));
+        OnPropertyChanged(nameof(SortDirectionTooltip));
         RefreshVisibleTasks();
     }
 
@@ -4020,78 +4040,123 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             };
     }
 
-    private static IEnumerable<TaskItem> SortTasksForCategory(IEnumerable<TaskItem> tasks, string? sortMode)
+    private static string NormalizeSortField(string? sortField)
     {
-        var mode = NormalizeCategorySortMode(sortMode);
-
-        return mode switch
+        return sortField?.Trim() switch
         {
-            "Name" or "Name A-Z" or "Kunde" or "Kunde A-Z" => tasks
-                .OrderBy(GetNameSortGroup)
-                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldDate => SortFieldDate,
+            SortFieldName => SortFieldName,
+            SortFieldManual => SortFieldManual,
+            SortFieldCreatedAt => SortFieldCreatedAt,
+            SortFieldFollowUp => SortFieldFollowUp,
+            SortFieldSentAt => SortFieldSentAt,
+            SortFieldUpdatedAt => SortFieldUpdatedAt,
+            "Datum: alt -> neu" or "Datum: neu -> alt" or "Termin" => SortFieldDate,
+            "Name: A -> Z" or "Name: Z -> A" or "Name A-Z" or "Kunde" or "Kunde A-Z" => SortFieldName,
+            _ => SortFieldCreatedAt
+        };
+    }
 
-            "Name: A -> Z" => tasks
-                .OrderBy(GetNameSortGroup)
-                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+    private IEnumerable<TaskItem> SortTasksForCategory(IEnumerable<TaskItem> tasks)
+    {
+        var field = NormalizeSortField(SelectedSortField);
 
-            "Name: Z -> A" => tasks
-                .OrderBy(GetNameSortGroup)
-                .ThenByDescending(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+        return field switch
+        {
+            SortFieldName => _isSortDescending
+                ? tasks
+                    .OrderBy(GetNameSortGroup)
+                    .ThenByDescending(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .OrderBy(GetNameSortGroup)
+                    .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Termin" or "Datum: alt -> neu" => tasks
-                .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
-                .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
-                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.CreatedAt)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldDate => _isSortDescending
+                ? tasks
+                    .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
+                    .ThenByDescending(task => task.DueDate ?? DateTime.MinValue)
+                    .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
+                    .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
+                    .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.CreatedAt)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Datum: neu -> alt" => tasks
-                .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
-                .ThenByDescending(task => task.DueDate ?? DateTime.MinValue)
-                .ThenBy(GetNameSortValue, StringComparer.CurrentCultureIgnoreCase)
-                .ThenByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldFollowUp => _isSortDescending
+                ? tasks
+                    .Where(task => task.FollowUpDate.HasValue)
+                    .OrderByDescending(task => task.FollowUpDate!.Value.Date)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .Where(task => task.FollowUpDate.HasValue)
+                    .OrderBy(task => GetFollowUpSortGroup(task))
+                    .ThenBy(task => task.FollowUpDate!.Value.Date)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Erstellt am" => tasks
-                .OrderByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldSentAt => _isSortDescending
+                ? tasks
+                    .OrderBy(task => task.SentAt.HasValue ? 0 : 1)
+                    .ThenByDescending(task => task.SentAt ?? DateTime.MinValue)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .OrderBy(task => task.SentAt.HasValue ? 0 : 1)
+                    .ThenBy(task => task.SentAt ?? DateTime.MaxValue)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Wiedervorlage" => tasks
-                .Where(task => task.FollowUpDate.HasValue)
-                .OrderBy(task => GetFollowUpSortGroup(task))
-                .ThenBy(task => task.FollowUpDate!.Value.Date)
-                .ThenByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldCreatedAt => _isSortDescending
+                ? tasks
+                    .OrderByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .OrderBy(task => task.CreatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Gesendet am" => tasks
-                .OrderBy(task => task.SentAt.HasValue ? 0 : 1)
-                .ThenBy(task => task.SentAt ?? DateTime.MaxValue)
-                .ThenByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldUpdatedAt => _isSortDescending
+                ? tasks
+                    .OrderByDescending(task => task.UpdatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .OrderBy(task => task.UpdatedAt)
+                    .ThenBy(task => task.SortPosition)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
-            "Geändert am" => tasks
-                .OrderByDescending(task => task.UpdatedAt)
-                .ThenBy(task => task.SortPosition)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
-
-            "Manuell" => tasks
-                .OrderBy(task => task.SortPosition)
-                .ThenByDescending(task => task.CreatedAt)
-                .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
+            SortFieldManual => _isSortDescending
+                ? tasks
+                    .OrderByDescending(task => task.SortPosition)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+                : tasks
+                    .OrderBy(task => task.SortPosition)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase),
 
             _ => tasks
                 .OrderByDescending(task => task.CreatedAt)
@@ -7591,7 +7656,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isUpdatingSelection = true;
         _suppressTaskListSelectionChanged = true;
         _suppressCategorySelectionChanged = true;
-        _suppressCategorySortModeSave = true;
         _suppressStatusSelectionChanged = true;
         _suppressSavingDuringSelection = true;
         try
@@ -7615,7 +7679,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _suppressSavingDuringSelection = false;
             _suppressStatusSelectionChanged = false;
-            _suppressCategorySortModeSave = false;
             _suppressCategorySelectionChanged = false;
             _suppressTaskListSelectionChanged = false;
             _isUpdatingSelection = false;
@@ -7678,7 +7741,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isUpdatingSelection = true;
         _suppressTaskListSelectionChanged = true;
         _suppressCategorySelectionChanged = true;
-        _suppressCategorySortModeSave = true;
         _suppressStatusSelectionChanged = true;
         _suppressSavingDuringSelection = true;
         try
@@ -7698,7 +7760,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _suppressSavingDuringSelection = false;
             _suppressStatusSelectionChanged = false;
-            _suppressCategorySortModeSave = false;
             _suppressCategorySelectionChanged = false;
             _suppressTaskListSelectionChanged = false;
             _isUpdatingSelection = false;

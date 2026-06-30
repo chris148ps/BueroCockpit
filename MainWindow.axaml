@@ -1434,12 +1434,18 @@
                          FontSize="12"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          VerticalAlignment="Center" />
-              <ComboBox ItemsSource="{Binding SortModeOptions}"
-                        SelectedItem="{Binding SelectedCategory.SortMode, Mode=TwoWay}"
-                        SelectionChanged="CategorySortMode_OnSelectionChanged"
-                        Width="165"
+              <ComboBox ItemsSource="{Binding SortFieldOptions}"
+                        SelectedItem="{Binding SelectedSortField, Mode=TwoWay}"
+                        Width="130"
                         MinHeight="28"
                         FontSize="12" />
+              <Button Content="{Binding SortDirectionGlyph}"
+                      Click="ReverseSortDirection_OnClick"
+                      ToolTip.Tip="{Binding SortDirectionTooltip}"
+                      Width="34"
+                      MinHeight="28"
+                      Padding="0"
+                      FontSize="14" />
             </StackPanel>
             <TextBlock Text="{Binding AutoSaveStatus}"
                        IsVisible="{Binding HasAutoSaveStatus}"
