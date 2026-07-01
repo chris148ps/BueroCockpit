@@ -128,6 +128,26 @@
       <Setter Property="BorderBrush" Value="{DynamicResource ButtonPrimaryHoverBorderBrush}" />
       <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
+    <Style Selector="Button.SettingsSectionHeader">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.SettingsSectionHeader:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBlock.SettingsSectionToggle">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
     <Style Selector="Button.Danger">
       <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
     </Style>
@@ -1041,395 +1061,310 @@
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
-              <TextBlock Text="Darstellung" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="Erscheinungsbild" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-              <ComboBox ItemsSource="{Binding AppearanceModeOptions}"
-                        SelectedItem="{Binding AppearanceMode, Mode=TwoWay}"
-                        Width="180" />
-            </StackPanel>
-          </Border>
-
-          <Border Classes="Card">
-            <StackPanel Spacing="10">
-              <TextBlock Text="Kategorie-Vorgaben" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,0" />
-            <TextBlock Text="Hier werden Kategorien angelegt und verwaltet."
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       TextWrapping="Wrap"
-                       Margin="0,4,0,8" />
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-              <TextBox Grid.Column="0"
-                       Text="{Binding CategoryEditorName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       TextChanged="CategoryEditor_OnTextChanged"
-                       PlaceholderText="Neue Kategorie" />
-              <Button Grid.Column="1"
-                      Content="Hinzufügen"
-                      Click="AddCategory_OnClick" />
-            </Grid>
-
-            <TextBlock Text="{Binding CategoryMessage}"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="12"
-                       TextWrapping="Wrap"
-                       Margin="0,6,0,0" />
-
-            <ItemsControl ItemsSource="{Binding TaskCategories}" Margin="0,8,0,0">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                      <TextBlock Grid.Column="0"
-                                 Text="{Binding Name}"
-                                 VerticalAlignment="Center"
-                                 TextTrimming="CharacterEllipsis" />
-                      <Button Grid.Column="1"
-                              Content="Umbenennen"
-                              Classes="Secondary"
-                              Click="CategoryRenameFromSettings_OnClick" />
-                      <Button Grid.Column="2"
-                              Content="Entfernen"
-                              Classes="Secondary"
-                              Click="CategoryRemoveFromSettings_OnClick" />
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            </StackPanel>
-          </Border>
-
-          <Border Classes="Card">
-            <StackPanel Spacing="10">
-              <TextBlock Text="Monteur-Vorgaben" FontSize="16" FontWeight="SemiBold" />
-            <TextBlock Text="Diese Namen stehen im Aufgaben-Detailfeld „Monteur“ als Auswahl zur Verfügung."
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       TextWrapping="Wrap"
-                       Margin="0,4,0,8" />
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-              <TextBox Grid.Column="0"
-                       Text="{Binding NewTechnicianName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Monteurname" />
-              <Button Grid.Column="1"
-                      Content="Hinzufügen"
-                      Click="AddTechnician_OnClick" />
-            </Grid>
-
-            <ItemsControl ItemsSource="{Binding TechnicianOptions}" Margin="0,8,0,0">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Border Classes="InlineCard" Margin="0,0,-2,-2" Padding="10" MinWidth="220" MaxWidth="280">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                      <TextBlock Grid.Column="0"
-                                 Text="{Binding}"
-                                 VerticalAlignment="Center"
-                                 TextTrimming="CharacterEllipsis" />
-                      <Button Grid.Column="1"
-                              Content="Entfernen"
-                              Classes="Secondary"
-                              Click="RemoveTechnician_OnClick" />
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            </StackPanel>
-          </Border>
-
-          <Border Classes="Card">
-            <StackPanel Spacing="10">
-              <TextBlock Text="Gemeinsamer Büro-Datenordner" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="Hier werden Aufgaben, Anhänge und Backups gespeichert. Für mehrere Arbeitsplätze wähle denselben freigegebenen OneDrive-Ordner aus."
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         TextWrapping="Wrap" />
-
-              <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                <Button Content="OneDrive-Datenordner auswählen"
-                        Click="MigrateStorageLocation_OnClick"
-                        Classes="Primary"
-                        Margin="0,0,-2,-2" />
-                <Button Content="Aktuellen Ordner öffnen"
-                        Click="OpenDataFolder_OnClick"
-                        FontSize="12"
-                        Padding="10,6"
-                        Margin="0,0,-2,-2" />
-                <Button Content="Dateien in gemeinsamen Datenordner übernehmen"
-                        Click="CheckLegacyFilePaths_OnClick"
-                        FontSize="12"
-                        Padding="10,6"
-                        Margin="0,0,0,-2" />
-              </WrapPanel>
-
-              <TextBlock Text="{Binding FilePathCheckStatus}"
-                         IsVisible="{Binding HasFilePathCheckStatus}"
-                         Foreground="{DynamicResource TextPrimaryBrush}"
-                         TextWrapping="Wrap" />
-
-              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2" Margin="0,4,0,0">
-                <TextBlock Grid.Row="0"
-                           Grid.Column="0"
-                           Text="Aktuell verwendet"
-                           Foreground="{DynamicResource TextTertiaryBrush}"
-                           FontSize="12" />
-                <TextBlock Grid.Row="0"
-                           Grid.Column="1"
-                           Text="{Binding AppDataDirectory}"
-                           Foreground="{DynamicResource TextTertiaryBrush}"
-                           FontSize="12"
-                           TextWrapping="Wrap" />
-                <TextBlock Grid.Row="1"
-                           Grid.Column="0"
-                           Text="Standard"
-                           Foreground="{DynamicResource TextTertiaryBrush}"
-                           FontSize="12" />
-                <TextBlock Grid.Row="1"
-                           Grid.Column="1"
-                           Text="{Binding DefaultAppDataDirectory}"
-                           Foreground="{DynamicResource TextTertiaryBrush}"
-                           FontSize="12"
-                           TextWrapping="Wrap" />
-              </Grid>
-
-              <StackPanel Spacing="4" Margin="0,4,0,0">
-                <TextBlock Text="Technische Details"
-                           Foreground="{DynamicResource TextTertiaryBrush}"
-                           FontSize="12"
-                           FontWeight="SemiBold" />
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="2">
-                  <TextBlock Grid.Row="0"
-                             Grid.Column="0"
-                             Text="Datenbank"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12" />
-                  <TextBlock Grid.Row="0"
-                             Grid.Column="1"
-                             Text="{Binding DatabasePath}"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="1"
-                             Grid.Column="0"
-                             Text="Aufgaben-/Anhangsordner"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12" />
-                  <TextBlock Grid.Row="1"
-                             Grid.Column="1"
-                             Text="{Binding TasksDirectory}"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="2"
-                             Grid.Column="0"
-                             Text="Backup-Ordner"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12" />
-                  <TextBlock Grid.Row="2"
-                             Grid.Column="1"
-                             Text="{Binding BackupDirectory}"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="3"
-                             Grid.Column="0"
-                             Text="Lock-Datei"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12" />
-                  <TextBlock Grid.Row="3"
-                             Grid.Column="1"
-                             Text="{Binding LockPath}"
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
+              <Button Classes="SettingsSectionHeader" Tag="General" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Allgemein" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsGeneralToggleText}" />
                 </Grid>
-                <TextBlock Text="BüroCockpit ist nicht für gleichzeitiges Bearbeiten derselben Daten von mehreren PCs ausgelegt. Bitte immer nur auf einem Gerät gleichzeitig öffnen."
+              </Button>
+              <StackPanel Spacing="16" IsVisible="{Binding IsSettingsGeneralOpen}">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="Darstellung" FontSize="15" FontWeight="SemiBold" />
+                  <TextBlock Text="Erscheinungsbild" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <ComboBox ItemsSource="{Binding AppearanceModeOptions}"
+                            SelectedItem="{Binding AppearanceMode, Mode=TwoWay}"
+                            Width="180" />
+                </StackPanel>
+                <StackPanel Spacing="10">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Backup" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="Backup jetzt erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
+                  </Grid>
+                  <TextBlock Text="{Binding BackupStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}"
+                             IsVisible="{Binding HasLastBackup}"
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="{Binding LastBackupPath}"
+                             IsVisible="{Binding HasLastBackup}"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="Verfügbare Backups"
+                             FontSize="12"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource TextTertiaryBrush}" />
+                  <TextBlock Text="Noch keine Backups vorhanden. Mit „Backup jetzt erstellen“ legen Sie das erste Sicherheitsbackup an."
+                             IsVisible="{Binding HasNoBackupEntries}"
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBackupEntries}">
+                    <ItemsControl ItemsSource="{Binding BackupEntries}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border BorderBrush="{DynamicResource BorderBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="10"
+                                  Padding="10"
+                                  Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding TimestampText}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding FileName}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding HintText}"
+                                           IsVisible="{Binding HasHintText}"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                              <StackPanel Grid.Column="1"
+                                          Spacing="6"
+                                          HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding SizeText}"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                           FontSize="12"
+                                           HorizontalAlignment="Right" />
+                                <Button Content="Backup wiederherstellen"
+                                        Click="RestoreBackup_OnClick"
+                                        HorizontalAlignment="Right" />
+                              </StackPanel>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Button Classes="SettingsSectionHeader" Tag="DataSync" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Datenordner und Synchronisation" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsDataSyncToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="14" IsVisible="{Binding IsSettingsDataSyncOpen}">
+                <TextBlock Text="Zentrale Datenquelle ist BueroCockpit_Daten. iCloud ist keine aktive Hauptdatenquelle mehr."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Arbeitsordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="OneDrive-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OneDriveEditDirectory}" IsVisible="{Binding HasOneDriveEditDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="Noch kein OneDrive-Datenordner gewählt." IsVisible="{Binding HasNoOneDriveEditDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="SyncRoot" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IpadSyncRootDirectory}" IsVisible="{Binding HasIpadSyncRootDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="SyncRoot wird aus dem OneDrive-Datenordner abgeleitet." IsVisible="{Binding HasNoIpadSyncRootDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                </Grid>
+                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <Button Content="OneDrive-Datenordner auswählen"
+                          Click="MigrateStorageLocation_OnClick"
+                          Classes="Primary"
+                          Margin="0,0,-2,-2" />
+                  <Button Content="Aktuellen Ordner öffnen"
+                          Click="OpenDataFolder_OnClick"
+                          FontSize="12"
+                          Padding="10,6"
+                          Margin="0,0,-2,-2" />
+                  <Button Content="Dateien in gemeinsamen Datenordner übernehmen"
+                          Click="CheckLegacyFilePaths_OnClick"
+                          FontSize="12"
+                          Padding="10,6"
+                          Margin="0,0,0,-2" />
+                </WrapPanel>
+                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
+                  <Button Content="Datenordner auswählen" Click="SelectOneDriveFolder_OnClick" />
+                  <Button Grid.Column="1" Content="Datenordner öffnen" Click="OpenOneDriveFolder_OnClick" />
+                </Grid>
+                <Button Content="iPad-Sync + Vollsnapshot jetzt aktualisieren"
+                        Click="RefreshIpadSnapshot_OnClick"
+                        HorizontalAlignment="Left" />
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Legacy / Übergang: iPad-Live-Datei" FontSize="15" FontWeight="SemiBold" />
+                  <TextBlock Text="IpadLiveFileTargetPath bleibt als Übergangseinstellung erhalten. iCloud ist nicht mehr die empfohlene zentrale Hauptdatenquelle."
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="Aktueller Zielordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Text="{Binding IpadLiveFileTargetFolder}" IsVisible="{Binding HasIpadLiveFileTargetPath}" TextWrapping="Wrap" />
+                  <TextBlock Text="Kein Zielordner eingerichtet" IsVisible="{Binding HasNoIpadLiveFileTargetPath}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Text="Dateiname: live.bclive" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Text="{Binding IpadLiveFileTargetPath}" IsVisible="{Binding HasIpadLiveFileTargetPath}" TextWrapping="Wrap" />
+                  <TextBlock Text="live.bclive" IsVisible="{Binding HasNoIpadLiveFileTargetPath}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <WrapPanel Orientation="Horizontal">
+                    <Button Content="Zielordner auswählen" Click="SelectIpadLiveFileTarget_OnClick" Margin="0,0,10,8" />
+                    <Button Content="Jetzt Live-Datei schreiben" Click="WriteIpadLiveFile_OnClick" Margin="0,0,10,8" />
+                    <Button Content="Empfohlenen Sync-Ordner prüfen" Click="CheckRecommendedIpadLiveFolder_OnClick" Margin="0,0,0,8" />
+                  </WrapPanel>
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Button Classes="SettingsSectionHeader" Tag="Technicians" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Techniker" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsTechniciansToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="10" IsVisible="{Binding IsSettingsTechniciansOpen}">
+                <TextBlock Text="Diese Namen stehen im Aufgaben-Detailfeld „Monteur“ als Auswahl zur Verfügung."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap"
-                           Margin="0,4,0,0" />
-              </StackPanel>
-
-              <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding StorageLocationStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-              <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                <Button Content="Backup-Ordner öffnen"
-                        Click="OpenBackupFolder_OnClick"
-                        FontSize="12"
-                        Padding="10,6"
-                        Margin="0,0,-2,-2" />
-                <Button Content="Standard-Datenordner öffnen"
-                        Click="OpenDefaultDataFolder_OnClick"
-                        FontSize="12"
-                        Padding="10,6"
-                        Margin="0,0,0,8" />
-              </WrapPanel>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="Card">
-            <StackPanel Spacing="10">
-              <TextBlock Text="OneDrive / zentraler Datenordner" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="OneDrive-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-              <TextBlock Text="{Binding OneDriveEditDirectory}"
-                         IsVisible="{Binding HasOneDriveEditDirectory}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="Noch kein OneDrive-Datenordner gewählt."
-                         IsVisible="{Binding HasNoOneDriveEditDirectory}"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
-                <Button Content="Datenordner auswählen" Click="SelectOneDriveFolder_OnClick" />
-                <Button Grid.Column="1" Content="Datenordner öffnen" Click="OpenOneDriveFolder_OnClick" />
-              </Grid>
-              <Button Content="iPad-Sync + Vollsnapshot jetzt aktualisieren"
-                      Click="RefreshIpadSnapshot_OnClick"
-                      HorizontalAlignment="Left" />
-            </StackPanel>
-          </Border>
-
-          <Border Classes="Card">
-            <StackPanel Spacing="10">
-              <TextBlock Text="iPad-Live-Datei" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="Für den iPad-Live-Sync wählen Sie Sync/live.bclive aus dem zentralen OneDrive-Datenordner. Alte iCloud-Testordner sind keine aktive Datenquelle mehr."
-                         Foreground="{DynamicResource TextTertiaryBrush}"
-                         FontSize="12"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="Aktueller Zielordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,4,0,0" />
-              <TextBlock Text="{Binding IpadLiveFileTargetFolder}"
-                         IsVisible="{Binding HasIpadLiveFileTargetPath}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="Kein Zielordner eingerichtet"
-                         IsVisible="{Binding HasNoIpadLiveFileTargetPath}"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="Dateiname: live.bclive" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" Margin="0,4,0,0" />
-              <TextBlock Text="{Binding IpadLiveFileTargetPath}"
-                         IsVisible="{Binding HasIpadLiveFileTargetPath}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="live.bclive"
-                         IsVisible="{Binding HasNoIpadLiveFileTargetPath}"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         TextWrapping="Wrap" />
-              <WrapPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="Zielordner auswählen"
-                        Click="SelectIpadLiveFileTarget_OnClick"
-                        Margin="0,0,10,8" />
-                <Button Content="Jetzt Live-Datei schreiben"
-                        Click="WriteIpadLiveFile_OnClick"
-                        Margin="0,0,10,8" />
-                <Button Content="Empfohlenen Sync-Ordner prüfen"
-                        Click="CheckRecommendedIpadLiveFolder_OnClick"
-                        Margin="0,0,0,8" />
-              </WrapPanel>
-              <TextBlock Text="{Binding IpadLiveFileLastSuccessfulExport}"
-                         IsVisible="{Binding HasIpadLiveFileLastSuccessfulExport}"
-                         Foreground="{DynamicResource TextPrimaryBrush}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="{Binding IpadLiveFileLastError}"
-                         IsVisible="{Binding HasIpadLiveFileLastError}"
-                         Foreground="{DynamicResource DangerBrush}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="{Binding IpadLiveFileStatus}"
-                         Foreground="{DynamicResource TextPrimaryBrush}"
-                         TextWrapping="Wrap" />
-            </StackPanel>
-          </Border>
-
-          <Border Classes="Card">
-            <StackPanel Spacing="10">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="Backup" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Backup jetzt erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
-              </Grid>
-              <TextBlock Text="{Binding BackupStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}"
-                         IsVisible="{Binding HasLastBackup}"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Text="{Binding LastBackupPath}"
-                         IsVisible="{Binding HasLastBackup}"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="Verfügbare Backups"
-                         FontSize="12"
-                         FontWeight="SemiBold"
-                         Foreground="{DynamicResource TextTertiaryBrush}" />
-              <TextBlock Text="Noch keine Backups vorhanden. Mit „Backup jetzt erstellen“ legen Sie das erste Sicherheitsbackup an."
-                         IsVisible="{Binding HasNoBackupEntries}"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
-              <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBackupEntries}">
-                <ItemsControl ItemsSource="{Binding BackupEntries}">
+                           Margin="0,4,0,8" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0"
+                           Text="{Binding NewTechnicianName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           PlaceholderText="Monteurname" />
+                  <Button Grid.Column="1" Content="Hinzufügen" Click="AddTechnician_OnClick" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding TechnicianOptions}" Margin="0,8,0,0">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border BorderBrush="{DynamicResource BorderBrush}"
-                              BorderThickness="1"
-                              CornerRadius="10"
-                              Padding="10"
-                              Margin="0,0,0,8">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                          <StackPanel Spacing="2">
-                            <TextBlock Text="{Binding TimestampText}" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding FileName}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding HintText}"
-                                       IsVisible="{Binding HasHintText}"
-                                       Foreground="{DynamicResource TextTertiaryBrush}"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-                          </StackPanel>
-                          <StackPanel Grid.Column="1"
-                                      Spacing="6"
-                                      HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding SizeText}"
-                                       Foreground="{DynamicResource TextTertiaryBrush}"
-                                       FontSize="12"
-                                       HorizontalAlignment="Right" />
-                            <Button Content="Backup wiederherstellen"
-                                    Click="RestoreBackup_OnClick"
-                                    HorizontalAlignment="Right" />
-                          </StackPanel>
+                      <Border Classes="InlineCard" Margin="0,0,-2,-2" Padding="10" MinWidth="220" MaxWidth="280">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <Button Grid.Column="1" Content="Entfernen" Classes="Secondary" Click="RemoveTechnician_OnClick" />
                         </Grid>
                       </Border>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-              </ScrollViewer>
+              </StackPanel>
             </StackPanel>
           </Border>
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
-              <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" />
-              <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="18">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Aktuelle Version" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentAppVersion}" TextWrapping="Wrap" />
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Update-Kanal" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UpdateSource}" TextWrapping="Wrap" />
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Auto-Update-Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AutoUpdateInstallStatus}" TextWrapping="Wrap" />
-              </Grid>
-              <TextBlock Text="Lokaler Feed-Ordner oder Feed-URL" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                <TextBox Grid.Row="3" Text="{Binding UpdateFeedUrl}"
-                         TextChanged="UpdateFeed_OnTextChanged"
-                         PlaceholderText="z. B. publish/local-update-test/feed" />
-                <Button Grid.Row="3" Grid.Column="1" Content="Speichern" Click="SaveUpdateFeed_OnClick" />
-              </Grid>
-              <TextBlock Text="{Binding UpdateStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
-                <Button Content="Nach Updates suchen" Click="CheckUpdates_OnClick" />
-                <Button Grid.Column="1"
-                        Content="Update installieren"
-                        Classes="Primary"
-                        IsEnabled="{Binding IsUpdateAvailable}"
-                        Click="InstallUpdate_OnClick" />
-              </Grid>
+              <Button Classes="SettingsSectionHeader" Tag="Categories" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Kategorien" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsCategoriesToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="10" IsVisible="{Binding IsSettingsCategoriesOpen}">
+                <TextBlock Text="Hier werden Kategorien angelegt und verwaltet."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,8" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0"
+                           Text="{Binding CategoryEditorName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           TextChanged="CategoryEditor_OnTextChanged"
+                           PlaceholderText="Neue Kategorie" />
+                  <Button Grid.Column="1" Content="Hinzufügen" Click="AddCategory_OnClick" />
+                </Grid>
+                <TextBlock Text="{Binding CategoryMessage}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           Margin="0,6,0,0" />
+                <ItemsControl ItemsSource="{Binding TaskCategories}" Margin="0,8,0,0">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                          <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <Button Grid.Column="1" Content="Umbenennen" Classes="Secondary" Click="CategoryRenameFromSettings_OnClick" />
+                          <Button Grid.Column="2" Content="Entfernen" Classes="Secondary" Click="CategoryRemoveFromSettings_OnClick" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Button Classes="SettingsSectionHeader" Tag="Updates" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsUpdatesToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="10" IsVisible="{Binding IsSettingsUpdatesOpen}">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="18">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Aktuelle Version" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentAppVersion}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Update-Kanal" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UpdateSource}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Auto-Update-Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AutoUpdateInstallStatus}" TextWrapping="Wrap" />
+                </Grid>
+                <TextBlock Text="Lokaler Feed-Ordner oder Feed-URL" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                  <TextBox Grid.Row="3" Text="{Binding UpdateFeedUrl}"
+                           TextChanged="UpdateFeed_OnTextChanged"
+                           PlaceholderText="z. B. publish/local-update-test/feed" />
+                  <Button Grid.Row="3" Grid.Column="1" Content="Speichern" Click="SaveUpdateFeed_OnClick" />
+                </Grid>
+                <TextBlock Text="{Binding UpdateStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
+                  <Button Content="Nach Updates suchen" Click="CheckUpdates_OnClick" />
+                  <Button Grid.Column="1"
+                          Content="Update installieren"
+                          Classes="Primary"
+                          IsEnabled="{Binding IsUpdateAvailable}"
+                          Click="InstallUpdate_OnClick" />
+                </Grid>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Button Classes="SettingsSectionHeader" Tag="Diagnostics" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Diagnose" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsDiagnosticsToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="10" IsVisible="{Binding IsSettingsDiagnosticsOpen}">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="App-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Standard" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DefaultAppDataDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Datenbank" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DatabasePath}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Aufgaben/Anhänge" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TasksDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Backup-Ordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding BackupDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="Lock-Datei" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LockPath}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="SaveNow-Ziel" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding IpadSyncRootDirectory}" IsVisible="{Binding HasIpadSyncRootDirectory}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="6" Grid.Column="1" Text="Kein OneDrive-Datenordner gewählt." IsVisible="{Binding HasNoIpadSyncRootDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                </Grid>
+                <TextBlock Text="SyncRoot wird aus BueroCockpit_Daten abgeleitet; live.bclive ist eine Übergangsdatei unter Sync/live.bclive. Es gibt keine stille Live-Aktualisierung."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding FilePathCheckStatus}" IsVisible="{Binding HasFilePathCheckStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding AppInstanceLockStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding StorageLocationStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding IpadLiveFileLastSuccessfulExport}" IsVisible="{Binding HasIpadLiveFileLastSuccessfulExport}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding IpadLiveFileLastError}" IsVisible="{Binding HasIpadLiveFileLastError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding IpadLiveFileStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <Button Content="Backup-Ordner öffnen" Click="OpenBackupFolder_OnClick" FontSize="12" Padding="10,6" Margin="0,0,-2,-2" />
+                  <Button Content="Standard-Datenordner öffnen" Click="OpenDefaultDataFolder_OnClick" FontSize="12" Padding="10,6" Margin="0,0,0,8" />
+                </WrapPanel>
+              </StackPanel>
             </StackPanel>
           </Border>
         </StackPanel>

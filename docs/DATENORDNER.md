@@ -53,3 +53,5 @@ Die App soll nicht auf einen festen Windows-Benutzer festgelegt werden. Wenn der
 ## iPad
 
 Das iPad arbeitet künftig über die definierte Sync- und Mobile-Inbox-Struktur unter `BueroCockpit_Daten/Sync/`. Alte iCloud-Testordner werden nicht als aktive Quelle verwendet. Offene Altbestände werden kontrolliert importiert oder archiviert, nicht in die aktive Inbox gemischt.
+
+Die weitere iPad-Anbindung ist nur konzeptionell vorbereitet. iCloud wird nicht weiter als aktive Hauptdatenquelle ausgebaut. Geplant sind entweder eine Anbindung ueber Microsoft Graph/OneDrive-API oder ein separater lokaler Netzwerk-Sync im Firmennetz. Details stehen in [IPAD_SYNC_KONZEPT.md](IPAD_SYNC_KONZEPT.md).

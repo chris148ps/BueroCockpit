@@ -119,6 +119,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
     private string _updateFeedUrl = string.Empty;
     private string _appearanceMode = DarkMode;
+    private bool _isSettingsGeneralOpen;
+    private bool _isSettingsDataSyncOpen;
+    private bool _isSettingsTechniciansOpen;
+    private bool _isSettingsCategoriesOpen;
+    private bool _isSettingsUpdatesOpen;
+    private bool _isSettingsDiagnosticsOpen;
     private bool _isUpdateAvailable;
     private bool _startupUpdateCheckCompleted;
     private string _attachmentEditStatus = string.Empty;
@@ -821,10 +827,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string OneDriveEditDirectory => ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
     public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
     public bool HasNoOneDriveEditDirectory => !HasOneDriveEditDirectory;
+    public string IpadSyncRootDirectory => HasOneDriveEditDirectory
+        ? ResolveDisplayDirectory(IpadSnapshotExportService.ResolveSyncRootDirectory(OneDriveEditDirectory))
+        : string.Empty;
+    public bool HasIpadSyncRootDirectory => !string.IsNullOrWhiteSpace(IpadSyncRootDirectory);
+    public bool HasNoIpadSyncRootDirectory => !HasIpadSyncRootDirectory;
     public string IpadLiveFileTargetFolder => ResolveIpadLiveFileTargetFolder(_appSettings.IpadLiveFileTargetPath);
     public string IpadLiveFileTargetPath => BuildIpadLiveFileTargetPath(IpadLiveFileTargetFolder);
     public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
     public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
+    public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
+    public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
+    public bool IsSettingsTechniciansOpen => _isSettingsTechniciansOpen;
+    public bool IsSettingsCategoriesOpen => _isSettingsCategoriesOpen;
+    public bool IsSettingsUpdatesOpen => _isSettingsUpdatesOpen;
+    public bool IsSettingsDiagnosticsOpen => _isSettingsDiagnosticsOpen;
+    public string SettingsGeneralToggleText => IsSettingsGeneralOpen ? "-" : "+";
+    public string SettingsDataSyncToggleText => IsSettingsDataSyncOpen ? "-" : "+";
+    public string SettingsTechniciansToggleText => IsSettingsTechniciansOpen ? "-" : "+";
+    public string SettingsCategoriesToggleText => IsSettingsCategoriesOpen ? "-" : "+";
+    public string SettingsUpdatesToggleText => IsSettingsUpdatesOpen ? "-" : "+";
+    public string SettingsDiagnosticsToggleText => IsSettingsDiagnosticsOpen ? "-" : "+";
     public string IpadLiveFileLastSuccessfulExport
     {
         get => _ipadLiveFileLastSuccessfulExport;
@@ -2942,7 +2965,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         VisibleTasks.Clear();
         TaskListCaption = "Einstellungen";
         ClearSearchTextWithoutRefresh();
+        ResetSettingsSections();
         LoadBackupEntries();
+    }
+
+    private void SettingsSectionHeader_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not string section)
+        {
+            return;
+        }
+
+        switch (section)
+        {
+            case "General":
+                SetSettingsSectionOpen(ref _isSettingsGeneralOpen, !IsSettingsGeneralOpen, nameof(IsSettingsGeneralOpen), nameof(SettingsGeneralToggleText));
+                break;
+            case "DataSync":
+                SetSettingsSectionOpen(ref _isSettingsDataSyncOpen, !IsSettingsDataSyncOpen, nameof(IsSettingsDataSyncOpen), nameof(SettingsDataSyncToggleText));
+                break;
+            case "Technicians":
+                SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, !IsSettingsTechniciansOpen, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
+                break;
+            case "Categories":
+                SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, !IsSettingsCategoriesOpen, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
+                break;
+            case "Updates":
+                SetSettingsSectionOpen(ref _isSettingsUpdatesOpen, !IsSettingsUpdatesOpen, nameof(IsSettingsUpdatesOpen), nameof(SettingsUpdatesToggleText));
+                break;
+            case "Diagnostics":
+                SetSettingsSectionOpen(ref _isSettingsDiagnosticsOpen, !IsSettingsDiagnosticsOpen, nameof(IsSettingsDiagnosticsOpen), nameof(SettingsDiagnosticsToggleText));
+                break;
+        }
+    }
+
+    private void ResetSettingsSections()
+    {
+        SetSettingsSectionOpen(ref _isSettingsGeneralOpen, false, nameof(IsSettingsGeneralOpen), nameof(SettingsGeneralToggleText));
+        SetSettingsSectionOpen(ref _isSettingsDataSyncOpen, false, nameof(IsSettingsDataSyncOpen), nameof(SettingsDataSyncToggleText));
+        SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, false, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
+        SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, false, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
+        SetSettingsSectionOpen(ref _isSettingsUpdatesOpen, false, nameof(IsSettingsUpdatesOpen), nameof(SettingsUpdatesToggleText));
+        SetSettingsSectionOpen(ref _isSettingsDiagnosticsOpen, false, nameof(IsSettingsDiagnosticsOpen), nameof(SettingsDiagnosticsToggleText));
+    }
+
+    private void SetSettingsSectionOpen(ref bool field, bool value, string propertyName, string togglePropertyName)
+    {
+        if (field == value)
+        {
+            return;
+        }
+
+        field = value;
+        OnPropertyChanged(propertyName);
+        OnPropertyChanged(togglePropertyName);
     }
 
     private void ClearSearchTextWithoutRefresh()
@@ -6991,6 +7067,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(OneDriveEditDirectory));
         OnPropertyChanged(nameof(HasOneDriveEditDirectory));
         OnPropertyChanged(nameof(HasNoOneDriveEditDirectory));
+        OnPropertyChanged(nameof(IpadSyncRootDirectory));
+        OnPropertyChanged(nameof(HasIpadSyncRootDirectory));
+        OnPropertyChanged(nameof(HasNoIpadSyncRootDirectory));
         BackupStatus = $"OneDrive-Datenordner gesetzt: {folderPath}";
         TriggerIpadSnapshotExport("folder-selected");
     }
