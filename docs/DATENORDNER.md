@@ -24,6 +24,16 @@ Der aktive SyncRoot wird daraus abgeleitet:
 BueroCockpit_Daten/Sync/
 ```
 
+Vorbereitete mobile Netzwerk-Eingaenge sollen kuenftig unter diesem SyncRoot landen:
+
+```text
+BueroCockpit_Daten/Sync/inbox/mobile-<yyyyMMdd-HHmmss>-<kurzid>/
+BueroCockpit_Daten/Sync/processed/
+BueroCockpit_Daten/Sync/conflicts/
+```
+
+Das ist nur die Zielablage fuer einen spaeteren manuellen lokalen Netzwerk-Sync. In diesem Stand wird kein Server gestartet und kein Upload angenommen. Bestehende manuelle Mobile-Inbox-Ordner `mobile-inbox`/`mobile-processed` bleiben Legacy/Kompatibilitaet und werden nicht verschoben.
+
 Die aktuelle Legacy-/Uebergangs-Live-Datei liegt damit unter:
 
 ```text
@@ -89,4 +99,4 @@ Die App soll nicht auf einen festen Windows-Benutzer festgelegt werden. Wenn der
 
 Das iPad arbeitet künftig über die definierte Sync- und Mobile-Inbox-Struktur unter `BueroCockpit_Daten/Sync/`. Alte iCloud-Testordner werden nicht als aktive Quelle verwendet. Offene Altbestände werden kontrolliert importiert oder archiviert, nicht in die aktive Inbox gemischt.
 
-Die weitere iPad-Anbindung ist nur konzeptionell vorbereitet. iCloud-Live ist Legacy/Uebergang und wird nicht weiter als aktive Hauptdatenquelle ausgebaut. Der kuenftige iPad-Abgleich soll nicht ueber iCloud-Live erfolgen, sondern ueber einen separaten lokalen Netzwerk-Sync. Details stehen in [IPAD_SYNC_KONZEPT.md](IPAD_SYNC_KONZEPT.md).
+Die weitere iPad-Anbindung ist nur konzeptionell vorbereitet. iCloud-Live ist Legacy/Uebergang und wird nicht weiter als aktive Hauptdatenquelle ausgebaut. Der kuenftige iPad-Abgleich soll nicht ueber iCloud-Live erfolgen, sondern ueber einen separaten lokalen Netzwerk-Sync. Details stehen in [IPAD_SYNC_KONZEPT.md](IPAD_SYNC_KONZEPT.md) und [LOCAL_NETWORK_SYNC.md](LOCAL_NETWORK_SYNC.md).

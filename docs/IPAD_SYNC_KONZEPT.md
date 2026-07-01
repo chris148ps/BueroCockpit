@@ -4,6 +4,8 @@ Stand: 2026-07-02.
 
 Dieses Dokument beschreibt nur die Zielrichtung fuer die kuenftige iPad-Anbindung. In diesem Stand wird kein Netzwerk-Sync implementiert, keine Migration ausgefuehrt und keine produktive Datei veraendert.
 
+Der detaillierte Architektur- und Schnittstellenentwurf fuer den geplanten manuellen lokalen Netzwerk-Sync steht in [LOCAL_NETWORK_SYNC.md](LOCAL_NETWORK_SYNC.md). Dieses Dokument bleibt die fachliche Kurzfassung fuer die iPad-Zielrichtung.
+
 ## Aktueller Grundsatz
 
 OneDrive/BueroCockpit_Daten ist die zentrale Datenquelle fuer BueroCockpit Desktop auf Windows und Mac.
@@ -54,8 +56,18 @@ Beispielhafte Endpunkte:
 GET /status
 GET /snapshot
 POST /mobile-inbox
-POST /pairing
+POST /pairing/start
+POST /pairing/confirm
+GET /sync-log
 ```
+
+Die Endpunkte sind nur Zielbild. Es gibt in diesem Stand keinen laufenden Dienst, keinen Serverstart und keine produktive Netzwerk-Synchronisation.
+
+## Mobile Eingaenge
+
+Bestehende manuelle mobile Eingaenge nutzen historisch die Struktur `mobile-inbox/mobile-*` mit `aufgabe.json`, Fotos, Vorschauen, markierten Versionen, Skizzen und Dateien. Fuer den spaeteren lokalen Netzwerk-Sync soll der Desktop Uploads bevorzugt unter `BueroCockpit_Daten/Sync/inbox/mobile-*` annehmen und nach erfolgreicher Pruefung nach `Sync/processed` oder in eine klar definierte verarbeitete Struktur ueberfuehren.
+
+Der Desktop bestaetigt dem iPad die Uebernahme erst, wenn Manifest, Dateien und Pruefsummen erfolgreich abgelegt wurden. Das iPad darf lokale Originale erst nach dieser Bestaetigung bereinigen.
 
 ## Sicherheitsregeln
 
