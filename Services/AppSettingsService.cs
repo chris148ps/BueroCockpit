@@ -6,12 +6,21 @@ namespace BueroCockpit.Services;
 
 public sealed class AppSettings
 {
+    // Lokal/geraetespezifisch: zeigt auf den gemeinsamen BueroCockpit_Daten-Ordner auf diesem Rechner.
     public string OneDriveEditDirectory { get; set; } = string.Empty;
+
+    // Legacy/Uebergang: frei waehlbare live.bclive-Zieldatei. Aktive Hauptquelle ist BueroCockpit_Daten/Sync.
     public string IpadLiveFileTargetPath { get; set; } = string.Empty;
+
+    // Lokal/geraetespezifisch: reine UI-Darstellung.
     public string AppearanceMode { get; set; } = "Dark Mode";
+
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;
+
+    // Legacy/Fallback: Techniker/Monteure werden zentral in Sync/live/settings.json gespeichert.
+    // Dieser lokale Wert wird nur noch zum einmaligen Befuellen leerer Live-Settings gelesen.
     public List<string> TechnicianNames { get; set; } = [];
 }
 

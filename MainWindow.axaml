@@ -1215,7 +1215,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="10" IsVisible="{Binding IsSettingsTechniciansOpen}">
-                <TextBlock Text="Diese Namen stehen im Aufgaben-Detailfeld „Monteur“ als Auswahl zur Verfügung."
+                <TextBlock Text="Diese Namen stehen im Aufgaben-Detailfeld „Monteur“ als Auswahl zur Verfügung und werden zentral unter Sync/live/settings.json gespeichert."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap"
                            Margin="0,4,0,8" />

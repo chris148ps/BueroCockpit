@@ -8,6 +8,8 @@ BueroCockpit_Daten/
 
 AppProjekte enthält nur Quellcode. GitHub enthält nur Quellcode, Release-Artefakte und Dokumentation, aber keine produktiven Daten, Anhänge, Backups oder Kundendaten.
 
+Lokale AppSettings duerfen nur geraetespezifische Einstellungen enthalten. Betriebsrelevante Daten und gemeinsame Vorgaben gehoeren in den zentralen Datenordner.
+
 ## Aktive Struktur
 
 Der aktive Arbeitsordner der Desktop-App ist:
@@ -36,8 +38,28 @@ BueroCockpit_Daten/Sync/live/settings.json
 
 Diese Datei enthält gemeinsame Vorgaben, die auf allen Geräten identisch sein
 sollen, aktuell insbesondere `technicianNames` für die Monteur-Auswahl in
-Aufgaben. Lokale AppSettings bleiben für gerätespezifische Einstellungen wie
-Datenordner, Darstellung, Updatekanal oder lokale Übergangspfade zuständig.
+Aufgaben. Techniker/Monteure liegen kuenftig zentral in dieser Datei; lokale
+`TechnicianNames` in `settings.local.json` sind nur noch Legacy/Fallback zum
+einmaligen Befuellen leerer Live-Settings.
+
+Auftraege und Kategorien liegen fachlich im zentralen Datenordner. Die Desktop-App
+speichert sie in `BueroCockpit_Daten/buerocockpit.db`; der iPad-Live-Export
+schreibt daraus zusaetzlich diese Lesedateien:
+
+```text
+BueroCockpit_Daten/Sync/live/tasks.json
+BueroCockpit_Daten/Sync/live/categories.json
+BueroCockpit_Daten/Sync/live/metadata.json
+```
+
+Die Monteur-Zuordnung an Auftraegen ist Bestandteil der Auftragsdaten und muss
+zentral bleiben. `tasks.json` ist ein Export der zentralen Daten, nicht die
+primaere Schreibquelle.
+
+Lokale AppSettings bleiben fuer geraetespezifische Einstellungen wie den lokalen
+Pfad zum gemeinsamen Datenordner, Darstellung, lokale Update-Testkanaele oder
+lokale Uebergangspfade zustaendig. `IpadLiveFileTargetPath` ist Legacy/Uebergang;
+die aktive Sync-Struktur wird aus `BueroCockpit_Daten/Sync/` abgeleitet.
 
 ## Nicht verwenden
 
@@ -50,6 +72,7 @@ Sync/Sync
 ```
 
 `BueroCockpit_iPad_Bearbeitung` war ein fachlich falscher alter OneDrive-Name. `BueroCockpit_iPad_Live` war ein iCloud-Testordner. iCloud ist nicht mehr die aktive Hauptdatenquelle.
+Der alte Ordner `BueroCockpit_iPad_Bearbeitung` darf nicht mehr als aktive Quelle verwendet werden.
 
 ## Windows
 
