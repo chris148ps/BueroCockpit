@@ -68,6 +68,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly BackupService _backupService;
     private readonly UpdateService _updateService;
     private readonly AppSettingsService _settingsService;
+    private readonly LiveSettingsService _liveSettingsService;
     private readonly FileHashService _hashService;
     private readonly IpadSnapshotExportService _ipadSnapshotExportService;
     private readonly MobileInboxLoader _mobileInboxLoader = new();
@@ -1195,6 +1196,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _backupService = new BackupService();
         _updateService = new UpdateService();
         _settingsService = new AppSettingsService();
+        _liveSettingsService = new LiveSettingsService();
         _hashService = new FileHashService();
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
@@ -2985,7 +2987,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 SetSettingsSectionOpen(ref _isSettingsDataSyncOpen, !IsSettingsDataSyncOpen, nameof(IsSettingsDataSyncOpen), nameof(SettingsDataSyncToggleText));
                 break;
             case "Technicians":
-                SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, !IsSettingsTechniciansOpen, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
+                var openTechnicians = !IsSettingsTechniciansOpen;
+                SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, openTechnicians, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
+                if (openTechnicians)
+                {
+                    LoadTechnicianOptions();
+                }
                 break;
             case "Categories":
                 SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, !IsSettingsCategoriesOpen, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
@@ -7070,6 +7077,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(IpadSyncRootDirectory));
         OnPropertyChanged(nameof(HasIpadSyncRootDirectory));
         OnPropertyChanged(nameof(HasNoIpadSyncRootDirectory));
+        LoadTechnicianOptions();
         BackupStatus = $"OneDrive-Datenordner gesetzt: {folderPath}";
         TriggerIpadSnapshotExport("folder-selected");
     }
@@ -10743,11 +10751,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         TechnicianOptions.Clear();
 
-        foreach (var name in _appSettings.TechnicianNames
-                     .Where(name => !string.IsNullOrWhiteSpace(name))
-                     .Select(name => name.Trim())
-                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+        var settings = _liveSettingsService.Load(ResolveLiveSettingsSyncRootDirectory(), _appSettings.TechnicianNames);
+        foreach (var name in settings.TechnicianNames)
         {
             TechnicianOptions.Add(name);
         }
@@ -10755,15 +10760,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveTechnicianOptions()
     {
-        _appSettings.TechnicianNames = TechnicianOptions
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        _settingsService.Save(_appSettings);
+        var settings = new LiveSettings
+        {
+            TechnicianNames = TechnicianOptions.ToList()
+        };
+        _liveSettingsService.Save(ResolveLiveSettingsSyncRootDirectory(), settings);
         LoadTechnicianOptions();
+    }
+
+    private string ResolveLiveSettingsSyncRootDirectory()
+    {
+        var sharedDirectory = HasOneDriveEditDirectory
+            ? OneDriveEditDirectory
+            : AppPaths.AppDataDirectory;
+
+        return IpadSnapshotExportService.ResolveSyncRootDirectory(sharedDirectory);
     }
 
     private void AddTechnician_OnClick(object? sender, RoutedEventArgs e)

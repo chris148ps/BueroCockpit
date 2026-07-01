@@ -28,6 +28,17 @@ Die wichtige Live-Datei liegt damit unter:
 BueroCockpit_Daten/Sync/live.bclive
 ```
 
+Zentrale Live-Einstellungen liegen unter:
+
+```text
+BueroCockpit_Daten/Sync/live/settings.json
+```
+
+Diese Datei enthält gemeinsame Vorgaben, die auf allen Geräten identisch sein
+sollen, aktuell insbesondere `technicianNames` für die Monteur-Auswahl in
+Aufgaben. Lokale AppSettings bleiben für gerätespezifische Einstellungen wie
+Datenordner, Darstellung, Updatekanal oder lokale Übergangspfade zuständig.
+
 ## Nicht verwenden
 
 Diese Ordnernamen sind keine aktive Datenquelle mehr:
