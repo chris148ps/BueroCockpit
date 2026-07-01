@@ -34,6 +34,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string MobileInboxCategoryName = "Wartet auf Freigabe";
     private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
     private const int MobileProcessedRetentionDays = 30;
+    private const string OneDriveDataFolderName = "BueroCockpit_Daten";
+    private const string LegacyOneDriveDataFolderName = "BueroCockpit_iPad_Bearbeitung";
+    private const string CompanyOneDriveMacFolderName = "OneDrive-ElektroSchweim";
+    private const string CompanyOneDriveWindowsFolderName = "OneDrive - Elektro Schweim";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
     private const string SortFieldDate = "Datum";
@@ -1172,6 +1176,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
+        NormalizeConfiguredOneDriveEditDirectory();
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
@@ -6131,7 +6136,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            return string.Empty;
+            return TryGetDefaultOneDriveEditDirectory(createIfMissing: false, out var defaultDirectory)
+                ? defaultDirectory
+                : string.Empty;
         }
 
         var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
@@ -6152,7 +6159,112 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return GetOneDriveEditWorkDirectory(trimmedPath);
         }
 
-        return GetMacDevelopmentOneDriveEditDirectory();
+        return GetOneDriveEditWorkDirectory(GetReplacementOneDriveEditDirectory(trimmedPath));
+    }
+
+    private void NormalizeConfiguredOneDriveEditDirectory()
+    {
+        var originalPath = _appSettings.OneDriveEditDirectory;
+        if (TryGetMigratedOneDriveEditDirectory(originalPath, out var migratedPath, out var message))
+        {
+            _appSettings.OneDriveEditDirectory = migratedPath;
+            _settingsService.Save(_appSettings);
+            ReportOneDriveDataFolderMessage(message);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            ReportOneDriveDataFolderMessage(message);
+        }
+    }
+
+    private void ReportOneDriveDataFolderMessage(string message)
+    {
+        Console.WriteLine(message);
+        _ipadSnapshotExportService.LogDiagnostic(message);
+    }
+
+    private static bool TryGetMigratedOneDriveEditDirectory(string? configuredPath, out string migratedPath, out string message)
+    {
+        migratedPath = string.Empty;
+        message = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(configuredPath))
+        {
+            if (!TryGetDefaultOneDriveEditDirectory(createIfMissing: false, out var defaultDirectory))
+            {
+                return false;
+            }
+
+            migratedPath = EnsureTrailingDirectorySeparator(defaultDirectory);
+            message = $"zentraler Standard-Datenordner erkannt: {migratedPath}";
+            return true;
+        }
+
+        var trimmedPath = GetOneDriveEditWorkDirectory(Environment.ExpandEnvironmentVariables(configuredPath.Trim()));
+        if (!IsLegacyOneDriveEditDirectory(trimmedPath))
+        {
+            return false;
+        }
+
+        var replacementPath = GetReplacementOneDriveEditDirectory(trimmedPath);
+        var oldDirectory = ResolveDisplayDirectory(GetLegacyOneDriveEditDirectoryForCurrentPlatform(trimmedPath));
+        var newDirectory = ResolveDisplayDirectory(replacementPath);
+        var newExists = Directory.Exists(newDirectory);
+        var oldExists = Directory.Exists(oldDirectory);
+
+        if (newExists || CanSafelyCreateNewDataDirectory(oldDirectory, newDirectory, oldExists))
+        {
+            if (!newExists)
+            {
+                Directory.CreateDirectory(newDirectory);
+            }
+
+            migratedPath = EnsureTrailingDirectorySeparator(replacementPath);
+            message =
+                $"alter Datenordner erkannt: {oldDirectory}{Environment.NewLine}" +
+                $"neuer Datenordner: {newDirectory}{Environment.NewLine}" +
+                "lokale Einstellung wurde auf den neuen zentralen Datenordner umgestellt.";
+            return true;
+        }
+
+        message =
+            $"alter Datenordner erkannt: {oldDirectory}{Environment.NewLine}" +
+            $"neuer Datenordner: {newDirectory}{Environment.NewLine}" +
+            "automatische Umstellung nicht sicher: bitte scripts/migrate-data-folder.sh --dry-run ausfuehren.";
+        return false;
+    }
+
+    private static bool CanSafelyCreateNewDataDirectory(string oldDirectory, string newDirectory, bool oldExists)
+    {
+        if (Directory.Exists(newDirectory))
+        {
+            return true;
+        }
+
+        var parentDirectory = Path.GetDirectoryName(newDirectory);
+        if (string.IsNullOrWhiteSpace(parentDirectory) || !Directory.Exists(parentDirectory))
+        {
+            return false;
+        }
+
+        return !oldExists || !ContainsSyncData(oldDirectory);
+    }
+
+    private static bool ContainsSyncData(string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        var syncDirectory = Path.Combine(directory, "Sync");
+        return File.Exists(Path.Combine(syncDirectory, "live.bclive")) ||
+               File.Exists(Path.Combine(syncDirectory, "live", "tasks.json")) ||
+               File.Exists(Path.Combine(syncDirectory, "live", "categories.json")) ||
+               File.Exists(Path.Combine(syncDirectory, "live", "metadata.json")) ||
+               File.Exists(Path.Combine(syncDirectory, "snapshots", "latest.bcsnapshot"));
     }
 
     private static string GetPersistedOneDriveEditDirectory(string? path)
@@ -6251,15 +6363,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             return new[]
             {
-                Path.Combine(userProfile, "Library", "Mobile Documents", "com~apple~CloudDocs", "BueroCockpit_iPad_Live")
+                Path.Combine(GetMacDevelopmentOneDriveEditDirectory(), "Sync")
             };
         }
 
-        return new[]
+        var folders = new List<string>();
+        foreach (var candidate in GetDefaultOneDriveEditDirectoryCandidates())
         {
-            Path.Combine(userProfile, "iCloudDrive", "BueroCockpit_iPad_Live"),
-            Path.Combine(userProfile, "iCloud Drive", "BueroCockpit_iPad_Live")
-        };
+            folders.Add(Path.Combine(candidate, "Sync"));
+        }
+
+        return folders;
     }
 
     private static string GetMacDevelopmentOneDriveEditDirectory()
@@ -6268,14 +6382,90 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library",
             "CloudStorage",
-            "OneDrive-ElektroSchweim",
+            CompanyOneDriveMacFolderName,
             "Dokumente",
-            "BueroCockpit_iPad_Bearbeitung");
+            OneDriveDataFolderName);
+    }
+
+    private static string GetLegacyMacDevelopmentOneDriveEditDirectory()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Library",
+            "CloudStorage",
+            CompanyOneDriveMacFolderName,
+            "Dokumente",
+            LegacyOneDriveDataFolderName);
     }
 
     private static string GetProductiveWindowsOneDriveEditDirectory()
     {
-        return @"C:\Users\Installation\OneDrive - Elektro Schweim\Dokumente\BueroCockpit_iPad_Bearbeitung";
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Path.Combine(@"C:\Users\Installation", CompanyOneDriveWindowsFolderName, "Dokumente", OneDriveDataFolderName);
+        }
+
+        return Path.Combine(userProfile, CompanyOneDriveWindowsFolderName, "Dokumente", OneDriveDataFolderName);
+    }
+
+    private static bool TryGetDefaultOneDriveEditDirectory(bool createIfMissing, out string directory)
+    {
+        directory = string.Empty;
+        foreach (var candidate in GetDefaultOneDriveEditDirectoryCandidates())
+        {
+            if (Directory.Exists(candidate))
+            {
+                directory = candidate;
+                return true;
+            }
+
+            var parentDirectory = Path.GetDirectoryName(candidate);
+            if (!createIfMissing || string.IsNullOrWhiteSpace(parentDirectory) || !Directory.Exists(parentDirectory))
+            {
+                continue;
+            }
+
+            Directory.CreateDirectory(candidate);
+            directory = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> GetDefaultOneDriveEditDirectoryCandidates()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Array.Empty<string>();
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return new[]
+            {
+                GetMacDevelopmentOneDriveEditDirectory()
+            };
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var candidates = new List<string>();
+            var oneDriveCommercial = Environment.GetEnvironmentVariable("OneDriveCommercial");
+            if (!string.IsNullOrWhiteSpace(oneDriveCommercial))
+            {
+                candidates.Add(Path.Combine(oneDriveCommercial, "Dokumente", OneDriveDataFolderName));
+                candidates.Add(Path.Combine(oneDriveCommercial, "Documents", OneDriveDataFolderName));
+            }
+
+            candidates.Add(Path.Combine(userProfile, CompanyOneDriveWindowsFolderName, "Dokumente", OneDriveDataFolderName));
+            candidates.Add(Path.Combine(userProfile, CompanyOneDriveWindowsFolderName, "Documents", OneDriveDataFolderName));
+            return candidates;
+        }
+
+        return Array.Empty<string>();
     }
 
     private static bool IsWindowsStylePath(string path)
@@ -6288,13 +6478,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool IsLegacyOneDriveEditDirectory(string path)
     {
         var normalized = path.Replace('\\', '/');
-        return normalized.Contains("/OneDrive - Elektro Schweim/", StringComparison.OrdinalIgnoreCase) &&
-               normalized.EndsWith("/Dokumente/BueroCockpit_iPad_Bearbeitung", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(GetPortableFileName(normalized), LegacyOneDriveDataFolderName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetPortableFileName(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        var separatorIndex = normalized.LastIndexOf('/');
+        return separatorIndex >= 0 ? normalized[(separatorIndex + 1)..] : normalized;
     }
 
     private static bool IsKnownMacDevelopmentOneDriveEditDirectory(string path)
     {
         return AreSameResolvedDirectory(path, GetMacDevelopmentOneDriveEditDirectory());
+    }
+
+    private static string ReplaceLegacyDataFolderName(string path)
+    {
+        var workDirectory = GetOneDriveEditWorkDirectory(path);
+        var normalized = workDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var folderName = GetPortableFileName(normalized);
+        if (!string.Equals(folderName, LegacyOneDriveDataFolderName, StringComparison.OrdinalIgnoreCase))
+        {
+            return workDirectory;
+        }
+
+        var parentDirectory = GetIpadLiveFileDirectory(normalized);
+        if (string.IsNullOrWhiteSpace(parentDirectory))
+        {
+            return OneDriveDataFolderName;
+        }
+
+        var separator = workDirectory.Contains('\\', StringComparison.Ordinal) && !workDirectory.Contains('/', StringComparison.Ordinal)
+            ? "\\"
+            : Path.DirectorySeparatorChar.ToString();
+        return parentDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '/', '\\') + separator + OneDriveDataFolderName;
+    }
+
+    private static string GetReplacementOneDriveEditDirectory(string path)
+    {
+        if (OperatingSystem.IsMacOS() && IsWindowsStylePath(path))
+        {
+            return GetMacDevelopmentOneDriveEditDirectory();
+        }
+
+        return ReplaceLegacyDataFolderName(path);
+    }
+
+    private static string GetLegacyOneDriveEditDirectoryForCurrentPlatform(string path)
+    {
+        if (OperatingSystem.IsMacOS() && IsWindowsStylePath(path))
+        {
+            return GetLegacyMacDevelopmentOneDriveEditDirectory();
+        }
+
+        return GetOneDriveEditWorkDirectory(path);
+    }
+
+    private static string EnsureTrailingDirectorySeparator(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) ||
+            path.EndsWith(Path.DirectorySeparatorChar) ||
+            path.EndsWith(Path.AltDirectorySeparatorChar))
+        {
+            return path;
+        }
+
+        return path + Path.DirectorySeparatorChar;
     }
 
     private static bool AreSameResolvedDirectory(string firstPath, string secondPath)
@@ -6726,7 +6976,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "OneDrive-Bearbeitungsordner auswählen",
+            Title = "OneDrive-Datenordner auswählen",
             AllowMultiple = false
         });
 
@@ -6741,7 +6991,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(OneDriveEditDirectory));
         OnPropertyChanged(nameof(HasOneDriveEditDirectory));
         OnPropertyChanged(nameof(HasNoOneDriveEditDirectory));
-        BackupStatus = $"OneDrive-Bearbeitungsordner gesetzt: {folderPath}";
+        BackupStatus = $"OneDrive-Datenordner gesetzt: {folderPath}";
         TriggerIpadSnapshotExport("folder-selected");
     }
 
@@ -6749,7 +6999,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!HasOneDriveEditDirectory)
         {
-            BackupStatus = "Noch kein OneDrive-Bearbeitungsordner gewählt.";
+            BackupStatus = "Noch kein OneDrive-Datenordner gewählt.";
             return;
         }
 
@@ -6801,14 +7051,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .FirstOrDefault(Directory.Exists);
         if (string.IsNullOrWhiteSpace(recommendedFolder))
         {
-            IpadLiveFileStatus = "iCloud Drive wurde auf diesem Rechner noch nicht gefunden. Bitte iCloud für Windows installieren und anschließend den Ordner auswählen.";
+            IpadLiveFileStatus = "Der zentrale OneDrive-Sync-Ordner wurde auf diesem Rechner noch nicht gefunden. Bitte zuerst den Datenordner migrieren oder auswählen.";
             return;
         }
 
         _appSettings.IpadLiveFileTargetPath = recommendedFolder;
         _settingsService.Save(_appSettings);
         RefreshIpadLiveFileTargetProperties();
-        IpadLiveFileStatus = $"Empfohlener iCloud-Ordner gefunden und gesetzt: {recommendedFolder}";
+        IpadLiveFileStatus = $"Empfohlener Sync-Ordner gefunden und gesetzt: {recommendedFolder}";
     }
 
     private void TriggerIpadSnapshotExport(string reason)
@@ -7027,7 +7277,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!HasOneDriveEditDirectory)
         {
-            SetIpadSnapshotStatus("Noch kein OneDrive-Bearbeitungsordner gewählt.");
+            SetIpadSnapshotStatus("Noch kein OneDrive-Datenordner gewählt.");
             return;
         }
 
@@ -7622,7 +7872,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (!HasOneDriveEditDirectory)
         {
-            AttachmentEditStatus = "Noch kein OneDrive-Bearbeitungsordner gewählt.";
+            AttachmentEditStatus = "Noch kein OneDrive-Datenordner gewählt.";
             return;
         }
 

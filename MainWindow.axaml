@@ -1273,18 +1273,18 @@
 
           <Border Classes="Card">
             <StackPanel Spacing="10">
-              <TextBlock Text="OneDrive / iPad-Bearbeitung" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="OneDrive-Bearbeitungsordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+              <TextBlock Text="OneDrive / zentraler Datenordner" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Text="OneDrive-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
               <TextBlock Text="{Binding OneDriveEditDirectory}"
                          IsVisible="{Binding HasOneDriveEditDirectory}"
                          TextWrapping="Wrap" />
-              <TextBlock Text="Noch kein OneDrive-Bearbeitungsordner gewählt."
+              <TextBlock Text="Noch kein OneDrive-Datenordner gewählt."
                          IsVisible="{Binding HasNoOneDriveEditDirectory}"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          TextWrapping="Wrap" />
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
-                <Button Content="OneDrive-Ordner auswählen" Click="SelectOneDriveFolder_OnClick" />
-                <Button Grid.Column="1" Content="OneDrive-Ordner öffnen" Click="OpenOneDriveFolder_OnClick" />
+                <Button Content="Datenordner auswählen" Click="SelectOneDriveFolder_OnClick" />
+                <Button Grid.Column="1" Content="Datenordner öffnen" Click="OpenOneDriveFolder_OnClick" />
               </Grid>
               <Button Content="iPad-Sync + Vollsnapshot jetzt aktualisieren"
                       Click="RefreshIpadSnapshot_OnClick"
@@ -1295,7 +1295,7 @@
           <Border Classes="Card">
             <StackPanel Spacing="10">
               <TextBlock Text="iPad-Live-Datei" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="Für den iPad-Live-Sync wählen Sie den Ordner, in den BüroCockpit die Datei live.bclive schreibt. Für Christians interne Nutzung ist iCloud Drive\BueroCockpit_iPad_Live vorgesehen."
+              <TextBlock Text="Für den iPad-Live-Sync wählen Sie Sync/live.bclive aus dem zentralen OneDrive-Datenordner. Alte iCloud-Testordner sind keine aktive Datenquelle mehr."
                          Foreground="{DynamicResource TextTertiaryBrush}"
                          FontSize="12"
                          TextWrapping="Wrap" />
@@ -1322,7 +1322,7 @@
                 <Button Content="Jetzt Live-Datei schreiben"
                         Click="WriteIpadLiveFile_OnClick"
                         Margin="0,0,10,8" />
-                <Button Content="Empfohlenen iCloud-Ordner prüfen"
+                <Button Content="Empfohlenen Sync-Ordner prüfen"
                         Click="CheckRecommendedIpadLiveFolder_OnClick"
                         Margin="0,0,0,8" />
               </WrapPanel>

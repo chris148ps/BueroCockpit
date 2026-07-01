@@ -225,13 +225,13 @@ Lokal gespeichert werden insbesondere:
 - Datenbank `buerocockpit.db`
 - Aufgaben-Anhänge und Thumbnails
 - lokale Backups
-- lokale Einstellungen wie der gewählte OneDrive-Bearbeitungsordner
+- lokale Einstellungen wie der gewählte OneDrive-Datenordner
 
 Diese Daten liegen im AppData-Ordner der App und werden von Git ignoriert.
 
-## OneDrive-/iPad-Bearbeitung
+## OneDrive-Datenordner
 
-Der OneDrive-Bearbeitungsordner wird in der App unter `Einstellungen` ausgewählt. Es gibt keine Cloud-API und keine Microsoft-Graph-Anbindung; die App arbeitet nur mit einem frei gewählten lokalen Ordner.
+Der OneDrive-Datenordner wird in der App unter `Einstellungen` ausgewählt. Die zentrale Datenquelle ist `BueroCockpit_Daten`; Details stehen in [docs/DATENORDNER.md](/Users/christian/AppProjekte/BueroCockpit/docs/DATENORDNER.md). Es gibt keine Cloud-API und keine Microsoft-Graph-Anbindung; die App arbeitet nur mit einem frei gewählten lokalen Ordner.
 
 Das aktuelle Snapshot-Format und die technische Vorbereitung für eine spätere iPad-Leseversion sind in [docs/ipad-readonly-preparation.md](/Users/christian/AppProjekte/BueroCockpit/docs/ipad-readonly-preparation.md) dokumentiert.
 
