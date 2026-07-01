@@ -1185,6 +1185,19 @@
                         Click="RefreshIpadSnapshot_OnClick"
                         HorizontalAlignment="Left" />
                 <StackPanel Spacing="8">
+                  <TextBlock Text="Lokaler Netzwerk-Sync" FontSize="15" FontWeight="SemiBold" />
+                  <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Deaktiviert / Konzept vorbereitet" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Aktivierung" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Noch nicht aktiv" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Server" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Kein Server läuft" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Zielbild" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Später manueller Sync mit iPad im Firmennetz" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  </Grid>
+                </StackPanel>
+                <StackPanel Spacing="8">
                   <TextBlock Text="Legacy / Übergang: iPad-Live-Datei" FontSize="15" FontWeight="SemiBold" />
                   <TextBlock Text="Legacy/Übergang: iCloud-Live wird nicht mehr als zentrale Hauptlösung weiterentwickelt."
                              Foreground="{DynamicResource TextTertiaryBrush}"

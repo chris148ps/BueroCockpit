@@ -47,6 +47,21 @@ public sealed record MobileInboxUploadResult(
     DateTimeOffset ReceivedAtUtc,
     IReadOnlyList<string> Messages);
 
+public sealed record LocalSyncSnapshotManifest(
+    string SchemaVersion,
+    DateTimeOffset CreatedAtUtc,
+    string ServerName,
+    string State,
+    bool ContainsProductiveData,
+    IReadOnlyList<LocalSyncSnapshotManifestEntry> Entries,
+    string? Message = null);
+
+public sealed record LocalSyncSnapshotManifestEntry(
+    string RelativePath,
+    string ContentType,
+    long SizeBytes,
+    string Purpose);
+
 public interface ILocalSyncContracts
 {
     LocalSyncStatus GetStatus();

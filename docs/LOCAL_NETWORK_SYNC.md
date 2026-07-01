@@ -30,6 +30,31 @@ Nicht Bestandteil dieses Konzeptschritts:
 - kein FileSystemWatcher, kein Polling, kein LiveReload
 - keine stille Hintergrundsynchronisation
 
+## Phase 2: Desktop-Service-Geruest
+
+Phase 2 legt nur ein Desktop-Service-Geruest an. Der Dienst ist standardmaessig deaktiviert und wird im App-Lifecycle nicht automatisch gestartet. Auch wenn lokale Einstellungen vorhanden sind, oeffnet BueroCockpit keinen Port und startet keinen HTTP-Server.
+
+Vorbereitet sind:
+
+- `LocalSyncService` als In-Memory-Service mit den Zustaenden `Disabled`, `Stopped`, `Starting`, `Running` und `Error`
+- `LocalSyncOptions` fuer lokale, geraetespezifische Konfiguration
+- lokale AppSettings fuer `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName`
+- Platzhaltermethoden fuer Status, Pairing-Code, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
+- ein rein informativer Abschnitt in den Desktop-Einstellungen
+
+Weiterhin gilt:
+
+- kein automatischer Start
+- keine geoeffneten Ports
+- kein `HttpListener`
+- kein Kestrel oder ASP.NET
+- keine neuen NuGet-Abhaengigkeiten
+- keine echte Netzwerkkommunikation
+- keine iPad-Codeaenderung
+- keine Produktivdatenausgabe im Platzhaltermanifest
+
+Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separaten Auftrag erfolgen. Dann muessen Start/Stop-UI, Portwahl, Pairing-Sicherheit, Firewall-/macOS-Hinweise und die konkrete Transportimplementierung erneut bewusst entschieden werden.
+
 ## 3. Rollen
 
 ### Desktop als fuehrendes System

@@ -19,6 +19,15 @@ public sealed class AppSettings
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;
 
+    // Vorbereitung fuer spaeteren manuellen lokalen Netzwerk-Sync. Bleibt standardmaessig aus.
+    public bool LocalNetworkSyncEnabled { get; set; }
+
+    // Lokal/geraetespezifisch. 0 bedeutet: noch nicht gesetzt, kein Port reserviert.
+    public int LocalNetworkSyncPort { get; set; }
+
+    // Lokal/geraetespezifischer Anzeigename fuer spaetere Kopplung.
+    public string LocalNetworkSyncDeviceName { get; set; } = string.Empty;
+
     // Legacy/Fallback: Techniker/Monteure werden zentral in Sync/live/settings.json gespeichert.
     // Dieser lokale Wert wird nur noch zum einmaligen Befuellen leerer Live-Settings gelesen.
     public List<string> TechnicianNames { get; set; } = [];
