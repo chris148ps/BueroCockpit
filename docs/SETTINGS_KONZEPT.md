@@ -9,7 +9,7 @@ Grundregel: `settings.local.json` darf nur geraetespezifische Einstellungen enth
 | Einstellung / Datenart | aktueller Speicherort | lokal oder zentral | fachliche Bewertung | Handlungsbedarf | Begründung |
 |---|---|---|---|---|---|
 | OneDriveEditDirectory | `BueroCockpitLocal/settings.local.json` | lokal | Darf lokal bleiben | keiner | Der konkrete Pfad zum gemeinsamen Datenordner ist geraete- und Benutzerkonto-spezifisch. |
-| IpadLiveFileTargetPath | `BueroCockpitLocal/settings.local.json` | lokal | Legacy / Altlast | als Uebergang belassen, nicht ausbauen | Frei waehlbarer Zielordner fuer `live.bclive`; aktive Hauptstruktur ist `BueroCockpit_Daten/Sync/`. |
+| IpadLiveFileTargetPath | `BueroCockpitLocal/settings.local.json` | lokal | Legacy / Uebergang | als Uebergang belassen, nicht weiter als Hauptloesung ausbauen | Frei waehlbarer Zielordner fuer `live.bclive`; aktive Hauptstruktur ist `BueroCockpit_Daten/Sync/`; spaetere Abloesung durch lokalen Netzwerk-Sync. |
 | UpdateFeedUrl | `BueroCockpitLocal/settings.local.json` | lokal | Darf lokal bleiben | keiner, solange nur Test-/Sonderkanal | Leer nutzt den Standardkanal aus `UpdateService`; lokale Overrides sind Entwickler-/Diagnosekonfiguration. |
 | AppearanceMode | `BueroCockpitLocal/settings.local.json` | lokal | Darf lokal bleiben | keiner | Reine UI-Praeferenz pro Geraet. |
 | TechnicianNames lokal | `BueroCockpitLocal/settings.local.json` oder alter `settings.json` | lokal | Legacy / Fallback | nicht mehr aktiv pflegen | Wird nur noch als Fallback gelesen, wenn zentrale Live-Settings leer sind. |
@@ -31,7 +31,7 @@ Grundregel: `settings.local.json` darf nur geraetespezifische Einstellungen enth
 Gefundene lokale AppSettings:
 
 - `OneDriveEditDirectory`: korrekt lokal, weil jeder Rechner einen anderen lokalen OneDrive-Pfad haben kann.
-- `IpadLiveFileTargetPath`: Legacy/Uebergang, weil die aktive Hauptquelle `BueroCockpit_Daten/Sync/` ist.
+- `IpadLiveFileTargetPath`: Legacy/Uebergang, weil die aktive Hauptquelle `BueroCockpit_Daten/Sync/` ist. Nicht weiter als Hauptloesung ausbauen; spaetere Abloesung durch lokalen Netzwerk-Sync.
 - `AppearanceMode`: korrekt lokal, weil es eine UI-Praeferenz ist.
 - `UpdateFeedUrl`: korrekt lokal, solange es als lokaler Test-/Sonderkanal verstanden wird.
 - `TechnicianNames`: Legacy/Fallback, nicht mehr fachlich fuehrend.

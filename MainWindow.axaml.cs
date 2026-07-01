@@ -7138,14 +7138,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .FirstOrDefault(Directory.Exists);
         if (string.IsNullOrWhiteSpace(recommendedFolder))
         {
-            IpadLiveFileStatus = "Der zentrale OneDrive-Sync-Ordner wurde auf diesem Rechner noch nicht gefunden. Bitte zuerst den Datenordner migrieren oder auswählen.";
+            IpadLiveFileStatus = "Der Legacy-Sync-Ordner wurde auf diesem Rechner noch nicht gefunden. Bitte zuerst den Datenordner migrieren oder auswählen.";
             return;
         }
 
         _appSettings.IpadLiveFileTargetPath = recommendedFolder;
         _settingsService.Save(_appSettings);
         RefreshIpadLiveFileTargetProperties();
-        IpadLiveFileStatus = $"Empfohlener Sync-Ordner gefunden und gesetzt: {recommendedFolder}";
+        IpadLiveFileStatus = $"Legacy-Sync-Ordner gefunden und gesetzt: {recommendedFolder}";
     }
 
     private void TriggerIpadSnapshotExport(string reason)

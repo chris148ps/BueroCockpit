@@ -1,45 +1,82 @@
 # iPad-Sync-Konzept
 
-Dieser Stand dokumentiert nur das Konzept fuer die kuenftige iPad-Anbindung. Es wird keine Synchronisation implementiert, keine Migration ausgefuehrt und keine produktive Datei veraendert.
+Stand: 2026-07-02.
 
-## Grundrichtung
+Dieses Dokument beschreibt nur die Zielrichtung fuer die kuenftige iPad-Anbindung. In diesem Stand wird kein Netzwerk-Sync implementiert, keine Migration ausgefuehrt und keine produktive Datei veraendert.
 
-iCloud ist kuenftig keine aktive Hauptdatenquelle fuer BueroCockpit. Alte iCloud-Testpfade koennen als Legacy- oder Uebergangsinformation sichtbar bleiben, werden aber nicht als empfohlene zentrale Datenquelle ausgebaut.
+## Aktueller Grundsatz
 
-Die zentrale Datenquelle fuer Desktop, Windows und Mac bleibt:
+OneDrive/BueroCockpit_Daten ist die zentrale Datenquelle fuer BueroCockpit Desktop auf Windows und Mac.
 
 ```text
 OneDrive/BueroCockpit_Daten
+BueroCockpit_Daten/Sync/
 ```
 
-Der Desktop uebernimmt Originale dauerhaft in diesen zentralen Datenordner. Mobile Originalfotos bleiben auf dem iPad nur so lange erhalten, bis die Uebernahme bestaetigt ist.
+iCloud ist keine aktive Hauptdatenquelle mehr. Bestehende iCloud-Live-Pfade und `IpadLiveFileTargetPath` duerfen als Legacy- oder Uebergangsinformation sichtbar bleiben, werden aber nicht als zentrale Hauptloesung weiterentwickelt.
 
-## Variante A: Microsoft Graph / OneDrive-API
+`AppProjekte` ist nur Quellcode. GitHub ist nur Quellcode, Dokumentation und Releases, nicht Produktivdaten. Produktive Daten, Anhaenge, Backups und mobile Eingaenge gehoeren in `BueroCockpit_Daten`.
 
-Das iPad koennte spaeter direkt ueber Microsoft Graph auf OneDrive zugreifen. Dabei wuerde die App gezielt definierte Sync- und Inbox-Dateien unter `BueroCockpit_Daten` lesen oder schreiben.
+## Warum iCloud-Live nicht weiter ausgebaut wird
 
-Diese Variante braucht eine gesonderte Planung fuer Anmeldung, Rechte, Fehlerbehandlung, Konflikte, Offline-Verhalten und Datenschutz.
+- iCloud-Live ist im praktischen Betrieb zu fehleranfaellig.
+- Die Dateiverfuegbarkeit auf dem iPad ist nicht immer eindeutig oder sofort garantiert.
+- Mischbetrieb aus OneDrive als Desktop-Datenquelle und iCloud als mobiler Live-Schicht ist nicht robust genug.
+- Live-Dateien koennen mit wachsendem Datenbestand gross werden.
+- Originalfotos sollen nicht dauerhaft mobil herumliegen oder ueber iCloud-Live als Dauerbestand verteilt werden.
 
-## Variante B: Lokaler Netzwerk-Sync im Firmennetz
+## Zielbild: lokaler Netzwerk-Sync
 
-Alternativ kann ein lokaler Sync im Firmennetz geplant werden:
+Der kuenftige Weg ist ein manueller lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
 
-- Der Desktop startet einen lokalen Sync-Dienst.
-- Das iPad findet den Desktop im gleichen Netzwerk.
-- Die Kopplung erfolgt per Code oder QR-Code.
-- Das iPad uebertraegt mobile Eingaenge, Fotos, Skizzen und Daten.
-- Der Desktop uebernimmt diese nach `Sync/inbox` oder direkt in die zentrale Datenstruktur.
+- BueroCockpit Desktop startet spaeter optional einen lokalen Sync-Dienst.
+- Das iPad findet BueroCockpit im gleichen Firmennetz.
+- Die Kopplung erfolgt per QR-Code oder Einmal-Code.
+- Das iPad kann den aktuellen Stand abrufen.
+- Das iPad kann mobile Eingaenge, Fotos, Skizzen und Daten uebertragen.
+- Der Desktop uebernimmt die Daten in den zentralen Datenordner.
 - Das iPad loescht lokale Originale erst nach bestaetigter Uebernahme.
+- Es gibt keine stille Dauer-Live-Aktualisierung.
+- Die Synchronisation erfolgt manuell ueber Button und Statusanzeige.
 
-## Empfehlung
+## Technische Zielarchitektur
 
-Empfohlen ist spaeter ein lokaler Netzwerk-Sync mit manueller Uebertragung und sichtbarer Kopplung. Der Sync soll nicht still im Hintergrund laufen, sondern ueber einen manuellen Sync-Button gestartet werden.
+Dies ist nur ein Konzept, keine Umsetzung.
 
-Der Ablauf muss nachvollziehbar bleiben:
+- Desktop-Dienst lokal im LAN.
+- Geraeteerkennung per Bonjour/mDNS oder manuellem QR-Code.
+- Pairing mit Einmal-Code oder Token.
+- Status, Abruf und Uebergabe ueber klar begrenzte lokale Endpunkte.
 
-- sichtbarer Status
-- Fehleranzeige
-- Protokoll
-- klare Bestaetigung nach erfolgreicher Uebernahme
+Beispielhafte Endpunkte:
 
-Es gibt keine stille Live-Aktualisierung. Eine Umsetzung wird in einem separaten Auftrag geplant und implementiert.
+```text
+GET /status
+GET /snapshot
+POST /mobile-inbox
+POST /pairing
+```
+
+## Sicherheitsregeln
+
+- Zugriff nur im lokalen Netzwerk.
+- Pairing ist erforderlich.
+- Token werden nicht dauerhaft offen angezeigt.
+- Import erfolgt nur nach Bestaetigung.
+- Sync-Ergebnisse werden protokolliert.
+
+## Datenregeln
+
+- Der Desktop ist fuehrend.
+- Produktivdaten bleiben in `BueroCockpit_Daten`.
+- Das iPad ist Erfassungsclient.
+- Mobile Originale werden erst nach bestaetigter Uebernahme bereinigt.
+- Es gibt keine automatische Loeschung ohne bestaetigten Sync.
+
+## Nicht in diesem Auftrag
+
+- Kein Desktop-Sync-Dienst.
+- Keine iPad-Codeaenderung fuer Netzwerk.
+- Keine Live-Dateien loeschen.
+- Keine iCloud- oder OneDrive-Dateien verschieben.
+- Keine Datenmigration.

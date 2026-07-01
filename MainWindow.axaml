@@ -1148,7 +1148,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="14" IsVisible="{Binding IsSettingsDataSyncOpen}">
-                <TextBlock Text="Zentrale Datenquelle ist BueroCockpit_Daten. iCloud ist keine aktive Hauptdatenquelle mehr."
+                <TextBlock Text="Zentrale Datenquelle ist BueroCockpit_Daten. iCloud-Live ist Legacy/Übergang und keine aktive Hauptdatenquelle mehr."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" />
                 <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
@@ -1186,7 +1186,15 @@
                         HorizontalAlignment="Left" />
                 <StackPanel Spacing="8">
                   <TextBlock Text="Legacy / Übergang: iPad-Live-Datei" FontSize="15" FontWeight="SemiBold" />
-                  <TextBlock Text="IpadLiveFileTargetPath bleibt als Übergangseinstellung erhalten. iCloud ist nicht mehr die empfohlene zentrale Hauptdatenquelle."
+                  <TextBlock Text="Legacy/Übergang: iCloud-Live wird nicht mehr als zentrale Hauptlösung weiterentwickelt."
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="Zukünftig geplant: manueller lokaler Netzwerk-Sync zwischen iPad und BüroCockpit-Desktop im Firmennetz."
+                             Foreground="{DynamicResource TextTertiaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="IpadLiveFileTargetPath bleibt als Übergangseinstellung erhalten."
                              Foreground="{DynamicResource TextTertiaryBrush}"
                              FontSize="12"
                              TextWrapping="Wrap" />
@@ -1199,7 +1207,7 @@
                   <WrapPanel Orientation="Horizontal">
                     <Button Content="Zielordner auswählen" Click="SelectIpadLiveFileTarget_OnClick" Margin="0,0,10,8" />
                     <Button Content="Jetzt Live-Datei schreiben" Click="WriteIpadLiveFile_OnClick" Margin="0,0,10,8" />
-                    <Button Content="Empfohlenen Sync-Ordner prüfen" Click="CheckRecommendedIpadLiveFolder_OnClick" Margin="0,0,0,8" />
+                    <Button Content="Legacy-Sync-Ordner prüfen" Click="CheckRecommendedIpadLiveFolder_OnClick" Margin="0,0,0,8" />
                   </WrapPanel>
                 </StackPanel>
               </StackPanel>

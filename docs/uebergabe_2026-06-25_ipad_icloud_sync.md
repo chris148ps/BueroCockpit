@@ -1,5 +1,7 @@
 # BüroCockpit Übergabe – iPad iCloud Sync Stand 25.06.2026
 
+Hinweis Stand 2026-07-02: Dieses Dokument beschreibt einen historischen Uebergangsstand. iCloud-Live ist nicht mehr die empfohlene Hauptloesung und wird nicht als zentrale Datenquelle weiterentwickelt. Der kuenftige iPad-Abgleich soll ueber einen separaten lokalen Netzwerk-Sync im Firmennetz geplant werden; siehe [IPAD_SYNC_KONZEPT.md](IPAD_SYNC_KONZEPT.md).
+
 ## Aktueller Git-Stand
 
 Aktuelle gesicherte Commits:
@@ -25,11 +27,11 @@ In den Einstellungen gibt es den Bereich:
 - letzter erfolgreicher Export sichtbar
 - letzte Fehlermeldung sichtbar
 - Button „Jetzt Live-Datei schreiben“
-- empfohlener iCloud-Ordner kann geprüft werden
+- Legacy-/Uebergangsordner kann geprüft werden
 
 Die Desktop-App ist provider-neutral. Es gibt keine harte iCloud-, Google-Drive- oder OneDrive-Abhängigkeit.
 
-Später soll auf dem Firmenrechner folgender Ordner genutzt werden:
+Historisch war auf dem Firmenrechner folgender Uebergangsordner vorgesehen:
 
 `iCloud Drive\BueroCockpit_iPad_Live`
 
@@ -78,7 +80,9 @@ Der alte Legacy-Startbildschirm mit:
 
 erscheint nicht mehr automatisch als Hauptbildschirm.
 
-## Morgen auf dem Firmenrechner
+## Historische iCloud-Testschritte, nicht mehr Hauptempfehlung
+
+Die folgenden Schritte bleiben nur zur Nachvollziehbarkeit des damaligen Teststands erhalten. Sie sind keine aktuelle Empfehlung fuer die zentrale BueroCockpit-Datenfuehrung.
 
 ### 1. iCloud für Windows installieren
 
