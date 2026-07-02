@@ -9,6 +9,7 @@ struct SnapshotSetupView: View {
     let message: String?
     let statusMessage: String?
     let localNetworkPairingCode: String
+    let isLocalNetworkPairingPrepared: Bool
     let mobileInboxFolderPath: String?
     let mobileInboxMessage: String?
     let isWorking: Bool
@@ -34,6 +35,7 @@ struct SnapshotSetupView: View {
         message: String?,
         statusMessage: String?,
         localNetworkPairingCode: String,
+        isLocalNetworkPairingPrepared: Bool,
         mobileInboxFolderPath: String?,
         mobileInboxMessage: String?,
         isWorking: Bool,
@@ -54,6 +56,7 @@ struct SnapshotSetupView: View {
         self.message = message
         self.statusMessage = statusMessage
         self.localNetworkPairingCode = localNetworkPairingCode
+        self.isLocalNetworkPairingPrepared = isLocalNetworkPairingPrepared
         self.mobileInboxFolderPath = mobileInboxFolderPath
         self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
@@ -173,15 +176,18 @@ struct SnapshotSetupView: View {
 
     private var localNetworkSyncContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("Status: Nicht gekoppelt", systemImage: "circle")
+            Label(
+                isLocalNetworkPairingPrepared ? "Status: Kopplung vorbereitet" : "Status: Nicht gekoppelt",
+                systemImage: isLocalNetworkPairingPrepared ? "checkmark.circle" : "circle"
+            )
                 .font(.headline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isLocalNetworkPairingPrepared ? .green : .secondary)
 
-            Text("Der Pairing-Code wird später nur einmal benötigt. Danach erkennen sich Desktop und iPad automatisch wieder.")
+            Text("Die Verbindung wird erst in einem späteren Schritt aktiviert.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("Pairing-Code", text: $localNetworkPairingCodeInput)
+            TextField("ABCD-1234", text: $localNetworkPairingCodeInput)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)

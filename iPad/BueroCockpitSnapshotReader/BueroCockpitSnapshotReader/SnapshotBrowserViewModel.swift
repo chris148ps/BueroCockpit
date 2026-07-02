@@ -225,6 +225,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.pairingCode ?? ""
     }
 
+    var isLocalNetworkPairingPrepared: Bool {
+        !localNetworkPairingCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var loadingDescription: String {
         if loadingTitle == "Google Drive wird aktualisiert …" {
             return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
@@ -348,8 +352,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func prepareLocalNetworkPairing(pairingCode: String) {
-        let trimmedCode = pairingCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedCode.isEmpty else { return }
+        guard let normalizedCode = Self.normalizedLocalNetworkPairingCode(pairingCode) else {
+            syncStatusMessage = "Ungültiger Pairing-Code. Erwartetes Format: ABCD-1234."
+            return
+        }
 
         var settings = syncSettings
         if settings.localNetworkDesktop.ipadDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
@@ -357,7 +363,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             settings.localNetworkDesktop.ipadDeviceId = "ipad-\(rawDeviceId)"
         }
         settings.localNetworkDesktop.ipadPlatform = "iPadOS"
-        settings.localNetworkDesktop.pairingCode = trimmedCode
+        settings.localNetworkDesktop.pairingCode = normalizedCode
         settings.localNetworkDesktop.desktopDeviceId = nil
         settings.localNetworkDesktop.desktopName = nil
         settings.localNetworkDesktop.desktopPlatform = nil
@@ -367,7 +373,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         settings.localNetworkDesktop.sharedSecret = nil
         syncSettings = settings
         syncSettingsStore.save(settings)
-        syncStatusMessage = "Pairing-Code lokal gespeichert. Status: Nicht gekoppelt."
+        syncStatusMessage = "Kopplung vorbereitet. Die Verbindung wird erst in einem späteren Schritt aktiviert."
     }
 
     func importICloudSnapshot(from sourceURL: URL) {
@@ -859,6 +865,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
     nonisolated private static func isSystemSettingsCategory(id: String, name: String) -> Bool {
         id.caseInsensitiveCompare("__settings") == .orderedSame ||
         name.caseInsensitiveCompare("Einstellungen") == .orderedSame
+    }
+
+    nonisolated private static func normalizedLocalNetworkPairingCode(_ code: String) -> String? {
+        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard normalized.range(of: #"^[A-Z]{4}-[0-9]{4}$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+        return normalized
     }
 }
 

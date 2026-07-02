@@ -4,6 +4,12 @@ Stand: 2026-07-03.
 
 Dieses Dokument definiert das gemeinsame lokale Pairing-Datenformat fuer BueroCockpit Desktop und die iPad-App. Es ist nur ein Vertrag fuer eine spaetere lokale Netzwerk-Kopplung. In diesem Stand gibt es keine Netzwerksuche, keinen Dienst, keinen Port, kein Bonjour/mDNS, kein Polling und keine Datenuebertragung.
 
+## Aktueller Stand
+
+Die iPad-App kann einen Pairing-Code lokal formal pruefen und speichern. Gueltig ist aktuell das Format `ABCD-1234`: vier Buchstaben, Bindestrich, vier Ziffern. Bei gueltigem Code setzt die iPad-App ihren lokalen Status auf `Kopplung vorbereitet` und zeigt den Hinweis, dass die Verbindung erst in einem spaeteren Schritt aktiviert wird.
+
+Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Verbindung zum Desktop, keine Suche, keinen Netzwerkverkehr, keinen TrustKey-Austausch und keine Datenuebertragung.
+
 ## Ziel
 
 Das Pairing verbindet genau einen Desktop mit genau einem iPad fuer spaetere manuelle Sync-Laeufe im lokalen Firmennetz. Der Pairing-Code dient nur zur Erstkopplung. Danach erkennen sich Desktop und iPad ueber gespeicherte `DeviceId` und `TrustKey` wieder.

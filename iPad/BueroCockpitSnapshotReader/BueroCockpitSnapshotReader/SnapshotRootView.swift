@@ -227,6 +227,7 @@ struct SnapshotRootView: View {
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
             localNetworkPairingCode: viewModel.localNetworkPairingCode,
+            isLocalNetworkPairingPrepared: viewModel.isLocalNetworkPairingPrepared,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
