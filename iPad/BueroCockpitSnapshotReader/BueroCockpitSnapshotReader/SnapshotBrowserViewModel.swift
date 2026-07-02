@@ -221,6 +221,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return "Zuletzt aktualisiert: \(Self.formatSyncDate(date))"
     }
 
+    var localNetworkPairingCode: String {
+        syncSettings.localNetworkDesktop.pairingCode ?? ""
+    }
+
     var loadingDescription: String {
         if loadingTitle == "Google Drive wird aktualisiert …" {
             return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
@@ -341,6 +345,22 @@ final class SnapshotBrowserViewModel: ObservableObject {
             saveConfigurationOnSuccess: true,
             isLaunch: false
         )
+    }
+
+    func prepareLocalNetworkPairing(pairingCode: String) {
+        let trimmedCode = pairingCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedCode.isEmpty else { return }
+
+        var settings = syncSettings
+        settings.localNetworkDesktop.pairingCode = trimmedCode
+        settings.localNetworkDesktop.desktopDeviceId = nil
+        settings.localNetworkDesktop.desktopName = nil
+        settings.localNetworkDesktop.pairedAt = nil
+        settings.localNetworkDesktop.trustKey = nil
+        settings.localNetworkDesktop.sharedSecret = nil
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+        syncStatusMessage = "Pairing-Code lokal gespeichert. Status: Nicht gekoppelt."
     }
 
     func importICloudSnapshot(from sourceURL: URL) {

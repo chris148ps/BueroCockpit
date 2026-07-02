@@ -226,6 +226,7 @@ struct SnapshotRootView: View {
             lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
+            localNetworkPairingCode: viewModel.localNetworkPairingCode,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
@@ -248,6 +249,9 @@ struct SnapshotRootView: View {
             onRefreshICloudSnapshot: refreshOrSelectICloudSnapshot,
             onReload: viewModel.refreshSnapshot,
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
+            onPrepareLocalNetworkPairing: { code in
+                viewModel.prepareLocalNetworkPairing(pairingCode: code)
+            },
             onSelectMobileInboxFolder: {
                 if presentedSheet != nil {
                     importModeAfterSheetDismissal = .mobileInboxFolder

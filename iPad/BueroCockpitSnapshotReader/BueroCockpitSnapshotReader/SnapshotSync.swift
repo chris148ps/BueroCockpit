@@ -44,6 +44,16 @@ struct SnapshotSyncSettings: Codable, Sendable {
     var lastSuccessfulSync: Date?
     var lastError: String?
     var lastImportDate: Date?
+    var localNetworkDesktop: LocalNetworkDesktopPairing = LocalNetworkDesktopPairing()
+}
+
+struct LocalNetworkDesktopPairing: Codable, Equatable, Sendable {
+    var desktopDeviceId: String?
+    var desktopName: String?
+    var pairingCode: String?
+    var pairedAt: Date?
+    var trustKey: String?
+    var sharedSecret: String?
 }
 
 final class SnapshotSyncSettingsStore: @unchecked Sendable {

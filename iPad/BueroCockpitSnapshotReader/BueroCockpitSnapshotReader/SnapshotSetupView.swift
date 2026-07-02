@@ -8,6 +8,7 @@ struct SnapshotSetupView: View {
     let lastUpdatedText: String?
     let message: String?
     let statusMessage: String?
+    let localNetworkPairingCode: String
     let mobileInboxFolderPath: String?
     let mobileInboxMessage: String?
     let isWorking: Bool
@@ -16,11 +17,13 @@ struct SnapshotSetupView: View {
     let onRefreshICloudSnapshot: () -> Void
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
+    let onPrepareLocalNetworkPairing: (String) -> Void
     let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
 
     @State private var selectedProvider: SyncProviderType
     @State private var googleDriveLink: String
+    @State private var localNetworkPairingCodeInput: String
 
     init(
         currentProvider: SyncProviderType,
@@ -30,6 +33,7 @@ struct SnapshotSetupView: View {
         lastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
+        localNetworkPairingCode: String,
         mobileInboxFolderPath: String?,
         mobileInboxMessage: String?,
         isWorking: Bool,
@@ -38,6 +42,7 @@ struct SnapshotSetupView: View {
         onRefreshICloudSnapshot: @escaping () -> Void,
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
+        onPrepareLocalNetworkPairing: @escaping (String) -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
     ) {
@@ -48,6 +53,7 @@ struct SnapshotSetupView: View {
         self.lastUpdatedText = lastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
+        self.localNetworkPairingCode = localNetworkPairingCode
         self.mobileInboxFolderPath = mobileInboxFolderPath
         self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
@@ -56,10 +62,12 @@ struct SnapshotSetupView: View {
         self.onRefreshICloudSnapshot = onRefreshICloudSnapshot
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
+        self.onPrepareLocalNetworkPairing = onPrepareLocalNetworkPairing
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
         _selectedProvider = State(initialValue: currentProvider)
         _googleDriveLink = State(initialValue: savedGoogleDriveLink)
+        _localNetworkPairingCodeInput = State(initialValue: localNetworkPairingCode)
     }
 
     var body: some View {
@@ -117,6 +125,14 @@ struct SnapshotSetupView: View {
                     }
 
                     GroupBox {
+                        localNetworkSyncContent
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        Label("Lokaler Netzwerk-Sync", systemImage: "network")
+                            .font(.headline)
+                    }
+
+                    GroupBox {
                         mobileInboxContent
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } label: {
@@ -142,6 +158,9 @@ struct SnapshotSetupView: View {
             .onChange(of: savedGoogleDriveLink) { _, link in
                 googleDriveLink = link
             }
+            .onChange(of: localNetworkPairingCode) { _, code in
+                localNetworkPairingCodeInput = code
+            }
             .toolbar {
                 if let onDismiss {
                     ToolbarItem(placement: .confirmationAction) {
@@ -149,6 +168,29 @@ struct SnapshotSetupView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var localNetworkSyncContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Status: Nicht gekoppelt", systemImage: "circle")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            Text("Der Pairing-Code wird später nur einmal benötigt. Danach erkennen sich Desktop und iPad automatisch wieder.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("Pairing-Code", text: $localNetworkPairingCodeInput)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .textFieldStyle(.roundedBorder)
+
+            Button("Kopplung vorbereiten") {
+                onPrepareLocalNetworkPairing(localNetworkPairingCodeInput)
+            }
+            .buttonStyle(.bordered)
+            .disabled(localNetworkPairingCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 
