@@ -38,7 +38,7 @@ Gefundene lokale AppSettings:
 - `IpadLiveFileTargetPath`: Legacy/Uebergang, weil die aktive Hauptquelle `BueroCockpit_Daten/Sync/` ist. Nicht weiter als Hauptloesung ausbauen; spaetere Abloesung durch lokalen Netzwerk-Sync.
 - `AppearanceMode`: korrekt lokal, weil es eine UI-Praeferenz ist.
 - `UpdateFeedUrl`: korrekt lokal, solange es als lokaler Test-/Sonderkanal verstanden wird.
-- `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort`, `LocalNetworkSyncDeviceName`: korrekt lokal, weil der spaetere Netzwerkdienst pro Rechner bewusst aktiviert und konfiguriert werden muss. Standard ist deaktiviert; daraus folgt kein automatischer Serverstart.
+- `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort`, `LocalNetworkSyncDeviceName`: korrekt lokal, weil der spaetere Netzwerkdienst pro Rechner bewusst aktiviert und konfiguriert werden muss. `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName` sind in den Desktop-Einstellungen bearbeitbar, werden aber ausschliesslich in `BueroCockpitLocal/settings.local.json` gespeichert. Standard ist deaktiviert; daraus folgt kein automatischer Serverstart.
 - Pairing-Status und Tokens: muessen lokal bleiben und duerfen nicht zentral gespeichert werden.
 - `TechnicianNames`: Legacy/Fallback, nicht mehr fachlich fuehrend.
 

@@ -40,7 +40,7 @@ Vorbereitet sind:
 - `LocalSyncOptions` fuer lokale, geraetespezifische Konfiguration
 - lokale AppSettings fuer `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName`
 - Platzhaltermethoden fuer Status, Pairing-Code, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
-- ein rein informativer Abschnitt in den Desktop-Einstellungen
+- ein Desktop-Einstellungsabschnitt, in dem Geraetename und Port lokal bearbeitet werden koennen
 
 Weiterhin gilt:
 
@@ -50,6 +50,7 @@ Weiterhin gilt:
 - kein Kestrel oder ASP.NET
 - keine neuen NuGet-Abhaengigkeiten
 - keine echte Netzwerkkommunikation
+- keine Ablage von Geraetename oder Port in `Sync/live/settings.json`
 - keine iPad-Codeaenderung
 - keine Produktivdatenausgabe im Platzhaltermanifest
 

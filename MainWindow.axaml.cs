@@ -119,6 +119,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
     private string _updateFeedUrl = string.Empty;
+    private string _localNetworkSyncDeviceNameInput = string.Empty;
+    private string _localNetworkSyncPortInput = string.Empty;
+    private string _localNetworkSyncSettingsStatus = string.Empty;
     private string _appearanceMode = DarkMode;
     private bool _isSettingsGeneralOpen;
     private bool _isSettingsDataSyncOpen;
@@ -736,6 +739,45 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public string LocalNetworkSyncDeviceNameInput
+    {
+        get => _localNetworkSyncDeviceNameInput;
+        set
+        {
+            if (_localNetworkSyncDeviceNameInput != value)
+            {
+                _localNetworkSyncDeviceNameInput = value;
+                OnPropertyChanged(nameof(LocalNetworkSyncDeviceNameInput));
+            }
+        }
+    }
+
+    public string LocalNetworkSyncPortInput
+    {
+        get => _localNetworkSyncPortInput;
+        set
+        {
+            if (_localNetworkSyncPortInput != value)
+            {
+                _localNetworkSyncPortInput = value;
+                OnPropertyChanged(nameof(LocalNetworkSyncPortInput));
+            }
+        }
+    }
+
+    public string LocalNetworkSyncSettingsStatus
+    {
+        get => _localNetworkSyncSettingsStatus;
+        set
+        {
+            if (_localNetworkSyncSettingsStatus != value)
+            {
+                _localNetworkSyncSettingsStatus = value;
+                OnPropertyChanged(nameof(LocalNetworkSyncSettingsStatus));
+            }
+        }
+    }
+
     public string AppearanceMode
     {
         get => _appearanceMode;
@@ -1209,6 +1251,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
+        RefreshLocalNetworkSyncEditorFields();
         NormalizeConfiguredOneDriveEditDirectory();
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
@@ -6808,6 +6851,79 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateStatus = string.IsNullOrWhiteSpace(_appSettings.UpdateFeedUrl)
             ? "Standard-Updatekanal wird verwendet."
             : "Update-Kanal gespeichert.";
+    }
+
+    private void LocalNetworkSyncDeviceName_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            LocalNetworkSyncDeviceNameInput = textBox.Text ?? string.Empty;
+        }
+    }
+
+    private void LocalNetworkSyncPort_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            LocalNetworkSyncPortInput = textBox.Text ?? string.Empty;
+        }
+    }
+
+    private void SaveLocalNetworkSyncSettings_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var trimmedDeviceName = LocalNetworkSyncDeviceNameInput.Trim();
+        var trimmedPort = LocalNetworkSyncPortInput.Trim();
+        if (!TryParseLocalNetworkSyncPort(trimmedPort, out var port))
+        {
+            LocalNetworkSyncSettingsStatus = "Port ungültig. Erlaubt sind leer, 0 oder 1024 bis 65535.";
+            return;
+        }
+
+        _appSettings.LocalNetworkSyncEnabled = false;
+        _appSettings.LocalNetworkSyncDeviceName = trimmedDeviceName;
+        _appSettings.LocalNetworkSyncPort = port;
+        _settingsService.Save(_appSettings);
+        RefreshLocalNetworkSyncEditorFields();
+        RefreshLocalNetworkSyncDisplayProperties();
+        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Der Sync bleibt deaktiviert.";
+    }
+
+    private static bool TryParseLocalNetworkSyncPort(string portText, out int port)
+    {
+        port = 0;
+        if (string.IsNullOrWhiteSpace(portText) || portText == "0")
+        {
+            return true;
+        }
+
+        if (!int.TryParse(portText, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedPort))
+        {
+            return false;
+        }
+
+        if (parsedPort < 1024 || parsedPort > 65535)
+        {
+            return false;
+        }
+
+        port = parsedPort;
+        return true;
+    }
+
+    private void RefreshLocalNetworkSyncEditorFields()
+    {
+        LocalNetworkSyncDeviceNameInput = _appSettings.LocalNetworkSyncDeviceName.Trim();
+        LocalNetworkSyncPortInput = _appSettings.LocalNetworkSyncPort > 0
+            ? _appSettings.LocalNetworkSyncPort.ToString(CultureInfo.InvariantCulture)
+            : string.Empty;
+    }
+
+    private void RefreshLocalNetworkSyncDisplayProperties()
+    {
+        OnPropertyChanged(nameof(LocalNetworkSyncStatusText));
+        OnPropertyChanged(nameof(LocalNetworkSyncDeviceNameText));
+        OnPropertyChanged(nameof(LocalNetworkSyncPortText));
+        OnPropertyChanged(nameof(LocalNetworkSyncHintText));
     }
 
     private bool TryMigrateDeskItemFile(DeskItem deskItem, out bool wasMissing, out bool wasFailed)
