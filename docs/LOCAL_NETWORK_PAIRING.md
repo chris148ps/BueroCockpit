@@ -10,6 +10,8 @@ Die iPad-App kann einen Pairing-Code lokal formal pruefen und speichern. Gueltig
 
 Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` lokal die `DeviceId`, den Pairing-Code und den Status `Wartet auf iPad-Kopplung` bzw. `Pairing vorbereitet`. Der Desktop-Status bedeutet nur: Die lokale Erstkopplung ist vorbereitet und wartet auf eine spaetere iPad-Kopplung. Es gibt noch keine echte Verbindung zum iPad.
 
+Desktop und iPad zeigen jetzt jeweils eine kurze Bedienfuehrung fuer die spaetere Kopplung. Diese Checklisten beschreiben nur die notwendigen Benutzerschritte: Desktop offen lassen, Pairing-Code am Desktop ablesen, Code auf dem iPad eingeben und `Kopplung vorbereiten` druecken. Der Stand ist damit: Bedienfuehrung vorbereitet, noch keine Verbindung.
+
 Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Verbindung zum Desktop, keine Suche, keinen Netzwerkverkehr, keinen TrustKey-Austausch und keine Datenuebertragung.
 
 ## Ziel

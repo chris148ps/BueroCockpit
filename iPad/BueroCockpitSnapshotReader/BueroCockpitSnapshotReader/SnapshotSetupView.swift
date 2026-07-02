@@ -187,6 +187,17 @@ struct SnapshotSetupView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            VStack(alignment: .leading, spacing: 6) {
+                Text("1. Pairing-Code vom BüroCockpit-Desktop ablesen.")
+                Text("2. Code hier eingeben.")
+                Text("3. \"Kopplung vorbereiten\" drücken.")
+                Text("4. Später erkennt dieses iPad den Desktop automatisch wieder.")
+                Text("5. Die echte Verbindung wird erst in einem späteren Schritt aktiviert.")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
             TextField("ABCD-1234", text: $localNetworkPairingCodeInput)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
