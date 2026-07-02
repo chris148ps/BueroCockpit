@@ -125,6 +125,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _appearanceMode = DarkMode;
     private bool _isSettingsGeneralOpen;
     private bool _isSettingsDataSyncOpen;
+    private bool _isSettingsLocalNetworkSyncOpen;
     private bool _isSettingsTechniciansOpen;
     private bool _isSettingsCategoriesOpen;
     private bool _isSettingsUpdatesOpen;
@@ -889,12 +890,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string LocalNetworkSyncHintText => "Der Netzwerk-Sync ist vorbereitet, aber noch nicht aktiv.";
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
+    public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
     public bool IsSettingsTechniciansOpen => _isSettingsTechniciansOpen;
     public bool IsSettingsCategoriesOpen => _isSettingsCategoriesOpen;
     public bool IsSettingsUpdatesOpen => _isSettingsUpdatesOpen;
     public bool IsSettingsDiagnosticsOpen => _isSettingsDiagnosticsOpen;
     public string SettingsGeneralToggleText => IsSettingsGeneralOpen ? "-" : "+";
     public string SettingsDataSyncToggleText => IsSettingsDataSyncOpen ? "-" : "+";
+    public string SettingsLocalNetworkSyncToggleText => IsSettingsLocalNetworkSyncOpen ? "-" : "+";
     public string SettingsTechniciansToggleText => IsSettingsTechniciansOpen ? "-" : "+";
     public string SettingsCategoriesToggleText => IsSettingsCategoriesOpen ? "-" : "+";
     public string SettingsUpdatesToggleText => IsSettingsUpdatesOpen ? "-" : "+";
@@ -3037,6 +3040,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             case "DataSync":
                 SetSettingsSectionOpen(ref _isSettingsDataSyncOpen, !IsSettingsDataSyncOpen, nameof(IsSettingsDataSyncOpen), nameof(SettingsDataSyncToggleText));
                 break;
+            case "LocalNetworkSync":
+                SetSettingsSectionOpen(ref _isSettingsLocalNetworkSyncOpen, !IsSettingsLocalNetworkSyncOpen, nameof(IsSettingsLocalNetworkSyncOpen), nameof(SettingsLocalNetworkSyncToggleText));
+                break;
             case "Technicians":
                 var openTechnicians = !IsSettingsTechniciansOpen;
                 SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, openTechnicians, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
@@ -3061,6 +3067,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         SetSettingsSectionOpen(ref _isSettingsGeneralOpen, false, nameof(IsSettingsGeneralOpen), nameof(SettingsGeneralToggleText));
         SetSettingsSectionOpen(ref _isSettingsDataSyncOpen, false, nameof(IsSettingsDataSyncOpen), nameof(SettingsDataSyncToggleText));
+        SetSettingsSectionOpen(ref _isSettingsLocalNetworkSyncOpen, false, nameof(IsSettingsLocalNetworkSyncOpen), nameof(SettingsLocalNetworkSyncToggleText));
         SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, false, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
         SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, false, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
         SetSettingsSectionOpen(ref _isSettingsUpdatesOpen, false, nameof(IsSettingsUpdatesOpen), nameof(SettingsUpdatesToggleText));

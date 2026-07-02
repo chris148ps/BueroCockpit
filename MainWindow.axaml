@@ -1185,34 +1185,6 @@
                         Click="RefreshIpadSnapshot_OnClick"
                         HorizontalAlignment="Left" />
                 <StackPanel Spacing="8">
-                  <TextBlock Text="Lokaler Netzwerk-Sync" FontSize="15" FontWeight="SemiBold" />
-                  <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Gespeicherter Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalNetworkSyncDeviceNameText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Gespeicherter Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalNetworkSyncPortText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="3" Grid.Column="1"
-                             Text="{Binding LocalNetworkSyncDeviceNameInput}"
-                             TextChanged="LocalNetworkSyncDeviceName_OnTextChanged"
-                             PlaceholderText="nicht festgelegt" />
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="4" Grid.Column="1"
-                             Text="{Binding LocalNetworkSyncPortInput}"
-                             TextChanged="LocalNetworkSyncPort_OnTextChanged"
-                             PlaceholderText="nicht festgelegt" />
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                    <Button Grid.Row="6" Grid.Column="1"
-                            Content="Lokal speichern"
-                            HorizontalAlignment="Left"
-                            Click="SaveLocalNetworkSyncSettings_OnClick" />
-                  </Grid>
-                  <TextBlock Text="{Binding LocalNetworkSyncSettingsStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel Spacing="8">
                   <TextBlock Text="Legacy / Übergang: iPad-Live-Datei" FontSize="15" FontWeight="SemiBold" />
                   <TextBlock Text="Legacy/Übergang: iCloud-Live wird nicht mehr als zentrale Hauptlösung weiterentwickelt."
                              Foreground="{DynamicResource TextTertiaryBrush}"
@@ -1238,6 +1210,44 @@
                     <Button Content="Legacy-Sync-Ordner prüfen" Click="CheckRecommendedIpadLiveFolder_OnClick" Margin="0,0,0,8" />
                   </WrapPanel>
                 </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Button Classes="SettingsSectionHeader" Tag="LocalNetworkSync" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Lokaler Netzwerk-Sync" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsLocalNetworkSyncToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="8" IsVisible="{Binding IsSettingsLocalNetworkSyncOpen}">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Gespeicherter Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalNetworkSyncDeviceNameText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Gespeicherter Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalNetworkSyncPortText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox Grid.Row="3" Grid.Column="1"
+                           Text="{Binding LocalNetworkSyncDeviceNameInput}"
+                           TextChanged="LocalNetworkSyncDeviceName_OnTextChanged"
+                           PlaceholderText="nicht festgelegt" />
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox Grid.Row="4" Grid.Column="1"
+                           Text="{Binding LocalNetworkSyncPortInput}"
+                           TextChanged="LocalNetworkSyncPort_OnTextChanged"
+                           PlaceholderText="nicht festgelegt" />
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <Button Grid.Row="6" Grid.Column="1"
+                          Content="Lokal speichern"
+                          HorizontalAlignment="Left"
+                          Click="SaveLocalNetworkSyncSettings_OnClick" />
+                </Grid>
+                <TextBlock Text="{Binding LocalNetworkSyncSettingsStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
               </StackPanel>
             </StackPanel>
           </Border>
