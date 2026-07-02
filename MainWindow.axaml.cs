@@ -837,6 +837,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string IpadLiveFileTargetPath => BuildIpadLiveFileTargetPath(IpadLiveFileTargetFolder);
     public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
     public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
+    public string LocalNetworkSyncStatusText => "Deaktiviert";
+    public string LocalNetworkSyncDeviceNameText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceName)
+        ? "nicht festgelegt"
+        : _appSettings.LocalNetworkSyncDeviceName.Trim();
+    public string LocalNetworkSyncPortText => _appSettings.LocalNetworkSyncPort > 0
+        ? _appSettings.LocalNetworkSyncPort.ToString(CultureInfo.InvariantCulture)
+        : "nicht festgelegt";
+    public string LocalNetworkSyncHintText => "Der Netzwerk-Sync ist vorbereitet, aber noch nicht aktiv.";
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
     public bool IsSettingsTechniciansOpen => _isSettingsTechniciansOpen;
