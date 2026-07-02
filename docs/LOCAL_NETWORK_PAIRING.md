@@ -1,0 +1,137 @@
+# Lokales Netzwerk-Pairing
+
+Stand: 2026-07-03.
+
+Dieses Dokument definiert das gemeinsame lokale Pairing-Datenformat fuer BueroCockpit Desktop und die iPad-App. Es ist nur ein Vertrag fuer eine spaetere lokale Netzwerk-Kopplung. In diesem Stand gibt es keine Netzwerksuche, keinen Dienst, keinen Port, kein Bonjour/mDNS, kein Polling und keine Datenuebertragung.
+
+## Ziel
+
+Das Pairing verbindet genau einen Desktop mit genau einem iPad fuer spaetere manuelle Sync-Laeufe im lokalen Firmennetz. Der Pairing-Code dient nur zur Erstkopplung. Danach erkennen sich Desktop und iPad ueber gespeicherte `DeviceId` und `TrustKey` wieder.
+
+Ein neuer Pairing-Code ist nur vorgesehen, wenn ein Geraet neu gekoppelt wird, die Kopplung zurueckgesetzt wurde oder ein TrustKey widerrufen wurde.
+
+## Gemeinsames Datenmodell
+
+Jedes Geraet besitzt lokal eine stabile Identitaet:
+
+```json
+{
+  "deviceId": "desktop-...",
+  "deviceName": "Mac mini Buero",
+  "devicePlatform": "macOS"
+}
+```
+
+Fuer eine gespeicherte Kopplung wird lokal pro Gegenstelle dieser Datensatz gehalten:
+
+```json
+{
+  "deviceId": "ipad-...",
+  "deviceName": "iPad Werkstatt",
+  "devicePlatform": "iPadOS",
+  "pairedAt": "2026-07-03T10:00:00Z",
+  "lastSeenAt": null,
+  "trustKey": "...",
+  "sharedSecret": ""
+}
+```
+
+Pflichtfelder fuer spaetere Wiedererkennung:
+
+- `deviceId`: stabile Kennung der Gegenstelle.
+- `deviceName`: lokaler Anzeigename der Gegenstelle.
+- `devicePlatform`: Plattformhinweis, zum Beispiel `macOS`, `Windows` oder `iPadOS`.
+- `pairedAt`: Zeitpunkt der erfolgreichen Kopplung.
+- `trustKey`: geheime lokale Vertrauenskennung fuer spaetere Sync-Laeufe.
+
+Optionale Felder:
+
+- `lastSeenAt`: letzter erfolgreicher Kontakt.
+- `sharedSecret`: reserviert, falls spaeter ein getrenntes gemeinsames Geheimnis benoetigt wird.
+
+## Pairing-Anfrage
+
+Das iPad sendet bei der geplanten Erstkopplung fachlich diese Anfrage an den Desktop:
+
+```json
+{
+  "deviceId": "ipad-...",
+  "deviceName": "iPad Werkstatt",
+  "devicePlatform": "iPadOS",
+  "appVersion": "1.0",
+  "requestedAtUtc": "2026-07-03T10:00:00Z"
+}
+```
+
+Der Pairing-Code ist nicht Teil der dauerhaft gespeicherten Geraeteidentitaet. Er wird nur fuer die einmalige Bestaetigung der Erstkopplung verwendet.
+
+## Pairing-Bestaetigung
+
+Nach gueltigem Einmal-Code und manueller Bestaetigung am Desktop ist fachlich diese Antwort vorgesehen:
+
+```json
+{
+  "desktopDeviceId": "desktop-...",
+  "desktopName": "Mac mini Buero",
+  "pairedDeviceId": "ipad-...",
+  "pairedDeviceName": "iPad Werkstatt",
+  "pairedAtUtc": "2026-07-03T10:00:05Z",
+  "trustKey": "..."
+}
+```
+
+Der `trustKey` ersetzt fuer spaetere Wiedererkennung den Pairing-Code. Er darf nicht zentral synchronisiert, nicht im Sync-Live-Export abgelegt und nicht offen angezeigt werden.
+
+## Geplanter Ablauf Desktop zu iPad
+
+1. Desktop erzeugt lokal einen kurzlebigen Pairing-Code.
+2. Benutzer gibt diesen Code auf dem iPad ein oder scannt spaeter einen QR-Code.
+3. iPad bereitet eine lokale `ipadDeviceId` vor und sendet seine Geraetedaten zusammen mit dem Code.
+4. Desktop prueft den Code und zeigt die unbekannte Gegenstelle sichtbar zur manuellen Annahme.
+5. Desktop speichert das iPad lokal in `LocalNetworkSyncPairedDevices`.
+6. iPad speichert Desktop-Identitaet und `trustKey` lokal in seinen Sync-Einstellungen.
+7. Der Pairing-Code wird verworfen und ist fuer normale Sync-Laeufe nicht mehr noetig.
+
+Dieser Ablauf ist geplant, aber in diesem Stand nicht als Netzwerkfunktion implementiert.
+
+## Lokale Speicherung je Geraet
+
+Desktop speichert Pairing-Daten ausschliesslich lokal:
+
+```text
+BueroCockpitLocal/settings.local.json
+```
+
+Relevante Desktop-Felder:
+
+- `LocalNetworkSyncDeviceId`
+- `LocalNetworkSyncDeviceName`
+- `LocalNetworkSyncPairingCode`
+- `LocalNetworkSyncPairedDevices`
+
+iPad speichert Pairing-Daten ausschliesslich lokal in den Sync-Einstellungen der App. Relevante iPad-Felder:
+
+- `ipadDeviceId`
+- `ipadDeviceName`
+- `ipadPlatform`
+- `desktopDeviceId`
+- `desktopName`
+- `desktopPlatform`
+- `pairingCode`
+- `pairedAt`
+- `lastSeenAt`
+- `trustKey`
+- `sharedSecret`
+
+## Grenzen dieses Stands
+
+- keine Netzwerksuche
+- kein Netzwerkdienst
+- kein TCP-/UDP-Port
+- kein Bonjour/mDNS
+- keine automatische Geraetesuche
+- kein Polling
+- kein FileSystemWatcher
+- keine Datenuebertragung
+- keine echte Pairing-Validierung ueber Netzwerk
+- keine Speicherung von Pairing-Geheimnissen in zentralen Daten oder Exportdateien

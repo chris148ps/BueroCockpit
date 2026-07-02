@@ -352,10 +352,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
         guard !trimmedCode.isEmpty else { return }
 
         var settings = syncSettings
+        if settings.localNetworkDesktop.ipadDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+            let rawDeviceId = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+            settings.localNetworkDesktop.ipadDeviceId = "ipad-\(rawDeviceId)"
+        }
+        settings.localNetworkDesktop.ipadPlatform = "iPadOS"
         settings.localNetworkDesktop.pairingCode = trimmedCode
         settings.localNetworkDesktop.desktopDeviceId = nil
         settings.localNetworkDesktop.desktopName = nil
+        settings.localNetworkDesktop.desktopPlatform = nil
         settings.localNetworkDesktop.pairedAt = nil
+        settings.localNetworkDesktop.lastSeenAt = nil
         settings.localNetworkDesktop.trustKey = nil
         settings.localNetworkDesktop.sharedSecret = nil
         syncSettings = settings

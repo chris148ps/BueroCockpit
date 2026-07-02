@@ -50,6 +50,8 @@ public sealed class LocalNetworkSyncPairedDevice
 
     public string DeviceName { get; set; } = string.Empty;
 
+    public string DevicePlatform { get; set; } = string.Empty;
+
     public DateTimeOffset PairedAt { get; set; }
 
     public DateTimeOffset? LastSeenAt { get; set; }

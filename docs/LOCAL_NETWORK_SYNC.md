@@ -112,6 +112,8 @@ Die bestehende mobile Inbox kennt bereits `mobile-*`-Eintraege mit `aufgabe.json
 
 ## 5. Pairing-Konzept
 
+Das gemeinsame lokale Pairing-Datenformat ist in `docs/LOCAL_NETWORK_PAIRING.md` definiert. Dieses Sync-Konzept beschreibt nur den geplanten Ablauf rund um den spaeteren Transport.
+
 Pairing ist Voraussetzung fuer jeden Upload und fuer sensible Statusinformationen.
 
 Vorgeschlagener Ablauf:
@@ -121,13 +123,15 @@ Vorgeschlagener Ablauf:
 3. iPad liest Code/QR und sendet eine Pairing-Bestaetigung.
 4. Desktop zeigt Geraetename, Zeitpunkt und angeforderte Rechte.
 5. Benutzer bestaetigt die Kopplung am Desktop.
-6. iPad erhaelt ein Token fuer spaetere manuelle Sync-Laeufe.
+6. iPad erhaelt einen `TrustKey` fuer spaetere manuelle Sync-Laeufe.
 
 Regeln:
 
 - Einmal-Code laeuft kurzzeitig ab.
-- Token wird nicht dauerhaft offen angezeigt.
-- Token kann am Desktop widerrufen werden.
+- Pairing-Code wird nur einmal zur Erstkopplung verwendet.
+- Spaetere Wiedererkennung erfolgt ueber gespeicherte `DeviceId` und `TrustKey`.
+- TrustKey wird nicht dauerhaft offen angezeigt.
+- TrustKey kann am Desktop widerrufen werden.
 - Unbekannte Geraete werden nie automatisch angenommen.
 - Pairing berechtigt nicht zum direkten Schreiben in Produktivdaten.
 

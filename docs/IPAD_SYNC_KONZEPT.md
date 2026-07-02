@@ -32,7 +32,7 @@ iCloud ist keine aktive Hauptdatenquelle mehr. Bestehende iCloud-Live-Pfade und 
 Der kuenftige Weg ist ein manueller lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
 
 - BueroCockpit Desktop startet spaeter optional einen lokalen Sync-Dienst.
-- Das iPad findet BueroCockpit im gleichen Firmennetz.
+- Das iPad verbindet sich spaeter bewusst mit einem bekannten BueroCockpit-Desktop im gleichen Firmennetz.
 - Die Kopplung erfolgt per QR-Code oder Einmal-Code.
 - Das iPad kann den aktuellen Stand abrufen.
 - Das iPad kann mobile Eingaenge, Fotos, Skizzen und Daten uebertragen.
@@ -45,10 +45,12 @@ Der kuenftige Weg ist ein manueller lokaler Netzwerk-Sync zwischen iPad und Buer
 
 Dies ist nur ein Konzept, keine Umsetzung.
 
-- Desktop-Dienst lokal im LAN.
-- Geraeteerkennung per Bonjour/mDNS oder manuellem QR-Code.
-- Pairing mit Einmal-Code oder Token.
+- Desktop-Dienst lokal im LAN, erst nach separater Freigabe.
+- Manuelle Desktop-Auswahl oder QR-Code; keine automatische Geraetesuche in diesem Stand.
+- Pairing mit Einmal-Code fuer die Erstkopplung, danach Wiedererkennung ueber gespeicherte DeviceId/TrustKey.
 - Status, Abruf und Uebergabe ueber klar begrenzte lokale Endpunkte.
+
+Das gemeinsame lokale Pairing-Datenformat ist in `docs/LOCAL_NETWORK_PAIRING.md` beschrieben.
 
 Beispielhafte Endpunkte:
 
@@ -73,7 +75,7 @@ Der Desktop bestaetigt dem iPad die Uebernahme erst, wenn Manifest, Dateien und 
 
 - Zugriff nur im lokalen Netzwerk.
 - Pairing ist erforderlich.
-- Token werden nicht dauerhaft offen angezeigt.
+- TrustKeys werden nicht dauerhaft offen angezeigt.
 - Import erfolgt nur nach Bestaetigung.
 - Sync-Ergebnisse werden protokolliert.
 

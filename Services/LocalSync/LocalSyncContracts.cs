@@ -12,16 +12,19 @@ public sealed record LocalSyncStatus(
     string? Message = null);
 
 public sealed record PairingRequest(
+    string DeviceId,
     string DeviceName,
     string DevicePlatform,
     string AppVersion,
     DateTimeOffset RequestedAtUtc);
 
 public sealed record PairingConfirmation(
-    string PairingCode,
-    string DeviceId,
-    string DeviceName,
-    DateTimeOffset ConfirmedAtUtc);
+    string DesktopDeviceId,
+    string DesktopName,
+    string PairedDeviceId,
+    string PairedDeviceName,
+    DateTimeOffset PairedAtUtc,
+    string TrustKey);
 
 public sealed record MobileInboxUploadManifest(
     string UploadId,

@@ -48,10 +48,15 @@ struct SnapshotSyncSettings: Codable, Sendable {
 }
 
 struct LocalNetworkDesktopPairing: Codable, Equatable, Sendable {
+    var ipadDeviceId: String?
+    var ipadDeviceName: String?
+    var ipadPlatform: String?
     var desktopDeviceId: String?
     var desktopName: String?
+    var desktopPlatform: String?
     var pairingCode: String?
     var pairedAt: Date?
+    var lastSeenAt: Date?
     var trustKey: String?
     var sharedSecret: String?
 }

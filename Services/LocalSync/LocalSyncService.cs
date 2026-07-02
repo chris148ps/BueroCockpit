@@ -168,10 +168,12 @@ public sealed class LocalSyncService : ILocalSyncContracts
         }
 
         return new PairingConfirmation(
-            PairingCode: pairingCode,
-            DeviceId: string.Empty,
-            DeviceName: request.DeviceName,
-            ConfirmedAtUtc: DateTimeOffset.UtcNow);
+            DesktopDeviceId: _options.DeviceId,
+            DesktopName: GetServerName(),
+            PairedDeviceId: request.DeviceId,
+            PairedDeviceName: request.DeviceName,
+            PairedAtUtc: DateTimeOffset.UtcNow,
+            TrustKey: string.Empty);
     }
 
     public MobileInboxUploadResult ValidateMobileInboxUpload(MobileInboxUploadManifest manifest)
