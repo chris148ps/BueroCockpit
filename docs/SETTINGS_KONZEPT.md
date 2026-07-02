@@ -15,7 +15,9 @@ Grundregel: `settings.local.json` darf nur geraetespezifische Einstellungen enth
 | LocalNetworkSyncEnabled | `BueroCockpitLocal/settings.local.json` | lokal | Vorbereitung / lokal | standardmaessig `false`, kein automatischer Start | Aktivierung darf nur fuer dieses Geraet gelten und startet den Dienst nicht automatisch. |
 | LocalNetworkSyncPort | `BueroCockpitLocal/settings.local.json` | lokal | Vorbereitung / lokal | `0` bedeutet nicht gesetzt | Portwahl ist geraete- und netzwerkabhaengig und darf nicht zentral verteilt werden. |
 | LocalNetworkSyncDeviceName | `BueroCockpitLocal/settings.local.json` | lokal | Vorbereitung / lokal | optional | Anzeigename fuer spaeteres Pairing im lokalen Firmennetz. |
-| Pairing-Status / Token | lokaler Speicher, spaeter gesondert festlegen | lokal | Darf nicht zentral gespeichert werden | noch nicht implementiert | Pairing-Geheimnisse und Tokens gehoeren nicht in `BueroCockpit_Daten` und nicht in zentrale Live-Settings. |
+| LocalNetworkSyncDeviceId | `BueroCockpitLocal/settings.local.json` | lokal | Vorbereitung / lokal | automatisch erzeugt | Stabile lokale Kennung fuer spaetere Wiedererkennung gekoppelter Geraete. |
+| LocalNetworkSyncPairingCode | `BueroCockpitLocal/settings.local.json` | lokal | Vorbereitung / lokal | automatisch erzeugt, manuell neu erzeugbar | Wird spaeter nur einmal zur Erstkopplung benoetigt und darf nicht zentral verteilt werden. |
+| LocalNetworkSyncPairedDevices | `BueroCockpitLocal/settings.local.json` | lokal | Vorbereitung / lokal | anfangs leer | Lokales Modell fuer spaeter gekoppelte Geraete mit DeviceId, DeviceName, PairedAt, optional LastSeenAt und optionalem TrustKey/SharedSecret. |
 | TechnicianNames lokal | `BueroCockpitLocal/settings.local.json` oder alter `settings.json` | lokal | Legacy / Fallback | nicht mehr aktiv pflegen | Wird nur noch als Fallback gelesen, wenn zentrale Live-Settings leer sind. |
 | technicianNames zentral | `BueroCockpit_Daten/Sync/live/settings.json` | zentral | Sollte zentral gespeichert werden | aktuell korrekt | Gemeinsame Monteur-/Technikerliste muss auf Windows, MacBook und Mac mini identisch sein. |
 | Kategorien | `BueroCockpit_Daten/buerocockpit.db`, Export nach `Sync/live/categories.json` | zentral | Sollte zentral gespeichert werden | aktuell korrekt | Kategorien sind fachliche Struktur und werden von allen Geraeten geteilt. |
@@ -38,8 +40,8 @@ Gefundene lokale AppSettings:
 - `IpadLiveFileTargetPath`: Legacy/Uebergang, weil die aktive Hauptquelle `BueroCockpit_Daten/Sync/` ist. Nicht weiter als Hauptloesung ausbauen; spaetere Abloesung durch lokalen Netzwerk-Sync.
 - `AppearanceMode`: korrekt lokal, weil es eine UI-Praeferenz ist.
 - `UpdateFeedUrl`: korrekt lokal, solange es als lokaler Test-/Sonderkanal verstanden wird.
-- `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort`, `LocalNetworkSyncDeviceName`: korrekt lokal, weil der spaetere Netzwerkdienst pro Rechner bewusst aktiviert und konfiguriert werden muss. `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName` sind in den Desktop-Einstellungen bearbeitbar, werden aber ausschliesslich in `BueroCockpitLocal/settings.local.json` gespeichert. Standard ist deaktiviert; daraus folgt kein automatischer Serverstart.
-- Pairing-Status und Tokens: muessen lokal bleiben und duerfen nicht zentral gespeichert werden.
+- `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort`, `LocalNetworkSyncDeviceName`, `LocalNetworkSyncDeviceId`, `LocalNetworkSyncPairingCode`, `LocalNetworkSyncPairedDevices`: korrekt lokal, weil der spaetere Netzwerkdienst pro Rechner bewusst aktiviert und konfiguriert werden muss. `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName` sind in den Desktop-Einstellungen bearbeitbar, `LocalNetworkSyncPairingCode` ist lokal neu erzeugbar. Alle Werte werden ausschliesslich in `BueroCockpitLocal/settings.local.json` gespeichert. Standard ist deaktiviert; daraus folgt kein automatischer Serverstart.
+- Pairing-Geheimnisse, TrustKeys und SharedSecrets: muessen lokal bleiben und duerfen nicht zentral gespeichert werden.
 - `TechnicianNames`: Legacy/Fallback, nicht mehr fachlich fuehrend.
 
 Gefundene zentrale Settings und Daten:

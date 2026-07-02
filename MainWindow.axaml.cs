@@ -887,7 +887,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string LocalNetworkSyncPortText => _appSettings.LocalNetworkSyncPort > 0
         ? _appSettings.LocalNetworkSyncPort.ToString(CultureInfo.InvariantCulture)
         : "nicht festgelegt";
-    public string LocalNetworkSyncHintText => "Der Netzwerk-Sync ist vorbereitet, aber noch nicht aktiv.";
+    public string LocalNetworkSyncDeviceIdText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceId)
+        ? "wird lokal erzeugt"
+        : _appSettings.LocalNetworkSyncDeviceId.Trim();
+    public string LocalNetworkSyncPairingCodeText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncPairingCode)
+        ? "wird lokal erzeugt"
+        : _appSettings.LocalNetworkSyncPairingCode.Trim();
+    public string LocalNetworkSyncPairedDevicesText => _appSettings.LocalNetworkSyncPairedDevices.Count == 0
+        ? "noch keine"
+        : string.Join(", ", _appSettings.LocalNetworkSyncPairedDevices
+            .Where(device => !string.IsNullOrWhiteSpace(device.DeviceName) || !string.IsNullOrWhiteSpace(device.DeviceId))
+            .Select(device => string.IsNullOrWhiteSpace(device.DeviceName)
+                ? device.DeviceId.Trim()
+                : device.DeviceName.Trim()));
+    public string LocalNetworkSyncHintText => "Der Pairing-Code wird später nur einmal zur Erstkopplung benötigt. Danach erkennen sich gekoppelte Geräte automatisch wieder.";
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
     public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
@@ -1254,6 +1267,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
+        EnsureLocalNetworkSyncPairingSettings();
         RefreshLocalNetworkSyncEditorFields();
         NormalizeConfiguredOneDriveEditDirectory();
         LoadTechnicianOptions();
@@ -6889,10 +6903,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _appSettings.LocalNetworkSyncEnabled = false;
         _appSettings.LocalNetworkSyncDeviceName = trimmedDeviceName;
         _appSettings.LocalNetworkSyncPort = port;
+        EnsureLocalNetworkSyncPairingSettings(saveIfChanged: false);
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncEditorFields();
         RefreshLocalNetworkSyncDisplayProperties();
         LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Der Sync bleibt deaktiviert.";
+    }
+
+    private void RegenerateLocalNetworkSyncPairingCode_OnClick(object? sender, RoutedEventArgs e)
+    {
+        EnsureLocalNetworkSyncPairingSettings(saveIfChanged: false);
+        _appSettings.LocalNetworkSyncEnabled = false;
+        _appSettings.LocalNetworkSyncPairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
+        _settingsService.Save(_appSettings);
+        RefreshLocalNetworkSyncDisplayProperties();
+        LocalNetworkSyncSettingsStatus = "Pairing-Code lokal neu erzeugt. Der Sync bleibt deaktiviert.";
     }
 
     private static bool TryParseLocalNetworkSyncPort(string portText, out int port)
@@ -6930,7 +6955,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalNetworkSyncStatusText));
         OnPropertyChanged(nameof(LocalNetworkSyncDeviceNameText));
         OnPropertyChanged(nameof(LocalNetworkSyncPortText));
+        OnPropertyChanged(nameof(LocalNetworkSyncDeviceIdText));
+        OnPropertyChanged(nameof(LocalNetworkSyncPairingCodeText));
+        OnPropertyChanged(nameof(LocalNetworkSyncPairedDevicesText));
         OnPropertyChanged(nameof(LocalNetworkSyncHintText));
+    }
+
+    private void EnsureLocalNetworkSyncPairingSettings(bool saveIfChanged = true)
+    {
+        var changed = false;
+
+        if (string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceId))
+        {
+            _appSettings.LocalNetworkSyncDeviceId = AppSettingsService.CreateLocalNetworkSyncDeviceId();
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncPairingCode))
+        {
+            _appSettings.LocalNetworkSyncPairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
+            changed = true;
+        }
+
+        if (_appSettings.LocalNetworkSyncPairedDevices is null)
+        {
+            _appSettings.LocalNetworkSyncPairedDevices = [];
+            changed = true;
+        }
+
+        if (_appSettings.LocalNetworkSyncEnabled)
+        {
+            _appSettings.LocalNetworkSyncEnabled = false;
+            changed = true;
+        }
+
+        if (changed && saveIfChanged)
+        {
+            _settingsService.Save(_appSettings);
+        }
     }
 
     private bool TryMigrateDeskItemFile(DeskItem deskItem, out bool wasMissing, out bool wasFailed)

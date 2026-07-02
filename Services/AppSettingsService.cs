@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json;
 using BueroCockpit.Data;
 
@@ -28,14 +30,48 @@ public sealed class AppSettings
     // Lokal/geraetespezifischer Anzeigename fuer spaetere Kopplung.
     public string LocalNetworkSyncDeviceName { get; set; } = string.Empty;
 
+    // Lokal/geraetespezifische Kennung fuer spaeteres Pairing. Darf nicht zentral synchronisiert werden.
+    public string LocalNetworkSyncDeviceId { get; set; } = string.Empty;
+
+    // Lokal/geraetespezifischer Einmal-Code fuer die spaetere Erstkopplung.
+    public string LocalNetworkSyncPairingCode { get; set; } = string.Empty;
+
+    // Lokal vorbereitete Liste fuer spaeter gekoppelte Geraete.
+    public List<LocalNetworkSyncPairedDevice> LocalNetworkSyncPairedDevices { get; set; } = [];
+
     // Legacy/Fallback: Techniker/Monteure werden zentral in Sync/live/settings.json gespeichert.
     // Dieser lokale Wert wird nur noch zum einmaligen Befuellen leerer Live-Settings gelesen.
     public List<string> TechnicianNames { get; set; } = [];
 }
 
+public sealed class LocalNetworkSyncPairedDevice
+{
+    public string DeviceId { get; set; } = string.Empty;
+
+    public string DeviceName { get; set; } = string.Empty;
+
+    public DateTimeOffset PairedAt { get; set; }
+
+    public DateTimeOffset? LastSeenAt { get; set; }
+
+    public string TrustKey { get; set; } = string.Empty;
+
+    public string SharedSecret { get; set; } = string.Empty;
+}
+
 public sealed class AppSettingsService
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+
+    public static string CreateLocalNetworkSyncDeviceId()
+    {
+        return $"desktop-{Guid.NewGuid():N}";
+    }
+
+    public static string CreateLocalNetworkSyncPairingCode()
+    {
+        return RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6", CultureInfo.InvariantCulture);
+    }
 
     public AppSettings Load()
     {

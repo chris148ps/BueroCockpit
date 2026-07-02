@@ -188,7 +188,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
             DataFolderAvailable: !string.IsNullOrWhiteSpace(_options.DataFolderPath) && Directory.Exists(_options.DataFolderPath),
             DataFolderDisplayName: GetDataFolderDisplayName(),
             PairingRequired: true,
-            PairedDeviceCount: 0,
+            PairedDeviceCount: _options.PairedDevices.Count,
             ServerTimeUtc: DateTimeOffset.UtcNow,
             Message: $"{_state}: {_lastMessage}");
     }

@@ -1223,26 +1223,37 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="8" IsVisible="{Binding IsSettingsLocalNetworkSyncOpen}">
-                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Gespeicherter Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalNetworkSyncDeviceNameText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Gespeicherter Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalNetworkSyncPortText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
-                  <TextBox Grid.Row="3" Grid.Column="1"
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Geräte-ID" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalNetworkSyncDeviceIdText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Pairing-Code" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
+                    <TextBlock Text="{Binding LocalNetworkSyncPairingCodeText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                    <Button Content="Pairing-Code neu erzeugen"
+                            HorizontalAlignment="Left"
+                            Click="RegenerateLocalNetworkSyncPairingCode_OnClick" />
+                  </StackPanel>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Gekoppelte Geräte" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LocalNetworkSyncPairedDevicesText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Gespeicherter Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LocalNetworkSyncDeviceNameText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="Gespeicherter Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LocalNetworkSyncPortText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox Grid.Row="6" Grid.Column="1"
                            Text="{Binding LocalNetworkSyncDeviceNameInput}"
                            TextChanged="LocalNetworkSyncDeviceName_OnTextChanged"
                            PlaceholderText="nicht festgelegt" />
-                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
-                  <TextBox Grid.Row="4" Grid.Column="1"
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="Port" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox Grid.Row="7" Grid.Column="1"
                            Text="{Binding LocalNetworkSyncPortInput}"
                            TextChanged="LocalNetworkSyncPort_OnTextChanged"
                            PlaceholderText="nicht festgelegt" />
-                  <TextBlock Grid.Row="5" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <Button Grid.Row="6" Grid.Column="1"
+                  <TextBlock Grid.Row="8" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <Button Grid.Row="9" Grid.Column="1"
                           Content="Lokal speichern"
                           HorizontalAlignment="Left"
                           Click="SaveLocalNetworkSyncSettings_OnClick" />
