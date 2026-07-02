@@ -72,7 +72,46 @@ public sealed class AppSettingsService
 
     public static string CreateLocalNetworkSyncPairingCode()
     {
-        return RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6", CultureInfo.InvariantCulture);
+        Span<char> letters = stackalloc char[4];
+        for (var index = 0; index < letters.Length; index++)
+        {
+            letters[index] = (char)('A' + RandomNumberGenerator.GetInt32(0, 26));
+        }
+
+        var digits = RandomNumberGenerator.GetInt32(1000, 10000).ToString("D4", CultureInfo.InvariantCulture);
+        return $"{letters[0]}{letters[1]}{letters[2]}{letters[3]}-{digits}";
+    }
+
+    public static bool IsLocalNetworkSyncPairingCodeFormat(string? pairingCode)
+    {
+        if (string.IsNullOrWhiteSpace(pairingCode))
+        {
+            return false;
+        }
+
+        var value = pairingCode.Trim();
+        if (value.Length != 9 || value[4] != '-')
+        {
+            return false;
+        }
+
+        for (var index = 0; index < 4; index++)
+        {
+            if (value[index] < 'A' || value[index] > 'Z')
+            {
+                return false;
+            }
+        }
+
+        for (var index = 5; index < value.Length; index++)
+        {
+            if (value[index] < '0' || value[index] > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public AppSettings Load()

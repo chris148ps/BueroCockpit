@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+using BueroCockpit.Services;
 
 namespace BueroCockpit.Services.LocalSync;
 
@@ -66,8 +66,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
     {
         lock (_gate)
         {
-            var value = RandomNumberGenerator.GetInt32(100000, 1000000);
-            _pairingCode = value.ToString("D6");
+            _pairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
             _pairingCodeCreatedAtUtc = DateTimeOffset.UtcNow;
             _lastMessage = "Pairing-Code wurde nur lokal im Speicher vorbereitet.";
             return _pairingCode;

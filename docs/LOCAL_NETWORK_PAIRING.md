@@ -8,6 +8,8 @@ Dieses Dokument definiert das gemeinsame lokale Pairing-Datenformat fuer BueroCo
 
 Die iPad-App kann einen Pairing-Code lokal formal pruefen und speichern. Gueltig ist aktuell das Format `ABCD-1234`: vier Buchstaben, Bindestrich, vier Ziffern. Bei gueltigem Code setzt die iPad-App ihren lokalen Status auf `Kopplung vorbereitet` und zeigt den Hinweis, dass die Verbindung erst in einem spaeteren Schritt aktiviert wird.
 
+Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` lokal die `DeviceId`, den Pairing-Code und den Status `Wartet auf iPad-Kopplung` bzw. `Pairing vorbereitet`. Der Desktop-Status bedeutet nur: Die lokale Erstkopplung ist vorbereitet und wartet auf eine spaetere iPad-Kopplung. Es gibt noch keine echte Verbindung zum iPad.
+
 Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Verbindung zum Desktop, keine Suche, keinen Netzwerkverkehr, keinen TrustKey-Austausch und keine Datenuebertragung.
 
 ## Ziel

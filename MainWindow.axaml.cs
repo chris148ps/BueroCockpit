@@ -880,7 +880,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string IpadLiveFileTargetPath => BuildIpadLiveFileTargetPath(IpadLiveFileTargetFolder);
     public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
     public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
-    public string LocalNetworkSyncStatusText => "Deaktiviert";
+    public string LocalNetworkSyncStatusText => (_appSettings.LocalNetworkSyncPairedDevices?.Count ?? 0) == 0
+        ? "Wartet auf iPad-Kopplung"
+        : "Pairing vorbereitet";
     public string LocalNetworkSyncDeviceNameText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceName)
         ? "nicht festgelegt"
         : _appSettings.LocalNetworkSyncDeviceName.Trim();
@@ -900,7 +902,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Select(device => string.IsNullOrWhiteSpace(device.DeviceName)
                 ? device.DeviceId.Trim()
                 : device.DeviceName.Trim()));
-    public string LocalNetworkSyncHintText => "Der Pairing-Code wird später nur einmal zur Erstkopplung benötigt. Danach erkennen sich gekoppelte Geräte automatisch wieder.";
+    public string LocalNetworkSyncHintText => "Der Code wird später einmalig auf dem iPad eingegeben. Die Verbindung wird erst in einem späteren Schritt aktiviert.";
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
     public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
@@ -6907,7 +6909,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncEditorFields();
         RefreshLocalNetworkSyncDisplayProperties();
-        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Der Sync bleibt deaktiviert.";
+        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Pairing bleibt vorbereitet; es wird keine Verbindung aktiviert.";
     }
 
     private void RegenerateLocalNetworkSyncPairingCode_OnClick(object? sender, RoutedEventArgs e)
@@ -6917,7 +6919,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _appSettings.LocalNetworkSyncPairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncDisplayProperties();
-        LocalNetworkSyncSettingsStatus = "Pairing-Code lokal neu erzeugt. Der Sync bleibt deaktiviert.";
+        LocalNetworkSyncSettingsStatus = "Pairing-Code lokal neu erzeugt. Wartet auf iPad-Kopplung; es wird keine Verbindung aktiviert.";
     }
 
     private static bool TryParseLocalNetworkSyncPort(string portText, out int port)
@@ -6971,7 +6973,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             changed = true;
         }
 
-        if (string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncPairingCode))
+        if (!AppSettingsService.IsLocalNetworkSyncPairingCodeFormat(_appSettings.LocalNetworkSyncPairingCode))
         {
             _appSettings.LocalNetworkSyncPairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
             changed = true;
