@@ -1,8 +1,8 @@
 # Lokaler Netzwerk-Sync
 
-Stand: 2026-07-02.
+Stand: 2026-07-03.
 
-Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. Es ist nur Architektur, Schnittstellenentwurf und vorbereitende Dokumentation. In diesem Stand wird kein Server gestartet, keine produktive Synchronisation implementiert und keine iPad-Codeaenderung vorgenommen.
+Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Es wird keine produktive Synchronisation implementiert und keine iPad-Codeaenderung vorgenommen.
 
 ## 1. Ziel
 
@@ -20,7 +20,7 @@ Nicht Bestandteil dieses Konzeptschritts:
 
 - kein ASP.NET-/Kestrel-Einbau
 - kein Bonjour-/mDNS-Paket
-- kein HTTP-Listener
+- kein automatisch gestarteter HTTP-Listener
 - kein Serverstart im App-Lifecycle
 - keine iPad-Netzwerkimplementierung
 - keine Datenuebertragung
@@ -42,7 +42,7 @@ Vorbereitet sind:
 - Platzhaltermethoden fuer Status, Pairing-Code, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
 - ein Desktop-Einstellungsabschnitt, in dem Geraetename und Port lokal bearbeitet werden koennen
 
-Weiterhin gilt:
+Fuer Phase 2 galt:
 
 - kein automatischer Start
 - keine geoeffneten Ports
@@ -55,6 +55,40 @@ Weiterhin gilt:
 - keine Produktivdatenausgabe im Platzhaltermanifest
 
 Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separaten Auftrag erfolgen. Dann muessen Start/Stop-UI, Portwahl, Pairing-Sicherheit, Firewall-/macOS-Hinweise und die konkrete Transportimplementierung erneut bewusst entschieden werden.
+
+## Phase 3: Manueller lokaler Testdienst
+
+Phase 3 ergaenzt einen ersten echten Desktop-Testdienst. Er ist nur fuer einen technischen Verbindungstest gedacht und darf ausschliesslich durch den Button `Lokalen Testdienst starten` im Bereich `Lokaler Netzwerk-Sync` gestartet werden. Das Oeffnen der App, das Oeffnen der Einstellungen und vorhandene lokale Einstellungen starten keinen Dienst.
+
+Der Dienst bindet restriktiv an die lokale Adresse `127.0.0.1` und den lokal gespeicherten Port. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
+
+```text
+GET /health
+GET /pairing/status
+```
+
+Die Antwort enthaelt keine Produktivdaten:
+
+```json
+{
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "pairing-test",
+  "version": "0.4.14"
+}
+```
+
+Weiterhin gilt:
+
+- keine iPad-Kopplung
+- kein Pairing-Abschluss
+- keine Aufgaben, Kategorien, Anhaenge oder Einstellungen in der Antwort
+- keine automatische Geraetesuche
+- kein Bonjour/mDNS
+- kein UDP-Broadcast
+- kein Polling
+- kein FileSystemWatcher
+- keine Datenuebertragung
 
 ## 3. Rollen
 

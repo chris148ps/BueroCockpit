@@ -1223,7 +1223,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="8" IsVisible="{Binding IsSettingsLocalNetworkSyncOpen}">
-                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="Geräte-ID" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
@@ -1263,9 +1263,20 @@
                            Text="{Binding LocalNetworkSyncPortInput}"
                            TextChanged="LocalNetworkSyncPort_OnTextChanged"
                            PlaceholderText="nicht festgelegt" />
-                  <TextBlock Grid.Row="9" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <Button Grid.Row="10" Grid.Column="1"
+                  <TextBlock Grid.Row="9" Grid.Column="0" Text="Testdienst" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <WrapPanel Grid.Row="9" Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Lokalen Testdienst starten"
+                            Margin="0,0,10,8"
+                            Click="StartLocalNetworkSyncTestService_OnClick" />
+                    <Button Content="Lokalen Testdienst stoppen"
+                            Margin="0,0,0,8"
+                            Click="StopLocalNetworkSyncTestService_OnClick" />
+                  </WrapPanel>
+                  <TextBlock Grid.Row="10" Grid.Column="0" Text="Teststatus" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding LocalNetworkSyncTestServiceStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="11" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <Button Grid.Row="12" Grid.Column="1"
                           Content="Lokal speichern"
                           HorizontalAlignment="Left"
                           Click="SaveLocalNetworkSyncSettings_OnClick" />

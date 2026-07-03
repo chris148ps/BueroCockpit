@@ -17,6 +17,7 @@ using Avalonia.Threading;
 using BueroCockpit.Data;
 using BueroCockpit.Models;
 using BueroCockpit.Services;
+using BueroCockpit.Services.LocalSync;
 using Microsoft.Data.Sqlite;
 
 namespace BueroCockpit;
@@ -122,6 +123,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _localNetworkSyncDeviceNameInput = string.Empty;
     private string _localNetworkSyncPortInput = string.Empty;
     private string _localNetworkSyncSettingsStatus = string.Empty;
+    private string _localNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+    private LocalSyncService? _localNetworkSyncTestService;
     private string _appearanceMode = DarkMode;
     private bool _isSettingsGeneralOpen;
     private bool _isSettingsDataSyncOpen;
@@ -779,6 +782,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public string LocalNetworkSyncTestServiceStatus
+    {
+        get => _localNetworkSyncTestServiceStatus;
+        set
+        {
+            if (_localNetworkSyncTestServiceStatus != value)
+            {
+                _localNetworkSyncTestServiceStatus = value;
+                OnPropertyChanged(nameof(LocalNetworkSyncTestServiceStatus));
+            }
+        }
+    }
+
     public string AppearanceMode
     {
         get => _appearanceMode;
@@ -1285,6 +1301,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Closed += (_, _) =>
         {
             _autoSaveTimer.Stop();
+            StopLocalNetworkSyncTestService();
             _appInstanceLockService.Release();
         };
         AppDomain.CurrentDomain.ProcessExit += (_, _) => _appInstanceLockService.Release();
@@ -6912,6 +6929,39 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Pairing bleibt vorbereitet; es wird keine Verbindung aktiviert.";
     }
 
+    private async void StartLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var port = _appSettings.LocalNetworkSyncPort;
+        if (port < 1024 || port > 65535)
+        {
+            LocalNetworkSyncTestServiceStatus = "Testdienst kann nicht starten: Port nicht festgelegt oder ungültig.";
+            return;
+        }
+
+        await StopLocalNetworkSyncTestServiceAsync();
+
+        _localNetworkSyncTestService = new LocalSyncService(new LocalSyncOptions
+        {
+            Enabled = true,
+            Port = port,
+            DeviceName = _appSettings.LocalNetworkSyncDeviceName,
+            DeviceId = _appSettings.LocalNetworkSyncDeviceId,
+            PairingCode = _appSettings.LocalNetworkSyncPairingCode,
+            PairedDevices = _appSettings.LocalNetworkSyncPairedDevices,
+            AppVersion = _updateService.GetCurrentVersion()
+        });
+
+        var status = await _localNetworkSyncTestService.StartAsync();
+        LocalNetworkSyncTestServiceStatus = status.Message?.Contains("Running:", StringComparison.Ordinal) == true
+            ? $"Testdienst läuft auf Port {port}"
+            : $"Fehler: Port {port} ist belegt oder nicht verfügbar. {status.Message}";
+    }
+
+    private async void StopLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)
+    {
+        await StopLocalNetworkSyncTestServiceAsync();
+    }
+
     private void RegenerateLocalNetworkSyncPairingCode_OnClick(object? sender, RoutedEventArgs e)
     {
         EnsureLocalNetworkSyncPairingSettings(saveIfChanged: false);
@@ -6920,6 +6970,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncDisplayProperties();
         LocalNetworkSyncSettingsStatus = "Pairing-Code lokal neu erzeugt. Wartet auf iPad-Kopplung; es wird keine Verbindung aktiviert.";
+    }
+
+    private void StopLocalNetworkSyncTestService()
+    {
+        if (_localNetworkSyncTestService is null)
+        {
+            return;
+        }
+
+        _localNetworkSyncTestService.StopAsync().GetAwaiter().GetResult();
+        _localNetworkSyncTestService = null;
+        LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+    }
+
+    private async Task StopLocalNetworkSyncTestServiceAsync()
+    {
+        if (_localNetworkSyncTestService is null)
+        {
+            LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+            return;
+        }
+
+        await _localNetworkSyncTestService.StopAsync();
+        _localNetworkSyncTestService = null;
+        LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
     }
 
     private static bool TryParseLocalNetworkSyncPort(string portText, out int port)

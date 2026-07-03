@@ -1,4 +1,7 @@
 using BueroCockpit.Services;
+using System.Net;
+using System.Text;
+using System.Text.Json;
 
 namespace BueroCockpit.Services.LocalSync;
 
@@ -10,6 +13,9 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private string? _lastMessage;
     private string? _pairingCode;
     private DateTimeOffset? _pairingCodeCreatedAtUtc;
+    private HttpListener? _listener;
+    private CancellationTokenSource? _listenerCts;
+    private Task? _listenerTask;
 
     public LocalSyncService(LocalSyncOptions options)
     {
@@ -34,6 +40,12 @@ public sealed class LocalSyncService : ILocalSyncContracts
 
         lock (_gate)
         {
+            if (_state == LocalSyncState.Running && _listener is not null)
+            {
+                _lastMessage = $"Testdienst laeuft bereits auf Port {_options.Port}.";
+                return Task.FromResult(BuildStatusLocked());
+            }
+
             if (!_options.Enabled)
             {
                 _state = LocalSyncState.Disabled;
@@ -41,9 +53,34 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 return Task.FromResult(BuildStatusLocked());
             }
 
+            if (_options.Port < 1024 || _options.Port > 65535)
+            {
+                _state = LocalSyncState.Error;
+                _lastMessage = "Testdienst kann nicht starten: Port nicht festgelegt oder ungueltig.";
+                return Task.FromResult(BuildStatusLocked());
+            }
+
             _state = LocalSyncState.Starting;
-            _state = LocalSyncState.Error;
-            _lastMessage = "Dienst-Geruest vorbereitet; Serverstart ist noch nicht implementiert.";
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://127.0.0.1:{_options.Port}/");
+
+            try
+            {
+                listener.Start();
+            }
+            catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException)
+            {
+                listener.Close();
+                _state = LocalSyncState.Error;
+                _lastMessage = $"Testdienst konnte Port {_options.Port} nicht oeffnen: {ex.Message}";
+                return Task.FromResult(BuildStatusLocked());
+            }
+
+            _listenerCts = new CancellationTokenSource();
+            _listener = listener;
+            _listenerTask = Task.Run(() => RunStatusListenerAsync(listener, _listenerCts.Token), CancellationToken.None);
+            _state = LocalSyncState.Running;
+            _lastMessage = $"Testdienst laeuft auf Port {_options.Port}.";
             return Task.FromResult(BuildStatusLocked());
         }
     }
@@ -54,9 +91,10 @@ public sealed class LocalSyncService : ILocalSyncContracts
 
         lock (_gate)
         {
+            StopListenerLocked();
             _state = _options.Enabled ? LocalSyncState.Stopped : LocalSyncState.Disabled;
             _lastMessage = _options.Enabled
-                ? "Lokaler Netzwerk-Sync ist gestoppt. Es laeuft kein Server."
+                ? "Testdienst gestoppt."
                 : "Lokaler Netzwerk-Sync ist deaktiviert.";
             return Task.FromResult(BuildStatusLocked());
         }
@@ -192,6 +230,75 @@ public sealed class LocalSyncService : ILocalSyncContracts
             PairedDeviceCount: _options.PairedDevices.Count,
             ServerTimeUtc: DateTimeOffset.UtcNow,
             Message: $"{_state}: {_lastMessage}");
+    }
+
+    private async Task RunStatusListenerAsync(HttpListener listener, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested && listener.IsListening)
+        {
+            HttpListenerContext context;
+
+            try
+            {
+                context = await listener.GetContextAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or InvalidOperationException)
+            {
+                break;
+            }
+
+            _ = Task.Run(() => WriteStatusResponseAsync(context), CancellationToken.None);
+        }
+    }
+
+    private async Task WriteStatusResponseAsync(HttpListenerContext context)
+    {
+        var path = context.Request.Url?.AbsolutePath ?? string.Empty;
+        if (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(path, "/pairing/status", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 404;
+            await WriteJsonAsync(context.Response, new { error = "not-found" }).ConfigureAwait(false);
+            return;
+        }
+
+        context.Response.StatusCode = 200;
+        await WriteJsonAsync(
+            context.Response,
+            new
+            {
+                app = _options.AppName,
+                status = "ok",
+                mode = "pairing-test",
+                version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion
+            }).ConfigureAwait(false);
+    }
+
+    private static async Task WriteJsonAsync(HttpListenerResponse response, object value)
+    {
+        response.ContentType = "application/json; charset=utf-8";
+        var json = JsonSerializer.Serialize(value);
+        var buffer = Encoding.UTF8.GetBytes(json);
+        response.ContentLength64 = buffer.Length;
+
+        try
+        {
+            await response.OutputStream.WriteAsync(buffer).ConfigureAwait(false);
+        }
+        finally
+        {
+            response.OutputStream.Close();
+        }
+    }
+
+    private void StopListenerLocked()
+    {
+        _listenerCts?.Cancel();
+        _listenerCts?.Dispose();
+        _listenerCts = null;
+        _listener?.Close();
+        _listener = null;
+        _listenerTask = null;
     }
 
     private string GetServerName()
