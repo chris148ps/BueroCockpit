@@ -1,6 +1,6 @@
 # BüroCockpit
 
-BüroCockpit ist eine lokale Büro-Aufgabenverwaltung mit Avalonia/.NET. Die App verwaltet Aufgaben, Kategorien, Material, Anhänge, Vorschau, Dashboard, lokale Backups und eine vorbereitete OneDrive-Ordner-Bearbeitung für Anhänge.
+BüroCockpit ist eine lokale Büro-Aufgabenverwaltung mit Avalonia/.NET. Die App verwaltet Aufgaben, Kategorien, Material, Anhänge, Vorschau, Dashboard, lokale Backups und lokale Datenordner.
 
 Der sichtbare App-Name ist `BüroCockpit`. Technische Namen wie Projektordner, Repository, Namespace und EXE bleiben `BueroCockpit`.
 
@@ -225,13 +225,13 @@ Lokal gespeichert werden insbesondere:
 - Datenbank `buerocockpit.db`
 - Aufgaben-Anhänge und Thumbnails
 - lokale Backups
-- lokale Einstellungen wie der gewählte OneDrive-Datenordner
+- lokale Einstellungen wie der gewählte Datenordner
 
 Diese Daten liegen im AppData-Ordner der App und werden von Git ignoriert.
 
-## OneDrive-Datenordner
+## Datenordner
 
-Der OneDrive-Datenordner wird in der App unter `Einstellungen` ausgewählt. Die zentrale Datenquelle ist `BueroCockpit_Daten`; Details stehen in [docs/DATENORDNER.md](/Users/christian/AppProjekte/BueroCockpit/docs/DATENORDNER.md). Es gibt keine Cloud-API und keine Microsoft-Graph-Anbindung; die App arbeitet nur mit einem frei gewählten lokalen Ordner.
+Der Datenordner wird in der App unter `Einstellungen` ausgewählt. Die Datenquelle ist lokal; Details stehen in [docs/DATENORDNER.md](/Users/christian/AppProjekte/BueroCockpit/docs/DATENORDNER.md).
 
 Das aktuelle Snapshot-Format und die technische Vorbereitung für eine spätere iPad-Leseversion sind in [docs/ipad-readonly-preparation.md](/Users/christian/AppProjekte/BueroCockpit/docs/ipad-readonly-preparation.md) dokumentiert.
 

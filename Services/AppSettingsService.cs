@@ -11,7 +11,7 @@ public sealed class AppSettings
     // Lokal/geraetespezifisch: zeigt auf den gemeinsamen BueroCockpit_Daten-Ordner auf diesem Rechner.
     public string OneDriveEditDirectory { get; set; } = string.Empty;
 
-    // Legacy/Uebergang: frei waehlbare live.bclive-Zieldatei. Aktive Hauptquelle ist BueroCockpit_Daten/Sync.
+    // Legacy/Toleranz: alter frei waehlbarer iPad-Dateizielpfad. Im aktuellen Bedienweg ignoriert.
     public string IpadLiveFileTargetPath { get; set; } = string.Empty;
 
     // Lokal/geraetespezifisch: reine UI-Darstellung.

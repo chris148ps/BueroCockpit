@@ -1574,53 +1574,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ExportIpadTargetsNow(string reason)
     {
-        if (HasOneDriveEditDirectory)
-        {
-            var result = _ipadSnapshotExportService.ExportLiveNowAsync(
-                    _repository,
-                    OneDriveEditDirectory,
-                    _updateService.GetCurrentVersion(),
-                    Environment.MachineName)
-                .GetAwaiter()
-                .GetResult();
-            SetIpadSnapshotStatus(
-                result.Success
-                    ? "iPad-Sync erfolgreich aktualisiert."
-                    : "iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.",
-                autoHide: result.Success);
-        }
-        else
-        {
-            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export skipped ({reason}): no OneDrive edit directory configured.");
-        }
-
-        if (HasIpadLiveFileTargetPath)
-        {
-            var liveFileResult = _ipadSnapshotExportService.ExportLivePackageToFileAsync(
-                    _repository,
-                    IpadLiveFileTargetPath,
-                    _updateService.GetCurrentVersion(),
-                    Environment.MachineName)
-                .GetAwaiter()
-                .GetResult();
-
-            if (liveFileResult.Success)
-            {
-                IpadLiveFileLastSuccessfulExport = $"Letzter erfolgreicher Exportzeitpunkt: {DateTime.Now:dd.MM.yyyy HH:mm:ss}";
-                IpadLiveFileLastError = string.Empty;
-                IpadLiveFileStatus = $"Live-Datei geschrieben: {IpadLiveFileTargetPath}";
-            }
-            else
-            {
-                var errorMessage = liveFileResult.ErrorMessage ?? "Details siehe Log.";
-                IpadLiveFileLastError = $"Letzte Fehlermeldung: {errorMessage}";
-                IpadLiveFileStatus = $"Fehler beim Schreiben der Live-Datei: {errorMessage}";
-            }
-        }
-        else
-        {
-            _ipadSnapshotExportService.LogDiagnostic($"iPad live file export skipped ({reason}): no target file configured.");
-        }
+        _ipadSnapshotExportService.LogDiagnostic($"Legacy iPad file export disabled ({reason}): local network sync is the target path.");
     }
 
     private void LogSaveNowIpadSyncTarget(string reason)
@@ -7544,7 +7498,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "OneDrive-Datenordner auswählen",
+            Title = "Datenordner auswählen",
             AllowMultiple = false
         });
 
@@ -7563,7 +7517,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(HasIpadSyncRootDirectory));
         OnPropertyChanged(nameof(HasNoIpadSyncRootDirectory));
         LoadTechnicianOptions();
-        BackupStatus = $"OneDrive-Datenordner gesetzt: {folderPath}";
+        BackupStatus = $"Datenordner gesetzt: {folderPath}";
         TriggerIpadSnapshotExport("folder-selected");
     }
 
@@ -7571,7 +7525,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!HasOneDriveEditDirectory)
         {
-            BackupStatus = "Noch kein OneDrive-Datenordner gewählt.";
+            BackupStatus = "Noch kein Datenordner gewählt.";
             return;
         }
 
@@ -7635,22 +7589,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void TriggerIpadSnapshotExport(string reason)
     {
-        _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export trigger received: {reason}");
-
-        if (!HasOneDriveEditDirectory)
-        {
-            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export skipped ({reason}): no OneDrive edit directory configured.");
-            return;
-        }
-
-        if (Interlocked.Exchange(ref _isRunningIpadSnapshotExport, 1) == 1)
-        {
-            Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 1);
-            _ipadSnapshotExportService.LogDiagnostic($"iPad live sync queued ({reason}): export already running.");
-            return;
-        }
-
-        _ = RunIpadSnapshotExportAsync(reason);
+        _ipadSnapshotExportService.LogDiagnostic($"Legacy iPad snapshot export trigger ignored ({reason}): local network sync is the target path.");
     }
 
     private async Task RunIpadSnapshotExportAsync(string reason)
@@ -7716,22 +7655,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void TriggerIpadLiveFileExport(string reason)
     {
-        _ipadSnapshotExportService.LogDiagnostic($"iPad live file export trigger received: {reason}");
-
-        if (!HasIpadLiveFileTargetPath)
-        {
-            _ipadSnapshotExportService.LogDiagnostic($"iPad live file export skipped ({reason}): no target file configured.");
-            return;
-        }
-
-        if (Interlocked.Exchange(ref _isRunningIpadLiveFileExport, 1) == 1)
-        {
-            Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 1);
-            _ipadSnapshotExportService.LogDiagnostic($"iPad live file export queued ({reason}): export already running.");
-            return;
-        }
-
-        _ = RunIpadLiveFileExportAsync(reason);
+        _ipadSnapshotExportService.LogDiagnostic($"Legacy iPad live file export trigger ignored ({reason}): local network sync is the target path.");
     }
 
     private async Task RunIpadLiveFileExportAsync(string reason)
@@ -7849,7 +7773,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!HasOneDriveEditDirectory)
         {
-            SetIpadSnapshotStatus("Noch kein OneDrive-Datenordner gewählt.");
+            SetIpadSnapshotStatus("Noch kein Datenordner gewählt.");
             return;
         }
 
@@ -8444,7 +8368,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (!HasOneDriveEditDirectory)
         {
-            AttachmentEditStatus = "Noch kein OneDrive-Datenordner gewählt.";
+            AttachmentEditStatus = "Noch kein Datenordner gewählt.";
             return;
         }
 

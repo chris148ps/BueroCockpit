@@ -6,11 +6,11 @@ Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren lokalen Netz
 
 ## 1. Ziel
 
-Der lokale Netzwerk-Sync soll die bisherige iCloud-/Live-Aktualisierung langfristig abloesen. BueroCockpit Desktop bleibt das fuehrende System und nutzt weiterhin `OneDrive/BueroCockpit_Daten` als zentrale Datenquelle fuer Windows und Mac. Pairing-Code, Live-Datei, OneDrive-Live-Datei und `IpadLiveFileTargetPath` sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync. Das iPad wird als mobiler Erfassungsclient angebunden:
+Der lokale Netzwerk-Sync soll der einzige kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App sein. BueroCockpit Desktop bleibt das fuehrende System; Daten liegen lokal. Fruehere dateibasierte Kopplungen sind nicht mehr Zielarchitektur und nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync. Das iPad wird als mobiler Erfassungsclient angebunden:
 
 - Desktop stellt bei Bedarf einen aktuellen, iPad-lesbaren Snapshot oder Lesestand bereit.
 - iPad uebertraegt mobile Eingaenge, Fotos, Skizzen, Notizen und sonstige Dateien manuell an den Desktop.
-- Desktop speichert angenommene Uploads zunaechst kontrolliert im zentralen Datenordner, bevor sie fachlich importiert werden.
+- Desktop speichert angenommene Uploads spaeter zunaechst kontrolliert lokal, bevor sie fachlich importiert werden.
 - Das iPad loescht lokale Originale erst nach bestaetigter Uebernahme.
 - Jeder Sync-Lauf wird vom Benutzer bewusst gestartet und zeigt Status, Fehler und Protokoll.
 
@@ -26,7 +26,7 @@ Nicht Bestandteil dieses Konzeptschritts:
 - keine Datenuebertragung
 - kein Umbau des Snapshot-Exports
 - keine Datenmigration
-- kein Verschieben von iCloud-, OneDrive- oder Produktivdateien
+- kein Verschieben von Alt-, Benutzer- oder Produktivdateien
 - kein FileSystemWatcher, kein Polling, kein LiveReload
 - keine stille Hintergrundsynchronisation
 
@@ -113,7 +113,7 @@ Die lokale `changeVersion` kann beim Speichern im laufenden Desktop-Prozess aktu
 
 ### iPad-Hauptansicht und Vormerkung in Phase 3
 
-Das iPad startet direkt in die Hauptansicht. Ein vorgeschalteter Assistent, ein Startzwang ueber Live-Datei, OneDrive-/iCloud-Datei oder Pairing-Code gehoeren nicht mehr zum aktuellen Zielweg. Oben in der Hauptansicht zeigt nur ein kleiner kompakter Verbindungsindikator den lokalen Desktop-Status. Die Hauptansicht startet die begrenzte Verbindungspruefung selbst beim Erscheinen und bei Rueckkehr in den aktiven App-Zustand; die Sync-Einstellungen muessen dafuer nicht geoeffnet werden. Detaillierte Statusmeldungen bleiben in den Sync-Einstellungen oder als Accessibility-/Tooltip-Text:
+Das iPad startet direkt in die Hauptansicht. Ein vorgeschalteter Assistent oder ein Startzwang ueber Alt-Kopplung gehoeren nicht mehr zum aktuellen Zielweg. Oben in der Hauptansicht zeigt nur ein kleiner kompakter Verbindungsindikator den lokalen Desktop-Status. Die Hauptansicht startet die begrenzte Verbindungspruefung selbst beim Erscheinen und bei Rueckkehr in den aktiven App-Zustand; die Sync-Einstellungen muessen dafuer nicht geoeffnet werden. Detaillierte Statusmeldungen bleiben in den Sync-Einstellungen oder als Accessibility-/Tooltip-Text:
 
 - gruener Punkt: `Desktop verbunden`
 - roter Punkt: `Desktop nicht verbunden`
@@ -129,7 +129,7 @@ Die automatische Bonjour-/Netzwerksuche ist davon getrennt. Sie darf die gespeic
 
 Die automatische Pruefung laeuft begrenzt: beim Start, bei Rueckkehr in den aktiven App-Zustand und im sichtbaren Betrieb in einem ruhigen Intervall. Sie stoppt oder pausiert, wenn die Hauptansicht nicht aktiv ist. Es gibt keinen UDP-Broadcast, keinen Portscan und keine aggressive Dauerschleife.
 
-Live-Datei, OneDrive-/iCloud-Datei, `IpadLiveFileTargetPath` und Pairing-Code sind nicht mehr der aktuelle Kopplungsweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Sie bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen. Der manuelle IP-Fallback bleibt der verlaessliche Weg, wenn Bonjour/mDNS nicht verfuegbar ist.
+Fruehere dateibasierte Kopplungen sind nicht mehr der aktuelle Kopplungsweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Sie bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen. Der manuelle IP-Fallback bleibt der verlaessliche Weg, wenn Bonjour/mDNS nicht verfuegbar ist.
 
 ## 3. Rollen
 
@@ -137,7 +137,7 @@ Live-Datei, OneDrive-/iCloud-Datei, `IpadLiveFileTargetPath` und Pairing-Code si
 
 BueroCockpit Desktop fuehrt Datenbank, Aufgaben, Kategorien, Anhaenge, Schreibtischdaten und Importentscheidungen. Der Desktop entscheidet, ob ein mobiler Eingang angenommen, abgelehnt, als Konflikt markiert oder spaeter importiert wird.
 
-OneDrive/BueroCockpit_Daten bleibt zentrale Datenquelle fuer Desktop-Geraete. Der lokale Netzwerk-Sync ist eine Transport- und Uebergabeschicht zwischen iPad und einem laufenden Desktop im Firmennetz, keine neue Hauptdatenquelle.
+Die lokalen BueroCockpit-Daten bleiben die fuehrende Datenquelle des Desktop. Der lokale Netzwerk-Sync ist spaeter eine Transport- und Uebergabeschicht zwischen iPad und einem laufenden Desktop im Firmennetz.
 
 ### iPad als mobiler Client
 
@@ -145,22 +145,11 @@ Das iPad liest nur freigegebene Snapshot-/Lesedaten und erfasst unterwegs neue I
 
 ## 4. Datenfluss
 
-### Desktop -> iPad: Snapshot/Lesestand
+### Desktop -> iPad: Lesestand
 
-Der Desktop liefert auf Anforderung einen kompakten Lesestand. Grundlage ist die bestehende iPad-lesbare Exportstruktur:
+Der Desktop liefert spaeter auf Anforderung einen kompakten Lesestand ueber den lokalen Netzwerk-Sync. Das konkrete Paketformat wird erst in einem separaten Schritt festgelegt.
 
-```text
-BueroCockpit_Daten/Sync/live/metadata.json
-BueroCockpit_Daten/Sync/live/categories.json
-BueroCockpit_Daten/Sync/live/tasks.json
-BueroCockpit_Daten/Sync/live/settings.json
-BueroCockpit_Daten/Sync/live/attachments-index.json
-BueroCockpit_Daten/Sync/live/previews/
-BueroCockpit_Daten/Sync/live.bclive
-BueroCockpit_Daten/Sync/snapshots/latest.bcsnapshot
-```
-
-Fuer den Netzwerk-Snapshot gilt:
+Fuer den Netzwerk-Lesestand gilt:
 
 - nur lesbare, optimierte Daten
 - keine Originalanhaenge ungefragt
@@ -209,7 +198,7 @@ Regeln:
 ## 6. Sicherheitsregeln
 
 - Dienst nur im lokalen LAN nutzen.
-- Keine externe Freigabe oder Cloud-Weiterleitung.
+- Keine externe Freigabe oder Umleitung ueber externe Transportwege.
 - Upload nur mit bewusst bestaetigter lokaler Vertrauensbasis.
 - Status- und Logdaten nur fuer freigegebene Geraete, soweit sie nicht fuer den technischen Verbindungstest noetig sind.
 - Keine automatische Annahme unbekannter Geraete.
@@ -295,7 +284,7 @@ Spaeterer Entwurf fuer freigegebene Geraete. Nicht implementiert.
 
 ### `GET /snapshot`
 
-Liefert den aktuellen iPad-Lesestand. Der Inhalt kann spaeter ein kompaktes Paket sein, beispielsweise eine optimierte Variante von `live.bclive` oder ein neues Snapshot-Paketformat.
+Liefert spaeter den aktuellen iPad-Lesestand in einem kompakten lokalen Netzwerkformat.
 
 Regeln:
 
@@ -320,9 +309,9 @@ Mindestanforderungen:
 
 Optionaler Endpunkt fuer die letzten Sync-Ereignisse. Er darf keine Tokens, lokalen Geheimnisse oder unnoetigen Produktivdaten ausgeben.
 
-## 8. Datenablage im zentralen Ordner
+## 8. Lokale Datenablage
 
-Bestehende zentrale Struktur:
+Bestehende lokale Struktur fuer spaetere Netzwerk-Uebergaben:
 
 ```text
 BueroCockpit_Daten/
@@ -330,21 +319,11 @@ BueroCockpit_Daten/
   Tasks/
   Backups/
   Sync/
-    live/
-      metadata.json
-      categories.json
-      tasks.json
-      settings.json
-      attachments-index.json
-      previews/
-    live.bclive
     inbox/
       changes/
       files/
     processed/
     conflicts/
-    snapshots/
-      latest.bcsnapshot
 ```
 
 Empfohlenes Ziel fuer spaetere Netzwerk-Uploads:

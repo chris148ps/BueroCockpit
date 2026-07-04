@@ -97,7 +97,7 @@ Der Desktop-Bereich zeigt `vorgemerkte iPads / lokale Geraete`, den Geraetenamen
 
 ## iPad
 
-Die iPad-App zeigt beim Start direkt die Hauptansicht. Es gibt keinen vorgeschalteten Assistenten, keinen Startzwang ueber Live-Datei, keine OneDrive-/Cloud-Kopplung und keinen Pairing-Code als aktuellen Hauptfluss.
+Die iPad-App zeigt beim Start direkt die Hauptansicht. Es gibt keinen vorgeschalteten Assistenten und keinen Startzwang ueber Alt-Kopplung als aktuellen Hauptfluss.
 
 In der Hauptansicht zeigt die App oben einen kleinen Verbindungsindikator:
 
@@ -157,11 +157,11 @@ Der Windows-Installer soll Bonjour kuenftig erkennen und optional installieren o
 
 ## Legacy/Fallback
 
-Pairing-Code, Live-Datei, iCloud-Datei, OneDrive-Live-Datei, Cloud-Datei, Datei-Auswahl als Hauptweg und `IpadLiveFileTargetPath` sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
+Fruehere dateibasierte Kopplungen sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
 
 Bestehende lokale Settings duerfen alte Felder wie `LocalNetworkSyncPairingCode` oder `LocalNetworkSyncPairedDevices` weiterhin enthalten. Diese Felder werden tolerant gelesen, im aktuellen Netzwerk-Sync-Bedienweg aber ignoriert.
 
-Snapshot-/Lesemodus, bestehende Mobile-Eingaenge und vorhandene Live-Datei-Importe bleiben als Legacy/Fallback erhalten, solange sie fuer vorhandene Datenanzeige oder manuelle Lesedaten noetig sind. Sie werden nicht automatisch migriert, geloescht oder als neuer lokaler Netzwerk-Sync beschrieben.
+Bestehende Lesedaten und bestehende Mobile-Eingaenge bleiben als Legacy/Fallback erhalten, solange sie fuer vorhandene Datenanzeige oder manuelle Lesedaten noetig sind. Sie werden nicht automatisch migriert, geloescht oder als neuer lokaler Netzwerk-Sync beschrieben.
 
 ## Grenzen
 
@@ -172,5 +172,5 @@ Snapshot-/Lesemodus, bestehende Mobile-Eingaenge und vorhandene Live-Datei-Impor
 - kein UDP-Broadcast.
 - kein Portscan.
 - keine unkontrollierte Hintergrundsuche.
-- keine automatische Datei-/Cloud-Migration.
-- keine Aenderung an produktiven OneDrive-/iCloud-Daten.
+- keine automatische Migration.
+- keine Aenderung an produktiven Benutzer- oder Altdateien.

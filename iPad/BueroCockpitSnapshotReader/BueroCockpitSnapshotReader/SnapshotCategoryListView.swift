@@ -8,7 +8,6 @@ struct SnapshotCategoryListView: View {
     let loadedFileName: String?
     let snapshotDate: String?
     let taskCountForCategory: (String) -> Int
-    let onImportSnapshot: () -> Void
     let onSelectAll: () -> Void
     let onSelectCategory: (String) -> Void
 
@@ -42,10 +41,6 @@ struct SnapshotCategoryListView: View {
                 infoRow(label: "Zeitpunkt", value: snapshotDate)
                 infoRow(label: "Kategorien", value: "\(categoryCount)")
                 infoRow(label: "Aufgaben", value: "\(allTaskCount)")
-
-                Button(action: onImportSnapshot) {
-                    Label("Legacy-Archiv importieren", systemImage: "square.and.arrow.down")
-                }
             }
         }
         .navigationTitle("Kategorien")

@@ -295,15 +295,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         didAttemptStartupLoad = true
         loadMobileInboxEntries()
         updateLocalNetworkDesktopConnectionStateForStoredSettings()
-        if syncSettings.providerType == .googleDriveDirect,
-           !syncSettings.googleDriveFileId.isEmpty {
-            updateFromGoogleDrive(
-                link: syncSettings.googleDriveLink,
-                fileID: syncSettings.googleDriveFileId,
-                saveConfigurationOnSuccess: false,
-                isLaunch: true
-            )
-        } else if accessStore.hasLocalSnapshot {
+        if accessStore.hasLocalSnapshot {
             loadLocalSnapshot(isLaunch: true)
         } else {
             SnapshotPerformanceLog.event("Start local load skipped: no imported live file")
@@ -364,22 +356,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     func refreshSnapshot() {
         loadMobileInboxEntries()
-        if syncSettings.providerType == .iCloudDrive {
-            refreshICloudSnapshot()
-            return
-        }
-
-        if syncSettings.providerType == .googleDriveDirect,
-           !syncSettings.googleDriveFileId.isEmpty {
-            updateFromGoogleDrive(
-                link: syncSettings.googleDriveLink,
-                fileID: syncSettings.googleDriveFileId,
-                saveConfigurationOnSuccess: false,
-                isLaunch: false
-            )
-            return
-        }
-
         guard accessStore.hasLocalSnapshot else {
             setupRequired = false
             setupMessage = nil
@@ -689,7 +665,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private func loadLocalSnapshot(isLaunch: Bool) {
         SnapshotPerformanceLog.event(isLaunch ? "Start local load started" : "Manual local reload started")
         searchText = ""
-        loadingTitle = isLaunch ? "Lokale Live-Datei wird geladen …" : "Lokale Live-Datei wird neu geladen …"
+        loadingTitle = isLaunch ? "Lokale Lesedaten werden geladen …" : "Lokale Lesedaten werden neu geladen …"
         loadState = .loading
 
         let reader = self.reader
@@ -714,7 +690,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 apply(prepared: prepared)
                 SnapshotPerformanceLog.event(isLaunch ? "Start local load finished" : "Manual local reload finished")
             case .failure(let message):
-                let failureMessage = "Bitte live.bclive einmal importieren. \(message)"
+                let failureMessage = "Lokale Lesedaten konnten nicht geladen werden. \(message)"
                 if document != nil {
                     noticeMessage = failureMessage
                     setupRequired = false

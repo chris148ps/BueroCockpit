@@ -22,7 +22,6 @@ struct SnapshotRootView: View {
         case folder
         case metadata
         case package
-        case iCloudPackage
         case mobileInboxFolder
     }
 
@@ -219,10 +218,7 @@ struct SnapshotRootView: View {
 
     private func syncSetupView(onDismiss: (() -> Void)?) -> some View {
         SnapshotSetupView(
-            currentProvider: viewModel.syncSettings.providerType,
-            savedGoogleDriveLink: viewModel.syncSettings.googleDriveLink,
             hasLocalSnapshot: viewModel.hasLocalSnapshot,
-            hasICloudSnapshotSource: viewModel.hasICloudSnapshotSource,
             lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
@@ -235,23 +231,7 @@ struct SnapshotRootView: View {
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
-            onSelectSnapshot: {
-                if presentedSheet != nil {
-                    importModeAfterSheetDismissal = .package
-                    presentedSheet = nil
-                } else {
-                    openPackagePicker()
-                }
-            },
-            onSelectICloudSnapshot: {
-                if presentedSheet != nil {
-                    importModeAfterSheetDismissal = .iCloudPackage
-                    presentedSheet = nil
-                } else {
-                    openICloudPicker()
-                }
-            },
-            onRefreshICloudSnapshot: refreshOrSelectICloudSnapshot,
+            onSelectSnapshot: openPackagePicker,
             onReload: viewModel.refreshSnapshot,
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
             onTestLocalNetworkDesktopService: { address in
@@ -437,7 +417,6 @@ struct SnapshotRootView: View {
             taskCountForCategory: { categoryID in
                 viewModel.taskCount(in: categoryID)
             },
-            onImportSnapshot: openPackagePicker,
             onSelectAll: {
                 viewModel.selectAllTasks()
             },
@@ -500,9 +479,7 @@ struct SnapshotRootView: View {
                 message: "Desktop-Testdienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich.",
                 systemImage: "folder",
                 primaryButtonTitle: "Sync-Einstellungen",
-                primaryAction: { presentedSheet = .settings },
-                secondaryButtonTitle: "Legacy-Archiv importieren",
-                secondaryAction: openPackagePicker
+                primaryAction: { presentedSheet = .settings }
             )
         }
     }
@@ -598,9 +575,7 @@ struct SnapshotRootView: View {
                 message: "Lokaler Netzwerk-Sync ist in Vorbereitung. Noch kein echter Sync aktiv.",
                 systemImage: "tray.full",
                 primaryButtonTitle: "Sync-Einstellungen",
-                primaryAction: { presentedSheet = .settings },
-                secondaryButtonTitle: "Legacy-Archiv importieren",
-                secondaryAction: openPackagePicker
+                primaryAction: { presentedSheet = .settings }
             )
         case .loading:
             ProgressView("Snapshot wird geladen …")
@@ -611,18 +586,14 @@ struct SnapshotRootView: View {
                 message: message,
                 systemImage: "tray",
                 primaryButtonTitle: "Sync-Einstellungen",
-                primaryAction: { presentedSheet = .settings },
-                secondaryButtonTitle: "Legacy-Archiv importieren",
-                secondaryAction: openPackagePicker
+                primaryAction: { presentedSheet = .settings }
             )
         case .failure(let message):
             SnapshotErrorView(
                 title: "Snapshot konnte nicht gelesen werden",
                 message: message,
                 primaryButtonTitle: "Sync-Einstellungen",
-                primaryAction: { presentedSheet = .settings },
-                secondaryButtonTitle: "Legacy-Archiv importieren",
-                secondaryAction: openPackagePicker
+                primaryAction: { presentedSheet = .settings }
             )
         }
     }
@@ -642,8 +613,6 @@ struct SnapshotRootView: View {
             openMetadataPicker()
         case .package:
             openPackagePicker()
-        case .iCloudPackage:
-            openICloudPicker()
         case .mobileInboxFolder:
             openMobileInboxFolderPicker()
         }
@@ -663,13 +632,6 @@ struct SnapshotRootView: View {
         )
     }
 
-    private func openICloudPicker() {
-        presentImporter(
-            mode: .iCloudPackage,
-            statusMessage: "iCloud-Dateiauswahl wird geöffnet …"
-        )
-    }
-
     private func openMobileInboxFolderPicker() {
         presentImporter(
             mode: .mobileInboxFolder,
@@ -677,38 +639,8 @@ struct SnapshotRootView: View {
         )
     }
 
-    private func refreshOrSelectICloudSnapshot() {
-        guard !viewModel.isSyncing, viewModel.loadState != .loading else {
-            return
-        }
-
-        if viewModel.hasICloudSnapshotSource {
-            if viewModel.refreshICloudSnapshot(keepCurrentView: presentedSheet != nil) {
-                return
-            }
-            openICloudSelectionAfterMissingAccess()
-            return
-        }
-
-        viewModel.requestICloudSourceSelection()
-        openICloudSelectionAfterMissingAccess()
-    }
-
     private func refreshCurrentSyncSource() {
-        if viewModel.isICloudDriveActive {
-            refreshOrSelectICloudSnapshot()
-        } else {
-            viewModel.refreshSnapshot()
-        }
-    }
-
-    private func openICloudSelectionAfterMissingAccess() {
-        if presentedSheet != nil {
-            importModeAfterSheetDismissal = .iCloudPackage
-            presentedSheet = nil
-        } else {
-            openICloudPicker()
-        }
+        viewModel.refreshSnapshot()
     }
 
     private func presentImporter(mode: SnapshotImportMode, statusMessage: String) {
@@ -723,8 +655,6 @@ struct SnapshotRootView: View {
         switch activeImportMode {
         case .package:
             loadPackageSnapshot(from: sourceURL)
-        case .iCloudPackage:
-            loadICloudSnapshot(from: sourceURL)
         case .folder, .metadata:
             viewModel.importSnapshot(from: sourceURL)
         case .mobileInboxFolder:
@@ -830,15 +760,6 @@ struct SnapshotRootView: View {
         viewModel.importSnapshot(from: sourceURL)
     }
 
-    private func loadICloudSnapshot(from sourceURL: URL) {
-        guard sourceURL.pathExtension.caseInsensitiveCompare("bclive") == .orderedSame else {
-            viewModel.present(errorMessage: SnapshotReaderError.invalidPackageSelection.localizedDescription)
-            return
-        }
-
-        viewModel.importICloudSnapshot(from: sourceURL)
-    }
-
     private func isSnapshotPackage(_ url: URL) -> Bool {
         let extensionName = url.pathExtension.lowercased()
         return extensionName == "bclive" || extensionName == "bcsnapshot" || extensionName == "zip"
@@ -858,7 +779,7 @@ struct SnapshotRootView: View {
             return [.folder]
         case .metadata:
             return [.json]
-        case .package, .iCloudPackage, .none:
+        case .package, .none:
             return [
                 UTType(filenameExtension: "bclive") ?? .data,
                 UTType(filenameExtension: "bcsnapshot") ?? .data,

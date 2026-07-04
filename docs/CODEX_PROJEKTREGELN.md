@@ -24,10 +24,9 @@ codex -m gpt-5.5
 
 - Die Desktop-App bleibt das fuehrende System.
 - Die iPad-App bleibt vorerst lesend bzw. mobiler Erfassungsclient.
-- `OneDrive/BueroCockpit_Daten` bleibt zentrale Datenquelle.
-- iCloud-Live ist nur Legacy/Uebergang.
+- Daten liegen lokal. Cloud-/OneDrive-/iCloud-/Live-Datei- oder Datei-Sync ist nicht mehr Zielarchitektur.
 - Neuer Zielweg ist lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
-- Pairing-Code, Live-Datei und OneDrive-/iCloud-Datei sind nicht mehr aktueller Kopplungsweg fuer den lokalen Netzwerk-Sync.
+- Pairing-Code, Live-Datei, Cloud-Datei und Datei-Kopplung sind nicht mehr aktueller Kopplungsweg fuer den lokalen Netzwerk-Sync.
 
 ## Strikte Sperren ohne ausdrueckliche Freigabe
 
@@ -66,13 +65,14 @@ Dazu gehoeren:
 - Lokaler Port.
 - Geraete-ID.
 - Legacy-Felder wie alter Pairing-Code oder alte gekoppelte Geraete, falls sie in vorhandenen lokalen Einstellungen noch existieren.
+- Legacy-Felder wie alte Datei-/Live-Datei-Pfade, falls sie in vorhandenen lokalen Einstellungen noch existieren.
 
 Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 
 ## Lokaler Netzwerk-Sync
 
 - Aktueller Zielweg ist der lokale Netzwerk-Sync mit manuell gestartetem Desktop-Testdienst.
-- Der aktuelle Bedienweg zeigt keinen Pairing-Code und keine Live-Datei-/OneDrive-Kopplung.
+- Der aktuelle Bedienweg zeigt keinen Pairing-Code und keine Live-Datei-/Cloud-/Datei-Kopplung.
 - Das iPad prueft den Desktop per lokaler Adresse oder findet ihn per Bonjour/mDNS, falls verfuegbar.
 - Manuelle IP-Eingabe bleibt der Fallback.
 - Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Testdienst darf ohne Bonjour laufen.

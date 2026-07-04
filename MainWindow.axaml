@@ -1148,21 +1148,21 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="14" IsVisible="{Binding IsSettingsDataSyncOpen}">
-                <TextBlock Text="Zentrale Datenquelle ist BueroCockpit_Daten. iCloud-Live ist Legacy/Übergang und keine aktive Hauptdatenquelle mehr."
+                <TextBlock Text="BüroCockpit arbeitet mit lokalen Daten. iPad und Desktop werden künftig ausschließlich über den lokalen Netzwerk-Sync verbunden; aktuell ist noch kein echter Sync aktiv."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" />
                 <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Arbeitsordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AppDataDirectory}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="OneDrive-Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Datenordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OneDriveEditDirectory}" IsVisible="{Binding HasOneDriveEditDirectory}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="1" Grid.Column="1" Text="Noch kein OneDrive-Datenordner gewählt." IsVisible="{Binding HasNoOneDriveEditDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="Noch kein Datenordner gewählt." IsVisible="{Binding HasNoOneDriveEditDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="SyncRoot" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IpadSyncRootDirectory}" IsVisible="{Binding HasIpadSyncRootDirectory}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="2" Grid.Column="1" Text="SyncRoot wird aus dem OneDrive-Datenordner abgeleitet." IsVisible="{Binding HasNoIpadSyncRootDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="SyncRoot wird aus dem Datenordner abgeleitet." IsVisible="{Binding HasNoIpadSyncRootDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                 </Grid>
                 <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                  <Button Content="OneDrive-Datenordner auswählen"
+                  <Button Content="Datenordner auswählen"
                           Click="MigrateStorageLocation_OnClick"
                           Classes="Primary"
                           Margin="0,0,-2,-2" />
@@ -1181,35 +1181,6 @@
                   <Button Content="Datenordner auswählen" Click="SelectOneDriveFolder_OnClick" />
                   <Button Grid.Column="1" Content="Datenordner öffnen" Click="OpenOneDriveFolder_OnClick" />
                 </Grid>
-                <Button Content="iPad-Sync + Vollsnapshot jetzt aktualisieren"
-                        Click="RefreshIpadSnapshot_OnClick"
-                        HorizontalAlignment="Left" />
-                <StackPanel Spacing="8">
-                  <TextBlock Text="Legacy / Übergang: iPad-Live-Datei" FontSize="15" FontWeight="SemiBold" />
-                  <TextBlock Text="Legacy/Übergang: iCloud-Live wird nicht mehr als zentrale Hauptlösung weiterentwickelt."
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
-                  <TextBlock Text="Aktueller Zielweg: manueller lokaler Netzwerk-Sync zwischen iPad und BüroCockpit-Desktop im Firmennetz."
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
-                  <TextBlock Text="IpadLiveFileTargetPath bleibt als Übergangseinstellung erhalten."
-                             Foreground="{DynamicResource TextTertiaryBrush}"
-                             FontSize="12"
-                             TextWrapping="Wrap" />
-                  <TextBlock Text="Aktueller Zielordner" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Text="{Binding IpadLiveFileTargetFolder}" IsVisible="{Binding HasIpadLiveFileTargetPath}" TextWrapping="Wrap" />
-                  <TextBlock Text="Kein Zielordner eingerichtet" IsVisible="{Binding HasNoIpadLiveFileTargetPath}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <TextBlock Text="Dateiname: live.bclive" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Text="{Binding IpadLiveFileTargetPath}" IsVisible="{Binding HasIpadLiveFileTargetPath}" TextWrapping="Wrap" />
-                  <TextBlock Text="live.bclive" IsVisible="{Binding HasNoIpadLiveFileTargetPath}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <WrapPanel Orientation="Horizontal">
-                    <Button Content="Zielordner auswählen" Click="SelectIpadLiveFileTarget_OnClick" Margin="0,0,10,8" />
-                    <Button Content="Jetzt Live-Datei schreiben" Click="WriteIpadLiveFile_OnClick" Margin="0,0,10,8" />
-                    <Button Content="Legacy-Sync-Ordner prüfen" Click="CheckRecommendedIpadLiveFolder_OnClick" Margin="0,0,0,8" />
-                  </WrapPanel>
-                </StackPanel>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -1444,9 +1415,9 @@
                   <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LockPath}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="6" Grid.Column="0" Text="SaveNow-Ziel" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding IpadSyncRootDirectory}" IsVisible="{Binding HasIpadSyncRootDirectory}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="6" Grid.Column="1" Text="Kein OneDrive-Datenordner gewählt." IsVisible="{Binding HasNoIpadSyncRootDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="6" Grid.Column="1" Text="Kein Datenordner gewählt." IsVisible="{Binding HasNoIpadSyncRootDirectory}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                 </Grid>
-                <TextBlock Text="SyncRoot wird aus BueroCockpit_Daten abgeleitet; live.bclive ist eine Übergangsdatei unter Sync/live.bclive. Es gibt keine stille Live-Aktualisierung."
+                <TextBlock Text="Lokaler Netzwerk-Sync ist vorbereitet. Es gibt aktuell keine stille Hintergrundaktualisierung und keinen echten Produktivdaten-Sync."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" />
                 <TextBlock Text="{Binding FilePathCheckStatus}" IsVisible="{Binding HasFilePathCheckStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
