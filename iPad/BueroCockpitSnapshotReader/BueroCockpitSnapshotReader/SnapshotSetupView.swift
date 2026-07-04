@@ -10,6 +10,8 @@ struct SnapshotSetupView: View {
     let statusMessage: String?
     let localNetworkDesktopAutoCheckMessage: String?
     let localNetworkDesktopAddress: String
+    let localNetworkDesktopLastSuccessfulCheckText: String?
+    let localNetworkDesktopStoredStatus: String?
     let mobileInboxFolderPath: String?
     let mobileInboxMessage: String?
     let isWorking: Bool
@@ -19,8 +21,10 @@ struct SnapshotSetupView: View {
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
     let onTestLocalNetworkDesktopService: (String) -> Void
+    let onUseLocalNetworkDesktop: (String) -> Void
     let onStartLocalNetworkDesktopAutoCheck: (String) -> Void
     let onStopLocalNetworkDesktopAutoCheck: () -> Void
+    let onLocalNetworkDesktopAddressChanged: (String) -> Void
     let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
 
@@ -39,6 +43,8 @@ struct SnapshotSetupView: View {
         statusMessage: String?,
         localNetworkDesktopAutoCheckMessage: String?,
         localNetworkDesktopAddress: String,
+        localNetworkDesktopLastSuccessfulCheckText: String?,
+        localNetworkDesktopStoredStatus: String?,
         mobileInboxFolderPath: String?,
         mobileInboxMessage: String?,
         isWorking: Bool,
@@ -48,8 +54,10 @@ struct SnapshotSetupView: View {
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
         onTestLocalNetworkDesktopService: @escaping (String) -> Void,
+        onUseLocalNetworkDesktop: @escaping (String) -> Void,
         onStartLocalNetworkDesktopAutoCheck: @escaping (String) -> Void,
         onStopLocalNetworkDesktopAutoCheck: @escaping () -> Void,
+        onLocalNetworkDesktopAddressChanged: @escaping (String) -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
     ) {
@@ -62,6 +70,8 @@ struct SnapshotSetupView: View {
         self.statusMessage = statusMessage
         self.localNetworkDesktopAutoCheckMessage = localNetworkDesktopAutoCheckMessage
         self.localNetworkDesktopAddress = localNetworkDesktopAddress
+        self.localNetworkDesktopLastSuccessfulCheckText = localNetworkDesktopLastSuccessfulCheckText
+        self.localNetworkDesktopStoredStatus = localNetworkDesktopStoredStatus
         self.mobileInboxFolderPath = mobileInboxFolderPath
         self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
@@ -71,8 +81,10 @@ struct SnapshotSetupView: View {
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
         self.onTestLocalNetworkDesktopService = onTestLocalNetworkDesktopService
+        self.onUseLocalNetworkDesktop = onUseLocalNetworkDesktop
         self.onStartLocalNetworkDesktopAutoCheck = onStartLocalNetworkDesktopAutoCheck
         self.onStopLocalNetworkDesktopAutoCheck = onStopLocalNetworkDesktopAutoCheck
+        self.onLocalNetworkDesktopAddressChanged = onLocalNetworkDesktopAddressChanged
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
         _selectedProvider = State(initialValue: currentProvider)
@@ -172,6 +184,7 @@ struct SnapshotSetupView: View {
                 localNetworkDesktopAddressInput = address
             }
             .onChange(of: localNetworkDesktopAddressInput) { _, address in
+                onLocalNetworkDesktopAddressChanged(address)
                 guard isLocalNetworkSyncVisible else { return }
                 onStartLocalNetworkDesktopAutoCheck(address)
             }
@@ -223,6 +236,28 @@ struct SnapshotSetupView: View {
                 .buttonStyle(.bordered)
                 .disabled(isWorking)
 
+                if canUseLocalNetworkDesktop {
+                    Button("Diesen Desktop verwenden") {
+                        onUseLocalNetworkDesktop(localNetworkDesktopAddressInput)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isWorking)
+                }
+
+                if let localNetworkDesktopLastSuccessfulCheckText {
+                    Label("Letzte erfolgreiche Prüfung: \(localNetworkDesktopLastSuccessfulCheckText)", systemImage: "checkmark.circle")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let localNetworkDesktopStoredStatus, !localNetworkDesktopStoredStatus.isEmpty {
+                    Label(localNetworkDesktopStoredStatus, systemImage: "desktopcomputer")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 if let localNetworkDesktopAutoCheckMessage, !localNetworkDesktopAutoCheckMessage.isEmpty {
                     Label(localNetworkDesktopAutoCheckMessage, systemImage: "clock.arrow.circlepath")
                         .font(.callout)
@@ -264,15 +299,31 @@ struct SnapshotSetupView: View {
         }
     }
 
+    private var canUseLocalNetworkDesktop: Bool {
+        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
+            return true
+        }
+
+        let trimmedStatus = statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedStatus.isEmpty &&
+            localNetworkDesktopLastSuccessfulCheckText != nil &&
+            localNetworkDesktopStoredStatus != "lokaler Desktop vorgemerkt"
+    }
+
     private var localNetworkDesktopStatusText: String {
         let trimmedStatus = statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if trimmedStatus.hasPrefix("Desktop-Testdienst") ||
             trimmedStatus == "Prüfung läuft …" ||
-            trimmedStatus == "Bitte Desktop-Adresse oder IP eintragen." {
+            trimmedStatus == "Bitte Desktop-Adresse oder IP eintragen." ||
+            trimmedStatus == "Lokaler Desktop vorgemerkt" ||
+            trimmedStatus == "Bereit zur Prüfung" {
             return trimmedStatus
         }
         if localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Desktop-Adresse fehlt"
+        }
+        if localNetworkDesktopStoredStatus == "lokaler Desktop vorgemerkt" {
+            return "lokaler Desktop vorgemerkt"
         }
         return "Bereit zur Prüfung"
     }
@@ -281,6 +332,10 @@ struct SnapshotSetupView: View {
         if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
             return "checkmark.circle"
         }
+        if localNetworkDesktopStatusText == "lokaler Desktop vorgemerkt" ||
+            localNetworkDesktopStatusText == "Lokaler Desktop vorgemerkt" {
+            return "desktopcomputer"
+        }
         if localNetworkDesktopStatusText == "Prüfung läuft …" {
             return "clock.arrow.circlepath"
         }
@@ -288,7 +343,9 @@ struct SnapshotSetupView: View {
     }
 
     private var localNetworkDesktopStatusColor: Color {
-        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
+        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" ||
+            localNetworkDesktopStatusText == "lokaler Desktop vorgemerkt" ||
+            localNetworkDesktopStatusText == "Lokaler Desktop vorgemerkt" {
             return .green
         }
         if localNetworkDesktopStatusText.hasPrefix("Desktop-Testdienst nicht erreichbar") ||

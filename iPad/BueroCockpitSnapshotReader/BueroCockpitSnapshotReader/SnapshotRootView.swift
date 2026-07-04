@@ -228,6 +228,8 @@ struct SnapshotRootView: View {
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
             localNetworkDesktopAutoCheckMessage: viewModel.localNetworkDesktopAutoCheckMessage,
             localNetworkDesktopAddress: viewModel.localNetworkDesktopAddress,
+            localNetworkDesktopLastSuccessfulCheckText: viewModel.localNetworkDesktopLastSuccessfulCheckText,
+            localNetworkDesktopStoredStatus: viewModel.localNetworkDesktopStatus,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
@@ -253,11 +255,17 @@ struct SnapshotRootView: View {
             onTestLocalNetworkDesktopService: { address in
                 viewModel.testLocalNetworkDesktopService(address: address)
             },
+            onUseLocalNetworkDesktop: { address in
+                viewModel.markLocalNetworkDesktopAsPreferred(address: address)
+            },
             onStartLocalNetworkDesktopAutoCheck: { address in
                 viewModel.startLocalNetworkDesktopAutoCheck(address: address)
             },
             onStopLocalNetworkDesktopAutoCheck: {
                 viewModel.stopLocalNetworkDesktopAutoCheck()
+            },
+            onLocalNetworkDesktopAddressChanged: { address in
+                viewModel.resetLocalNetworkDesktopPreferenceIfAddressChanged(address: address)
             },
             onSelectMobileInboxFolder: {
                 if presentedSheet != nil {

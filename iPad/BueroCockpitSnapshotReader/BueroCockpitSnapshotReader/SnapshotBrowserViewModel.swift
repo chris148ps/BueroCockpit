@@ -243,6 +243,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.desktopPort ?? localNetworkDesktopTestPort
     }
 
+    var localNetworkDesktopLastSuccessfulCheckText: String? {
+        guard let date = syncSettings.localNetworkDesktop.lastSuccessfulCheckAt else {
+            return nil
+        }
+        return Self.formatSyncDate(date)
+    }
+
+    var localNetworkDesktopStatus: String? {
+        syncSettings.localNetworkDesktop.localDesktopStatus
+    }
+
     var isLocalNetworkPairingPrepared: Bool {
         !localNetworkPairingCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -417,7 +428,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     port: localNetworkDesktopTestPort
                 )
                 if response.isExpectedPairingTestStatus {
-                    saveSuccessfulLocalNetworkDesktopStatus(address: normalizedAddress)
+                    saveSuccessfulLocalNetworkDesktopCheck(address: normalizedAddress)
                     syncStatusMessage = "Desktop-Testdienst erreichbar"
                 } else {
                     syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
@@ -466,6 +477,42 @@ final class SnapshotBrowserViewModel: ObservableObject {
         localNetworkDesktopAutoCheckTask?.cancel()
         localNetworkDesktopAutoCheckTask = nil
         localNetworkDesktopAutoCheckMessage = nil
+    }
+
+    func markLocalNetworkDesktopAsPreferred(address: String) {
+        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedAddress.isEmpty else {
+            syncStatusMessage = "Bitte Desktop-Adresse oder IP eintragen."
+            return
+        }
+
+        var settings = syncSettings
+        settings.localNetworkDesktop.desktopAddress = normalizedAddress
+        settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
+        settings.localNetworkDesktop.localDesktopStatus = "lokaler Desktop vorgemerkt"
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+        syncStatusMessage = "Lokaler Desktop vorgemerkt"
+    }
+
+    func resetLocalNetworkDesktopPreferenceIfAddressChanged(address: String) {
+        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedAddress != (syncSettings.localNetworkDesktop.desktopAddress ?? "") else {
+            return
+        }
+        guard syncSettings.localNetworkDesktop.lastSuccessfulCheckAt != nil ||
+            syncSettings.localNetworkDesktop.localDesktopStatus != nil else {
+            return
+        }
+
+        var settings = syncSettings
+        settings.localNetworkDesktop.desktopAddress = normalizedAddress.isEmpty ? nil : normalizedAddress
+        settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
+        settings.localNetworkDesktop.lastSuccessfulCheckAt = nil
+        settings.localNetworkDesktop.localDesktopStatus = nil
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+        syncStatusMessage = normalizedAddress.isEmpty ? "Desktop-Adresse fehlt" : "Bereit zur Prüfung"
     }
 
     func importICloudSnapshot(from sourceURL: URL) {
@@ -1016,7 +1063,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 port: localNetworkDesktopTestPort
             )
             if response.isExpectedPairingTestStatus {
-                saveSuccessfulLocalNetworkDesktopStatus(address: address)
+                saveSuccessfulLocalNetworkDesktopCheck(address: address)
                 syncStatusMessage = "Desktop-Testdienst erreichbar"
             } else {
                 syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
@@ -1026,10 +1073,12 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
     }
 
-    private func saveSuccessfulLocalNetworkDesktopStatus(address: String) {
+    private func saveSuccessfulLocalNetworkDesktopCheck(address: String) {
         var settings = syncSettings
         settings.localNetworkDesktop.desktopAddress = address
         settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
+        settings.localNetworkDesktop.lastSuccessfulCheckAt = Date()
+        settings.localNetworkDesktop.localDesktopStatus = nil
         syncSettings = settings
         syncSettingsStore.save(settings)
     }
