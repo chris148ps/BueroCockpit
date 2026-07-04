@@ -31,10 +31,10 @@ struct SnapshotStartView: View {
                             .foregroundStyle(.blue)
                             .padding(.bottom, 6)
 
-                        Text("BüroCockpit")
+                        Text("BüroCockpit iPad")
                             .font(.largeTitle.bold())
 
-                        Text(statusTitle)
+                        Text("Lokaler Netzwerk-Sync in Vorbereitung")
                             .font(.title2.weight(.semibold))
                             .multilineTextAlignment(.center)
 
@@ -48,13 +48,13 @@ struct SnapshotStartView: View {
                         }
 
                         VStack(spacing: 10) {
-                            Text("Die App arbeitet nur lesend. Sie zeigt Snapshot-Dateien an, schreibt aber nichts zurück.")
+                            Text("Desktop im lokalen Netzwerk suchen oder IP manuell eingeben.")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: 540)
 
-                            Text("Wählen Sie Sync/live.bclive aus. Die Datei wird lokal in die App kopiert und dann gelesen. Eine .bcsnapshot-Datei bleibt als manueller Fallback verfügbar.")
+                            Text("Noch kein echter Sync aktiv. Der Desktop-Testdienst muss in BüroCockpit manuell gestartet sein.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)

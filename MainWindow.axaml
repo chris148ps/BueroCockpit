@@ -1223,7 +1223,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="8" IsVisible="{Binding IsSettingsLocalNetworkSyncOpen}">
-                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="Bonjour" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
@@ -1269,7 +1269,29 @@
                   <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding LocalNetworkSyncTestServiceAddressText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="10" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <Button Grid.Row="11" Grid.Column="1"
+                  <TextBlock Grid.Row="11" Grid.Column="0" Text="Vorgemerkte iPads" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <StackPanel Grid.Row="11" Grid.Column="1" Spacing="6">
+                    <TextBlock Text="Noch kein echter Sync aktiv." Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="Noch kein iPad vorgemerkt."
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasNoLocalNetworkRememberedDevices}" />
+                    <ItemsControl ItemsSource="{Binding LocalNetworkRememberedDevices}" IsVisible="{Binding HasLocalNetworkRememberedDevices}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="3" ColumnSpacing="12">
+                              <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DeviceName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Platform}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                              <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding LastSeenText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                              <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                  <Button Grid.Row="12" Grid.Column="1"
                           Content="Lokal speichern"
                           HorizontalAlignment="Left"
                           Click="SaveLocalNetworkSyncSettings_OnClick" />

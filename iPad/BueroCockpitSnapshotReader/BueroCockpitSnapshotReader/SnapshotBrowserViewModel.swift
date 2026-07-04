@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class SnapshotBrowserViewModel: ObservableObject {
@@ -484,14 +485,36 @@ final class SnapshotBrowserViewModel: ObservableObject {
             return
         }
 
+        let deviceId = ensureLocalNetworkIpadIdentity()
+        let deviceName = Self.currentIpadDeviceName()
         var settings = syncSettings
         settings.localNetworkDesktop.desktopAddress = normalizedAddress
         settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
         settings.localNetworkDesktop.localDesktopStatus = "Lokaler Desktop vorgemerkt"
         settings.localNetworkDesktop.lastSuccessfulCheckAt = settings.localNetworkDesktop.lastSuccessfulCheckAt ?? Date()
+        settings.localNetworkDesktop.ipadDeviceId = deviceId
+        settings.localNetworkDesktop.ipadDeviceName = deviceName
+        settings.localNetworkDesktop.ipadPlatform = "iPadOS"
         syncSettings = settings
         syncSettingsStore.save(settings)
         syncStatusMessage = "Lokaler Desktop vorgemerkt"
+
+        Task {
+            do {
+                let response = try await Self.rememberIpadAtDesktop(
+                    address: normalizedAddress,
+                    port: localNetworkDesktopTestPort,
+                    deviceId: deviceId,
+                    deviceName: deviceName,
+                    appVersion: Self.currentAppVersion()
+                )
+                syncStatusMessage = response.isExpectedRememberResponse
+                    ? "Desktop vorgemerkt, iPad am Desktop registriert."
+                    : "Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich."
+            } catch {
+                syncStatusMessage = "Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich."
+            }
+        }
     }
 
     func resetLocalNetworkDesktopPreferenceIfAddressChanged(address: String) {
@@ -1039,6 +1062,79 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return try JSONDecoder().decode(LocalNetworkDesktopStatusResponse.self, from: data)
     }
 
+    nonisolated private static func rememberIpadAtDesktop(
+        address: String,
+        port: Int,
+        deviceId: String,
+        deviceName: String,
+        appVersion: String?
+    ) async throws -> LocalNetworkDesktopRememberResponse {
+        guard !address.contains("/"),
+              !address.contains(":"),
+              !address.contains("?") else {
+            throw SnapshotSyncError.invalidHTTPResponse
+        }
+
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = address
+        components.port = port
+        components.path = "/local-sync/devices/remember"
+
+        guard let url = components.url else {
+            throw SnapshotSyncError.invalidHTTPResponse
+        }
+
+        let payload = LocalNetworkDeviceRememberPayload(
+            deviceId: deviceId,
+            deviceName: deviceName,
+            platform: "iPadOS",
+            appVersion: appVersion,
+            lastSeenUtc: Date()
+        )
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 5
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        request.httpBody = try encoder.encode(payload)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SnapshotSyncError.invalidHTTPResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw SnapshotSyncError.httpStatus(httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(LocalNetworkDesktopRememberResponse.self, from: data)
+    }
+
+    private func ensureLocalNetworkIpadIdentity() -> String {
+        if let existing = syncSettings.localNetworkDesktop.ipadDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !existing.isEmpty {
+            return existing
+        }
+
+        let deviceId = "ipad-\(UUID().uuidString.lowercased())"
+        var settings = syncSettings
+        settings.localNetworkDesktop.ipadDeviceId = deviceId
+        settings.localNetworkDesktop.ipadDeviceName = Self.currentIpadDeviceName()
+        settings.localNetworkDesktop.ipadPlatform = "iPadOS"
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+        return deviceId
+    }
+
+    private static func currentIpadDeviceName() -> String {
+        let name = UIDevice.current.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "iPad" : name
+    }
+
+    private static func currentAppVersion() -> String? {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+    }
+
     private func runLocalNetworkDesktopAutoCheck(address: String) async {
         guard !isLocalNetworkDesktopServiceCheckRunning else { return }
         isLocalNetworkDesktopServiceCheckRunning = true
@@ -1208,5 +1304,26 @@ private struct LocalNetworkDesktopStatusResponse: Decodable, Sendable {
         app == "BueroCockpit" &&
         status == "ok" &&
         (mode == "local-network-test" || mode == "pairing-test")
+    }
+}
+
+private struct LocalNetworkDeviceRememberPayload: Encodable, Sendable {
+    let deviceId: String
+    let deviceName: String
+    let platform: String
+    let appVersion: String?
+    let lastSeenUtc: Date
+}
+
+private struct LocalNetworkDesktopRememberResponse: Decodable, Sendable {
+    let app: String
+    let status: String
+    let mode: String
+    let message: String?
+
+    var isExpectedRememberResponse: Bool {
+        app == "BueroCockpit" &&
+        status == "ok" &&
+        mode == "local-network-test"
     }
 }

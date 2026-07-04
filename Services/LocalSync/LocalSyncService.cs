@@ -10,6 +10,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private const string ListenerHost = "*";
     private readonly object _gate = new();
     private readonly LocalSyncOptions _options;
+    private readonly LocalNetworkDeviceStore _deviceStore;
     private LocalSyncState _state;
     private string? _lastMessage;
     private HttpListener? _listener;
@@ -17,9 +18,12 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private Task? _listenerTask;
     private LocalBonjourService? _bonjourService;
 
-    public LocalSyncService(LocalSyncOptions options)
+    public event EventHandler<LocalNetworkRememberedDevice>? DeviceRemembered;
+
+    public LocalSyncService(LocalSyncOptions options, LocalNetworkDeviceStore? deviceStore = null)
     {
         _options = options;
+        _deviceStore = deviceStore ?? new LocalNetworkDeviceStore();
         _state = options.Enabled ? LocalSyncState.Stopped : LocalSyncState.Disabled;
         _lastMessage = options.Enabled
             ? "Lokaler Netzwerk-Sync ist vorbereitet, aber nicht gestartet."
@@ -226,16 +230,23 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 break;
             }
 
-            _ = Task.Run(() => WriteStatusResponseAsync(context), CancellationToken.None);
+            _ = Task.Run(() => HandleRequestAsync(context), CancellationToken.None);
         }
     }
 
-    private async Task WriteStatusResponseAsync(HttpListenerContext context)
+    private async Task HandleRequestAsync(HttpListenerContext context)
     {
         var path = context.Request.Url?.AbsolutePath ?? string.Empty;
-        if (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(path, "/local-sync/status", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(path, "/pairing/status", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(path, "/local-sync/devices/remember", StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteRememberDeviceResponseAsync(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
+            || (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(path, "/local-sync/status", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(path, "/pairing/status", StringComparison.OrdinalIgnoreCase)))
         {
             context.Response.StatusCode = 404;
             await WriteJsonAsync(context.Response, new { error = "not-found" }).ConfigureAwait(false);
@@ -251,6 +262,54 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 status = "ok",
                 mode = "local-network-test",
                 version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion
+            }).ConfigureAwait(false);
+    }
+
+    private async Task WriteRememberDeviceResponseAsync(HttpListenerContext context)
+    {
+        if (!string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 405;
+            await WriteJsonAsync(context.Response, new { error = "method-not-allowed" }).ConfigureAwait(false);
+            return;
+        }
+
+        LocalNetworkDeviceRememberRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync<LocalNetworkDeviceRememberRequest>(
+                context.Request.InputStream,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }).ConfigureAwait(false);
+        }
+        catch (JsonException)
+        {
+            context.Response.StatusCode = 400;
+            await WriteJsonAsync(context.Response, new { error = "invalid-json" }).ConfigureAwait(false);
+            return;
+        }
+
+        if (request is null
+            || string.IsNullOrWhiteSpace(request.DeviceId)
+            || string.IsNullOrWhiteSpace(request.DeviceName)
+            || string.IsNullOrWhiteSpace(request.Platform))
+        {
+            context.Response.StatusCode = 400;
+            await WriteJsonAsync(context.Response, new { error = "invalid-device" }).ConfigureAwait(false);
+            return;
+        }
+
+        var rememberedDevice = _deviceStore.Remember(request, context.Request.RemoteEndPoint?.Address.ToString());
+        DeviceRemembered?.Invoke(this, rememberedDevice);
+
+        context.Response.StatusCode = 200;
+        await WriteJsonAsync(
+            context.Response,
+            new
+            {
+                app = _options.AppName,
+                status = "ok",
+                mode = "local-network-test",
+                message = "Gerät vorgemerkt"
             }).ConfigureAwait(false);
     }
 

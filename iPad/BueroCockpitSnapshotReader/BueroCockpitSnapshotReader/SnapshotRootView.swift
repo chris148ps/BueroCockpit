@@ -431,23 +431,19 @@ struct SnapshotRootView: View {
                 title: "Keine Daten gefunden",
                 message: message,
                 systemImage: "tray",
-                primaryButtonTitle: "Live-Datei importieren",
-                primaryAction: openPackagePicker,
-                secondaryButtonTitle: "Live-Ordner auswählen",
-                secondaryAction: openFolderPicker,
-                tertiaryButtonTitle: "metadata.json auswählen",
-                tertiaryAction: openMetadataPicker
+                primaryButtonTitle: "Sync-Einstellungen",
+                primaryAction: { presentedSheet = .settings },
+                secondaryButtonTitle: "Legacy-Archiv importieren",
+                secondaryAction: openPackagePicker
             )
         case .failure(let message):
             SnapshotErrorView(
                 title: "Snapshot konnte nicht gelesen werden",
                 message: message,
-                primaryButtonTitle: "Live-Datei importieren",
-                primaryAction: openPackagePicker,
-                secondaryButtonTitle: "Live-Ordner auswählen",
-                secondaryAction: openFolderPicker,
-                tertiaryButtonTitle: "metadata.json auswählen",
-                tertiaryAction: openMetadataPicker
+                primaryButtonTitle: "Sync-Einstellungen",
+                primaryAction: { presentedSheet = .settings },
+                secondaryButtonTitle: "Legacy-Archiv importieren",
+                secondaryAction: openPackagePicker
             )
         case .ready:
             if viewModel.filteredTasks.isEmpty {
@@ -457,8 +453,8 @@ struct SnapshotRootView: View {
                         ? "Keine Aufträge im aktuellen Snapshot."
                         : "Keine passenden Aufträge gefunden.",
                     systemImage: viewModel.tasks.isEmpty ? "tray" : "magnifyingglass",
-                    primaryButtonTitle: "Live-Datei erneut importieren",
-                    primaryAction: openPackagePicker
+                    primaryButtonTitle: "Sync-Einstellungen",
+                    primaryAction: { presentedSheet = .settings }
                 )
                 .navigationTitle(viewModel.selectedCategoryTitle)
             } else {
@@ -473,15 +469,13 @@ struct SnapshotRootView: View {
             }
         case .idle:
             SnapshotEmptyStateView(
-                title: "Live-Sync auswählen",
-                message: "Wählen Sie Sync/live.bclive aus. Die Datei wird lokal in die App kopiert und dann gelesen.",
+                title: "Lokaler Netzwerk-Sync in Vorbereitung",
+                message: "Desktop im lokalen Netzwerk suchen oder IP manuell eingeben. Noch kein echter Sync aktiv.",
                 systemImage: "folder",
-                primaryButtonTitle: "Live-Datei importieren",
-                primaryAction: openPackagePicker,
-                secondaryButtonTitle: "Live-Ordner auswählen",
-                secondaryAction: openFolderPicker,
-                tertiaryButtonTitle: "metadata.json auswählen",
-                tertiaryAction: openMetadataPicker
+                primaryButtonTitle: "Sync-Einstellungen",
+                primaryAction: { presentedSheet = .settings },
+                secondaryButtonTitle: "Legacy-Archiv importieren",
+                secondaryAction: openPackagePicker
             )
         }
     }
@@ -574,14 +568,12 @@ struct SnapshotRootView: View {
         case .idle:
             SnapshotEmptyStateView(
                 title: "BüroCockpit",
-                message: "Wählen Sie Sync/live.bclive aus. Die Datei wird lokal in die App kopiert und dann gelesen. Die App arbeitet nur lesend.",
+                message: "Lokaler Netzwerk-Sync ist in Vorbereitung. Noch kein echter Sync aktiv.",
                 systemImage: "tray.full",
-                primaryButtonTitle: "Live-Datei importieren",
-                primaryAction: openPackagePicker,
-                secondaryButtonTitle: "Live-Ordner auswählen",
-                secondaryAction: openFolderPicker,
-                tertiaryButtonTitle: "metadata.json auswählen",
-                tertiaryAction: openMetadataPicker
+                primaryButtonTitle: "Sync-Einstellungen",
+                primaryAction: { presentedSheet = .settings },
+                secondaryButtonTitle: "Legacy-Archiv importieren",
+                secondaryAction: openPackagePicker
             )
         case .loading:
             ProgressView("Snapshot wird geladen …")
@@ -591,23 +583,19 @@ struct SnapshotRootView: View {
                 title: "Keine Daten gefunden",
                 message: message,
                 systemImage: "tray",
-                primaryButtonTitle: "Live-Datei importieren",
-                primaryAction: openPackagePicker,
-                secondaryButtonTitle: "Live-Ordner auswählen",
-                secondaryAction: openFolderPicker,
-                tertiaryButtonTitle: "metadata.json auswählen",
-                tertiaryAction: openMetadataPicker
+                primaryButtonTitle: "Sync-Einstellungen",
+                primaryAction: { presentedSheet = .settings },
+                secondaryButtonTitle: "Legacy-Archiv importieren",
+                secondaryAction: openPackagePicker
             )
         case .failure(let message):
             SnapshotErrorView(
                 title: "Snapshot konnte nicht gelesen werden",
                 message: message,
-                primaryButtonTitle: "Live-Datei importieren",
-                primaryAction: openPackagePicker,
-                secondaryButtonTitle: "Live-Ordner auswählen",
-                secondaryAction: openFolderPicker,
-                tertiaryButtonTitle: "metadata.json auswählen",
-                tertiaryAction: openMetadataPicker
+                primaryButtonTitle: "Sync-Einstellungen",
+                primaryAction: { presentedSheet = .settings },
+                secondaryButtonTitle: "Legacy-Archiv importieren",
+                secondaryAction: openPackagePicker
             )
         }
     }
@@ -615,7 +603,7 @@ struct SnapshotRootView: View {
     private func openFolderPicker() {
         presentImporter(
             mode: .folder,
-            statusMessage: "Live-Ordnerauswahl wird geöffnet …"
+            statusMessage: "Legacy-Ordnerauswahl wird geöffnet …"
         )
     }
 
@@ -644,7 +632,7 @@ struct SnapshotRootView: View {
     private func openPackagePicker() {
         presentImporter(
             mode: .package,
-            statusMessage: "Live-Dateiimport wird geöffnet …"
+            statusMessage: "Legacy-Import wird geöffnet …"
         )
     }
 

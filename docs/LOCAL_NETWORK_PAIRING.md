@@ -12,6 +12,8 @@ Dieses Dokument beschreibt den aktuellen Bedien- und Zielweg fuer den lokalen Ne
 4. Das iPad sucht den Desktop per Bonjour/mDNS, falls verfuegbar.
 5. Das iPad kann den Desktop jederzeit manuell ueber Desktop-Adresse/IP pruefen.
 6. Ein erfolgreich gepruefter Desktop kann auf dem iPad als lokaler Sync-Partner vorgemerkt werden.
+7. Das iPad registriert sich danach beim Desktop-Testdienst als vorgemerktes lokales Geraet.
+8. Der Desktop zeigt vorgemerkte iPads im Bereich `Lokaler Netzwerk-Sync`.
 
 In diesem Stand gibt es noch keinen echten Sync, keinen Kopplungsabschluss und keine Produktivdatenuebertragung.
 
@@ -31,6 +33,7 @@ Der Testdienst stellt nur harmlose Statusendpunkte bereit:
 ```text
 GET /health
 GET /local-sync/status
+POST /local-sync/devices/remember
 ```
 
 `/pairing/status` bleibt nur als tolerierter Alt-Endpunkt erhalten, damit vorhandene Testclients nicht hart brechen. Der aktuelle iPad-Bedienweg nutzt `/local-sync/status`.
@@ -48,6 +51,33 @@ Beispielantwort:
 
 Die Antwort enthaelt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten.
 
+`POST /local-sync/devices/remember` nimmt nur lokale iPad-Metadaten entgegen:
+
+```json
+{
+  "deviceId": "...",
+  "deviceName": "...",
+  "platform": "iPadOS",
+  "appVersion": "...",
+  "lastSeenUtc": "..."
+}
+```
+
+Die Antwort lautet:
+
+```json
+{
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "local-network-test",
+  "message": "Gerät vorgemerkt"
+}
+```
+
+Die Speicherung erfolgt ausschliesslich lokal unter `BueroCockpitLocal/local-network-devices.json`. Eintraege mit gleicher `deviceId` werden aktualisiert statt dupliziert. Die zentrale `settings.json` und Produktivdaten bleiben unangetastet.
+
+Der Desktop-Bereich zeigt `vorgemerkte iPads / lokale Geraete`, den Geraetenamen, die Plattform, den letzten Kontakt und den Status `vorgemerkt, Sync noch nicht aktiv`. Wenn noch kein Geraet vorhanden ist, steht dort `Noch kein iPad vorgemerkt.`.
+
 ## iPad
 
 Der iPad-Bereich `Lokaler Netzwerk-Sync` zeigt:
@@ -60,6 +90,7 @@ Der iPad-Bereich `Lokaler Netzwerk-Sync` zeigt:
 - Status `Lokaler Desktop vorgemerkt`.
 - letzte erfolgreiche Pruefung.
 - getrennte Meldungen fuer Bonjour-Suche und manuelle Verbindung.
+- Registrierungsstatus nach `Diesen Desktop verwenden`.
 
 Ein manuell oder ueber die sichtbare Desktop-Liste vorgemerkter Desktop wird lokal in den iPad-Settings gespeichert:
 
@@ -74,6 +105,8 @@ Wenn Bonjour keinen weiteren Desktop findet, aber bereits eine manuelle Adresse 
 
 - `Automatische Suche hat aktuell keinen Desktop gefunden.`
 - oder bei fehlendem Bonjour: `Bonjour-Suche nicht verfuegbar; manuelle Adresse wird verwendet`
+
+Beim Tippen auf `Diesen Desktop verwenden` speichert das iPad zuerst lokal den vorgemerkten Desktop. Danach sendet es einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Bei Erfolg zeigt die App `Desktop vorgemerkt, iPad am Desktop registriert.`. Wenn der POST fehlschlaegt, bleibt der lokale Desktop vorgemerkt und die App zeigt `Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich.`. Es gibt keinen Hintergrund-Retry und keine Endlosschleife; ein neuer Versuch passiert nur durch erneute Benutzeraktion.
 
 ## Bonjour/mDNS
 

@@ -74,6 +74,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly UpdateService _updateService;
     private readonly AppSettingsService _settingsService;
     private readonly LiveSettingsService _liveSettingsService;
+    private readonly LocalNetworkDeviceStore _localNetworkDeviceStore = new();
     private readonly FileHashService _hashService;
     private readonly IpadSnapshotExportService _ipadSnapshotExportService;
     private readonly MobileInboxLoader _mobileInboxLoader = new();
@@ -240,6 +241,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<TaskItem> FollowUpTasks { get; } = new();
     public ObservableCollection<DeskItem> DeskItems { get; } = new();
     public ObservableCollection<BackupListItem> BackupEntries { get; } = new();
+    public ObservableCollection<LocalNetworkRememberedDeviceListItem> LocalNetworkRememberedDevices { get; } = new();
 
     private DashboardSection _dashboardThisWeekSection = new(
         "Diese Woche",
@@ -911,6 +913,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         : "nicht festgelegt";
     public string LocalNetworkSyncTestServiceAddressText => BuildLocalNetworkSyncTestServiceAddressText();
     public string LocalNetworkSyncHintText => "Das iPad findet diesen Desktop automatisch per Bonjour, falls verfügbar. Auf Windows ist Bonjour/mDNS dafür erforderlich; ohne Bonjour die LAN-Adresse manuell auf dem iPad eintragen. Der Testdienst liefert nur Statusantworten; Sync und Datenübertragung bleiben deaktiviert.";
+    public bool HasLocalNetworkRememberedDevices => LocalNetworkRememberedDevices.Count > 0;
+    public bool HasNoLocalNetworkRememberedDevices => !HasLocalNetworkRememberedDevices;
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
     public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
@@ -1279,6 +1283,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _appSettings = _settingsService.Load();
         EnsureLocalNetworkSyncLocalSettings();
         EnsureLocalNetworkSyncDefaultPort();
+        LoadLocalNetworkRememberedDevices();
         RefreshLocalNetworkSyncEditorFields();
         NormalizeConfiguredOneDriveEditDirectory();
         LoadTechnicianOptions();
@@ -7071,7 +7076,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             DeviceName = _appSettings.LocalNetworkSyncDeviceName,
             DeviceId = _appSettings.LocalNetworkSyncDeviceId,
             AppVersion = _updateService.GetCurrentVersion()
-        });
+        }, _localNetworkDeviceStore);
+        _localNetworkSyncTestService.DeviceRemembered += LocalNetworkSyncTestService_DeviceRemembered;
 
         var status = await _localNetworkSyncTestService.StartAsync();
         LocalNetworkSyncTestServiceStatus = status.Message?.StartsWith("Running:", StringComparison.Ordinal) == true
@@ -7111,6 +7117,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _localNetworkSyncTestService.StopAsync().GetAwaiter().GetResult();
+        _localNetworkSyncTestService.DeviceRemembered -= LocalNetworkSyncTestService_DeviceRemembered;
         _localNetworkSyncTestService = null;
         LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
     }
@@ -7124,6 +7131,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         await _localNetworkSyncTestService.StopAsync();
+        _localNetworkSyncTestService.DeviceRemembered -= LocalNetworkSyncTestService_DeviceRemembered;
         _localNetworkSyncTestService = null;
         LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
     }
@@ -7180,6 +7188,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalNetworkSyncPortText));
         OnPropertyChanged(nameof(LocalNetworkSyncTestServiceAddressText));
         OnPropertyChanged(nameof(LocalNetworkSyncHintText));
+        OnPropertyChanged(nameof(HasLocalNetworkRememberedDevices));
+        OnPropertyChanged(nameof(HasNoLocalNetworkRememberedDevices));
+    }
+
+    private void LocalNetworkSyncTestService_DeviceRemembered(object? sender, LocalNetworkRememberedDevice e)
+    {
+        Dispatcher.UIThread.Post(LoadLocalNetworkRememberedDevices);
+    }
+
+    private void LoadLocalNetworkRememberedDevices()
+    {
+        LocalNetworkRememberedDevices.Clear();
+        foreach (var device in _localNetworkDeviceStore.Load())
+        {
+            LocalNetworkRememberedDevices.Add(LocalNetworkRememberedDeviceListItem.FromDevice(device));
+        }
+
+        OnPropertyChanged(nameof(HasLocalNetworkRememberedDevices));
+        OnPropertyChanged(nameof(HasNoLocalNetworkRememberedDevices));
     }
 
     private string BuildLocalNetworkSyncTestServiceAddressText()
@@ -11321,6 +11348,31 @@ public sealed class DashboardSection
 }
 
 public sealed record TaskUndoSnapshot(TaskItem Task, IReadOnlyList<MaterialItem> Materials, IReadOnlyList<AttachmentItem> Attachments);
+
+public sealed record LocalNetworkRememberedDeviceListItem(
+    string DeviceName,
+    string Platform,
+    string LastSeenText,
+    string StatusText)
+{
+    public static LocalNetworkRememberedDeviceListItem FromDevice(LocalNetworkRememberedDevice device)
+    {
+        var deviceName = string.IsNullOrWhiteSpace(device.DeviceName)
+            ? "Unbenanntes iPad"
+            : device.DeviceName.Trim();
+        var platform = string.IsNullOrWhiteSpace(device.Platform)
+            ? "iPadOS"
+            : device.Platform.Trim();
+        var lastSeen = device.LastSeenUtc == default
+            ? "zuletzt gesehen: unbekannt"
+            : $"zuletzt gesehen: {device.LastSeenUtc.ToLocalTime():dd.MM.yyyy HH:mm}";
+        var status = string.Equals(device.Status, "remembered", StringComparison.OrdinalIgnoreCase)
+            ? "Status: vorgemerkt, Sync noch nicht aktiv"
+            : $"Status: {device.Status}";
+
+        return new LocalNetworkRememberedDeviceListItem(deviceName, platform, lastSeen, status);
+    }
+}
 
 internal sealed record MobileInboxAttachmentSource(string Path, string Kind);
 

@@ -112,60 +112,26 @@ struct SnapshotSetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Sync-Quelle auswählen")
+                        Text("BüroCockpit iPad")
                             .font(.largeTitle.bold())
-                        Text("Wählen Sie aus, wie BüroCockpit die nur lesbare lokale Kopie current.bclive erhält.")
+                        Text("Lokaler Netzwerk-Sync in Vorbereitung")
                             .font(.title3)
                             .foregroundStyle(.secondary)
                     }
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12)], spacing: 12) {
-                        ForEach(SyncProviderType.allCases) { provider in
-                            providerCard(provider)
-                        }
-                    }
-
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label("Aktive Sync-Quelle: \(currentProvider.displayName)", systemImage: currentProvider.systemImage)
-                                .font(.headline)
-
-                            if let lastUpdatedText {
-                                Text(lastUpdatedText)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("Zuletzt aktualisiert: noch nicht verfügbar")
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            if let statusMessage, !statusMessage.isEmpty {
-                                Text("Letzter Status: \(statusMessage)")
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            } else {
-                                Text("Letzter Status: noch nicht verfügbar")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    } label: {
-                        Label("Aktueller Sync", systemImage: "arrow.triangle.2.circlepath")
-                            .font(.headline)
-                    }
-
-                    GroupBox {
-                        assistantContent
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } label: {
-                        Label("Einrichtungsassistent", systemImage: "list.number")
-                            .font(.headline)
-                    }
-
                     GroupBox {
                         localNetworkSyncContent
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        Label("Desktop im lokalen Netzwerk verbinden", systemImage: "network")
+                            .font(.headline)
+                    }
+
+                    GroupBox {
+                        legacySnapshotContent
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } label: {
-                        Label("Lokaler Netzwerk-Sync", systemImage: "network")
+                        Label("Legacy / Nur-Lesen-Snapshot", systemImage: "archivebox")
                             .font(.headline)
                     }
 
@@ -219,15 +185,16 @@ struct SnapshotSetupView: View {
                 .font(.headline)
                 .foregroundStyle(localNetworkDesktopStatusColor)
 
-            Text("Die Prüfung nutzt nur den lokalen Desktop-Testdienst. Es werden keine Aufgaben, Kategorien oder Anhänge übertragen.")
+            Text("Desktop im lokalen Netzwerk suchen oder IP manuell eingeben. Noch kein echter Sync aktiv.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("1. BüroCockpit am Desktop öffnen.")
-                Text("2. Lokalen Testdienst am Desktop starten.")
-                Text("3. iPad sucht/prüft den Desktop im lokalen Netzwerk.")
-                Text("4. Später diesen Desktop als lokalen Sync-Partner verwenden.")
+                Text("1. Desktop-Testdienst in BüroCockpit manuell starten.")
+                Text("2. Bonjour findet den Desktop automatisch, manuelle IP bleibt Fallback.")
+                Text("3. Desktop prüfen.")
+                Text("4. Diesen Desktop verwenden.")
+                Text("5. iPad meldet sich am Desktop als vorgemerktes lokales Gerät.")
             }
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -376,7 +343,7 @@ struct SnapshotSetupView: View {
         if isLocalNetworkDesktopRemembered || localNetworkDesktopLastSuccessfulCheckText != nil {
             return "Automatische Suche hat aktuell keinen Desktop gefunden."
         }
-        return "Automatische Suche hat aktuell keinen Desktop gefunden; manuelle Adresse kann verwendet werden."
+        return "Desktop im lokalen Netzwerk suchen oder IP manuell eingeben."
     }
 
     private var localNetworkDesktopStatusText: String {
@@ -449,7 +416,7 @@ struct SnapshotSetupView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(provider.displayName)
                         .font(.headline)
-                    Text(provider.isAvailable ? "Jetzt einrichten" : "Demnächst verfügbar")
+                    Text(provider.isAvailable ? "Legacy/Fallback" : "Demnächst verfügbar")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -473,6 +440,49 @@ struct SnapshotSetupView: View {
         .buttonStyle(.plain)
         .disabled(!provider.isAvailable)
         .opacity(provider.isAvailable ? 1 : 0.65)
+    }
+
+    @ViewBuilder
+    private var legacySnapshotContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Altbestand für vorhandene Lesedaten", systemImage: "exclamationmark.triangle")
+                    .font(.headline)
+                Text("Dieser Bereich ist nicht der neue lokale Netzwerk-Sync. Er bleibt nur für vorhandene Nur-Lesen-Daten und manuelle Fallbacks erhalten.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12)], spacing: 12) {
+                ForEach(SyncProviderType.allCases) { provider in
+                    providerCard(provider)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Aktiver Legacy-Stand: \(currentProvider.displayName)", systemImage: currentProvider.systemImage)
+                    .font(.headline)
+
+                if let lastUpdatedText {
+                    Text(lastUpdatedText)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Zuletzt aktualisiert: noch nicht verfügbar")
+                        .foregroundStyle(.secondary)
+                }
+
+                if let statusMessage, !statusMessage.isEmpty {
+                    Text("Letzter Legacy-Status: \(statusMessage)")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Letzter Legacy-Status: noch nicht verfügbar")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            assistantContent
+        }
     }
 
     @ViewBuilder

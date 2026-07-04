@@ -19,6 +19,7 @@ public static class AppPaths
     public static string DatabasePath => Path.Combine(AppDataDirectory, "buerocockpit.db");
     public static string SettingsPath => Path.Combine(AppDataDirectory, "settings.json");
     public static string LocalSettingsPath => Path.Combine(LocalConfigDirectory, "settings.local.json");
+    public static string LocalNetworkDevicesPath => Path.Combine(LocalConfigDirectory, "local-network-devices.json");
     public static string LockPath => Path.Combine(AppDataDirectory, "buerocockpit.lock");
     public static string TasksDirectory => Path.Combine(AppDataDirectory, "Tasks");
     public static string BackupDirectory => Path.Combine(AppDataDirectory, "Backups");

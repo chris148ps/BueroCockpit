@@ -44,7 +44,7 @@ struct SnapshotCategoryListView: View {
                 infoRow(label: "Aufgaben", value: "\(allTaskCount)")
 
                 Button(action: onImportSnapshot) {
-                    Label("Live-Datei erneut importieren", systemImage: "square.and.arrow.down")
+                    Label("Legacy-Archiv importieren", systemImage: "square.and.arrow.down")
                 }
             }
         }

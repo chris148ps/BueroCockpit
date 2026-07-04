@@ -2,7 +2,7 @@
 
 Stand: 2026-07-05.
 
-Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Es wird keine produktive Synchronisation implementiert.
+Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen und lokale Geraete-Vormerkungen vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Es wird keine produktive Synchronisation implementiert.
 
 ## 1. Ziel
 
@@ -22,7 +22,7 @@ Nicht Bestandteil dieses Konzeptschritts:
 - kein Bonjour-/mDNS-Paket; die aktuelle Testdienstphase nutzt nur systemische APIs und behandelt Bonjour als optional
 - kein automatisch gestarteter HTTP-Listener
 - kein Serverstart im App-Lifecycle
-- keine iPad-Netzwerkimplementierung
+- kein echter iPad-Sync und keine Produktivdatenuebertragung
 - keine Datenuebertragung
 - kein Umbau des Snapshot-Exports
 - keine Datenmigration
@@ -65,6 +65,7 @@ Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespei
 ```text
 GET /health
 GET /local-sync/status
+POST /local-sync/devices/remember
 ```
 
 `/pairing/status` bleibt nur als tolerierter Alt-Endpunkt erhalten. Der aktuelle Bedienweg nutzt `/local-sync/status`.
@@ -95,6 +96,8 @@ Weiterhin gilt:
 ### iPad-Vormerkung in Phase 3
 
 Das iPad kann einen erfolgreich geprueften Desktop lokal als kuenftigen Sync-Partner vormerken. Gespeichert werden nur Desktop-Adresse/IP, Port, Zeitstempel der letzten erfolgreichen Pruefung und ein lokaler Status. Diese Vormerkung ist der aktuelle iPad-Bedienweg fuer den lokalen Netzwerk-Sync.
+
+Beim Benutzerbefehl `Diesen Desktop verwenden` bleibt diese lokale iPad-Vormerkung die fuehrende lokale Quelle. Danach sendet das iPad einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Der Desktop speichert das iPad nur lokal in `BueroCockpitLocal/local-network-devices.json` und aktualisiert vorhandene Eintraege mit gleicher `deviceId`. Gespeichert werden `deviceId`, `deviceName`, `platform`, optional `appVersion`, `firstSeenUtc`, `lastSeenUtc`, optional `lastRemoteAddress` und `status = remembered`. Diese Geraetewerte werden nicht in die zentrale `settings.json` geschrieben und nicht in Produktivdaten uebernommen. Die Desktop-UI zeigt die vorgemerkte iPads / lokalen Geraete mit Status `vorgemerkt, Sync noch nicht aktiv`.
 
 Die automatische Bonjour-/Netzwerksuche ist davon getrennt. Sie darf die gespeicherte Vormerkung nicht loeschen, nicht herabstufen und nicht durch eine widerspruechliche Hauptmeldung ueberschreiben. Wenn die Suche gerade keinen Desktop findet, bleibt der vorgemerkte Desktop sichtbar und die Suchmeldung lautet sinngemaess `Automatische Suche hat aktuell keinen Desktop gefunden.`. Wenn dieselbe Maschine wiedergefunden wird, duerfen Adresse/IP und Port aktualisiert werden. Ein anderer gefundener Desktop ersetzt die Vormerkung nur nach Benutzeraktion.
 
@@ -193,7 +196,7 @@ Regeln:
 
 ## 7. Beispiel-Endpunkte
 
-Dies ist ein Schnittstellenentwurf, keine Implementierung.
+Dies ist der aktuelle technische Testumfang plus spaetere Schnittstellenentwuerfe. Nur die ausdruecklich als aktuell implementiert markierten Endpunkte gehoeren zum jetzigen Testdienst.
 
 ### `GET /local-sync/status`
 
@@ -207,6 +210,33 @@ Beispielantwort:
   "status": "ok",
   "mode": "local-network-test",
   "version": "0.4.14"
+}
+```
+
+### `POST /local-sync/devices/remember`
+
+Aktuell implementierte lokale iPad-Geraetevormerkung. Der Endpunkt speichert nur lokale Geraete-Metadaten auf dem Desktop und uebertraegt keine Produktivdaten.
+
+Beispielrequest:
+
+```json
+{
+  "deviceId": "ipad-...",
+  "deviceName": "iPad",
+  "platform": "iPadOS",
+  "appVersion": "1.0",
+  "lastSeenUtc": "2026-07-05T12:00:00Z"
+}
+```
+
+Beispielantwort:
+
+```json
+{
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "local-network-test",
+  "message": "Gerät vorgemerkt"
 }
 ```
 
