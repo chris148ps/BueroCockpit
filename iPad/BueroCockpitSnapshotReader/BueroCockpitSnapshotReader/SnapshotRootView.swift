@@ -48,6 +48,7 @@ struct SnapshotRootView: View {
         }
         .task {
             viewModel.restoreAtLaunch()
+            viewModel.startMainLocalNetworkDesktopMonitoring()
             updateMobileInspectionDraftState()
             presentMobileInspectionDraftIfNeeded()
         }
@@ -376,15 +377,10 @@ struct SnapshotRootView: View {
     }
 
     private var localNetworkConnectionIndicator: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(localNetworkConnectionColor)
-                .frame(width: 9, height: 9)
-            Text(viewModel.localNetworkDesktopConnectionState.title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
+        Circle()
+            .fill(localNetworkConnectionColor)
+            .frame(width: 9, height: 9)
+            .accessibilityLabel(viewModel.localNetworkDesktopConnectionState.title)
         .help(viewModel.localNetworkDesktopConnectionState.title)
     }
 

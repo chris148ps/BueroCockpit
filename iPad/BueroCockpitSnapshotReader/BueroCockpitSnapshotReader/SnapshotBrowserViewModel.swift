@@ -494,6 +494,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func stopLocalNetworkDesktopAutoCheck() {
+        guard !isLocalNetworkDesktopMainMonitoringActive else {
+            return
+        }
         localNetworkDesktopAutoCheckTask?.cancel()
         localNetworkDesktopAutoCheckTask = nil
         localNetworkDesktopAutoCheckMessage = nil
@@ -513,6 +516,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func stopLocalNetworkDesktopDiscovery() {
+        guard !isLocalNetworkDesktopMainMonitoringActive else {
+            return
+        }
         localNetworkDesktopDiscovery.stop()
         discoveredLocalNetworkDesktops = []
     }

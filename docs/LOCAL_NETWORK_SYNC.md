@@ -113,7 +113,7 @@ Die lokale `changeVersion` kann beim Speichern im laufenden Desktop-Prozess aktu
 
 ### iPad-Hauptansicht und Vormerkung in Phase 3
 
-Das iPad startet direkt in die Hauptansicht. Ein vorgeschalteter Assistent, ein Startzwang ueber Live-Datei, OneDrive-/iCloud-Datei oder Pairing-Code gehoeren nicht mehr zum aktuellen Zielweg. Oben in der Hauptansicht zeigt ein kleiner Verbindungsindikator den lokalen Desktop-Status:
+Das iPad startet direkt in die Hauptansicht. Ein vorgeschalteter Assistent, ein Startzwang ueber Live-Datei, OneDrive-/iCloud-Datei oder Pairing-Code gehoeren nicht mehr zum aktuellen Zielweg. Oben in der Hauptansicht zeigt nur ein kleiner kompakter Verbindungsindikator den lokalen Desktop-Status. Die Hauptansicht startet die begrenzte Verbindungspruefung selbst beim Erscheinen und bei Rueckkehr in den aktiven App-Zustand; die Sync-Einstellungen muessen dafuer nicht geoeffnet werden. Detaillierte Statusmeldungen bleiben in den Sync-Einstellungen oder als Accessibility-/Tooltip-Text:
 
 - gruener Punkt: `Desktop verbunden`
 - roter Punkt: `Desktop nicht verbunden`
