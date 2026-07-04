@@ -81,12 +81,36 @@ public sealed class LocalSyncService : ILocalSyncContracts
             _listenerCts = new CancellationTokenSource();
             _listener = listener;
             _listenerTask = Task.Run(() => RunStatusListenerAsync(listener, _listenerCts.Token), CancellationToken.None);
-            _bonjourService = new LocalBonjourService();
-            var bonjourStarted = _bonjourService.Start(_options);
+            var bonjourMessage = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            var bonjourStarted = false;
+            try
+            {
+                _bonjourService = new LocalBonjourService();
+                bonjourStarted = _bonjourService.Start(_options);
+                if (!bonjourStarted && !string.IsNullOrWhiteSpace(_bonjourService.LastError))
+                {
+                    bonjourMessage = _bonjourService.LastError;
+                }
+            }
+            catch (Exception ex) when (ex is DllNotFoundException
+                                       or EntryPointNotFoundException
+                                       or BadImageFormatException
+                                       or System.Runtime.InteropServices.ExternalException
+                                       or System.Runtime.InteropServices.MarshalDirectiveException
+                                       or System.Runtime.InteropServices.SEHException
+                                       or InvalidOperationException)
+            {
+                _bonjourService = null;
+            }
+            catch
+            {
+                _bonjourService = null;
+            }
+
             _state = LocalSyncState.Running;
             _lastMessage = bonjourStarted
                 ? $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; Bonjour-Ankuendigung aktiv."
-                : $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; {_bonjourService.LastError}";
+                : $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; {bonjourMessage}";
             return Task.FromResult(BuildStatusLocked());
         }
     }

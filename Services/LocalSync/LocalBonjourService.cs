@@ -15,12 +15,16 @@ internal sealed class LocalBonjourService : IDisposable
     private Task? _processTask;
 
     public string? LastError { get; private set; }
+    public bool IsAvailable { get; private set; }
+    public bool IsRunning { get; private set; }
 
     public bool Start(LocalSyncOptions options)
     {
         if (!OperatingSystem.IsMacOS())
         {
-            LastError = "Bonjour-Ankuendigung ist nur unter macOS aktiv.";
+            LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            IsAvailable = false;
+            IsRunning = false;
             return false;
         }
 
@@ -31,24 +35,46 @@ internal sealed class LocalBonjourService : IDisposable
             var serviceName = BuildServiceName(options.DeviceName);
             var txtRecord = BuildTxtRecord(options);
             var port = (ushort)IPAddress.HostToNetworkOrder((short)options.Port);
-            var error = DNSServiceRegister(
-                out _serviceRef,
-                0,
-                0,
-                serviceName,
-                ServiceType,
-                null,
-                null,
-                port,
-                (ushort)txtRecord.Length,
-                txtRecord,
-                RegisterReply,
-                IntPtr.Zero);
+            DNSServiceErrorType error;
+            try
+            {
+                error = DNSServiceRegister(
+                    out _serviceRef,
+                    0,
+                    0,
+                    serviceName,
+                    ServiceType,
+                    null,
+                    null,
+                    port,
+                    (ushort)txtRecord.Length,
+                    txtRecord,
+                    RegisterReply,
+                    IntPtr.Zero);
+            }
+            catch (Exception ex) when (IsNativeBonjourException(ex))
+            {
+                _serviceRef = IntPtr.Zero;
+                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                IsAvailable = false;
+                IsRunning = false;
+                return false;
+            }
+            catch
+            {
+                _serviceRef = IntPtr.Zero;
+                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                IsAvailable = false;
+                IsRunning = false;
+                return false;
+            }
 
             if (error != 0)
             {
                 _serviceRef = IntPtr.Zero;
-                LastError = $"Bonjour-Ankuendigung konnte nicht gestartet werden: DNS-SD Fehler {error}.";
+                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                IsAvailable = false;
+                IsRunning = false;
                 return false;
             }
 
@@ -56,6 +82,8 @@ internal sealed class LocalBonjourService : IDisposable
             var token = _processCts.Token;
             _processTask = Task.Run(() => ProcessResults(_serviceRef, token), CancellationToken.None);
             LastError = null;
+            IsAvailable = true;
+            IsRunning = true;
             return true;
         }
     }
@@ -78,10 +106,25 @@ internal sealed class LocalBonjourService : IDisposable
         _processCts?.Cancel();
         _processCts?.Dispose();
         _processCts = null;
+        IsRunning = false;
 
         if (_serviceRef != IntPtr.Zero)
         {
-            DNSServiceRefDeallocate(_serviceRef);
+            try
+            {
+                DNSServiceRefDeallocate(_serviceRef);
+            }
+            catch (Exception ex) when (IsNativeBonjourException(ex))
+            {
+                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                IsAvailable = false;
+            }
+            catch
+            {
+                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                IsAvailable = false;
+            }
+
             _serviceRef = IntPtr.Zero;
         }
 
@@ -126,15 +169,34 @@ internal sealed class LocalBonjourService : IDisposable
         return stream.ToArray();
     }
 
-    private static void ProcessResults(IntPtr serviceRef, CancellationToken cancellationToken)
+    private void ProcessResults(IntPtr serviceRef, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested && serviceRef != IntPtr.Zero)
+        try
         {
-            var error = DNSServiceProcessResult(serviceRef);
-            if (error != 0)
+            while (!cancellationToken.IsCancellationRequested && serviceRef != IntPtr.Zero)
             {
-                break;
+                var error = DNSServiceProcessResult(serviceRef);
+                if (error != 0)
+                {
+                    LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                    IsAvailable = false;
+                    break;
+                }
             }
+        }
+        catch (Exception ex) when (IsNativeBonjourException(ex))
+        {
+            LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            IsAvailable = false;
+        }
+        catch
+        {
+            LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            IsAvailable = false;
+        }
+        finally
+        {
+            IsRunning = false;
         }
     }
 
@@ -147,6 +209,17 @@ internal sealed class LocalBonjourService : IDisposable
         string domain,
         IntPtr context)
     {
+    }
+
+    private static bool IsNativeBonjourException(Exception ex)
+    {
+        return ex is DllNotFoundException
+            or EntryPointNotFoundException
+            or BadImageFormatException
+            or MarshalDirectiveException
+            or SEHException
+            or ExternalException
+            or InvalidOperationException;
     }
 
     [DllImport("dns_sd", EntryPoint = "DNSServiceRegister", CallingConvention = CallingConvention.Cdecl)]

@@ -7090,9 +7090,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
 
         var status = await _localNetworkSyncTestService.StartAsync();
-        LocalNetworkSyncTestServiceStatus = status.Message?.Contains("Running:", StringComparison.Ordinal) == true
-            ? $"Testdienst läuft im lokalen Netzwerk auf Port {port}"
+        LocalNetworkSyncTestServiceStatus = status.Message?.StartsWith("Running:", StringComparison.Ordinal) == true
+            ? FormatLocalNetworkSyncStatusMessage(status.Message)
             : $"Fehler: Port {port} ist belegt oder nicht verfügbar. {status.Message}";
+    }
+
+    private static string FormatLocalNetworkSyncStatusMessage(string? statusMessage)
+    {
+        const string runningPrefix = "Running: ";
+        var message = string.IsNullOrWhiteSpace(statusMessage)
+            ? string.Empty
+            : statusMessage.Trim();
+
+        if (message.StartsWith(runningPrefix, StringComparison.Ordinal))
+        {
+            message = message[runningPrefix.Length..];
+        }
+
+        return message
+            .Replace("laeuft", "läuft", StringComparison.Ordinal)
+            .Replace("verfuegbar", "verfügbar", StringComparison.Ordinal)
+            .Replace("Ankuendigung", "Ankündigung", StringComparison.Ordinal)
+            .Replace("fuer", "für", StringComparison.Ordinal);
     }
 
     private async void StopLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)

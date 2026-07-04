@@ -2,7 +2,7 @@
 
 Stand: 2026-07-04.
 
-Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Solange dieser Testdienst manuell laeuft, kuendigt er sich lokal per Bonjour/mDNS als `_buerocockpit._tcp` an, damit das iPad geaenderte IP-Adressen auffinden kann. Es wird keine produktive Synchronisation implementiert.
+Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Es wird keine produktive Synchronisation implementiert.
 
 ## 1. Ziel
 
@@ -19,7 +19,7 @@ Der lokale Netzwerk-Sync soll die bisherige iCloud-/Live-Aktualisierung langfris
 Nicht Bestandteil dieses Konzeptschritts:
 
 - kein ASP.NET-/Kestrel-Einbau
-- kein Bonjour-/mDNS-Paket; die aktuelle Testdienstphase nutzt nur systemische APIs
+- kein Bonjour-/mDNS-Paket; die aktuelle Testdienstphase nutzt nur systemische APIs und behandelt Bonjour als optional
 - kein automatisch gestarteter HTTP-Listener
 - kein Serverstart im App-Lifecycle
 - keine iPad-Netzwerkimplementierung
@@ -60,7 +60,7 @@ Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separate
 
 Phase 3 ergaenzt einen ersten echten Desktop-Testdienst. Er ist nur fuer einen technischen Verbindungstest gedacht und darf ausschliesslich durch den Button `Lokalen Testdienst starten` im Bereich `Lokaler Netzwerk-Sync` gestartet werden. Das Oeffnen der App, das Oeffnen der Einstellungen und vorhandene lokale Einstellungen starten keinen Dienst.
 
-Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port und kuendigt sich fuer die Dauer des manuell gestarteten Testdienstes per Bonjour/mDNS als `_buerocockpit._tcp` an. Fuer iPad-Tests kann die aktuelle Mac-LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Mac geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
+Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port. Wenn die native DNS-SD-/Bonjour-Bibliothek verfuegbar ist, kuendigt er sich fuer die Dauer des manuell gestarteten Testdienstes per Bonjour/mDNS als `_buerocockpit._tcp` an. Wenn Bonjour nicht verfuegbar ist, zeigt die Desktop-App einen Hinweis und der HTTP-Testdienst bleibt trotzdem aktiv. Fuer iPad-Tests kann die aktuelle Mac-LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Mac geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
 
 ```text
 GET /health
@@ -83,7 +83,8 @@ Weiterhin gilt:
 - keine iPad-Kopplung
 - kein Pairing-Abschluss
 - keine Aufgaben, Kategorien, Anhaenge oder Einstellungen in der Antwort
-- Bonjour/mDNS nur waehrend des manuell gestarteten Testdienstes und nur fuer `_buerocockpit._tcp`
+- Bonjour/mDNS optional, nur waehrend des manuell gestarteten Testdienstes und nur fuer `_buerocockpit._tcp`
+- manueller IP-/Adresse-Fallback, wenn Bonjour nicht verfuegbar ist
 - keine automatische Hintergrund-Geraetesuche
 - kein UDP-Broadcast, keine Subnetzsuche und kein Portscan
 - kein dauerhaftes Polling
