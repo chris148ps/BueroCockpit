@@ -12,6 +12,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var setupMessage: String?
     @Published private(set) var noticeMessage: String?
     @Published private(set) var syncStatusMessage: String?
+    @Published private(set) var localNetworkDesktopAutoCheckMessage: String?
     @Published private(set) var syncSettings: SnapshotSyncSettings
     @Published private(set) var isSyncing = false
     @Published private(set) var loadingTitle = "Snapshot wird geladen …"
@@ -34,6 +35,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let mobileInboxReader: MobileInboxReader
     private var didAttemptStartupLoad = false
     private let localNetworkDesktopTestPort = 53941
+    private let localNetworkDesktopInitialAutoCheckDelayNanoseconds: UInt64 = 3_000_000_000
+    private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
+    private var localNetworkDesktopAutoCheckTask: Task<Void, Never>?
+    private var isLocalNetworkDesktopServiceCheckRunning = false
 
     init(
         reader: SnapshotReader = SnapshotReader(),
@@ -49,6 +54,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         setupRequired = !accessStore.isSetupCompleted
         loadState = accessStore.isSetupCompleted ? .loading : .idle
         SnapshotPerformanceLog.event("ViewModel init")
+    }
+
+    deinit {
+        localNetworkDesktopAutoCheckTask?.cancel()
     }
 
     var metadata: SnapshotMetadata? {
@@ -230,6 +239,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.desktopAddress ?? ""
     }
 
+    var localNetworkDesktopPort: Int {
+        syncSettings.localNetworkDesktop.desktopPort ?? localNetworkDesktopTestPort
+    }
+
     var isLocalNetworkPairingPrepared: Bool {
         !localNetworkPairingCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -393,14 +406,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings = settings
         syncSettingsStore.save(settings)
 
-        guard !isSyncing else { return }
-        isSyncing = true
-        loadingTitle = "Desktop-Testdienst wird geprüft …"
-        syncStatusMessage = "Desktop-Testdienst wird geprüft …"
+        guard !isLocalNetworkDesktopServiceCheckRunning else { return }
+        isLocalNetworkDesktopServiceCheckRunning = true
+        loadingTitle = "Prüfung läuft …"
+        syncStatusMessage = "Prüfung läuft …"
 
         Task {
             defer {
-                isSyncing = false
+                isLocalNetworkDesktopServiceCheckRunning = false
             }
 
             do {
@@ -408,13 +421,55 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     address: normalizedAddress,
                     port: localNetworkDesktopTestPort
                 )
-                syncStatusMessage = response.isExpectedPairingTestStatus
-                    ? "Desktop-Testdienst erreichbar"
-                    : "Desktop-Testdienst nicht erreichbar"
+                if response.isExpectedPairingTestStatus {
+                    saveSuccessfulLocalNetworkDesktopStatus(address: normalizedAddress)
+                    syncStatusMessage = "Desktop-Testdienst erreichbar"
+                } else {
+                    syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+                }
             } catch {
                 syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
             }
         }
+    }
+
+    func startLocalNetworkDesktopAutoCheck(address: String) {
+        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        localNetworkDesktopAutoCheckTask?.cancel()
+        localNetworkDesktopAutoCheckMessage = "Automatische Prüfung vorbereitet"
+
+        guard !normalizedAddress.isEmpty else {
+            return
+        }
+
+        let initialDelay = localNetworkDesktopInitialAutoCheckDelayNanoseconds
+        let checkInterval = localNetworkDesktopAutoCheckIntervalNanoseconds
+        localNetworkDesktopAutoCheckTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: initialDelay)
+            } catch {
+                return
+            }
+
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.runLocalNetworkDesktopAutoCheck(address: normalizedAddress)
+                guard !Task.isCancelled else { return }
+                self.localNetworkDesktopAutoCheckMessage = "Nächste Prüfung in ca. 30 Sekunden"
+
+                do {
+                    try await Task.sleep(nanoseconds: checkInterval)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    func stopLocalNetworkDesktopAutoCheck() {
+        localNetworkDesktopAutoCheckTask?.cancel()
+        localNetworkDesktopAutoCheckTask = nil
+        localNetworkDesktopAutoCheckMessage = nil
     }
 
     func importICloudSnapshot(from sourceURL: URL) {
@@ -948,6 +1003,39 @@ final class SnapshotBrowserViewModel: ObservableObject {
             throw SnapshotSyncError.httpStatus(httpResponse.statusCode)
         }
         return try JSONDecoder().decode(LocalNetworkDesktopStatusResponse.self, from: data)
+    }
+
+    private func runLocalNetworkDesktopAutoCheck(address: String) async {
+        guard !isLocalNetworkDesktopServiceCheckRunning else { return }
+        isLocalNetworkDesktopServiceCheckRunning = true
+        localNetworkDesktopAutoCheckMessage = "Prüfung läuft …"
+
+        defer {
+            isLocalNetworkDesktopServiceCheckRunning = false
+        }
+
+        do {
+            let response = try await Self.fetchLocalNetworkDesktopStatus(
+                address: address,
+                port: localNetworkDesktopTestPort
+            )
+            if response.isExpectedPairingTestStatus {
+                saveSuccessfulLocalNetworkDesktopStatus(address: address)
+                syncStatusMessage = "Desktop-Testdienst erreichbar"
+            } else {
+                syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+            }
+        } catch {
+            syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+        }
+    }
+
+    private func saveSuccessfulLocalNetworkDesktopStatus(address: String) {
+        var settings = syncSettings
+        settings.localNetworkDesktop.desktopAddress = address
+        settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
+        syncSettings = settings
+        syncSettingsStore.save(settings)
     }
 }
 

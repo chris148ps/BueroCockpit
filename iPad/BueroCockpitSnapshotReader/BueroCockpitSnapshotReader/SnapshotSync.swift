@@ -49,6 +49,7 @@ struct SnapshotSyncSettings: Codable, Sendable {
 
 struct LocalNetworkDesktopPairing: Codable, Equatable, Sendable {
     var desktopAddress: String?
+    var desktopPort: Int?
     var ipadDeviceId: String?
     var ipadDeviceName: String?
     var ipadPlatform: String?

@@ -226,6 +226,7 @@ struct SnapshotRootView: View {
             lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
+            localNetworkDesktopAutoCheckMessage: viewModel.localNetworkDesktopAutoCheckMessage,
             localNetworkDesktopAddress: viewModel.localNetworkDesktopAddress,
             localNetworkPairingCode: viewModel.localNetworkPairingCode,
             isLocalNetworkPairingPrepared: viewModel.isLocalNetworkPairingPrepared,
@@ -253,6 +254,12 @@ struct SnapshotRootView: View {
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
             onTestLocalNetworkDesktopService: { address in
                 viewModel.testLocalNetworkDesktopService(address: address)
+            },
+            onStartLocalNetworkDesktopAutoCheck: { address in
+                viewModel.startLocalNetworkDesktopAutoCheck(address: address)
+            },
+            onStopLocalNetworkDesktopAutoCheck: {
+                viewModel.stopLocalNetworkDesktopAutoCheck()
             },
             onPrepareLocalNetworkPairing: { code in
                 viewModel.prepareLocalNetworkPairing(pairingCode: code)

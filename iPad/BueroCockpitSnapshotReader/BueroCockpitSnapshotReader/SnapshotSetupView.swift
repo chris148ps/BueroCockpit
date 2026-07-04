@@ -8,6 +8,7 @@ struct SnapshotSetupView: View {
     let lastUpdatedText: String?
     let message: String?
     let statusMessage: String?
+    let localNetworkDesktopAutoCheckMessage: String?
     let localNetworkDesktopAddress: String
     let localNetworkPairingCode: String
     let isLocalNetworkPairingPrepared: Bool
@@ -20,6 +21,8 @@ struct SnapshotSetupView: View {
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
     let onTestLocalNetworkDesktopService: (String) -> Void
+    let onStartLocalNetworkDesktopAutoCheck: (String) -> Void
+    let onStopLocalNetworkDesktopAutoCheck: () -> Void
     let onPrepareLocalNetworkPairing: (String) -> Void
     let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
@@ -28,6 +31,7 @@ struct SnapshotSetupView: View {
     @State private var googleDriveLink: String
     @State private var localNetworkDesktopAddressInput: String
     @State private var localNetworkPairingCodeInput: String
+    @State private var isLocalNetworkSyncVisible = false
 
     init(
         currentProvider: SyncProviderType,
@@ -37,6 +41,7 @@ struct SnapshotSetupView: View {
         lastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
+        localNetworkDesktopAutoCheckMessage: String?,
         localNetworkDesktopAddress: String,
         localNetworkPairingCode: String,
         isLocalNetworkPairingPrepared: Bool,
@@ -49,6 +54,8 @@ struct SnapshotSetupView: View {
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
         onTestLocalNetworkDesktopService: @escaping (String) -> Void,
+        onStartLocalNetworkDesktopAutoCheck: @escaping (String) -> Void,
+        onStopLocalNetworkDesktopAutoCheck: @escaping () -> Void,
         onPrepareLocalNetworkPairing: @escaping (String) -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
@@ -60,6 +67,7 @@ struct SnapshotSetupView: View {
         self.lastUpdatedText = lastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
+        self.localNetworkDesktopAutoCheckMessage = localNetworkDesktopAutoCheckMessage
         self.localNetworkDesktopAddress = localNetworkDesktopAddress
         self.localNetworkPairingCode = localNetworkPairingCode
         self.isLocalNetworkPairingPrepared = isLocalNetworkPairingPrepared
@@ -72,6 +80,8 @@ struct SnapshotSetupView: View {
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
         self.onTestLocalNetworkDesktopService = onTestLocalNetworkDesktopService
+        self.onStartLocalNetworkDesktopAutoCheck = onStartLocalNetworkDesktopAutoCheck
+        self.onStopLocalNetworkDesktopAutoCheck = onStopLocalNetworkDesktopAutoCheck
         self.onPrepareLocalNetworkPairing = onPrepareLocalNetworkPairing
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
@@ -175,6 +185,10 @@ struct SnapshotSetupView: View {
             .onChange(of: localNetworkDesktopAddress) { _, address in
                 localNetworkDesktopAddressInput = address
             }
+            .onChange(of: localNetworkDesktopAddressInput) { _, address in
+                guard isLocalNetworkSyncVisible else { return }
+                onStartLocalNetworkDesktopAutoCheck(address)
+            }
             .toolbar {
                 if let onDismiss {
                     ToolbarItem(placement: .confirmationAction) {
@@ -240,7 +254,22 @@ struct SnapshotSetupView: View {
                     isWorking ||
                     localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 )
+
+                if let localNetworkDesktopAutoCheckMessage, !localNetworkDesktopAutoCheckMessage.isEmpty {
+                    Label(localNetworkDesktopAutoCheckMessage, systemImage: "clock.arrow.circlepath")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+        }
+        .onAppear {
+            isLocalNetworkSyncVisible = true
+            onStartLocalNetworkDesktopAutoCheck(localNetworkDesktopAddressInput)
+        }
+        .onDisappear {
+            isLocalNetworkSyncVisible = false
+            onStopLocalNetworkDesktopAutoCheck()
         }
     }
 
