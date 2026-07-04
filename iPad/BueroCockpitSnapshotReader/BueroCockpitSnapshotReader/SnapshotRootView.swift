@@ -226,6 +226,7 @@ struct SnapshotRootView: View {
             lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
+            localNetworkDesktopStatusMessage: viewModel.syncStatusMessage,
             localNetworkDesktopAutoCheckMessage: viewModel.localNetworkDesktopAutoCheckMessage,
             discoveredLocalNetworkDesktops: viewModel.discoveredLocalNetworkDesktops,
             localNetworkDesktopAddress: viewModel.localNetworkDesktopAddress,

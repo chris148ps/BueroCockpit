@@ -8,6 +8,7 @@ struct SnapshotSetupView: View {
     let lastUpdatedText: String?
     let message: String?
     let statusMessage: String?
+    let localNetworkDesktopStatusMessage: String?
     let localNetworkDesktopAutoCheckMessage: String?
     let discoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop]
     let localNetworkDesktopAddress: String
@@ -45,6 +46,7 @@ struct SnapshotSetupView: View {
         lastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
+        localNetworkDesktopStatusMessage: String?,
         localNetworkDesktopAutoCheckMessage: String?,
         discoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop],
         localNetworkDesktopAddress: String,
@@ -76,6 +78,7 @@ struct SnapshotSetupView: View {
         self.lastUpdatedText = lastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
+        self.localNetworkDesktopStatusMessage = localNetworkDesktopStatusMessage
         self.localNetworkDesktopAutoCheckMessage = localNetworkDesktopAutoCheckMessage
         self.discoveredLocalNetworkDesktops = discoveredLocalNetworkDesktops
         self.localNetworkDesktopAddress = localNetworkDesktopAddress
@@ -242,14 +245,14 @@ struct SnapshotSetupView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                Button("Desktop-Testdienst prüfen") {
+                Button("Desktop prüfen") {
                     onTestLocalNetworkDesktopService(localNetworkDesktopAddressInput)
                 }
                 .buttonStyle(.bordered)
                 .disabled(isWorking)
 
                 if canUseLocalNetworkDesktop {
-                    Button("Diesen Desktop verwenden") {
+                    Button(localNetworkDesktopUseButtonTitle) {
                         onUseLocalNetworkDesktop(localNetworkDesktopAddressInput)
                     }
                     .buttonStyle(.borderedProminent)
@@ -349,24 +352,42 @@ struct SnapshotSetupView: View {
         if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
             return true
         }
+        if isLocalNetworkDesktopRemembered {
+            return true
+        }
 
-        let trimmedStatus = statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedStatus = localNetworkDesktopStatusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmedStatus.isEmpty &&
             localNetworkDesktopLastSuccessfulCheckText != nil &&
-            localNetworkDesktopStoredStatus != "lokaler Desktop vorgemerkt"
+            !isLocalNetworkDesktopRemembered
+    }
+
+    private var localNetworkDesktopUseButtonTitle: String {
+        isLocalNetworkDesktopRemembered ? "Desktop ist vorgemerkt" : "Diesen Desktop verwenden"
+    }
+
+    private var isLocalNetworkDesktopRemembered: Bool {
+        localNetworkDesktopStoredStatus == "lokaler Desktop vorgemerkt" ||
+            localNetworkDesktopStoredStatus == "Lokaler Desktop vorgemerkt" ||
+            localNetworkDesktopStoredStatus == "Desktop im lokalen Netzwerk gefunden"
     }
 
     private var localNetworkDesktopDiscoveryEmptyText: String {
-        if localNetworkDesktopStoredStatus == "lokaler Desktop vorgemerkt" ||
-            localNetworkDesktopStoredStatus == "Lokaler Desktop vorgemerkt" ||
-            localNetworkDesktopLastSuccessfulCheckText != nil {
-            return "Automatische Suche hat keinen weiteren Desktop gefunden"
+        if isLocalNetworkDesktopRemembered || localNetworkDesktopLastSuccessfulCheckText != nil {
+            return "Automatische Suche hat aktuell keinen Desktop gefunden."
         }
-        return "Bonjour-Suche hat keinen BüroCockpit-Desktop gefunden; manuelle Adresse kann verwendet werden"
+        return "Automatische Suche hat aktuell keinen Desktop gefunden; manuelle Adresse kann verwendet werden."
     }
 
     private var localNetworkDesktopStatusText: String {
-        let trimmedStatus = statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedStatus = localNetworkDesktopStatusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if isLocalNetworkDesktopRemembered &&
+            (trimmedStatus.isEmpty ||
+             trimmedStatus.hasPrefix("Desktop-Testdienst nicht erreichbar") ||
+             trimmedStatus == "Desktop-Adresse fehlt" ||
+             trimmedStatus == "Bereit zur Prüfung") {
+            return "Lokaler Desktop vorgemerkt"
+        }
         if trimmedStatus.hasPrefix("Desktop-Testdienst") ||
             trimmedStatus == "Desktop im lokalen Netzwerk gefunden" ||
             trimmedStatus == "Prüfung läuft …" ||
@@ -378,8 +399,8 @@ struct SnapshotSetupView: View {
         if localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Desktop-Adresse fehlt"
         }
-        if localNetworkDesktopStoredStatus == "lokaler Desktop vorgemerkt" {
-            return "lokaler Desktop vorgemerkt"
+        if isLocalNetworkDesktopRemembered {
+            return "Lokaler Desktop vorgemerkt"
         }
         return "Bereit zur Prüfung"
     }

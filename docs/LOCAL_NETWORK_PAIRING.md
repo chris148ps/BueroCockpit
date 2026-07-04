@@ -61,9 +61,18 @@ Der iPad-Bereich `Lokaler Netzwerk-Sync` zeigt:
 - letzte erfolgreiche Pruefung.
 - getrennte Meldungen fuer Bonjour-Suche und manuelle Verbindung.
 
+Ein manuell oder ueber die sichtbare Desktop-Liste vorgemerkter Desktop wird lokal in den iPad-Settings gespeichert:
+
+- Desktop-Adresse/IP.
+- Port.
+- Zeitstempel der letzten erfolgreichen Pruefung.
+- Status `Lokaler Desktop vorgemerkt` oder `Desktop im lokalen Netzwerk gefunden`.
+
+Die automatische Suche darf diesen gespeicherten Desktop nicht loeschen, nicht herabstufen und nicht visuell durch eine Meldung ersetzen, die wie eine fehlende Einrichtung wirkt. Wenn die automatische Suche aktuell keinen Desktop findet, bleibt der Hauptstatus `Lokaler Desktop vorgemerkt`; nur die Suchmeldung darf auf `Automatische Suche hat aktuell keinen Desktop gefunden.` wechseln. Findet die Suche denselben Desktop wieder, duerfen Adresse/IP und Port aktualisiert werden. Findet die Suche einen anderen Desktop, wird er nur als weiterer gefundener Desktop angezeigt und erst nach Benutzeraktion vorgemerkt.
+
 Wenn Bonjour keinen weiteren Desktop findet, aber bereits eine manuelle Adresse erfolgreich vorgemerkt ist, zeigt die App keine widerspruechliche Hauptmeldung. Stattdessen gilt sinngemaess:
 
-- `Automatische Suche hat keinen weiteren Desktop gefunden`
+- `Automatische Suche hat aktuell keinen Desktop gefunden.`
 - oder bei fehlendem Bonjour: `Bonjour-Suche nicht verfuegbar; manuelle Adresse wird verwendet`
 
 ## Bonjour/mDNS

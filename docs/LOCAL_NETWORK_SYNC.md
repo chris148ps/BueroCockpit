@@ -92,6 +92,14 @@ Weiterhin gilt:
 - kein FileSystemWatcher
 - keine Datenuebertragung
 
+### iPad-Vormerkung in Phase 3
+
+Das iPad kann einen erfolgreich geprueften Desktop lokal als kuenftigen Sync-Partner vormerken. Gespeichert werden nur Desktop-Adresse/IP, Port, Zeitstempel der letzten erfolgreichen Pruefung und ein lokaler Status. Diese Vormerkung ist der aktuelle iPad-Bedienweg fuer den lokalen Netzwerk-Sync.
+
+Die automatische Bonjour-/Netzwerksuche ist davon getrennt. Sie darf die gespeicherte Vormerkung nicht loeschen, nicht herabstufen und nicht durch eine widerspruechliche Hauptmeldung ueberschreiben. Wenn die Suche gerade keinen Desktop findet, bleibt der vorgemerkte Desktop sichtbar und die Suchmeldung lautet sinngemaess `Automatische Suche hat aktuell keinen Desktop gefunden.`. Wenn dieselbe Maschine wiedergefunden wird, duerfen Adresse/IP und Port aktualisiert werden. Ein anderer gefundener Desktop ersetzt die Vormerkung nur nach Benutzeraktion.
+
+Live-Datei, OneDrive-/iCloud-Datei, `IpadLiveFileTargetPath` und Pairing-Code sind nicht mehr der aktuelle Kopplungsweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Sie bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen. Der manuelle IP-Fallback bleibt der verlaessliche Weg, wenn Bonjour/mDNS nicht verfuegbar ist.
+
 ## 3. Rollen
 
 ### Desktop als fuehrendes System

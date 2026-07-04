@@ -253,6 +253,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.localDesktopStatus
     }
 
+    private var isLocalNetworkDesktopRemembered: Bool {
+        Self.isRememberedLocalNetworkDesktop(syncSettings.localNetworkDesktop)
+    }
+
     var loadingDescription: String {
         if loadingTitle == "Google Drive wird aktualisiert …" {
             return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
@@ -399,7 +403,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 )
                 if response.isExpectedLocalNetworkTestStatus {
                     saveSuccessfulLocalNetworkDesktopCheck(address: normalizedAddress)
-                    syncStatusMessage = "Desktop-Testdienst erreichbar"
+                    syncStatusMessage = isLocalNetworkDesktopRemembered
+                        ? "Lokaler Desktop vorgemerkt"
+                        : "Desktop-Testdienst erreichbar"
                 } else {
                     syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
                 }
@@ -453,6 +459,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         localNetworkDesktopDiscovery.start { [weak self] desktops in
             guard let self else { return }
             discoveredLocalNetworkDesktops = desktops
+            if desktops.isEmpty, isLocalNetworkDesktopRemembered {
+                localNetworkDesktopAutoCheckMessage = "Automatische Suche hat aktuell keinen Desktop gefunden."
+                syncStatusMessage = "Lokaler Desktop vorgemerkt"
+            }
             adoptRememberedLocalNetworkDesktopIfFound(in: desktops)
         }
     }
@@ -477,7 +487,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         var settings = syncSettings
         settings.localNetworkDesktop.desktopAddress = normalizedAddress
         settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
-        settings.localNetworkDesktop.localDesktopStatus = "lokaler Desktop vorgemerkt"
+        settings.localNetworkDesktop.localDesktopStatus = "Lokaler Desktop vorgemerkt"
+        settings.localNetworkDesktop.lastSuccessfulCheckAt = settings.localNetworkDesktop.lastSuccessfulCheckAt ?? Date()
         syncSettings = settings
         syncSettingsStore.save(settings)
         syncStatusMessage = "Lokaler Desktop vorgemerkt"
@@ -1044,22 +1055,40 @@ final class SnapshotBrowserViewModel: ObservableObject {
             )
             if response.isExpectedLocalNetworkTestStatus {
                 saveSuccessfulLocalNetworkDesktopCheck(address: address)
-                syncStatusMessage = "Desktop-Testdienst erreichbar"
+                syncStatusMessage = isLocalNetworkDesktopRemembered
+                    ? "Lokaler Desktop vorgemerkt"
+                    : "Desktop-Testdienst erreichbar"
+                localNetworkDesktopAutoCheckMessage = isLocalNetworkDesktopRemembered
+                    ? "Vorgemerkter Desktop erreichbar"
+                    : "Desktop-Testdienst erreichbar"
             } else {
-                syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
+                if isLocalNetworkDesktopRemembered {
+                    syncStatusMessage = "Lokaler Desktop vorgemerkt"
+                    localNetworkDesktopAutoCheckMessage = "Automatische Prüfung: unerwartete Antwort"
+                } else {
+                    syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
+                }
             }
         } catch {
-            syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
+            if isLocalNetworkDesktopRemembered {
+                syncStatusMessage = "Lokaler Desktop vorgemerkt"
+                localNetworkDesktopAutoCheckMessage = "Automatische Suche hat aktuell keinen Desktop gefunden."
+            } else {
+                syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
+            }
             adoptRememberedLocalNetworkDesktopIfFound(in: discoveredLocalNetworkDesktops)
         }
     }
 
     private func saveSuccessfulLocalNetworkDesktopCheck(address: String) {
         var settings = syncSettings
+        let previousStatus = settings.localNetworkDesktop.localDesktopStatus
         settings.localNetworkDesktop.desktopAddress = address
         settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
         settings.localNetworkDesktop.lastSuccessfulCheckAt = Date()
-        settings.localNetworkDesktop.localDesktopStatus = nil
+        settings.localNetworkDesktop.localDesktopStatus = Self.isRememberedLocalNetworkDesktop(settings.localNetworkDesktop)
+            ? previousStatus
+            : nil
         syncSettings = settings
         syncSettingsStore.save(settings)
     }
@@ -1082,15 +1111,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private func adoptRememberedLocalNetworkDesktopIfFound(in desktops: [LocalNetworkDiscoveredDesktop]) {
         guard !desktops.isEmpty else { return }
         let remembered = syncSettings.localNetworkDesktop
-        let rememberedStatus = remembered.localDesktopStatus?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard remembered.lastSuccessfulCheckAt != nil ||
-            rememberedStatus == "lokaler Desktop vorgemerkt" ||
-            rememberedStatus == "Desktop im lokalen Netzwerk gefunden" else {
+        guard Self.isRememberedLocalNetworkDesktop(remembered) else {
             return
         }
 
         let rememberedDeviceId = remembered.desktopDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines)
         let rememberedName = remembered.desktopName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rememberedAddress = remembered.desktopAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
         let match = desktops.first { desktop in
             if let rememberedDeviceId, !rememberedDeviceId.isEmpty {
                 return desktop.deviceId == rememberedDeviceId
@@ -1098,13 +1125,28 @@ final class SnapshotBrowserViewModel: ObservableObject {
             if let rememberedName, !rememberedName.isEmpty {
                 return desktop.name == rememberedName
             }
-            return desktops.count == 1
+            if let rememberedAddress, !rememberedAddress.isEmpty {
+                return desktop.address == rememberedAddress && desktop.port == (remembered.desktopPort ?? localNetworkDesktopTestPort)
+            }
+            return false
         }
 
         guard let match else { return }
         guard remembered.desktopAddress != match.address || remembered.desktopPort != match.port else { return }
-        saveDiscoveredLocalNetworkDesktop(match, status: "Desktop im lokalen Netzwerk gefunden")
-        syncStatusMessage = "Desktop im lokalen Netzwerk gefunden"
+        let status = remembered.localDesktopStatus == "Lokaler Desktop vorgemerkt" ||
+            remembered.localDesktopStatus == "lokaler Desktop vorgemerkt"
+            ? "Lokaler Desktop vorgemerkt"
+            : "Desktop im lokalen Netzwerk gefunden"
+        saveDiscoveredLocalNetworkDesktop(match, status: status)
+        syncStatusMessage = status
+    }
+
+    nonisolated private static func isRememberedLocalNetworkDesktop(_ desktop: LocalNetworkDesktopPairing) -> Bool {
+        let status = desktop.localDesktopStatus?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return desktop.lastSuccessfulCheckAt != nil ||
+            status == "lokaler Desktop vorgemerkt" ||
+            status == "Lokaler Desktop vorgemerkt" ||
+            status == "Desktop im lokalen Netzwerk gefunden"
     }
 
     nonisolated private static func shortLocalNetworkDesktopError(_ error: Error) -> String {
