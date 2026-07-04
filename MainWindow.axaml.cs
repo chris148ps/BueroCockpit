@@ -125,6 +125,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _localNetworkSyncPortInput = string.Empty;
     private string _localNetworkSyncSettingsStatus = string.Empty;
     private string _localNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+    private string? _startupDatabaseErrorMessage;
     private LocalSyncService? _localNetworkSyncTestService;
     private string _appearanceMode = DarkMode;
     private bool _isSettingsGeneralOpen;
@@ -1319,7 +1320,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RoutingStrategies.Bubble,
             handledEventsToo: true);
 
-        _repository.Initialize();
+        try
+        {
+            _repository.Initialize();
+        }
+        catch (DatabaseStartupException ex)
+        {
+            HandleStartupDatabaseError(ex.DiagnosticMessage, ex);
+            return;
+        }
+
         _repository.DataWritten += Repository_OnDataWritten;
         LoadData();
         LoadBackupEntries();
@@ -1834,6 +1844,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void MainWindow_OnLoaded(object? sender, RoutedEventArgs e)
     {
+        if (!string.IsNullOrWhiteSpace(_startupDatabaseErrorMessage))
+        {
+            await ShowStartupDatabaseErrorDialogAsync(_startupDatabaseErrorMessage);
+            return;
+        }
+
         if (!_startupUpdateCheckCompleted)
         {
             _startupUpdateCheckCompleted = true;
@@ -1853,6 +1869,122 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Dispatcher.UIThread.Post(FitDeskToViewport, DispatcherPriority.Loaded);
         }
+    }
+
+    private void HandleStartupDatabaseError(string diagnosticMessage, Exception exception)
+    {
+        _startupDatabaseErrorMessage = diagnosticMessage;
+        Title = "BüroCockpit - Datenbankfehler";
+        StorageLocationStatus = "Datenbank konnte nicht geöffnet werden. Details siehe Fehlermeldung.";
+        Debug.WriteLine($"Database startup failed: {exception}");
+    }
+
+    private async Task ShowStartupDatabaseErrorDialogAsync(string diagnosticMessage)
+    {
+        var okAction = CreateStartupDatabaseDialogAction("OK");
+        var dialog = new Window
+        {
+            Title = "Datenbank konnte nicht geöffnet werden",
+            Width = 720,
+            Height = 560,
+            MinWidth = 560,
+            MinHeight = 420,
+            CanResize = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14),
+                Child = new DockPanel
+                {
+                    LastChildFill = true,
+                    Children =
+                    {
+                        new StackPanel
+                        {
+                            [DockPanel.DockProperty] = Dock.Top,
+                            Spacing = 8,
+                            Children =
+                            {
+                                new TextBlock
+                                {
+                                    Text = "BüroCockpit konnte die Datenbank nicht öffnen.",
+                                    FontSize = 18,
+                                    FontWeight = FontWeight.Bold,
+                                    Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                    TextWrapping = TextWrapping.Wrap
+                                },
+                                new TextBlock
+                                {
+                                    Text = "Der Datenordner muss lokal verfügbar und beschreibbar sein. Es wurde keine Reparatur, Kopie oder Migration ausgeführt.",
+                                    FontSize = 13,
+                                    Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                                    TextWrapping = TextWrapping.Wrap
+                                }
+                            }
+                        },
+                        new Border
+                        {
+                            [DockPanel.DockProperty] = Dock.Bottom,
+                            Margin = new Thickness(0, 12, 0, 0),
+                            Child = new StackPanel
+                            {
+                                Orientation = Orientation.Horizontal,
+                                HorizontalAlignment = HorizontalAlignment.Right,
+                                Children =
+                                {
+                                    okAction
+                                }
+                            }
+                        },
+                        new ScrollViewer
+                        {
+                            Margin = new Thickness(0, 12, 0, 0),
+                            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                            Content = new TextBlock
+                            {
+                                Text = diagnosticMessage,
+                                FontFamily = FontFamily.Parse("Menlo, Consolas, monospace"),
+                                FontSize = 12,
+                                Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                TextWrapping = TextWrapping.Wrap
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        okAction.PointerReleased += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
+    }
+
+    private static Border CreateStartupDatabaseDialogAction(string text)
+    {
+        var normalBackground = new SolidColorBrush(Color.Parse("#2563EB"));
+        var hoverBackground = new SolidColorBrush(Color.Parse("#1D4ED8"));
+        var border = new Border
+        {
+            Background = normalBackground,
+            BorderBrush = new SolidColorBrush(Color.Parse("#1D4ED8")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(18, 8),
+            Child = new TextBlock
+            {
+                Text = text,
+                Foreground = Brushes.White,
+                FontSize = 13,
+                FontWeight = FontWeight.SemiBold
+            }
+        };
+
+        border.PointerEntered += (_, _) => border.Background = hoverBackground;
+        border.PointerExited += (_, _) => border.Background = normalBackground;
+        return border;
     }
 
     private void ApplyResponsiveStartupBounds()

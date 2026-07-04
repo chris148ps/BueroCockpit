@@ -1,3 +1,4 @@
+using System.Text;
 using BueroCockpit.Models;
 using Microsoft.Data.Sqlite;
 
@@ -5,13 +6,23 @@ namespace BueroCockpit.Data;
 
 public sealed class BueroRepository
 {
+    private readonly string _databasePath;
     private readonly string _connectionString;
     public event Action<string>? DataWritten;
 
     public BueroRepository()
     {
-        AppPaths.EnsureBaseDirectories();
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = AppPaths.DatabasePath }.ToString();
+        _databasePath = AppPaths.DatabasePath;
+        try
+        {
+            AppPaths.EnsureBaseDirectories();
+        }
+        catch (Exception ex)
+        {
+            throw CreateStartupException("Der Datenordner konnte nicht vorbereitet werden.", ex);
+        }
+
+        _connectionString = new SqliteConnectionStringBuilder { DataSource = _databasePath }.ToString();
     }
 
     public void Initialize()
@@ -844,8 +855,145 @@ public sealed class BueroRepository
     private SqliteConnection OpenConnection()
     {
         var connection = new SqliteConnection(_connectionString);
-        connection.Open();
-        return connection;
+        try
+        {
+            connection.Open();
+            return connection;
+        }
+        catch (SqliteException ex)
+        {
+            connection.Dispose();
+            throw CreateStartupException("SQLite konnte die Datenbank nicht öffnen.", ex);
+        }
+        catch
+        {
+            connection.Dispose();
+            throw;
+        }
+    }
+
+    private DatabaseStartupException CreateStartupException(string summary, Exception exception)
+    {
+        var diagnosticMessage = BuildStartupDiagnosticMessage(_databasePath, summary, exception);
+        Console.Error.WriteLine(diagnosticMessage);
+        return new DatabaseStartupException(_databasePath, diagnosticMessage, exception);
+    }
+
+    public static string BuildStartupDiagnosticMessage(string databasePath, string summary, Exception? exception)
+    {
+        var directoryPath = Path.GetDirectoryName(databasePath) ?? string.Empty;
+        var resolvedDirectoryPath = ResolveLinkTargetPath(directoryPath);
+        var resolvedDatabasePath = !string.IsNullOrWhiteSpace(resolvedDirectoryPath)
+            ? Path.Combine(resolvedDirectoryPath, Path.GetFileName(databasePath))
+            : string.Empty;
+        var hasResolvedDirectoryPath = !string.IsNullOrWhiteSpace(resolvedDirectoryPath) &&
+                                       !string.Equals(resolvedDirectoryPath, directoryPath, StringComparison.Ordinal);
+        var builder = new StringBuilder();
+        builder.AppendLine("BüroCockpit konnte die SQLite-Datenbank nicht öffnen.");
+        builder.AppendLine(summary);
+        builder.AppendLine();
+        builder.AppendLine($"Datenbankpfad: {databasePath}");
+        builder.AppendLine($"Datenordner: {directoryPath}");
+        if (hasResolvedDirectoryPath)
+        {
+            builder.AppendLine($"Datenordner-Zielpfad: {resolvedDirectoryPath}");
+            builder.AppendLine($"Effektiver Datenbankpfad: {resolvedDatabasePath}");
+        }
+
+        builder.AppendLine($"Datenordner existiert: {FormatBool(Directory.Exists(directoryPath))}");
+        builder.AppendLine($"Datenbankdatei existiert: {FormatBool(File.Exists(databasePath))}");
+        builder.AppendLine($"WAL-Datei existiert: {FormatBool(File.Exists(databasePath + "-wal"))}");
+        builder.AppendLine($"SHM-Datei existiert: {FormatBool(File.Exists(databasePath + "-shm"))}");
+        builder.AppendLine($"Datenordner-Schreibrecht laut Dateiattributen: {DescribeWritableMode(directoryPath)}");
+        builder.AppendLine($"Datenbank-Schreibrecht laut Dateiattributen: {DescribeWritableMode(databasePath)}");
+        builder.AppendLine("Echter Schreibtest im Ordner: nicht ausgeführt, damit keine Produktiv- oder Cloud-Dateien verändert werden.");
+        builder.AppendLine($"CloudStorage/OneDrive/iCloud-Pfad: {FormatBool(IsCloudStoragePath(databasePath) || IsCloudStoragePath(resolvedDirectoryPath) || IsCloudStoragePath(resolvedDatabasePath))}");
+        builder.AppendLine();
+        builder.AppendLine("Mögliche Ursachen:");
+        builder.AppendLine("- Datenbank oder Datenordner ist nicht lokal verfügbar.");
+        builder.AppendLine("- OneDrive/iCloud hat die Datei nur als Platzhalter und noch nicht vollständig geladen.");
+        builder.AppendLine("- Es fehlen Schreibrechte im Datenordner oder an buerocockpit.db, buerocockpit.db-wal oder buerocockpit.db-shm.");
+        builder.AppendLine("- Die Datenbank ist durch einen anderen Prozess gesperrt.");
+        builder.AppendLine("- Die Datenbankdatei ist beschädigt.");
+        builder.AppendLine();
+        builder.AppendLine("Hinweis: Bei CloudStorage/OneDrive muss der BüroCockpit-Datenordner lokal verfügbar sein. Es wurde keine Reparatur, Kopie oder Migration ausgeführt.");
+
+        if (exception is not null)
+        {
+            builder.AppendLine();
+            builder.AppendLine($"Technischer Fehler: {exception.GetType().Name}: {exception.Message}");
+            if (exception is SqliteException sqliteException)
+            {
+                builder.AppendLine($"SQLite ErrorCode: {sqliteException.SqliteErrorCode}");
+                builder.AppendLine($"SQLite ExtendedErrorCode: {sqliteException.SqliteExtendedErrorCode}");
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string FormatBool(bool value)
+    {
+        return value ? "ja" : "nein";
+    }
+
+    private static string ResolveLinkTargetPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var directoryInfo = new DirectoryInfo(path);
+            return directoryInfo.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static bool IsCloudStoragePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        return path.Contains($"{Path.DirectorySeparatorChar}CloudStorage{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ||
+               path.Contains("OneDrive", StringComparison.OrdinalIgnoreCase) ||
+               path.Contains("iCloud", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string DescribeWritableMode(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "nicht prüfbar";
+        }
+
+        if (!Directory.Exists(path) && !File.Exists(path))
+        {
+            return "nicht prüfbar, Pfad existiert nicht";
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return "nicht prüfbar über Unix-Dateiattribute";
+        }
+
+        try
+        {
+            var mode = File.GetUnixFileMode(path);
+            var writable = (mode & (UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite)) != 0;
+            return $"{(writable ? "ja" : "nein")} ({mode})";
+        }
+        catch (Exception ex)
+        {
+            return $"nicht prüfbar ({ex.Message})";
+        }
     }
 
     private void NotifyDataWritten(string reason)
