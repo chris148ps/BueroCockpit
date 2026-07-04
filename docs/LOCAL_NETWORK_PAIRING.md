@@ -1,18 +1,26 @@
-# Lokales Netzwerk-Pairing
+# Lokaler Netzwerk-Sync
 
 Stand: 2026-07-04.
 
-Dieses Dokument definiert das gemeinsame lokale Pairing-Datenformat fuer BueroCockpit Desktop und die iPad-App. Es ist nur ein Vertrag fuer eine spaetere lokale Netzwerk-Kopplung. In diesem Stand gibt es keine Netzwerksuche, kein Bonjour/mDNS, keine Hintergrundsuche ausserhalb der sichtbaren Pairing-/Sync-Ansicht und keine Datenuebertragung. Auf der Desktop-Seite gibt es nur einen manuell startbaren lokalen HTTP-Testdienst fuer eine einfache Statusantwort.
+Dieses Dokument beschreibt den aktuellen Zielweg fuer den lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und iPad-App. Der aktuelle Stand ist ein technischer Verbindungstest: Desktop-Testdienst manuell starten, Desktop-Adresse auf dem iPad pruefen, keine Datenuebertragung, kein Sync und kein Pairing-Abschluss. In diesem Stand gibt es keine Netzwerksuche, kein Bonjour/mDNS, keine Hintergrundsuche ausserhalb der sichtbaren lokalen Netzwerk-Sync-Ansicht und keine Produktivdaten.
 
 ## Aktueller Stand
 
-Die iPad-App kann einen Pairing-Code lokal formal pruefen und speichern. Gueltig ist aktuell das Format `ABCD-1234`: vier Buchstaben, Bindestrich, vier Ziffern. Bei gueltigem Code setzt die iPad-App ihren lokalen Status auf `Kopplung vorbereitet` und zeigt den Hinweis, dass die Verbindung erst in einem spaeteren Schritt aktiviert wird.
+Der aktuelle iPad-Bedienweg im Bereich `Lokaler Netzwerk-Sync` ist adressebasiert:
 
-Zusaetzlich kann die iPad-App im Bereich `Lokaler Netzwerk-Sync` die Desktop-Adresse lokal speichern und den Button `Desktop-Testdienst pruefen` anzeigen. Dieser Button fuehrt weiterhin ausschliesslich nach manueller Betaetigung einen einzelnen HTTP-GET auf `http://<Desktop-Adresse>:53941/pairing/status` aus. Die iPad-App wertet nur die harmlose Statusantwort mit `app = BueroCockpit`, `status = ok` und `mode = pairing-test` aus und zeigt danach `Desktop-Testdienst erreichbar` oder `Desktop-Testdienst nicht erreichbar`.
+1. BueroCockpit am Desktop oeffnen.
+2. Lokalen Testdienst am Desktop manuell starten.
+3. Desktop-Adresse oder IP auf dem iPad eintragen.
+4. iPad prueft den Desktop im lokalen Netzwerk.
+5. Spaeter diesen Desktop als lokalen Sync-Partner verwenden.
 
-Aktueller Stand der iPad-Seite: Sobald der Bereich `Lokaler Netzwerk-Sync` sichtbar ist, wird eine kontrollierte automatische Pruefung der eingetragenen Desktop-Adresse vorbereitet. Die erste automatische Pruefung startet erst nach kurzer Verzoegerung von etwa 3 Sekunden. Danach wird der gleiche Statusendpunkt hoechstens alle 30 Sekunden erneut geprueft. Die automatische Pruefung laeuft nur, solange diese Ansicht sichtbar ist, und wird beim Verlassen der Ansicht oder beim Freigeben des ViewModels gestoppt.
+Die iPad-App zeigt dafuer die Desktop-Adresse, den festen Test-Port `53941`, den Button `Desktop-Testdienst pruefen` und einen klaren Status. Wenn keine Adresse eingetragen ist, wird `Bitte Desktop-Adresse oder IP eintragen.` bzw. fuer die Automatik `Desktop-Adresse fehlt` angezeigt.
 
-Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` lokal die `DeviceId`, den Pairing-Code und den Status `Wartet auf iPad-Kopplung` bzw. `Pairing vorbereitet`. Zusaetzlich kann der Benutzer dort den lokalen Testdienst manuell starten und stoppen. Der Testdienst bindet nur an die definierte lokale Adresse und liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
+Die manuelle iPad-Pruefung fuehrt ausschliesslich einen HTTP-GET auf `http://<Desktop-Adresse>:53941/pairing/status` aus. Die iPad-App wertet nur die harmlose Statusantwort mit `app = BueroCockpit`, `status = ok` und `mode = pairing-test` aus und zeigt danach `Desktop-Testdienst erreichbar` oder `Desktop-Testdienst nicht erreichbar: <kurzer Fehler>`.
+
+Sobald der Bereich `Lokaler Netzwerk-Sync` sichtbar ist, wird eine kontrollierte automatische Pruefung der eingetragenen Desktop-Adresse vorbereitet. Die erste automatische Pruefung startet erst nach kurzer Verzoegerung von etwa 3 Sekunden. Danach wird der gleiche Statusendpunkt hoechstens alle 30 Sekunden erneut geprueft. Die automatische Pruefung laeuft nur, solange diese Ansicht sichtbar ist, nur wenn eine Desktop-Adresse vorhanden ist, und wird beim Verlassen der Ansicht oder beim Freigeben des ViewModels gestoppt. Die manuelle Pruefung funktioniert unabhaengig davon.
+
+Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` weiterhin die lokalen Desktop-Informationen und kann den lokalen Testdienst manuell starten und stoppen. Der Testdienst bindet nur an die definierte lokale Adresse und liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
 
 Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal noch kein gueltiger Port gespeichert ist. Dieser Port wird nur in `BueroCockpitLocal/settings.local.json` gespeichert und kann lokal auf einen anderen gueltigen Port geaendert werden.
 
@@ -25,15 +33,15 @@ Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal no
 }
 ```
 
-Der Desktop-Status bedeutet nur: Die lokale Erstkopplung ist vorbereitet und wartet auf eine spaetere iPad-Kopplung. Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus. Die iPad-Pruefung ruft ausschliesslich `/pairing/status` ab, prueft nur `app`, `status` und `mode`, sucht keine Geraete und uebertraegt keine Produktivdaten.
+Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus. Die iPad-Pruefung ruft ausschliesslich `/pairing/status` ab, prueft nur `app`, `status` und `mode`, sucht keine Geraete und uebertraegt keine Produktivdaten.
 
-Desktop und iPad zeigen jetzt jeweils eine kurze Bedienfuehrung fuer die spaetere Kopplung. Diese Checklisten beschreiben nur die notwendigen Benutzerschritte: Desktop offen lassen, Pairing-Code am Desktop ablesen, Code auf dem iPad eingeben und `Kopplung vorbereiten` druecken. Der Stand ist damit: Bedienfuehrung vorbereitet, noch keine Verbindung.
+Live-Datei, iCloud-Import und OneDrive/Microsoft Graph bleiben als alter Lesemodus, Fallback oder spaetere Provider-Option erhalten. Sie sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
 
-Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Suche, keinen TrustKey-Austausch, keinen Pairing-Abschluss und keine Datenuebertragung. Netzwerkverkehr entsteht nur, wenn der Benutzer den lokalen Testdienst manuell startet und die iPad-Pairing-/Sync-Ansicht sichtbar ist oder der Benutzer auf dem iPad den Statusendpunkt manuell abruft.
+Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Suche, keinen TrustKey-Austausch, keinen Pairing-Abschluss und keine Datenuebertragung. Netzwerkverkehr entsteht nur, wenn der Benutzer den lokalen Testdienst manuell startet und die iPad-Sync-Ansicht sichtbar ist oder der Benutzer auf dem iPad den Statusendpunkt manuell abruft.
 
 ## Ziel
 
-Das Pairing verbindet genau einen Desktop mit genau einem iPad fuer spaetere manuelle Sync-Laeufe im lokalen Firmennetz. Der Pairing-Code dient nur zur Erstkopplung. Danach erkennen sich Desktop und iPad ueber gespeicherte `DeviceId` und `TrustKey` wieder.
+Der spaetere lokale Sync verbindet genau einen Desktop mit genau einem iPad fuer manuelle Sync-Laeufe im lokalen Firmennetz. Ein Pairing-Code kann spaeter wieder Teil einer Erstkopplung werden, ist aber nicht der aktuelle Bedienweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Danach sollen sich Desktop und iPad ueber gespeicherte `DeviceId` und `TrustKey` wiedererkennen.
 
 Ein neuer Pairing-Code ist nur vorgesehen, wenn ein Geraet neu gekoppelt wird, die Kopplung zurueckgesetzt wurde oder ein TrustKey widerrufen wurde.
 

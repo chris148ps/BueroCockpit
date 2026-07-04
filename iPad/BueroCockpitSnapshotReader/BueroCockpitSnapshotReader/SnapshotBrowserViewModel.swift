@@ -397,14 +397,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     func testLocalNetworkDesktopService(address: String) {
         let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedAddress.isEmpty else {
-            syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+            syncStatusMessage = "Bitte Desktop-Adresse oder IP eintragen."
             return
         }
-
-        var settings = syncSettings
-        settings.localNetworkDesktop.desktopAddress = normalizedAddress
-        syncSettings = settings
-        syncSettingsStore.save(settings)
 
         guard !isLocalNetworkDesktopServiceCheckRunning else { return }
         isLocalNetworkDesktopServiceCheckRunning = true
@@ -425,10 +420,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     saveSuccessfulLocalNetworkDesktopStatus(address: normalizedAddress)
                     syncStatusMessage = "Desktop-Testdienst erreichbar"
                 } else {
-                    syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+                    syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
                 }
             } catch {
-                syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+                syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
             }
         }
     }
@@ -436,12 +431,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
     func startLocalNetworkDesktopAutoCheck(address: String) {
         let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
         localNetworkDesktopAutoCheckTask?.cancel()
-        localNetworkDesktopAutoCheckMessage = "Automatische Prüfung vorbereitet"
 
         guard !normalizedAddress.isEmpty else {
+            localNetworkDesktopAutoCheckMessage = "Desktop-Adresse fehlt"
             return
         }
 
+        localNetworkDesktopAutoCheckMessage = "Erste Prüfung in ca. 3 Sekunden"
         let initialDelay = localNetworkDesktopInitialAutoCheckDelayNanoseconds
         let checkInterval = localNetworkDesktopAutoCheckIntervalNanoseconds
         localNetworkDesktopAutoCheckTask = Task { @MainActor [weak self] in
@@ -1023,10 +1019,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 saveSuccessfulLocalNetworkDesktopStatus(address: address)
                 syncStatusMessage = "Desktop-Testdienst erreichbar"
             } else {
-                syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+                syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
             }
         } catch {
-            syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+            syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
         }
     }
 
@@ -1036,6 +1032,33 @@ final class SnapshotBrowserViewModel: ObservableObject {
         settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
         syncSettings = settings
         syncSettingsStore.save(settings)
+    }
+
+    nonisolated private static func shortLocalNetworkDesktopError(_ error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .cannotFindHost:
+                return "Host nicht gefunden"
+            case .cannotConnectToHost, .networkConnectionLost, .notConnectedToInternet:
+                return "keine Verbindung"
+            case .timedOut:
+                return "Zeitüberschreitung"
+            case .unsupportedURL, .badURL:
+                return "ungültige Adresse"
+            default:
+                return urlError.localizedDescription
+            }
+        }
+
+        if case SnapshotSyncError.httpStatus(let statusCode) = error {
+            return "HTTP \(statusCode)"
+        }
+
+        if error is DecodingError {
+            return "Antwort nicht lesbar"
+        }
+
+        return error.localizedDescription
     }
 }
 

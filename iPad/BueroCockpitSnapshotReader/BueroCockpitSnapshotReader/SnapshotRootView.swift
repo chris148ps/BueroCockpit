@@ -228,8 +228,6 @@ struct SnapshotRootView: View {
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
             localNetworkDesktopAutoCheckMessage: viewModel.localNetworkDesktopAutoCheckMessage,
             localNetworkDesktopAddress: viewModel.localNetworkDesktopAddress,
-            localNetworkPairingCode: viewModel.localNetworkPairingCode,
-            isLocalNetworkPairingPrepared: viewModel.isLocalNetworkPairingPrepared,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
@@ -260,9 +258,6 @@ struct SnapshotRootView: View {
             },
             onStopLocalNetworkDesktopAutoCheck: {
                 viewModel.stopLocalNetworkDesktopAutoCheck()
-            },
-            onPrepareLocalNetworkPairing: { code in
-                viewModel.prepareLocalNetworkPairing(pairingCode: code)
             },
             onSelectMobileInboxFolder: {
                 if presentedSheet != nil {

@@ -10,8 +10,6 @@ struct SnapshotSetupView: View {
     let statusMessage: String?
     let localNetworkDesktopAutoCheckMessage: String?
     let localNetworkDesktopAddress: String
-    let localNetworkPairingCode: String
-    let isLocalNetworkPairingPrepared: Bool
     let mobileInboxFolderPath: String?
     let mobileInboxMessage: String?
     let isWorking: Bool
@@ -23,14 +21,12 @@ struct SnapshotSetupView: View {
     let onTestLocalNetworkDesktopService: (String) -> Void
     let onStartLocalNetworkDesktopAutoCheck: (String) -> Void
     let onStopLocalNetworkDesktopAutoCheck: () -> Void
-    let onPrepareLocalNetworkPairing: (String) -> Void
     let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
 
     @State private var selectedProvider: SyncProviderType
     @State private var googleDriveLink: String
     @State private var localNetworkDesktopAddressInput: String
-    @State private var localNetworkPairingCodeInput: String
     @State private var isLocalNetworkSyncVisible = false
 
     init(
@@ -43,8 +39,6 @@ struct SnapshotSetupView: View {
         statusMessage: String?,
         localNetworkDesktopAutoCheckMessage: String?,
         localNetworkDesktopAddress: String,
-        localNetworkPairingCode: String,
-        isLocalNetworkPairingPrepared: Bool,
         mobileInboxFolderPath: String?,
         mobileInboxMessage: String?,
         isWorking: Bool,
@@ -56,7 +50,6 @@ struct SnapshotSetupView: View {
         onTestLocalNetworkDesktopService: @escaping (String) -> Void,
         onStartLocalNetworkDesktopAutoCheck: @escaping (String) -> Void,
         onStopLocalNetworkDesktopAutoCheck: @escaping () -> Void,
-        onPrepareLocalNetworkPairing: @escaping (String) -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
     ) {
@@ -69,8 +62,6 @@ struct SnapshotSetupView: View {
         self.statusMessage = statusMessage
         self.localNetworkDesktopAutoCheckMessage = localNetworkDesktopAutoCheckMessage
         self.localNetworkDesktopAddress = localNetworkDesktopAddress
-        self.localNetworkPairingCode = localNetworkPairingCode
-        self.isLocalNetworkPairingPrepared = isLocalNetworkPairingPrepared
         self.mobileInboxFolderPath = mobileInboxFolderPath
         self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
@@ -82,13 +73,11 @@ struct SnapshotSetupView: View {
         self.onTestLocalNetworkDesktopService = onTestLocalNetworkDesktopService
         self.onStartLocalNetworkDesktopAutoCheck = onStartLocalNetworkDesktopAutoCheck
         self.onStopLocalNetworkDesktopAutoCheck = onStopLocalNetworkDesktopAutoCheck
-        self.onPrepareLocalNetworkPairing = onPrepareLocalNetworkPairing
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
         _selectedProvider = State(initialValue: currentProvider)
         _googleDriveLink = State(initialValue: savedGoogleDriveLink)
         _localNetworkDesktopAddressInput = State(initialValue: localNetworkDesktopAddress)
-        _localNetworkPairingCodeInput = State(initialValue: localNetworkPairingCode)
     }
 
     var body: some View {
@@ -179,9 +168,6 @@ struct SnapshotSetupView: View {
             .onChange(of: savedGoogleDriveLink) { _, link in
                 googleDriveLink = link
             }
-            .onChange(of: localNetworkPairingCode) { _, code in
-                localNetworkPairingCodeInput = code
-            }
             .onChange(of: localNetworkDesktopAddress) { _, address in
                 localNetworkDesktopAddressInput = address
             }
@@ -201,38 +187,23 @@ struct SnapshotSetupView: View {
 
     private var localNetworkSyncContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label(
-                isLocalNetworkPairingPrepared ? "Status: Kopplung vorbereitet" : "Status: Nicht gekoppelt",
-                systemImage: isLocalNetworkPairingPrepared ? "checkmark.circle" : "circle"
-            )
+            Label("Status: \(localNetworkDesktopStatusText)", systemImage: localNetworkDesktopStatusIcon)
                 .font(.headline)
-                .foregroundStyle(isLocalNetworkPairingPrepared ? .green : .secondary)
+                .foregroundStyle(localNetworkDesktopStatusColor)
 
-            Text("Die Verbindung wird erst in einem späteren Schritt aktiviert.")
+            Text("Die Prüfung nutzt nur den lokalen Desktop-Testdienst. Es werden keine Aufgaben, Kategorien oder Anhänge übertragen.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("1. Pairing-Code vom BüroCockpit-Desktop ablesen.")
-                Text("2. Code hier eingeben.")
-                Text("3. \"Kopplung vorbereiten\" drücken.")
-                Text("4. Später erkennt dieses iPad den Desktop automatisch wieder.")
-                Text("5. Die echte Verbindung wird erst in einem späteren Schritt aktiviert.")
+                Text("1. BüroCockpit am Desktop öffnen.")
+                Text("2. Lokalen Testdienst am Desktop starten.")
+                Text("3. iPad sucht/prüft den Desktop im lokalen Netzwerk.")
+                Text("4. Später diesen Desktop als lokalen Sync-Partner verwenden.")
             }
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-
-            TextField("ABCD-1234", text: $localNetworkPairingCodeInput)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .textFieldStyle(.roundedBorder)
-
-            Button("Kopplung vorbereiten") {
-                onPrepareLocalNetworkPairing(localNetworkPairingCodeInput)
-            }
-            .buttonStyle(.bordered)
-            .disabled(localNetworkPairingCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Divider()
 
@@ -250,10 +221,7 @@ struct SnapshotSetupView: View {
                     onTestLocalNetworkDesktopService(localNetworkDesktopAddressInput)
                 }
                 .buttonStyle(.bordered)
-                .disabled(
-                    isWorking ||
-                    localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
+                .disabled(isWorking)
 
                 if let localNetworkDesktopAutoCheckMessage, !localNetworkDesktopAutoCheckMessage.isEmpty {
                     Label(localNetworkDesktopAutoCheckMessage, systemImage: "clock.arrow.circlepath")
@@ -294,6 +262,41 @@ struct SnapshotSetupView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var localNetworkDesktopStatusText: String {
+        let trimmedStatus = statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedStatus.hasPrefix("Desktop-Testdienst") ||
+            trimmedStatus == "Prüfung läuft …" ||
+            trimmedStatus == "Bitte Desktop-Adresse oder IP eintragen." {
+            return trimmedStatus
+        }
+        if localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Desktop-Adresse fehlt"
+        }
+        return "Bereit zur Prüfung"
+    }
+
+    private var localNetworkDesktopStatusIcon: String {
+        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
+            return "checkmark.circle"
+        }
+        if localNetworkDesktopStatusText == "Prüfung läuft …" {
+            return "clock.arrow.circlepath"
+        }
+        return "network"
+    }
+
+    private var localNetworkDesktopStatusColor: Color {
+        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
+            return .green
+        }
+        if localNetworkDesktopStatusText.hasPrefix("Desktop-Testdienst nicht erreichbar") ||
+            localNetworkDesktopStatusText == "Desktop-Adresse fehlt" ||
+            localNetworkDesktopStatusText == "Bitte Desktop-Adresse oder IP eintragen." {
+            return .orange
+        }
+        return .secondary
     }
 
     private func providerCard(_ provider: SyncProviderType) -> some View {
