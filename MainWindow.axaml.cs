@@ -62,6 +62,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     };
     private const string LightMode = "Light Mode";
     private const string DarkMode = "Dark Mode";
+    private const int DefaultLocalNetworkSyncPort = AppSettingsService.DefaultLocalNetworkSyncPort;
     private readonly StorageLocationService _storageLocationService = new();
     private readonly AppInstanceLockService _appInstanceLockService = new();
     private readonly BueroRepository _repository;
@@ -1286,6 +1287,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _appSettings = _settingsService.Load();
         EnsureLocalNetworkSyncPairingSettings();
+        EnsureLocalNetworkSyncDefaultPort();
         RefreshLocalNetworkSyncEditorFields();
         NormalizeConfiguredOneDriveEditDirectory();
         LoadTechnicianOptions();
@@ -6921,7 +6923,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _appSettings.LocalNetworkSyncEnabled = false;
         _appSettings.LocalNetworkSyncDeviceName = trimmedDeviceName;
-        _appSettings.LocalNetworkSyncPort = port;
+        _appSettings.LocalNetworkSyncPort = port <= 0 ? DefaultLocalNetworkSyncPort : port;
         EnsureLocalNetworkSyncPairingSettings(saveIfChanged: false);
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncEditorFields();
@@ -6931,10 +6933,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void StartLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)
     {
-        var port = _appSettings.LocalNetworkSyncPort;
+        var port = EnsureLocalNetworkSyncDefaultPort();
         if (port < 1024 || port > 65535)
         {
-            LocalNetworkSyncTestServiceStatus = "Testdienst kann nicht starten: Port nicht festgelegt oder ungültig.";
+            LocalNetworkSyncTestServiceStatus = "Testdienst kann nicht starten: Port ungültig.";
             return;
         }
 
@@ -7017,6 +7019,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         port = parsedPort;
         return true;
+    }
+
+    private int EnsureLocalNetworkSyncDefaultPort()
+    {
+        if (_appSettings.LocalNetworkSyncPort >= 1024 && _appSettings.LocalNetworkSyncPort <= 65535)
+        {
+            return _appSettings.LocalNetworkSyncPort;
+        }
+
+        _appSettings.LocalNetworkSyncPort = DefaultLocalNetworkSyncPort;
+        _settingsService.Save(_appSettings);
+        RefreshLocalNetworkSyncEditorFields();
+        RefreshLocalNetworkSyncDisplayProperties();
+        return _appSettings.LocalNetworkSyncPort;
     }
 
     private void RefreshLocalNetworkSyncEditorFields()

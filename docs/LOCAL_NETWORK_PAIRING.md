@@ -10,6 +10,8 @@ Die iPad-App kann einen Pairing-Code lokal formal pruefen und speichern. Gueltig
 
 Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` lokal die `DeviceId`, den Pairing-Code und den Status `Wartet auf iPad-Kopplung` bzw. `Pairing vorbereitet`. Zusaetzlich kann der Benutzer dort den lokalen Testdienst manuell starten und stoppen. Der Testdienst bindet nur an die definierte lokale Adresse und liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
 
+Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal noch kein gueltiger Port gespeichert ist. Dieser Port wird nur in `BueroCockpitLocal/settings.local.json` gespeichert und kann lokal auf einen anderen gueltigen Port geaendert werden.
+
 ```json
 {
   "app": "BueroCockpit",
