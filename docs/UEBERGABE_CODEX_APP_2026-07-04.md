@@ -23,7 +23,8 @@ Der Commit ist auf origin/main gepusht.
 - Kein echter Sync, solange nicht ausdrücklich beauftragt.
 - Kein Autostart von Netzwerkdiensten.
 - Lokaler Testdienst startet nur manuell.
-- Keine automatische Gerätesuche per Bonjour/mDNS/UDP/NWBrowser.
+- Bonjour/mDNS nur während des manuell gestarteten lokalen Testdienstes und nur für `_buerocockpit._tcp`.
+- Keine automatische Hintergrundsuche, kein UDP-Broadcast, keine Subnetzsuche und kein Portscan.
 - Kein FileSystemWatcher.
 - Kein unbegrenztes Hintergrund-Polling.
 
@@ -33,6 +34,7 @@ Der Desktop-Testdienst:
 
 - startet manuell über BüroCockpit-Einstellungen
 - lauscht im lokalen Netzwerk auf Port 53941
+- kündigt sich nur während dieses manuellen Testdienstlaufs per Bonjour/mDNS als `_buerocockpit._tcp` an
 - ist vom iPad erreichbar
 - stoppt sauber
 - überträgt keine Produktivdaten

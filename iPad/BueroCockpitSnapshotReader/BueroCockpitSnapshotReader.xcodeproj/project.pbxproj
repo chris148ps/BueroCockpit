@@ -14,6 +14,7 @@
 		318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */; };
 		36EAB4B2166A4E188E13A278 /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D88295CC6BD4619A9F1EFAF /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift */; };
 		3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */; };
+		4C03BEB4733B4D7291A24F53 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7A9D492B9E4854933484B3 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift */; };
 		4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */; };
 		55EC2C81C6934E6182D91D16 /* BueroCockpitSnapshotReader/MobileInboxReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6DDA7ECBB94258B71857DC /* BueroCockpitSnapshotReader/MobileInboxReader.swift */; };
 		6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */; };
@@ -30,6 +31,7 @@
 
 /* Begin PBXFileReference section */
 		0D88295CC6BD4619A9F1EFAF /* BueroCockpitSnapshotReader/MobileSketchCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobileSketchCanvasView.swift; sourceTree = SOURCE_ROOT; };
+		0E7A9D492B9E4854933484B3 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift; sourceTree = SOURCE_ROOT; };
 		20E437C7A0C7407C9A8F60FD /* BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/BueroCockpitSnapshotReaderApp.swift; sourceTree = SOURCE_ROOT; };
 		334ADD6274A04A5A911FCCD6 /* BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotEmptyStateView.swift; sourceTree = SOURCE_ROOT; };
 		4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotSync.swift; sourceTree = SOURCE_ROOT; };
@@ -105,6 +107,7 @@
 				C14A03D372984B7698B23D60 /* BueroCockpitSnapshotReader/SnapshotReader.swift */,
 				58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */,
 				4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */,
+				0E7A9D492B9E4854933484B3 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift */,
 				8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */,
 				FC6DDA7ECBB94258B71857DC /* BueroCockpitSnapshotReader/MobileInboxReader.swift */,
 				91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */,
@@ -204,6 +207,7 @@
 				CB44387C4E784A398201B151 /* BueroCockpitSnapshotReader/SnapshotReader.swift in Sources */,
 				2A14F345BC9D4CA8A327AB10 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift in Sources */,
 				3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */,
+				4C03BEB4733B4D7291A24F53 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift in Sources */,
 				6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */,
 				55EC2C81C6934E6182D91D16 /* BueroCockpitSnapshotReader/MobileInboxReader.swift in Sources */,
 				318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */,

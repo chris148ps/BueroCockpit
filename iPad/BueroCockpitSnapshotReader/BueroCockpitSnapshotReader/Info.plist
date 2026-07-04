@@ -24,6 +24,12 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Fotos zu mobilen Besichtigungen aufnehmen.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>BüroCockpit sucht den Desktop im lokalen Netzwerk, um eine lokale Verbindung vorzubereiten.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_buerocockpit._tcp</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIApplicationSceneManifest</key>

@@ -227,6 +227,7 @@ struct SnapshotRootView: View {
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
             localNetworkDesktopAutoCheckMessage: viewModel.localNetworkDesktopAutoCheckMessage,
+            discoveredLocalNetworkDesktops: viewModel.discoveredLocalNetworkDesktops,
             localNetworkDesktopAddress: viewModel.localNetworkDesktopAddress,
             localNetworkDesktopLastSuccessfulCheckText: viewModel.localNetworkDesktopLastSuccessfulCheckText,
             localNetworkDesktopStoredStatus: viewModel.localNetworkDesktopStatus,
@@ -263,6 +264,15 @@ struct SnapshotRootView: View {
             },
             onStopLocalNetworkDesktopAutoCheck: {
                 viewModel.stopLocalNetworkDesktopAutoCheck()
+            },
+            onStartLocalNetworkDesktopDiscovery: {
+                viewModel.startLocalNetworkDesktopDiscovery()
+            },
+            onStopLocalNetworkDesktopDiscovery: {
+                viewModel.stopLocalNetworkDesktopDiscovery()
+            },
+            onUseDiscoveredLocalNetworkDesktop: { desktop in
+                viewModel.useDiscoveredLocalNetworkDesktop(desktop)
             },
             onLocalNetworkDesktopAddressChanged: { address in
                 viewModel.resetLocalNetworkDesktopPreferenceIfAddressChanged(address: address)

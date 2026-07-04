@@ -1,8 +1,8 @@
 # Lokaler Netzwerk-Sync
 
-Stand: 2026-07-03.
+Stand: 2026-07-04.
 
-Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Es wird keine produktive Synchronisation implementiert und keine iPad-Codeaenderung vorgenommen.
+Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Solange dieser Testdienst manuell laeuft, kuendigt er sich lokal per Bonjour/mDNS als `_buerocockpit._tcp` an, damit das iPad geaenderte IP-Adressen auffinden kann. Es wird keine produktive Synchronisation implementiert.
 
 ## 1. Ziel
 
@@ -19,7 +19,7 @@ Der lokale Netzwerk-Sync soll die bisherige iCloud-/Live-Aktualisierung langfris
 Nicht Bestandteil dieses Konzeptschritts:
 
 - kein ASP.NET-/Kestrel-Einbau
-- kein Bonjour-/mDNS-Paket
+- kein Bonjour-/mDNS-Paket; die aktuelle Testdienstphase nutzt nur systemische APIs
 - kein automatisch gestarteter HTTP-Listener
 - kein Serverstart im App-Lifecycle
 - keine iPad-Netzwerkimplementierung
@@ -60,7 +60,7 @@ Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separate
 
 Phase 3 ergaenzt einen ersten echten Desktop-Testdienst. Er ist nur fuer einen technischen Verbindungstest gedacht und darf ausschliesslich durch den Button `Lokalen Testdienst starten` im Bereich `Lokaler Netzwerk-Sync` gestartet werden. Das Oeffnen der App, das Oeffnen der Einstellungen und vorhandene lokale Einstellungen starten keinen Dienst.
 
-Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port. Fuer iPad-Tests wird die Mac-LAN-IP verwendet, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Mac geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
+Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port und kuendigt sich fuer die Dauer des manuell gestarteten Testdienstes per Bonjour/mDNS als `_buerocockpit._tcp` an. Fuer iPad-Tests kann die aktuelle Mac-LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Mac geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
 
 ```text
 GET /health
@@ -83,10 +83,10 @@ Weiterhin gilt:
 - keine iPad-Kopplung
 - kein Pairing-Abschluss
 - keine Aufgaben, Kategorien, Anhaenge oder Einstellungen in der Antwort
-- keine automatische Geraetesuche
-- kein Bonjour/mDNS
-- kein UDP-Broadcast
-- kein Polling
+- Bonjour/mDNS nur waehrend des manuell gestarteten Testdienstes und nur fuer `_buerocockpit._tcp`
+- keine automatische Hintergrund-Geraetesuche
+- kein UDP-Broadcast, keine Subnetzsuche und kein Portscan
+- kein dauerhaftes Polling
 - kein FileSystemWatcher
 - keine Datenuebertragung
 
@@ -312,7 +312,7 @@ Kompatibilitaet:
 
 ## 10. Offene technische Entscheidungen
 
-- Bonjour/mDNS oder QR-Code-only fuer Geraetefindung
+- Pairing-Bestaetigung und Vertrauensaufbau nach Bonjour-Fund
 - HTTP lokal oder andere Transportart
 - TLS im lokalen Netz ja/nein
 - Windows-Firewall-Freigabe und Benutzerfuehrung
@@ -326,7 +326,7 @@ Kompatibilitaet:
 - Sichtbarkeit und Rotation des Sync-Logs
 - Begrenzungen fuer Upload-Groesse, Dateianzahl und erlaubte Dateitypen
 
-Neue Abhaengigkeiten waeren erst bei einer echten Implementierung zu pruefen. Denkbar waeren spaeter ein lokaler HTTP-Server, Bonjour/mDNS und optional TLS-/Zertifikatsunterstuetzung. In diesem Schritt werden keine Abhaengigkeiten hinzugefuegt.
+Neue Abhaengigkeiten waeren erst bei einer echten Implementierung zu pruefen. Denkbar waeren spaeter TLS-/Zertifikatsunterstuetzung und weitere Transporthaertung. In diesem Schritt werden keine Abhaengigkeiten hinzugefuegt.
 
 ## 11. Stufenplan
 

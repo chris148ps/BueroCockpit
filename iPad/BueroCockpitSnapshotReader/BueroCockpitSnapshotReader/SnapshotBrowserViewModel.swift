@@ -13,6 +13,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var noticeMessage: String?
     @Published private(set) var syncStatusMessage: String?
     @Published private(set) var localNetworkDesktopAutoCheckMessage: String?
+    @Published private(set) var discoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop] = []
     @Published private(set) var syncSettings: SnapshotSyncSettings
     @Published private(set) var isSyncing = false
     @Published private(set) var loadingTitle = "Snapshot wird geladen …"
@@ -39,6 +40,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
     private var localNetworkDesktopAutoCheckTask: Task<Void, Never>?
     private var isLocalNetworkDesktopServiceCheckRunning = false
+    private let localNetworkDesktopDiscovery = LocalNetworkDesktopDiscovery()
 
     init(
         reader: SnapshotReader = SnapshotReader(),
@@ -58,6 +60,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     deinit {
         localNetworkDesktopAutoCheckTask?.cancel()
+        localNetworkDesktopDiscovery.stop()
     }
 
     var metadata: SnapshotMetadata? {
@@ -477,6 +480,24 @@ final class SnapshotBrowserViewModel: ObservableObject {
         localNetworkDesktopAutoCheckTask?.cancel()
         localNetworkDesktopAutoCheckTask = nil
         localNetworkDesktopAutoCheckMessage = nil
+    }
+
+    func startLocalNetworkDesktopDiscovery() {
+        localNetworkDesktopDiscovery.start { [weak self] desktops in
+            guard let self else { return }
+            discoveredLocalNetworkDesktops = desktops
+            adoptRememberedLocalNetworkDesktopIfFound(in: desktops)
+        }
+    }
+
+    func stopLocalNetworkDesktopDiscovery() {
+        localNetworkDesktopDiscovery.stop()
+        discoveredLocalNetworkDesktops = []
+    }
+
+    func useDiscoveredLocalNetworkDesktop(_ desktop: LocalNetworkDiscoveredDesktop) {
+        saveDiscoveredLocalNetworkDesktop(desktop, status: "Desktop im lokalen Netzwerk gefunden")
+        syncStatusMessage = "Desktop im lokalen Netzwerk gefunden"
     }
 
     func markLocalNetworkDesktopAsPreferred(address: String) {
@@ -1070,6 +1091,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             }
         } catch {
             syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
+            adoptRememberedLocalNetworkDesktopIfFound(in: discoveredLocalNetworkDesktops)
         }
     }
 
@@ -1081,6 +1103,49 @@ final class SnapshotBrowserViewModel: ObservableObject {
         settings.localNetworkDesktop.localDesktopStatus = nil
         syncSettings = settings
         syncSettingsStore.save(settings)
+    }
+
+    private func saveDiscoveredLocalNetworkDesktop(
+        _ desktop: LocalNetworkDiscoveredDesktop,
+        status: String
+    ) {
+        var settings = syncSettings
+        settings.localNetworkDesktop.desktopAddress = desktop.address
+        settings.localNetworkDesktop.desktopPort = desktop.port
+        settings.localNetworkDesktop.lastSuccessfulCheckAt = Date()
+        settings.localNetworkDesktop.localDesktopStatus = status
+        settings.localNetworkDesktop.desktopDeviceId = desktop.deviceId
+        settings.localNetworkDesktop.desktopName = desktop.name
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+    }
+
+    private func adoptRememberedLocalNetworkDesktopIfFound(in desktops: [LocalNetworkDiscoveredDesktop]) {
+        guard !desktops.isEmpty else { return }
+        let remembered = syncSettings.localNetworkDesktop
+        let rememberedStatus = remembered.localDesktopStatus?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard remembered.lastSuccessfulCheckAt != nil ||
+            rememberedStatus == "lokaler Desktop vorgemerkt" ||
+            rememberedStatus == "Desktop im lokalen Netzwerk gefunden" else {
+            return
+        }
+
+        let rememberedDeviceId = remembered.desktopDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rememberedName = remembered.desktopName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let match = desktops.first { desktop in
+            if let rememberedDeviceId, !rememberedDeviceId.isEmpty {
+                return desktop.deviceId == rememberedDeviceId
+            }
+            if let rememberedName, !rememberedName.isEmpty {
+                return desktop.name == rememberedName
+            }
+            return desktops.count == 1
+        }
+
+        guard let match else { return }
+        guard remembered.desktopAddress != match.address || remembered.desktopPort != match.port else { return }
+        saveDiscoveredLocalNetworkDesktop(match, status: "Desktop im lokalen Netzwerk gefunden")
+        syncStatusMessage = "Desktop im lokalen Netzwerk gefunden"
     }
 
     nonisolated private static func shortLocalNetworkDesktopError(_ error: Error) -> String {

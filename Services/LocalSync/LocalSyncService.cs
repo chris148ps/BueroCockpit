@@ -17,6 +17,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private HttpListener? _listener;
     private CancellationTokenSource? _listenerCts;
     private Task? _listenerTask;
+    private LocalBonjourService? _bonjourService;
 
     public LocalSyncService(LocalSyncOptions options)
     {
@@ -80,8 +81,12 @@ public sealed class LocalSyncService : ILocalSyncContracts
             _listenerCts = new CancellationTokenSource();
             _listener = listener;
             _listenerTask = Task.Run(() => RunStatusListenerAsync(listener, _listenerCts.Token), CancellationToken.None);
+            _bonjourService = new LocalBonjourService();
+            var bonjourStarted = _bonjourService.Start(_options);
             _state = LocalSyncState.Running;
-            _lastMessage = $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}.";
+            _lastMessage = bonjourStarted
+                ? $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; Bonjour-Ankuendigung aktiv."
+                : $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; {_bonjourService.LastError}";
             return Task.FromResult(BuildStatusLocked());
         }
     }
@@ -300,6 +305,8 @@ public sealed class LocalSyncService : ILocalSyncContracts
         _listener?.Close();
         _listener = null;
         _listenerTask = null;
+        _bonjourService?.Stop();
+        _bonjourService = null;
     }
 
     private string GetServerName()
