@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BueroCockpit.Services.LocalSync;
 
 public sealed record LocalSyncStatus(
@@ -48,9 +50,25 @@ public sealed record LocalSyncSnapshotManifestEntry(
     long SizeBytes,
     string Purpose);
 
+public sealed record LocalSyncChangeStatus(
+    [property: JsonPropertyName("app")]
+    string App,
+    [property: JsonPropertyName("status")]
+    string Status,
+    [property: JsonPropertyName("mode")]
+    string Mode,
+    [property: JsonPropertyName("changeVersion")]
+    string ChangeVersion,
+    [property: JsonPropertyName("lastChangedUtc")]
+    DateTimeOffset LastChangedUtc,
+    [property: JsonPropertyName("syncActive")]
+    bool SyncActive);
+
 public interface ILocalSyncContracts
 {
     LocalSyncStatus GetStatus();
+
+    LocalSyncChangeStatus GetChangeStatus();
 
     MobileInboxUploadResult ValidateMobileInboxUpload(MobileInboxUploadManifest manifest);
 }

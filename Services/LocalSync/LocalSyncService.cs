@@ -17,6 +17,8 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private CancellationTokenSource? _listenerCts;
     private Task? _listenerTask;
     private LocalBonjourService? _bonjourService;
+    private string _changeVersion = $"placeholder-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+    private DateTimeOffset _lastChangedUtc = DateTimeOffset.UtcNow;
 
     public event EventHandler<LocalNetworkRememberedDevice>? DeviceRemembered;
 
@@ -147,6 +149,23 @@ public sealed class LocalSyncService : ILocalSyncContracts
         }
     }
 
+    public LocalSyncChangeStatus GetChangeStatus()
+    {
+        lock (_gate)
+        {
+            return BuildChangeStatusLocked();
+        }
+    }
+
+    public void MarkLocalChange()
+    {
+        lock (_gate)
+        {
+            _lastChangedUtc = DateTimeOffset.UtcNow;
+            _changeVersion = $"placeholder-{_lastChangedUtc:yyyyMMddHHmmssfff}";
+        }
+    }
+
     public MobileInboxUploadResult ValidateMobileInboxManifest(MobileInboxUploadManifest manifest)
     {
         var messages = new List<string>();
@@ -246,6 +265,8 @@ public sealed class LocalSyncService : ILocalSyncContracts
         if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
             || (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(path, "/local-sync/status", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(path, "/local-sync/changes/status", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(path, "/local-sync/state", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(path, "/pairing/status", StringComparison.OrdinalIgnoreCase)))
         {
             context.Response.StatusCode = 404;
@@ -254,6 +275,13 @@ public sealed class LocalSyncService : ILocalSyncContracts
         }
 
         context.Response.StatusCode = 200;
+        if (string.Equals(path, "/local-sync/changes/status", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(path, "/local-sync/state", StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteJsonAsync(context.Response, GetChangeStatus()).ConfigureAwait(false);
+            return;
+        }
+
         await WriteJsonAsync(
             context.Response,
             new
@@ -263,6 +291,17 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 mode = "local-network-test",
                 version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion
             }).ConfigureAwait(false);
+    }
+
+    private LocalSyncChangeStatus BuildChangeStatusLocked()
+    {
+        return new LocalSyncChangeStatus(
+            App: _options.AppName,
+            Status: "ok",
+            Mode: "local-network-test",
+            ChangeVersion: _changeVersion,
+            LastChangedUtc: _lastChangedUtc,
+            SyncActive: false);
     }
 
     private async Task WriteRememberDeviceResponseAsync(HttpListenerContext context)

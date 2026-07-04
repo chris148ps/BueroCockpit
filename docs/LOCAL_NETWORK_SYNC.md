@@ -2,7 +2,7 @@
 
 Stand: 2026-07-05.
 
-Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen und lokale Geraete-Vormerkungen vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Es wird keine produktive Synchronisation implementiert.
+Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen, lokale Geraete-Vormerkungen und harmlose Aenderungsmetadaten vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Die iPad-App startet kuenftig direkt in die Hauptansicht und prueft die Desktop-Verbindung im sichtbaren Betrieb automatisch. Es wird keine produktive Synchronisation implementiert.
 
 ## 1. Ziel
 
@@ -40,6 +40,7 @@ Vorbereitet sind:
 - `LocalSyncOptions` fuer lokale, geraetespezifische Konfiguration
 - lokale AppSettings fuer `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName`
 - Platzhaltermethoden fuer Status, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
+- Platzhaltermethoden fuer Aenderungsmetadaten ohne Produktivdaten
 - ein Desktop-Einstellungsabschnitt, in dem Geraetename und Port lokal bearbeitet werden koennen
 
 Fuer Phase 2 galt:
@@ -65,6 +66,8 @@ Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespei
 ```text
 GET /health
 GET /local-sync/status
+GET /local-sync/changes/status
+GET /local-sync/state
 POST /local-sync/devices/remember
 ```
 
@@ -93,13 +96,38 @@ Weiterhin gilt:
 - kein FileSystemWatcher
 - keine Datenuebertragung
 
-### iPad-Vormerkung in Phase 3
+`/local-sync/changes/status` und `/local-sync/state` sind nur vorbereitete Metadaten-Endpunkte. Sie liefern keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstigen Produktivdaten:
 
-Das iPad kann einen erfolgreich geprueften Desktop lokal als kuenftigen Sync-Partner vormerken. Gespeichert werden nur Desktop-Adresse/IP, Port, Zeitstempel der letzten erfolgreichen Pruefung und ein lokaler Status. Diese Vormerkung ist der aktuelle iPad-Bedienweg fuer den lokalen Netzwerk-Sync.
+```json
+{
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "local-network-test",
+  "changeVersion": "placeholder-20260705120000000",
+  "lastChangedUtc": "2026-07-05T12:00:00Z",
+  "syncActive": false
+}
+```
+
+Die lokale `changeVersion` kann beim Speichern im laufenden Desktop-Prozess aktualisiert werden. Das ist nur ein Platzhalter fuer spaetere automatische Aenderungsbereitstellung; daraus entsteht noch kein echter Sync und keine Datenuebertragung.
+
+### iPad-Hauptansicht und Vormerkung in Phase 3
+
+Das iPad startet direkt in die Hauptansicht. Ein vorgeschalteter Assistent, ein Startzwang ueber Live-Datei, OneDrive-/iCloud-Datei oder Pairing-Code gehoeren nicht mehr zum aktuellen Zielweg. Oben in der Hauptansicht zeigt ein kleiner Verbindungsindikator den lokalen Desktop-Status:
+
+- gruener Punkt: `Desktop verbunden`
+- roter Punkt: `Desktop nicht verbunden`
+- gelb nur waehrend einer laufenden Pruefung
+
+Wenn noch kein Desktop vorgemerkt ist, bleibt die Hauptansicht trotzdem sichtbar und weist dezent darauf hin, dass der Desktop-Testdienst in BueroCockpit manuell gestartet werden muss. Die App sucht den Desktop per Bonjour/mDNS, sofern verfuegbar. Die manuelle Desktop-Adresse/IP bleibt in den Sync-Einstellungen als Fallback erreichbar.
+
+Das iPad kann einen erfolgreich geprueften Desktop lokal als kuenftigen Sync-Partner vormerken. Gespeichert werden nur Desktop-Adresse/IP, Port, Zeitstempel der letzten erfolgreichen Pruefung, lokaler Status sowie vorbereitend die letzte bekannte `changeVersion` und die letzte erfolgreiche Aenderungsstatus-Pruefung. Diese Vormerkung ist der aktuelle iPad-Bedienweg fuer den lokalen Netzwerk-Sync.
 
 Beim Benutzerbefehl `Diesen Desktop verwenden` bleibt diese lokale iPad-Vormerkung die fuehrende lokale Quelle. Danach sendet das iPad einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Der Desktop speichert das iPad nur lokal in `BueroCockpitLocal/local-network-devices.json` und aktualisiert vorhandene Eintraege mit gleicher `deviceId`. Gespeichert werden `deviceId`, `deviceName`, `platform`, optional `appVersion`, `firstSeenUtc`, `lastSeenUtc`, optional `lastRemoteAddress` und `status = remembered`. Diese Geraetewerte werden nicht in die zentrale `settings.json` geschrieben und nicht in Produktivdaten uebernommen. Die Desktop-UI zeigt die vorgemerkte iPads / lokalen Geraete mit Status `vorgemerkt, Sync noch nicht aktiv`.
 
 Die automatische Bonjour-/Netzwerksuche ist davon getrennt. Sie darf die gespeicherte Vormerkung nicht loeschen, nicht herabstufen und nicht durch eine widerspruechliche Hauptmeldung ueberschreiben. Wenn die Suche gerade keinen Desktop findet, bleibt der vorgemerkte Desktop sichtbar und die Suchmeldung lautet sinngemaess `Automatische Suche hat aktuell keinen Desktop gefunden.`. Wenn dieselbe Maschine wiedergefunden wird, duerfen Adresse/IP und Port aktualisiert werden. Ein anderer gefundener Desktop ersetzt die Vormerkung nur nach Benutzeraktion.
+
+Die automatische Pruefung laeuft begrenzt: beim Start, bei Rueckkehr in den aktiven App-Zustand und im sichtbaren Betrieb in einem ruhigen Intervall. Sie stoppt oder pausiert, wenn die Hauptansicht nicht aktiv ist. Es gibt keinen UDP-Broadcast, keinen Portscan und keine aggressive Dauerschleife.
 
 Live-Datei, OneDrive-/iCloud-Datei, `IpadLiveFileTargetPath` und Pairing-Code sind nicht mehr der aktuelle Kopplungsweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Sie bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen. Der manuelle IP-Fallback bleibt der verlaessliche Weg, wenn Bonjour/mDNS nicht verfuegbar ist.
 
@@ -212,6 +240,27 @@ Beispielantwort:
   "version": "0.4.14"
 }
 ```
+
+### `GET /local-sync/changes/status`
+
+Aktuell implementierter Platzhalter fuer spaetere automatische Aenderungspruefung. Liefert nur Metadaten und keine Produktivdaten. `syncActive` bleibt in diesem Schritt `false`.
+
+Beispielantwort:
+
+```json
+{
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "local-network-test",
+  "changeVersion": "placeholder-20260705120000000",
+  "lastChangedUtc": "2026-07-05T12:00:00Z",
+  "syncActive": false
+}
+```
+
+### `GET /local-sync/state`
+
+Alias fuer den gleichen harmlosen Metadatenstatus wie `/local-sync/changes/status`.
 
 ### `POST /local-sync/devices/remember`
 

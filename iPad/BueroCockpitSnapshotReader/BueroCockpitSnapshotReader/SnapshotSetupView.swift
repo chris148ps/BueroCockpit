@@ -154,7 +154,7 @@ struct SnapshotSetupView: View {
                 .frame(maxWidth: 900)
                 .frame(maxWidth: .infinity)
             }
-            .navigationTitle("Einrichtung")
+            .navigationTitle("Sync-Einstellungen")
             .onChange(of: currentProvider) { _, provider in
                 selectedProvider = provider
             }

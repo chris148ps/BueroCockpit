@@ -9,11 +9,13 @@ Dieses Dokument beschreibt den aktuellen Bedien- und Zielweg fuer den lokalen Ne
 1. BueroCockpit Desktop bleibt das fuehrende System.
 2. Der lokale Testdienst startet ausschliesslich manuell im Desktop-Bereich `Lokaler Netzwerk-Sync`.
 3. Der Testdienst verwendet standardmaessig Port `53941`.
-4. Das iPad sucht den Desktop per Bonjour/mDNS, falls verfuegbar.
-5. Das iPad kann den Desktop jederzeit manuell ueber Desktop-Adresse/IP pruefen.
-6. Ein erfolgreich gepruefter Desktop kann auf dem iPad als lokaler Sync-Partner vorgemerkt werden.
-7. Das iPad registriert sich danach beim Desktop-Testdienst als vorgemerktes lokales Geraet.
-8. Der Desktop zeigt vorgemerkte iPads im Bereich `Lokaler Netzwerk-Sync`.
+4. Die iPad-App startet direkt in die Hauptansicht, nicht in einen Assistenten.
+5. Oben in der Hauptansicht zeigt ein kleiner Punkt den lokalen Desktop-Status: gruen = `Desktop verbunden`, rot = `Desktop nicht verbunden`.
+6. Das iPad sucht den Desktop per Bonjour/mDNS, falls verfuegbar.
+7. Das iPad kann den Desktop weiterhin manuell ueber Desktop-Adresse/IP pruefen.
+8. Ein erfolgreich gepruefter Desktop kann auf dem iPad als lokaler Sync-Partner vorgemerkt werden.
+9. Das iPad registriert sich danach beim Desktop-Testdienst als vorgemerktes lokales Geraet.
+10. Der Desktop zeigt vorgemerkte iPads im Bereich `Lokaler Netzwerk-Sync`.
 
 In diesem Stand gibt es noch keinen echten Sync, keinen Kopplungsabschluss und keine Produktivdatenuebertragung.
 
@@ -33,6 +35,8 @@ Der Testdienst stellt nur harmlose Statusendpunkte bereit:
 ```text
 GET /health
 GET /local-sync/status
+GET /local-sync/changes/status
+GET /local-sync/state
 POST /local-sync/devices/remember
 ```
 
@@ -50,6 +54,19 @@ Beispielantwort:
 ```
 
 Die Antwort enthaelt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten.
+
+`GET /local-sync/changes/status` und `GET /local-sync/state` sind vorbereitete Metadaten-Endpunkte fuer spaetere automatische Aenderungspruefung. Sie uebertragen keine Produktivdaten und behaupten keinen aktiven Sync:
+
+```json
+{
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "local-network-test",
+  "changeVersion": "placeholder-20260705120000000",
+  "lastChangedUtc": "2026-07-05T12:00:00Z",
+  "syncActive": false
+}
+```
 
 `POST /local-sync/devices/remember` nimmt nur lokale iPad-Metadaten entgegen:
 
@@ -80,7 +97,19 @@ Der Desktop-Bereich zeigt `vorgemerkte iPads / lokale Geraete`, den Geraetenamen
 
 ## iPad
 
-Der iPad-Bereich `Lokaler Netzwerk-Sync` zeigt:
+Die iPad-App zeigt beim Start direkt die Hauptansicht. Es gibt keinen vorgeschalteten Assistenten, keinen Startzwang ueber Live-Datei, keine OneDrive-/Cloud-Kopplung und keinen Pairing-Code als aktuellen Hauptfluss.
+
+In der Hauptansicht zeigt die App oben einen kleinen Verbindungsindikator:
+
+- gruener Punkt: `Desktop verbunden`
+- roter Punkt: `Desktop nicht verbunden`
+- gelb nur waehrend einer laufenden Pruefung
+
+Wenn noch kein Desktop vorgemerkt ist, bleibt die Hauptansicht sichtbar. Der Inhalt darf dezent darauf hinweisen, dass der Desktop-Testdienst in BueroCockpit gestartet werden muss, der Desktop automatisch gesucht wird und die manuelle IP in den Einstellungen moeglich bleibt.
+
+Die automatische Verbindung prueft beim Start, bei Rueckkehr in den aktiven App-Zustand und im sichtbaren Betrieb in einem ruhigen Intervall. Sie stoppt oder pausiert, wenn die Hauptansicht nicht aktiv ist. Es gibt keinen UDP-Broadcast, keinen Portscan und keine aggressive Dauerschleife.
+
+Der optionale iPad-Bereich `Lokaler Netzwerk-Sync` in den Sync-Einstellungen zeigt:
 
 - automatische Desktop-Suche per Bonjour/mDNS.
 - manuelle Desktop-Adresse/IP.
@@ -98,6 +127,8 @@ Ein manuell oder ueber die sichtbare Desktop-Liste vorgemerkter Desktop wird lok
 - Port.
 - Zeitstempel der letzten erfolgreichen Pruefung.
 - Status `Lokaler Desktop vorgemerkt` oder `Desktop im lokalen Netzwerk gefunden`.
+- letzte bekannte `changeVersion`.
+- Zeitstempel der letzten erfolgreichen Aenderungsstatus-Pruefung.
 
 Die automatische Suche darf diesen gespeicherten Desktop nicht loeschen, nicht herabstufen und nicht visuell durch eine Meldung ersetzen, die wie eine fehlende Einrichtung wirkt. Wenn die automatische Suche aktuell keinen Desktop findet, bleibt der Hauptstatus `Lokaler Desktop vorgemerkt`; nur die Suchmeldung darf auf `Automatische Suche hat aktuell keinen Desktop gefunden.` wechseln. Findet die Suche denselben Desktop wieder, duerfen Adresse/IP und Port aktualisiert werden. Findet die Suche einen anderen Desktop, wird er nur als weiterer gefundener Desktop angezeigt und erst nach Benutzeraktion vorgemerkt.
 
@@ -107,6 +138,8 @@ Wenn Bonjour keinen weiteren Desktop findet, aber bereits eine manuelle Adresse 
 - oder bei fehlendem Bonjour: `Bonjour-Suche nicht verfuegbar; manuelle Adresse wird verwendet`
 
 Beim Tippen auf `Diesen Desktop verwenden` speichert das iPad zuerst lokal den vorgemerkten Desktop. Danach sendet es einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Bei Erfolg zeigt die App `Desktop vorgemerkt, iPad am Desktop registriert.`. Wenn der POST fehlschlaegt, bleibt der lokale Desktop vorgemerkt und die App zeigt `Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich.`. Es gibt keinen Hintergrund-Retry und keine Endlosschleife; ein neuer Versuch passiert nur durch erneute Benutzeraktion.
+
+Nach erfolgreicher Statuspruefung darf das iPad vorbereitend `/local-sync/changes/status` abrufen und `changeVersion` sowie die letzte erfolgreiche Pruefung lokal merken. Die UI darf `Verbunden` oder `Änderungsprüfung vorbereitet` anzeigen. Sie darf nicht behaupten, dass ein echter Sync aktiv ist.
 
 ## Bonjour/mDNS
 
@@ -124,7 +157,7 @@ Der Windows-Installer soll Bonjour kuenftig erkennen und optional installieren o
 
 ## Legacy/Fallback
 
-Pairing-Code, Live-Datei, iCloud-Datei, OneDrive-Live-Datei und `IpadLiveFileTargetPath` sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
+Pairing-Code, Live-Datei, iCloud-Datei, OneDrive-Live-Datei, Cloud-Datei, Datei-Auswahl als Hauptweg und `IpadLiveFileTargetPath` sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
 
 Bestehende lokale Settings duerfen alte Felder wie `LocalNetworkSyncPairingCode` oder `LocalNetworkSyncPairedDevices` weiterhin enthalten. Diese Felder werden tolerant gelesen, im aktuellen Netzwerk-Sync-Bedienweg aber ignoriert.
 

@@ -44,11 +44,7 @@ struct SnapshotRootView: View {
 
     var body: some View {
         Group {
-            if viewModel.setupRequired && viewModel.document == nil && viewModel.loadState != .loading {
-                setupView
-            } else {
-                contentView
-            }
+            contentView
         }
         .task {
             viewModel.restoreAtLaunch()
@@ -64,6 +60,9 @@ struct SnapshotRootView: View {
             if phase == .active {
                 updateMobileInspectionDraftState()
                 presentMobileInspectionDraftIfNeeded()
+                viewModel.startMainLocalNetworkDesktopMonitoring()
+            } else {
+                viewModel.stopMainLocalNetworkDesktopMonitoring()
             }
         }
         .fileImporter(
@@ -185,7 +184,7 @@ struct SnapshotRootView: View {
     @ViewBuilder
     private var contentView: some View {
         if viewModel.document == nil {
-            setupView
+            browserView
         } else {
             switch viewModel.loadState {
             case .ready:
@@ -303,6 +302,12 @@ struct SnapshotRootView: View {
             }
         )
         .navigationSplitViewStyle(.balanced)
+        .onAppear {
+            viewModel.startMainLocalNetworkDesktopMonitoring()
+        }
+        .onDisappear {
+            viewModel.stopMainLocalNetworkDesktopMonitoring()
+        }
     }
 
     private var contentColumnView: some View {
@@ -322,6 +327,8 @@ struct SnapshotRootView: View {
                 .font(.headline)
 
             Spacer()
+
+            localNetworkConnectionIndicator
 
             if hasMobileInspectionDraft {
                 Button {
@@ -366,6 +373,30 @@ struct SnapshotRootView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(minHeight: 44)
+    }
+
+    private var localNetworkConnectionIndicator: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(localNetworkConnectionColor)
+                .frame(width: 9, height: 9)
+            Text(viewModel.localNetworkDesktopConnectionState.title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .help(viewModel.localNetworkDesktopConnectionState.title)
+    }
+
+    private var localNetworkConnectionColor: Color {
+        switch viewModel.localNetworkDesktopConnectionState {
+        case .checking:
+            return .yellow
+        case .connected:
+            return .green
+        case .disconnected:
+            return .red
+        }
     }
 
     private var taskSearchField: some View {
@@ -470,7 +501,7 @@ struct SnapshotRootView: View {
         case .idle:
             SnapshotEmptyStateView(
                 title: "Lokaler Netzwerk-Sync in Vorbereitung",
-                message: "Desktop im lokalen Netzwerk suchen oder IP manuell eingeben. Noch kein echter Sync aktiv.",
+                message: "Desktop-Testdienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich.",
                 systemImage: "folder",
                 primaryButtonTitle: "Sync-Einstellungen",
                 primaryAction: { presentedSheet = .settings },

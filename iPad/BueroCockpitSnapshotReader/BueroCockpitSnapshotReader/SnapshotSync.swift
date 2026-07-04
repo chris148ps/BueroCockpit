@@ -52,6 +52,8 @@ struct LocalNetworkDesktopPairing: Codable, Equatable, Sendable {
     var desktopPort: Int?
     var lastSuccessfulCheckAt: Date?
     var localDesktopStatus: String?
+    var lastChangeVersion: String?
+    var lastChangeStatusCheckAt: Date?
     var ipadDeviceId: String?
     var ipadDeviceName: String?
     var ipadPlatform: String?

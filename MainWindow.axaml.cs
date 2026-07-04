@@ -1510,6 +1510,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _repository.SaveDeskItem(deskItem);
             }
 
+            _localNetworkSyncTestService?.MarkLocalChange();
+
             _dirtyCategories.Clear();
             _dirtyTasks.Clear();
             _dirtyMaterials.Clear();
