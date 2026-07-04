@@ -8,6 +8,7 @@ struct SnapshotSetupView: View {
     let lastUpdatedText: String?
     let message: String?
     let statusMessage: String?
+    let localNetworkDesktopAddress: String
     let localNetworkPairingCode: String
     let isLocalNetworkPairingPrepared: Bool
     let mobileInboxFolderPath: String?
@@ -18,12 +19,14 @@ struct SnapshotSetupView: View {
     let onRefreshICloudSnapshot: () -> Void
     let onReload: () -> Void
     let onTestGoogleDrive: (String) -> Void
+    let onTestLocalNetworkDesktopService: (String) -> Void
     let onPrepareLocalNetworkPairing: (String) -> Void
     let onSelectMobileInboxFolder: () -> Void
     let onDismiss: (() -> Void)?
 
     @State private var selectedProvider: SyncProviderType
     @State private var googleDriveLink: String
+    @State private var localNetworkDesktopAddressInput: String
     @State private var localNetworkPairingCodeInput: String
 
     init(
@@ -34,6 +37,7 @@ struct SnapshotSetupView: View {
         lastUpdatedText: String?,
         message: String?,
         statusMessage: String?,
+        localNetworkDesktopAddress: String,
         localNetworkPairingCode: String,
         isLocalNetworkPairingPrepared: Bool,
         mobileInboxFolderPath: String?,
@@ -44,6 +48,7 @@ struct SnapshotSetupView: View {
         onRefreshICloudSnapshot: @escaping () -> Void,
         onReload: @escaping () -> Void,
         onTestGoogleDrive: @escaping (String) -> Void,
+        onTestLocalNetworkDesktopService: @escaping (String) -> Void,
         onPrepareLocalNetworkPairing: @escaping (String) -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
         onDismiss: (() -> Void)? = nil
@@ -55,6 +60,7 @@ struct SnapshotSetupView: View {
         self.lastUpdatedText = lastUpdatedText
         self.message = message
         self.statusMessage = statusMessage
+        self.localNetworkDesktopAddress = localNetworkDesktopAddress
         self.localNetworkPairingCode = localNetworkPairingCode
         self.isLocalNetworkPairingPrepared = isLocalNetworkPairingPrepared
         self.mobileInboxFolderPath = mobileInboxFolderPath
@@ -65,11 +71,13 @@ struct SnapshotSetupView: View {
         self.onRefreshICloudSnapshot = onRefreshICloudSnapshot
         self.onReload = onReload
         self.onTestGoogleDrive = onTestGoogleDrive
+        self.onTestLocalNetworkDesktopService = onTestLocalNetworkDesktopService
         self.onPrepareLocalNetworkPairing = onPrepareLocalNetworkPairing
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
         self.onDismiss = onDismiss
         _selectedProvider = State(initialValue: currentProvider)
         _googleDriveLink = State(initialValue: savedGoogleDriveLink)
+        _localNetworkDesktopAddressInput = State(initialValue: localNetworkDesktopAddress)
         _localNetworkPairingCodeInput = State(initialValue: localNetworkPairingCode)
     }
 
@@ -164,6 +172,9 @@ struct SnapshotSetupView: View {
             .onChange(of: localNetworkPairingCode) { _, code in
                 localNetworkPairingCodeInput = code
             }
+            .onChange(of: localNetworkDesktopAddress) { _, address in
+                localNetworkDesktopAddressInput = address
+            }
             .toolbar {
                 if let onDismiss {
                     ToolbarItem(placement: .confirmationAction) {
@@ -208,6 +219,28 @@ struct SnapshotSetupView: View {
             }
             .buttonStyle(.bordered)
             .disabled(localNetworkPairingCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Desktop-Adresse, z. B. 192.168.1.20 oder mac-mini.local", text: $localNetworkDesktopAddressInput)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.roundedBorder)
+
+                Text("Port: 53941")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                Button("Desktop-Testdienst prüfen") {
+                    onTestLocalNetworkDesktopService(localNetworkDesktopAddressInput)
+                }
+                .buttonStyle(.bordered)
+                .disabled(
+                    isWorking ||
+                    localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+            }
         }
     }
 

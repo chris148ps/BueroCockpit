@@ -1,12 +1,14 @@
 # Lokales Netzwerk-Pairing
 
-Stand: 2026-07-03.
+Stand: 2026-07-04.
 
 Dieses Dokument definiert das gemeinsame lokale Pairing-Datenformat fuer BueroCockpit Desktop und die iPad-App. Es ist nur ein Vertrag fuer eine spaetere lokale Netzwerk-Kopplung. In diesem Stand gibt es keine Netzwerksuche, kein Bonjour/mDNS, kein Polling und keine Datenuebertragung. Auf der Desktop-Seite gibt es nur einen manuell startbaren lokalen HTTP-Testdienst fuer eine einfache Statusantwort.
 
 ## Aktueller Stand
 
 Die iPad-App kann einen Pairing-Code lokal formal pruefen und speichern. Gueltig ist aktuell das Format `ABCD-1234`: vier Buchstaben, Bindestrich, vier Ziffern. Bei gueltigem Code setzt die iPad-App ihren lokalen Status auf `Kopplung vorbereitet` und zeigt den Hinweis, dass die Verbindung erst in einem spaeteren Schritt aktiviert wird.
+
+Zusaetzlich kann die iPad-App im Bereich `Lokaler Netzwerk-Sync` die Desktop-Adresse lokal speichern und den Button `Desktop-Testdienst pruefen` anzeigen. Dieser Button fuehrt ausschliesslich nach manueller Betaetigung einen einzelnen HTTP-GET auf `http://<Desktop-Adresse>:53941/pairing/status` aus. Die iPad-App wertet nur die harmlose Statusantwort mit `app = BueroCockpit`, `status = ok` und `mode = pairing-test` aus und zeigt danach `Desktop-Testdienst erreichbar` oder `Desktop-Testdienst nicht erreichbar`.
 
 Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` lokal die `DeviceId`, den Pairing-Code und den Status `Wartet auf iPad-Kopplung` bzw. `Pairing vorbereitet`. Zusaetzlich kann der Benutzer dort den lokalen Testdienst manuell starten und stoppen. Der Testdienst bindet nur an die definierte lokale Adresse und liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
 
@@ -21,11 +23,11 @@ Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal no
 }
 ```
 
-Der Desktop-Status bedeutet nur: Die lokale Erstkopplung ist vorbereitet und wartet auf eine spaetere iPad-Kopplung. Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus.
+Der Desktop-Status bedeutet nur: Die lokale Erstkopplung ist vorbereitet und wartet auf eine spaetere iPad-Kopplung. Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus. Die iPad-Pruefung startet ebenfalls nicht automatisch, wiederholt sich nicht, sucht keine Geraete und uebertraegt keine Produktivdaten.
 
 Desktop und iPad zeigen jetzt jeweils eine kurze Bedienfuehrung fuer die spaetere Kopplung. Diese Checklisten beschreiben nur die notwendigen Benutzerschritte: Desktop offen lassen, Pairing-Code am Desktop ablesen, Code auf dem iPad eingeben und `Kopplung vorbereiten` druecken. Der Stand ist damit: Bedienfuehrung vorbereitet, noch keine Verbindung.
 
-Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Suche, keinen TrustKey-Austausch und keine Datenuebertragung. Netzwerkverkehr entsteht nur, wenn der Benutzer den lokalen Testdienst manuell startet und den Statusendpunkt abruft.
+Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keine Suche, keinen TrustKey-Austausch und keine Datenuebertragung. Netzwerkverkehr entsteht nur, wenn der Benutzer den lokalen Testdienst manuell startet und auf dem iPad den Statusendpunkt manuell abruft.
 
 ## Ziel
 
@@ -137,6 +139,7 @@ iPad speichert Pairing-Daten ausschliesslich lokal in den Sync-Einstellungen der
 - `ipadDeviceId`
 - `ipadDeviceName`
 - `ipadPlatform`
+- `desktopAddress`
 - `desktopDeviceId`
 - `desktopName`
 - `desktopPlatform`
@@ -157,4 +160,5 @@ iPad speichert Pairing-Daten ausschliesslich lokal in den Sync-Einstellungen der
 - kein FileSystemWatcher
 - keine Datenuebertragung
 - keine echte Pairing-Validierung ueber Netzwerk
+- kein echter Pairing-Abschluss
 - keine Speicherung von Pairing-Geheimnissen in zentralen Daten oder Exportdateien

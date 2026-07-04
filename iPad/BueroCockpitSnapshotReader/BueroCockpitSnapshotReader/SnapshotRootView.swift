@@ -226,6 +226,7 @@ struct SnapshotRootView: View {
             lastUpdatedText: viewModel.syncLastUpdatedText,
             message: viewModel.setupMessage,
             statusMessage: viewModel.syncStatusMessage ?? importStatusMessage,
+            localNetworkDesktopAddress: viewModel.localNetworkDesktopAddress,
             localNetworkPairingCode: viewModel.localNetworkPairingCode,
             isLocalNetworkPairingPrepared: viewModel.isLocalNetworkPairingPrepared,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
@@ -250,6 +251,9 @@ struct SnapshotRootView: View {
             onRefreshICloudSnapshot: refreshOrSelectICloudSnapshot,
             onReload: viewModel.refreshSnapshot,
             onTestGoogleDrive: viewModel.testGoogleDriveConnection,
+            onTestLocalNetworkDesktopService: { address in
+                viewModel.testLocalNetworkDesktopService(address: address)
+            },
             onPrepareLocalNetworkPairing: { code in
                 viewModel.prepareLocalNetworkPairing(pairingCode: code)
             },

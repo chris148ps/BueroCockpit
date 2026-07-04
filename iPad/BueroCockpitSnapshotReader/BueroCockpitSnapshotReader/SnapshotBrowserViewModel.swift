@@ -33,6 +33,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let syncSettingsStore: SnapshotSyncSettingsStore
     private let mobileInboxReader: MobileInboxReader
     private var didAttemptStartupLoad = false
+    private let localNetworkDesktopTestPort = 53941
 
     init(
         reader: SnapshotReader = SnapshotReader(),
@@ -225,6 +226,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.pairingCode ?? ""
     }
 
+    var localNetworkDesktopAddress: String {
+        syncSettings.localNetworkDesktop.desktopAddress ?? ""
+    }
+
     var isLocalNetworkPairingPrepared: Bool {
         !localNetworkPairingCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -374,6 +379,42 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings = settings
         syncSettingsStore.save(settings)
         syncStatusMessage = "Kopplung vorbereitet. Die Verbindung wird erst in einem späteren Schritt aktiviert."
+    }
+
+    func testLocalNetworkDesktopService(address: String) {
+        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedAddress.isEmpty else {
+            syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+            return
+        }
+
+        var settings = syncSettings
+        settings.localNetworkDesktop.desktopAddress = normalizedAddress
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+
+        guard !isSyncing else { return }
+        isSyncing = true
+        loadingTitle = "Desktop-Testdienst wird geprüft …"
+        syncStatusMessage = "Desktop-Testdienst wird geprüft …"
+
+        Task {
+            defer {
+                isSyncing = false
+            }
+
+            do {
+                let response = try await Self.fetchLocalNetworkDesktopStatus(
+                    address: normalizedAddress,
+                    port: localNetworkDesktopTestPort
+                )
+                syncStatusMessage = response.isExpectedPairingTestStatus
+                    ? "Desktop-Testdienst erreichbar"
+                    : "Desktop-Testdienst nicht erreichbar"
+            } catch {
+                syncStatusMessage = "Desktop-Testdienst nicht erreichbar"
+            }
+        }
     }
 
     func importICloudSnapshot(from sourceURL: URL) {
@@ -874,6 +915,40 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
         return normalized
     }
+
+    nonisolated private static func fetchLocalNetworkDesktopStatus(
+        address: String,
+        port: Int
+    ) async throws -> LocalNetworkDesktopStatusResponse {
+        guard !address.contains("/"),
+              !address.contains(":"),
+              !address.contains("?") else {
+            throw SnapshotSyncError.invalidHTTPResponse
+        }
+
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = address
+        components.port = port
+        components.path = "/pairing/status"
+
+        guard let url = components.url else {
+            throw SnapshotSyncError.invalidHTTPResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 5
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SnapshotSyncError.invalidHTTPResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw SnapshotSyncError.httpStatus(httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(LocalNetworkDesktopStatusResponse.self, from: data)
+    }
 }
 
 private enum LocalSnapshotLoadOutcome: Sendable {
@@ -896,4 +971,16 @@ private struct PreparedSnapshot: Sendable {
     let document: SnapshotDocument
     let categories: [SnapshotCategoryGroup]
     let taskCountByCategoryID: [String: Int]
+}
+
+private struct LocalNetworkDesktopStatusResponse: Decodable, Sendable {
+    let app: String
+    let status: String
+    let mode: String
+
+    var isExpectedPairingTestStatus: Bool {
+        app == "BueroCockpit" &&
+        status == "ok" &&
+        mode == "pairing-test"
+    }
 }
