@@ -7,6 +7,7 @@ namespace BueroCockpit.Services.LocalSync;
 
 public sealed class LocalSyncService : ILocalSyncContracts
 {
+    private const string ListenerHost = "*";
     private readonly object _gate = new();
     private readonly LocalSyncOptions _options;
     private LocalSyncState _state;
@@ -42,7 +43,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
         {
             if (_state == LocalSyncState.Running && _listener is not null)
             {
-                _lastMessage = $"Testdienst laeuft bereits auf Port {_options.Port}.";
+                _lastMessage = $"Testdienst laeuft bereits im lokalen Netzwerk auf Port {_options.Port}.";
                 return Task.FromResult(BuildStatusLocked());
             }
 
@@ -62,7 +63,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
 
             _state = LocalSyncState.Starting;
             var listener = new HttpListener();
-            listener.Prefixes.Add($"http://127.0.0.1:{_options.Port}/");
+            listener.Prefixes.Add($"http://{ListenerHost}:{_options.Port}/");
 
             try
             {
@@ -80,7 +81,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
             _listener = listener;
             _listenerTask = Task.Run(() => RunStatusListenerAsync(listener, _listenerCts.Token), CancellationToken.None);
             _state = LocalSyncState.Running;
-            _lastMessage = $"Testdienst laeuft auf Port {_options.Port}.";
+            _lastMessage = $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}.";
             return Task.FromResult(BuildStatusLocked());
         }
     }

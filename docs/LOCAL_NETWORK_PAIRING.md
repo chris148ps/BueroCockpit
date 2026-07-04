@@ -20,9 +20,11 @@ Die manuelle iPad-Pruefung fuehrt ausschliesslich einen HTTP-GET auf `http://<De
 
 Sobald der Bereich `Lokaler Netzwerk-Sync` sichtbar ist, wird eine kontrollierte automatische Pruefung der eingetragenen Desktop-Adresse vorbereitet. Die erste automatische Pruefung startet erst nach kurzer Verzoegerung von etwa 3 Sekunden. Danach wird der gleiche Statusendpunkt hoechstens alle 30 Sekunden erneut geprueft. Die automatische Pruefung laeuft nur, solange diese Ansicht sichtbar ist, nur wenn eine Desktop-Adresse vorhanden ist, und wird beim Verlassen der Ansicht oder beim Freigeben des ViewModels gestoppt. Die manuelle Pruefung funktioniert unabhaengig davon.
 
-Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` weiterhin die lokalen Desktop-Informationen und kann den lokalen Testdienst manuell starten und stoppen. Der Testdienst bindet nur an die definierte lokale Adresse und liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
+Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` weiterhin die lokalen Desktop-Informationen und kann den lokalen Testdienst manuell starten und stoppen. Nach manuellem Start lauscht der Testdienst im lokalen Netzwerk auf dem gespeicherten Port. Fuer das iPad muss die Mac-LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` funktioniert nur auf dem Mac selbst. Der Dienst liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
 
 Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal noch kein gueltiger Port gespeichert ist. Dieser Port wird nur in `BueroCockpitLocal/settings.local.json` gespeichert und kann lokal auf einen anderen gueltigen Port geaendert werden.
+
+Wenn das iPad den Desktop trotz gleicher WLAN-/LAN-Umgebung nicht erreicht, kann die macOS-Firewall den Zugriff auf den manuell gestarteten Testdienst blockieren. Es wird keine Netzwerksuche eingerichtet; die Adresse wird weiterhin manuell verwendet.
 
 ```json
 {
@@ -33,7 +35,7 @@ Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal no
 }
 ```
 
-Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus. Die iPad-Pruefung ruft ausschliesslich `/pairing/status` ab, prueft nur `app`, `status` und `mode`, sucht keine Geraete und uebertraegt keine Produktivdaten.
+Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus. Die iPad-Pruefung ruft ausschliesslich `/pairing/status` ab, prueft nur `app`, `status` und `mode`, sucht keine Geraete und uebertraegt keine Produktivdaten. Es findet weiterhin kein Sync statt.
 
 Live-Datei, iCloud-Import und OneDrive/Microsoft Graph bleiben als alter Lesemodus, Fallback oder spaetere Provider-Option erhalten. Sie sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
 

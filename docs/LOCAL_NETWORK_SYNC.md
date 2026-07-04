@@ -60,7 +60,7 @@ Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separate
 
 Phase 3 ergaenzt einen ersten echten Desktop-Testdienst. Er ist nur fuer einen technischen Verbindungstest gedacht und darf ausschliesslich durch den Button `Lokalen Testdienst starten` im Bereich `Lokaler Netzwerk-Sync` gestartet werden. Das Oeffnen der App, das Oeffnen der Einstellungen und vorhandene lokale Einstellungen starten keinen Dienst.
 
-Der Dienst bindet restriktiv an die lokale Adresse `127.0.0.1` und den lokal gespeicherten Port. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
+Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port. Fuer iPad-Tests wird die Mac-LAN-IP verwendet, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Mac geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
 
 ```text
 GET /health

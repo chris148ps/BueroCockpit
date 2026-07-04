@@ -1223,7 +1223,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="8" IsVisible="{Binding IsSettingsLocalNetworkSyncOpen}">
-                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="Geräte-ID" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
@@ -1274,9 +1274,11 @@
                   </WrapPanel>
                   <TextBlock Grid.Row="10" Grid.Column="0" Text="Teststatus" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding LocalNetworkSyncTestServiceStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <TextBlock Grid.Row="11" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
-                  <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                  <Button Grid.Row="12" Grid.Column="1"
+                  <TextBlock Grid.Row="11" Grid.Column="0" Text="iPad-Adresse" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LocalNetworkSyncTestServiceAddressText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="12" Grid.Column="0" Text="Hinweis" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <Button Grid.Row="13" Grid.Column="1"
                           Content="Lokal speichern"
                           HorizontalAlignment="Left"
                           Click="SaveLocalNetworkSyncSettings_OnClick" />

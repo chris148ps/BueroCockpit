@@ -2,6 +2,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -907,6 +910,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string LocalNetworkSyncPortText => _appSettings.LocalNetworkSyncPort > 0
         ? _appSettings.LocalNetworkSyncPort.ToString(CultureInfo.InvariantCulture)
         : "nicht festgelegt";
+    public string LocalNetworkSyncTestServiceAddressText => BuildLocalNetworkSyncTestServiceAddressText();
     public string LocalNetworkSyncDeviceIdText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceId)
         ? "wird lokal erzeugt"
         : _appSettings.LocalNetworkSyncDeviceId.Trim();
@@ -920,7 +924,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Select(device => string.IsNullOrWhiteSpace(device.DeviceName)
                 ? device.DeviceId.Trim()
                 : device.DeviceName.Trim()));
-    public string LocalNetworkSyncHintText => "Der Code wird später einmalig auf dem iPad eingegeben. Die Verbindung wird erst in einem späteren Schritt aktiviert.";
+    public string LocalNetworkSyncHintText => "127.0.0.1 funktioniert nur auf dem Mac selbst. Für das iPad muss die Mac-IP-Adresse verwendet werden. Der Testdienst liefert nur Statusantworten; Sync und Datenübertragung bleiben deaktiviert.";
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
     public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
@@ -7087,7 +7091,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var status = await _localNetworkSyncTestService.StartAsync();
         LocalNetworkSyncTestServiceStatus = status.Message?.Contains("Running:", StringComparison.Ordinal) == true
-            ? $"Testdienst läuft auf Port {port}"
+            ? $"Testdienst läuft im lokalen Netzwerk auf Port {port}"
             : $"Fehler: Port {port} ist belegt oder nicht verfügbar. {status.Message}";
     }
 
@@ -7180,10 +7184,59 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalNetworkSyncStatusText));
         OnPropertyChanged(nameof(LocalNetworkSyncDeviceNameText));
         OnPropertyChanged(nameof(LocalNetworkSyncPortText));
+        OnPropertyChanged(nameof(LocalNetworkSyncTestServiceAddressText));
         OnPropertyChanged(nameof(LocalNetworkSyncDeviceIdText));
         OnPropertyChanged(nameof(LocalNetworkSyncPairingCodeText));
         OnPropertyChanged(nameof(LocalNetworkSyncPairedDevicesText));
         OnPropertyChanged(nameof(LocalNetworkSyncHintText));
+    }
+
+    private string BuildLocalNetworkSyncTestServiceAddressText()
+    {
+        var port = _appSettings.LocalNetworkSyncPort >= 1024 && _appSettings.LocalNetworkSyncPort <= 65535
+            ? _appSettings.LocalNetworkSyncPort
+            : DefaultLocalNetworkSyncPort;
+        var addresses = GetLocalLanIpv4Addresses()
+            .Select(address => $"iPad-Adresse: http://{address}:{port}/pairing/status")
+            .ToList();
+
+        if (addresses.Count == 0)
+        {
+            return $"Keine lokale IPv4-Adresse gefunden. Auf dem Mac selbst: http://127.0.0.1:{port}/pairing/status";
+        }
+
+        return string.Join(Environment.NewLine, addresses);
+    }
+
+    private static IEnumerable<string> GetLocalLanIpv4Addresses()
+    {
+        foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (networkInterface.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel
+                || networkInterface.OperationalStatus != OperationalStatus.Up)
+            {
+                continue;
+            }
+
+            IPInterfaceProperties properties;
+            try
+            {
+                properties = networkInterface.GetIPProperties();
+            }
+            catch (NetworkInformationException)
+            {
+                continue;
+            }
+
+            foreach (var addressInfo in properties.UnicastAddresses)
+            {
+                var address = addressInfo.Address;
+                if (address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(address))
+                {
+                    yield return address.ToString();
+                }
+            }
+        }
     }
 
     private void EnsureLocalNetworkSyncPairingSettings(bool saveIfChanged = true)
