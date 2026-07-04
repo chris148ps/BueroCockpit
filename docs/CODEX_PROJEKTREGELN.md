@@ -27,6 +27,7 @@ codex -m gpt-5.5
 - `OneDrive/BueroCockpit_Daten` bleibt zentrale Datenquelle.
 - iCloud-Live ist nur Legacy/Uebergang.
 - Neuer Zielweg ist lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
+- Pairing-Code, Live-Datei und OneDrive-/iCloud-Datei sind nicht mehr aktueller Kopplungsweg fuer den lokalen Netzwerk-Sync.
 
 ## Strikte Sperren ohne ausdrueckliche Freigabe
 
@@ -47,7 +48,7 @@ codex -m gpt-5.5
 - Kein Netzwerkdienst starten.
 - Kein TCP-Port oeffnen.
 - Kein `LocalSyncService.StartAsync` aktiv verdrahten.
-- Kein Bonjour/mDNS aktivieren.
+- Kein Bonjour/mDNS aktivieren, ausser ausdruecklich fuer den manuell gestarteten lokalen Testdienst.
 - Keine automatische Geraetesuche.
 - Keine Datenuebertragung zwischen Desktop und iPad.
 
@@ -64,18 +65,18 @@ Dazu gehoeren:
 - Geraetename.
 - Lokaler Port.
 - Geraete-ID.
-- Pairing-Code.
-- Gekoppelte Geraete.
-- TrustKey/SharedSecret.
+- Legacy-Felder wie alter Pairing-Code oder alte gekoppelte Geraete, falls sie in vorhandenen lokalen Einstellungen noch existieren.
 
 Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 
-## Pairing-Konzept
+## Lokaler Netzwerk-Sync
 
-- Der Pairing-Code soll spaeter nur einmal zur Erstkopplung eingegeben werden.
-- Danach sollen sich Desktop und iPad anhand gespeicherter Geraetekennungen automatisch wiedererkennen.
-- Ein neuer Code ist nur bei Zuruecksetzen oder neuer Kopplung vorgesehen.
-- Automatische Wiedererkennung oder Suche darf erst spaeter ausdruecklich aktiviert werden.
+- Aktueller Zielweg ist der lokale Netzwerk-Sync mit manuell gestartetem Desktop-Testdienst.
+- Der aktuelle Bedienweg zeigt keinen Pairing-Code und keine Live-Datei-/OneDrive-Kopplung.
+- Das iPad prueft den Desktop per lokaler Adresse oder findet ihn per Bonjour/mDNS, falls verfuegbar.
+- Manuelle IP-Eingabe bleibt der Fallback.
+- Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Testdienst darf ohne Bonjour laufen.
+- Es gibt noch keinen echten Sync und keine Produktivdatenuebertragung, solange das nicht ausdruecklich beauftragt wird.
 
 ## Arbeitsweise vor Aenderungen
 

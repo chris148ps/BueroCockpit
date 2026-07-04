@@ -278,7 +278,7 @@ struct SnapshotSetupView: View {
                 }
 
                 if discoveredLocalNetworkDesktops.isEmpty {
-                    Label("Keine BüroCockpit-Desktops im lokalen Netzwerk gefunden", systemImage: "dot.radiowaves.left.and.right")
+                    Label(localNetworkDesktopDiscoveryEmptyText, systemImage: "dot.radiowaves.left.and.right")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -354,6 +354,15 @@ struct SnapshotSetupView: View {
         return trimmedStatus.isEmpty &&
             localNetworkDesktopLastSuccessfulCheckText != nil &&
             localNetworkDesktopStoredStatus != "lokaler Desktop vorgemerkt"
+    }
+
+    private var localNetworkDesktopDiscoveryEmptyText: String {
+        if localNetworkDesktopStoredStatus == "lokaler Desktop vorgemerkt" ||
+            localNetworkDesktopStoredStatus == "Lokaler Desktop vorgemerkt" ||
+            localNetworkDesktopLastSuccessfulCheckText != nil {
+            return "Automatische Suche hat keinen weiteren Desktop gefunden"
+        }
+        return "Bonjour-Suche hat keinen BüroCockpit-Desktop gefunden; manuelle Adresse kann verwendet werden"
     }
 
     private var localNetworkDesktopStatusText: String {

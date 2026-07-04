@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using BueroCockpit.Data;
@@ -31,13 +30,13 @@ public sealed class AppSettings
     // Lokal/geraetespezifischer Anzeigename fuer spaetere Kopplung.
     public string LocalNetworkSyncDeviceName { get; set; } = string.Empty;
 
-    // Lokal/geraetespezifische Kennung fuer spaeteres Pairing. Darf nicht zentral synchronisiert werden.
+    // Lokal/geraetespezifische Kennung fuer den lokalen Netzwerk-Testdienst. Darf nicht zentral synchronisiert werden.
     public string LocalNetworkSyncDeviceId { get; set; } = string.Empty;
 
-    // Lokal/geraetespezifischer Einmal-Code fuer die spaetere Erstkopplung.
+    // Legacy/Toleranz: alter Einmal-Code aus frueherer Pairing-Code-Vorbereitung. Wird im aktuellen Bedienweg ignoriert.
     public string LocalNetworkSyncPairingCode { get; set; } = string.Empty;
 
-    // Lokal vorbereitete Liste fuer spaeter gekoppelte Geraete.
+    // Legacy/Toleranz: alte Liste aus frueherer Pairing-Code-Vorbereitung. Wird im aktuellen Bedienweg ignoriert.
     public List<LocalNetworkSyncPairedDevice> LocalNetworkSyncPairedDevices { get; set; } = [];
 
     // Legacy/Fallback: Techniker/Monteure werden zentral in Sync/live/settings.json gespeichert.
@@ -70,50 +69,6 @@ public sealed class AppSettingsService
     public static string CreateLocalNetworkSyncDeviceId()
     {
         return $"desktop-{Guid.NewGuid():N}";
-    }
-
-    public static string CreateLocalNetworkSyncPairingCode()
-    {
-        Span<char> letters = stackalloc char[4];
-        for (var index = 0; index < letters.Length; index++)
-        {
-            letters[index] = (char)('A' + RandomNumberGenerator.GetInt32(0, 26));
-        }
-
-        var digits = RandomNumberGenerator.GetInt32(1000, 10000).ToString("D4", CultureInfo.InvariantCulture);
-        return $"{letters[0]}{letters[1]}{letters[2]}{letters[3]}-{digits}";
-    }
-
-    public static bool IsLocalNetworkSyncPairingCodeFormat(string? pairingCode)
-    {
-        if (string.IsNullOrWhiteSpace(pairingCode))
-        {
-            return false;
-        }
-
-        var value = pairingCode.Trim();
-        if (value.Length != 9 || value[4] != '-')
-        {
-            return false;
-        }
-
-        for (var index = 0; index < 4; index++)
-        {
-            if (value[index] < 'A' || value[index] > 'Z')
-            {
-                return false;
-            }
-        }
-
-        for (var index = 5; index < value.Length; index++)
-        {
-            if (value[index] < '0' || value[index] > '9')
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     public AppSettings Load()

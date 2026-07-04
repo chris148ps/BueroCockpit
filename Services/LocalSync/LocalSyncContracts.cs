@@ -6,25 +6,8 @@ public sealed record LocalSyncStatus(
     string? AppVersion,
     bool DataFolderAvailable,
     string? DataFolderDisplayName,
-    bool PairingRequired,
-    int PairedDeviceCount,
     DateTimeOffset ServerTimeUtc,
     string? Message = null);
-
-public sealed record PairingRequest(
-    string DeviceId,
-    string DeviceName,
-    string DevicePlatform,
-    string AppVersion,
-    DateTimeOffset RequestedAtUtc);
-
-public sealed record PairingConfirmation(
-    string DesktopDeviceId,
-    string DesktopName,
-    string PairedDeviceId,
-    string PairedDeviceName,
-    DateTimeOffset PairedAtUtc,
-    string TrustKey);
 
 public sealed record MobileInboxUploadManifest(
     string UploadId,
@@ -68,8 +51,6 @@ public sealed record LocalSyncSnapshotManifestEntry(
 public interface ILocalSyncContracts
 {
     LocalSyncStatus GetStatus();
-
-    PairingConfirmation ConfirmPairing(PairingRequest request, string pairingCode);
 
     MobileInboxUploadResult ValidateMobileInboxUpload(MobileInboxUploadManifest manifest);
 }

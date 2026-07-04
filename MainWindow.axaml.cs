@@ -901,9 +901,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string IpadLiveFileTargetPath => BuildIpadLiveFileTargetPath(IpadLiveFileTargetFolder);
     public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
     public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
-    public string LocalNetworkSyncStatusText => (_appSettings.LocalNetworkSyncPairedDevices?.Count ?? 0) == 0
-        ? "Wartet auf iPad-Kopplung"
-        : "Pairing vorbereitet";
+    public string LocalNetworkSyncStatusText => "Lokaler Netzwerk-Sync vorbereitet. Testdienst startet nur manuell.";
+    public string LocalNetworkSyncBonjourStatusText => LocalBonjourService.GetAvailabilityStatus().DisplayText;
     public string LocalNetworkSyncDeviceNameText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceName)
         ? "nicht festgelegt"
         : _appSettings.LocalNetworkSyncDeviceName.Trim();
@@ -911,20 +910,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ? _appSettings.LocalNetworkSyncPort.ToString(CultureInfo.InvariantCulture)
         : "nicht festgelegt";
     public string LocalNetworkSyncTestServiceAddressText => BuildLocalNetworkSyncTestServiceAddressText();
-    public string LocalNetworkSyncDeviceIdText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceId)
-        ? "wird lokal erzeugt"
-        : _appSettings.LocalNetworkSyncDeviceId.Trim();
-    public string LocalNetworkSyncPairingCodeText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncPairingCode)
-        ? "wird lokal erzeugt"
-        : _appSettings.LocalNetworkSyncPairingCode.Trim();
-    public string LocalNetworkSyncPairedDevicesText => _appSettings.LocalNetworkSyncPairedDevices.Count == 0
-        ? "noch keine"
-        : string.Join(", ", _appSettings.LocalNetworkSyncPairedDevices
-            .Where(device => !string.IsNullOrWhiteSpace(device.DeviceName) || !string.IsNullOrWhiteSpace(device.DeviceId))
-            .Select(device => string.IsNullOrWhiteSpace(device.DeviceName)
-                ? device.DeviceId.Trim()
-                : device.DeviceName.Trim()));
-    public string LocalNetworkSyncHintText => "127.0.0.1 funktioniert nur auf dem Mac selbst. Für das iPad muss die Mac-IP-Adresse verwendet werden. Der Testdienst liefert nur Statusantworten; Sync und Datenübertragung bleiben deaktiviert.";
+    public string LocalNetworkSyncHintText => "Das iPad findet diesen Desktop automatisch per Bonjour, falls verfügbar. Auf Windows ist Bonjour/mDNS dafür erforderlich; ohne Bonjour die LAN-Adresse manuell auf dem iPad eintragen. Der Testdienst liefert nur Statusantworten; Sync und Datenübertragung bleiben deaktiviert.";
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
     public bool IsSettingsDataSyncOpen => _isSettingsDataSyncOpen;
     public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
@@ -1291,7 +1277,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ipadSnapshotExportService = new IpadSnapshotExportService();
 
         _appSettings = _settingsService.Load();
-        EnsureLocalNetworkSyncPairingSettings();
+        EnsureLocalNetworkSyncLocalSettings();
         EnsureLocalNetworkSyncDefaultPort();
         RefreshLocalNetworkSyncEditorFields();
         NormalizeConfiguredOneDriveEditDirectory();
@@ -7060,11 +7046,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _appSettings.LocalNetworkSyncEnabled = false;
         _appSettings.LocalNetworkSyncDeviceName = trimmedDeviceName;
         _appSettings.LocalNetworkSyncPort = port <= 0 ? DefaultLocalNetworkSyncPort : port;
-        EnsureLocalNetworkSyncPairingSettings(saveIfChanged: false);
+        EnsureLocalNetworkSyncLocalSettings(saveIfChanged: false);
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncEditorFields();
         RefreshLocalNetworkSyncDisplayProperties();
-        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Pairing bleibt vorbereitet; es wird keine Verbindung aktiviert.";
+        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Der Testdienst startet nur manuell; es wird keine Datenübertragung aktiviert.";
     }
 
     private async void StartLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)
@@ -7084,8 +7070,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Port = port,
             DeviceName = _appSettings.LocalNetworkSyncDeviceName,
             DeviceId = _appSettings.LocalNetworkSyncDeviceId,
-            PairingCode = _appSettings.LocalNetworkSyncPairingCode,
-            PairedDevices = _appSettings.LocalNetworkSyncPairedDevices,
             AppVersion = _updateService.GetCurrentVersion()
         });
 
@@ -7117,16 +7101,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async void StopLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)
     {
         await StopLocalNetworkSyncTestServiceAsync();
-    }
-
-    private void RegenerateLocalNetworkSyncPairingCode_OnClick(object? sender, RoutedEventArgs e)
-    {
-        EnsureLocalNetworkSyncPairingSettings(saveIfChanged: false);
-        _appSettings.LocalNetworkSyncEnabled = false;
-        _appSettings.LocalNetworkSyncPairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
-        _settingsService.Save(_appSettings);
-        RefreshLocalNetworkSyncDisplayProperties();
-        LocalNetworkSyncSettingsStatus = "Pairing-Code lokal neu erzeugt. Wartet auf iPad-Kopplung; es wird keine Verbindung aktiviert.";
     }
 
     private void StopLocalNetworkSyncTestService()
@@ -7201,12 +7175,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshLocalNetworkSyncDisplayProperties()
     {
         OnPropertyChanged(nameof(LocalNetworkSyncStatusText));
+        OnPropertyChanged(nameof(LocalNetworkSyncBonjourStatusText));
         OnPropertyChanged(nameof(LocalNetworkSyncDeviceNameText));
         OnPropertyChanged(nameof(LocalNetworkSyncPortText));
         OnPropertyChanged(nameof(LocalNetworkSyncTestServiceAddressText));
-        OnPropertyChanged(nameof(LocalNetworkSyncDeviceIdText));
-        OnPropertyChanged(nameof(LocalNetworkSyncPairingCodeText));
-        OnPropertyChanged(nameof(LocalNetworkSyncPairedDevicesText));
         OnPropertyChanged(nameof(LocalNetworkSyncHintText));
     }
 
@@ -7216,12 +7188,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ? _appSettings.LocalNetworkSyncPort
             : DefaultLocalNetworkSyncPort;
         var addresses = GetLocalLanIpv4Addresses()
-            .Select(address => $"iPad-Adresse: http://{address}:{port}/pairing/status")
+            .Select(address => $"http://{address}:{port}/local-sync/status")
             .ToList();
 
         if (addresses.Count == 0)
         {
-            return $"Keine lokale IPv4-Adresse gefunden. Auf dem Mac selbst: http://127.0.0.1:{port}/pairing/status";
+            return $"Keine lokale IPv4-Adresse gefunden. Auf diesem Rechner: http://127.0.0.1:{port}/local-sync/status";
         }
 
         return string.Join(Environment.NewLine, addresses);
@@ -7258,19 +7230,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void EnsureLocalNetworkSyncPairingSettings(bool saveIfChanged = true)
+    private void EnsureLocalNetworkSyncLocalSettings(bool saveIfChanged = true)
     {
         var changed = false;
 
         if (string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceId))
         {
             _appSettings.LocalNetworkSyncDeviceId = AppSettingsService.CreateLocalNetworkSyncDeviceId();
-            changed = true;
-        }
-
-        if (!AppSettingsService.IsLocalNetworkSyncPairingCodeFormat(_appSettings.LocalNetworkSyncPairingCode))
-        {
-            _appSettings.LocalNetworkSyncPairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
             changed = true;
         }
 

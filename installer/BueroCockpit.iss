@@ -45,6 +45,45 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} starten"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function IsBonjourServiceInstalled: Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result :=
+    Exec(
+      ExpandConstant('{sys}\sc.exe'),
+      'query mDNSResponder',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode) and
+    (ResultCode = 0);
+end;
+
+function IsBonjourDnsSdDllAvailable: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{sys}\dns_sd.dll'));
+end;
+
+function IsBonjourAvailable: Boolean;
+begin
+  Result := IsBonjourServiceInstalled and IsBonjourDnsSdDllAvailable;
+end;
+
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+  if not IsBonjourAvailable then
+  begin
+    MsgBox(
+      'Bonjour/mDNS wurde auf diesem Windows-System nicht vollstaendig erkannt.' + #13#10 + #13#10 +
+      'BüroCockpit kann trotzdem installiert werden. Der lokale Testdienst funktioniert ohne Bonjour, ' +
+      'aber die automatische Desktop-Suche auf dem iPad benoetigt Bonjour/mDNS. Verwenden Sie bis dahin die manuelle IP-Eingabe.',
+      mbInformation,
+      MB_OK);
+  end;
+end;
+
 function IsArm64Install: Boolean;
 begin
   Result := IsARM64;
@@ -54,4 +93,3 @@ function IsX64Install: Boolean;
 begin
   Result := IsX64Compatible and not IsARM64;
 end;
-

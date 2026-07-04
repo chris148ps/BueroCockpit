@@ -234,10 +234,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return "Zuletzt aktualisiert: \(Self.formatSyncDate(date))"
     }
 
-    var localNetworkPairingCode: String {
-        syncSettings.localNetworkDesktop.pairingCode ?? ""
-    }
-
     var localNetworkDesktopAddress: String {
         syncSettings.localNetworkDesktop.desktopAddress ?? ""
     }
@@ -255,10 +251,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     var localNetworkDesktopStatus: String? {
         syncSettings.localNetworkDesktop.localDesktopStatus
-    }
-
-    var isLocalNetworkPairingPrepared: Bool {
-        !localNetworkPairingCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var loadingDescription: String {
@@ -383,31 +375,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
         )
     }
 
-    func prepareLocalNetworkPairing(pairingCode: String) {
-        guard let normalizedCode = Self.normalizedLocalNetworkPairingCode(pairingCode) else {
-            syncStatusMessage = "Ungültiger Pairing-Code. Erwartetes Format: ABCD-1234."
-            return
-        }
-
-        var settings = syncSettings
-        if settings.localNetworkDesktop.ipadDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
-            let rawDeviceId = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-            settings.localNetworkDesktop.ipadDeviceId = "ipad-\(rawDeviceId)"
-        }
-        settings.localNetworkDesktop.ipadPlatform = "iPadOS"
-        settings.localNetworkDesktop.pairingCode = normalizedCode
-        settings.localNetworkDesktop.desktopDeviceId = nil
-        settings.localNetworkDesktop.desktopName = nil
-        settings.localNetworkDesktop.desktopPlatform = nil
-        settings.localNetworkDesktop.pairedAt = nil
-        settings.localNetworkDesktop.lastSeenAt = nil
-        settings.localNetworkDesktop.trustKey = nil
-        settings.localNetworkDesktop.sharedSecret = nil
-        syncSettings = settings
-        syncSettingsStore.save(settings)
-        syncStatusMessage = "Kopplung vorbereitet. Die Verbindung wird erst in einem späteren Schritt aktiviert."
-    }
-
     func testLocalNetworkDesktopService(address: String) {
         let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedAddress.isEmpty else {
@@ -430,7 +397,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     address: normalizedAddress,
                     port: localNetworkDesktopTestPort
                 )
-                if response.isExpectedPairingTestStatus {
+                if response.isExpectedLocalNetworkTestStatus {
                     saveSuccessfulLocalNetworkDesktopCheck(address: normalizedAddress)
                     syncStatusMessage = "Desktop-Testdienst erreichbar"
                 } else {
@@ -1027,14 +994,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
         name.caseInsensitiveCompare("Einstellungen") == .orderedSame
     }
 
-    nonisolated private static func normalizedLocalNetworkPairingCode(_ code: String) -> String? {
-        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard normalized.range(of: #"^[A-Z]{4}-[0-9]{4}$"#, options: .regularExpression) != nil else {
-            return nil
-        }
-        return normalized
-    }
-
     nonisolated private static func fetchLocalNetworkDesktopStatus(
         address: String,
         port: Int
@@ -1049,7 +1008,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         components.scheme = "http"
         components.host = address
         components.port = port
-        components.path = "/pairing/status"
+        components.path = "/local-sync/status"
 
         guard let url = components.url else {
             throw SnapshotSyncError.invalidHTTPResponse
@@ -1083,7 +1042,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 address: address,
                 port: localNetworkDesktopTestPort
             )
-            if response.isExpectedPairingTestStatus {
+            if response.isExpectedLocalNetworkTestStatus {
                 saveSuccessfulLocalNetworkDesktopCheck(address: address)
                 syncStatusMessage = "Desktop-Testdienst erreichbar"
             } else {
@@ -1203,9 +1162,9 @@ private struct LocalNetworkDesktopStatusResponse: Decodable, Sendable {
     let status: String
     let mode: String
 
-    var isExpectedPairingTestStatus: Bool {
+    var isExpectedLocalNetworkTestStatus: Bool {
         app == "BueroCockpit" &&
         status == "ok" &&
-        mode == "pairing-test"
+        (mode == "local-network-test" || mode == "pairing-test")
     }
 }

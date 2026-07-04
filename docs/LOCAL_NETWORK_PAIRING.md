@@ -1,185 +1,101 @@
 # Lokaler Netzwerk-Sync
 
-Stand: 2026-07-04.
+Stand: 2026-07-05.
 
-Dieses Dokument beschreibt den aktuellen Zielweg fuer den lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und iPad-App. Der aktuelle Stand ist ein technischer Verbindungstest: Desktop-Testdienst manuell starten, Desktop-Adresse auf dem iPad pruefen oder optional per lokalem Bonjour/mDNS-Dienst finden, keine Datenuebertragung, kein Sync und kein Pairing-Abschluss. Die lokale Dienstsuche laeuft nur, solange der Bereich `Lokaler Netzwerk-Sync` auf dem iPad sichtbar ist. Es gibt keine Hintergrundsuche ausserhalb dieser Ansicht und keine Produktivdaten.
+Dieses Dokument beschreibt den aktuellen Bedien- und Zielweg fuer den lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und iPad-App. Der Dateiname ist historisch; der aktuelle Bedienweg verwendet keinen Pairing-Code.
 
-## Aktueller Stand
+## Aktueller Zielweg
 
-Der aktuelle iPad-Bedienweg im Bereich `Lokaler Netzwerk-Sync` bleibt manuell pruefbar und wird um lokale Dienstfindung ergaenzt:
+1. BueroCockpit Desktop bleibt das fuehrende System.
+2. Der lokale Testdienst startet ausschliesslich manuell im Desktop-Bereich `Lokaler Netzwerk-Sync`.
+3. Der Testdienst verwendet standardmaessig Port `53941`.
+4. Das iPad sucht den Desktop per Bonjour/mDNS, falls verfuegbar.
+5. Das iPad kann den Desktop jederzeit manuell ueber Desktop-Adresse/IP pruefen.
+6. Ein erfolgreich gepruefter Desktop kann auf dem iPad als lokaler Sync-Partner vorgemerkt werden.
 
-1. BueroCockpit am Desktop oeffnen.
-2. Lokalen Testdienst am Desktop manuell starten.
-3. iPad sucht den Desktop optional per Bonjour/mDNS im lokalen Netzwerk oder die Desktop-Adresse/IP wird manuell eingetragen.
-4. iPad prueft den Desktop im lokalen Netzwerk.
-5. Spaeter diesen Desktop als lokalen Sync-Partner verwenden.
+In diesem Stand gibt es noch keinen echten Sync, keinen Kopplungsabschluss und keine Produktivdatenuebertragung.
 
-Die iPad-App zeigt dafuer die Desktop-Adresse, den festen Test-Port `53941`, gefundene BueroCockpit-Desktops, den Button `Desktop-Testdienst pruefen` und einen klaren Status. Wenn keine Adresse eingetragen ist, wird `Bitte Desktop-Adresse oder IP eintragen.` bzw. fuer die Automatik `Desktop-Adresse fehlt` angezeigt. Die manuelle Adresseingabe bleibt als Fallback erhalten.
+## Desktop
 
-Die manuelle iPad-Pruefung fuehrt ausschliesslich einen HTTP-GET auf `http://<Desktop-Adresse>:53941/pairing/status` aus. Die iPad-App wertet nur die harmlose Statusantwort mit `app = BueroCockpit`, `status = ok` und `mode = pairing-test` aus und zeigt danach `Desktop-Testdienst erreichbar` oder `Desktop-Testdienst nicht erreichbar: <kurzer Fehler>`.
+Der Desktop-Bereich `Lokaler Netzwerk-Sync` zeigt:
 
-Sobald der Bereich `Lokaler Netzwerk-Sync` sichtbar ist, wird eine kontrollierte automatische Pruefung der eingetragenen Desktop-Adresse vorbereitet. Die erste automatische Pruefung startet erst nach kurzer Verzoegerung von etwa 3 Sekunden. Danach wird der gleiche Statusendpunkt hoechstens alle 30 Sekunden erneut geprueft. Parallel browsed die iPad-App per systemischem Bonjour/mDNS nach Diensten vom Typ `_buerocockpit._tcp`. Automatische Pruefung und Dienstsuche laufen nur, solange diese Ansicht sichtbar ist, und werden beim Verlassen der Ansicht oder beim Freigeben des ViewModels gestoppt. Die manuelle Pruefung funktioniert unabhaengig davon.
+- Status des lokalen Netzwerk-Syncs.
+- Bonjour-Status.
+- lokalen Testdienst manuell starten/stoppen.
+- gespeicherten Port, standardmaessig `53941`.
+- LAN-Adresse(n) fuer die manuelle iPad-Eingabe.
+- Hinweis, dass Bonjour nur fuer die automatische Desktop-Suche benoetigt wird.
 
-Die Desktop-App zeigt im Bereich `Lokaler Netzwerk-Sync` weiterhin die lokalen Desktop-Informationen und kann den lokalen Testdienst manuell starten und stoppen. Nach manuellem Start lauscht der Testdienst im lokalen Netzwerk auf dem gespeicherten Port. Bonjour/mDNS ist nur eine optionale Komfortfunktion: Wenn die native DNS-SD-/Bonjour-Bibliothek verfuegbar ist, kuendigt sich der Dienst lokal als `_buerocockpit._tcp` an. Wenn Bonjour nicht verfuegbar ist, darf die App nicht abstuerzen; der Testdienst bleibt aktiv und das iPad kann den Desktop weiterhin per manueller IP-/Adresseingabe pruefen. Die Desktop-App zeigt dann einen Hinweis wie `Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.` Beim Stoppen des Testdienstes wird eine laufende Bonjour-Ankuendigung beendet. Es gibt keine Ankuendigung beim App-Start und keine Ankuendigung, solange der Testdienst nicht manuell laeuft. Fuer das iPad kann die aktuelle Mac-LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` funktioniert nur auf dem Mac selbst. Der Dienst liefert unter `/health` bzw. `/pairing/status` eine ungefaehrliche Statusantwort:
+Der Testdienst stellt nur harmlose Statusendpunkte bereit:
 
-Der lokale Testdienst verwendet als sicheren Default-Port `53941`, wenn lokal noch kein gueltiger Port gespeichert ist. Dieser Port wird nur in `BueroCockpitLocal/settings.local.json` gespeichert und kann lokal auf einen anderen gueltigen Port geaendert werden.
+```text
+GET /health
+GET /local-sync/status
+```
 
-Wenn das iPad den Desktop trotz gleicher WLAN-/LAN-Umgebung nicht erreicht, kann die macOS-Firewall den Zugriff auf den manuell gestarteten Testdienst blockieren. IP-Adressen koennen sich im lokalen Netzwerk aendern. Deshalb wird die IP nur als aktuelle Adresse gespeichert und kann durch einen Bonjour/mDNS-Treffer automatisch aktualisiert werden. Die Dienstfindung ersetzt keinen Pairing-Abschluss; sie dient nur dazu, den manuell gestarteten Desktop-Testdienst wiederzufinden.
+`/pairing/status` bleibt nur als tolerierter Alt-Endpunkt erhalten, damit vorhandene Testclients nicht hart brechen. Der aktuelle iPad-Bedienweg nutzt `/local-sync/status`.
+
+Beispielantwort:
 
 ```json
 {
   "app": "BueroCockpit",
   "status": "ok",
-  "mode": "pairing-test",
+  "mode": "local-network-test",
   "version": "0.4.14"
 }
 ```
 
-Der Testdienst ist ein technischer Verbindungstest. Er startet nicht automatisch beim App-Start, startet nicht durch Oeffnen der Einstellungen, fuehrt keine iPad-Kopplung aus und gibt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten aus. Die iPad-Pruefung ruft ausschliesslich `/pairing/status` ab und prueft nur `app`, `status` und `mode`. Die optionale Dienstsuche nutzt ausschliesslich Bonjour/mDNS fuer `_buerocockpit._tcp` und uebertraegt keine Produktivdaten. Ist Bonjour nicht verfuegbar, bleibt die manuelle IP-Eingabe der Fallback. Es findet weiterhin kein Sync statt.
+Die Antwort enthaelt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten.
 
-Die Bonjour/mDNS-TXT-Daten bleiben harmlos:
+## iPad
 
-- `app=BueroCockpit`
-- `mode=pairing-test`
-- `port=53941`
-- optional `deviceId`
+Der iPad-Bereich `Lokaler Netzwerk-Sync` zeigt:
 
-Live-Datei, iCloud-Import und OneDrive/Microsoft Graph bleiben als alter Lesemodus, Fallback oder spaetere Provider-Option erhalten. Sie sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
+- automatische Desktop-Suche per Bonjour/mDNS.
+- manuelle Desktop-Adresse/IP.
+- Port `53941`.
+- Button zum Pruefen des Desktop-Testdienstes.
+- Button zum Vormerken eines erfolgreich geprueften Desktop.
+- Status `Lokaler Desktop vorgemerkt`.
+- letzte erfolgreiche Pruefung.
+- getrennte Meldungen fuer Bonjour-Suche und manuelle Verbindung.
 
-Diese Vorbereitung ist noch keine echte Kopplung. Es gibt weiterhin keinen TrustKey-Austausch, keinen Pairing-Abschluss und keine Datenuebertragung. Netzwerkverkehr entsteht nur, wenn der Benutzer den lokalen Testdienst manuell startet und die iPad-Sync-Ansicht sichtbar ist oder der Benutzer auf dem iPad den Statusendpunkt manuell abruft. Es gibt keine Subnetzsuche, keinen UDP-Broadcast-Scan und keinen Portscan.
+Wenn Bonjour keinen weiteren Desktop findet, aber bereits eine manuelle Adresse erfolgreich vorgemerkt ist, zeigt die App keine widerspruechliche Hauptmeldung. Stattdessen gilt sinngemaess:
 
-## Ziel
+- `Automatische Suche hat keinen weiteren Desktop gefunden`
+- oder bei fehlendem Bonjour: `Bonjour-Suche nicht verfuegbar; manuelle Adresse wird verwendet`
 
-Der spaetere lokale Sync verbindet genau einen Desktop mit genau einem iPad fuer manuelle Sync-Laeufe im lokalen Firmennetz. Ein Pairing-Code kann spaeter wieder Teil einer Erstkopplung werden, ist aber nicht der aktuelle Bedienweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Danach sollen sich Desktop und iPad ueber gespeicherte `DeviceId` und `TrustKey` wiedererkennen.
+## Bonjour/mDNS
 
-Ein neuer Pairing-Code ist nur vorgesehen, wenn ein Geraet neu gekoppelt wird, die Kopplung zurueckgesetzt wurde oder ein TrustKey widerrufen wurde.
+Bonjour/mDNS ist ein optionaler Komfortweg fuer die automatische Desktop-Suche. Die manuelle IP-Eingabe bleibt immer der Fallback.
 
-## Gemeinsames Datenmodell
+Auf Windows muss Bonjour/mDNS vorhanden sein, damit das iPad den Desktop automatisch finden kann. BueroCockpit prueft dafuer vorbereitend:
 
-Jedes Geraet besitzt lokal eine stabile Identitaet:
+- Dienst `mDNSResponder` vorhanden.
+- Dienst `mDNSResponder` laeuft.
+- `dns_sd.dll` ist verfuegbar.
 
-```json
-{
-  "deviceId": "desktop-...",
-  "deviceName": "Mac mini Buero",
-  "devicePlatform": "macOS"
-}
-```
+Fehlt Bonjour, darf die App nicht abstuerzen. Der lokale Testdienst darf weiterhin laufen und das iPad kann den Desktop per manueller Adresse pruefen.
 
-Fuer eine gespeicherte Kopplung wird lokal pro Gegenstelle dieser Datensatz gehalten:
+Der Windows-Installer soll Bonjour kuenftig erkennen und optional installieren oder Benutzer zur Installation fuehren. Es werden keine fremden Bonjour-MSI/EXE-Dateien im Repository gebuendelt.
 
-```json
-{
-  "deviceId": "ipad-...",
-  "deviceName": "iPad Werkstatt",
-  "devicePlatform": "iPadOS",
-  "pairedAt": "2026-07-03T10:00:00Z",
-  "lastSeenAt": null,
-  "trustKey": "...",
-  "sharedSecret": ""
-}
-```
+## Legacy/Fallback
 
-Pflichtfelder fuer spaetere Wiedererkennung:
+Pairing-Code, Live-Datei, iCloud-Datei, OneDrive-Live-Datei und `IpadLiveFileTargetPath` sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
 
-- `deviceId`: stabile Kennung der Gegenstelle.
-- `deviceName`: lokaler Anzeigename der Gegenstelle.
-- `devicePlatform`: Plattformhinweis, zum Beispiel `macOS`, `Windows` oder `iPadOS`.
-- `pairedAt`: Zeitpunkt der erfolgreichen Kopplung.
-- `trustKey`: geheime lokale Vertrauenskennung fuer spaetere Sync-Laeufe.
+Bestehende lokale Settings duerfen alte Felder wie `LocalNetworkSyncPairingCode` oder `LocalNetworkSyncPairedDevices` weiterhin enthalten. Diese Felder werden tolerant gelesen, im aktuellen Netzwerk-Sync-Bedienweg aber ignoriert.
 
-Optionale Felder:
+Snapshot-/Lesemodus, bestehende Mobile-Eingaenge und vorhandene Live-Datei-Importe bleiben als Legacy/Fallback erhalten, solange sie fuer vorhandene Datenanzeige oder manuelle Lesedaten noetig sind. Sie werden nicht automatisch migriert, geloescht oder als neuer lokaler Netzwerk-Sync beschrieben.
 
-- `lastSeenAt`: letzter erfolgreicher Kontakt.
-- `sharedSecret`: reserviert, falls spaeter ein getrenntes gemeinsames Geheimnis benoetigt wird.
+## Grenzen
 
-## Pairing-Anfrage
-
-Das iPad sendet bei der geplanten Erstkopplung fachlich diese Anfrage an den Desktop:
-
-```json
-{
-  "deviceId": "ipad-...",
-  "deviceName": "iPad Werkstatt",
-  "devicePlatform": "iPadOS",
-  "appVersion": "1.0",
-  "requestedAtUtc": "2026-07-03T10:00:00Z"
-}
-```
-
-Der Pairing-Code ist nicht Teil der dauerhaft gespeicherten Geraeteidentitaet. Er wird nur fuer die einmalige Bestaetigung der Erstkopplung verwendet.
-
-## Pairing-Bestaetigung
-
-Nach gueltigem Einmal-Code und manueller Bestaetigung am Desktop ist fachlich diese Antwort vorgesehen:
-
-```json
-{
-  "desktopDeviceId": "desktop-...",
-  "desktopName": "Mac mini Buero",
-  "pairedDeviceId": "ipad-...",
-  "pairedDeviceName": "iPad Werkstatt",
-  "pairedAtUtc": "2026-07-03T10:00:05Z",
-  "trustKey": "..."
-}
-```
-
-Der `trustKey` ersetzt fuer spaetere Wiedererkennung den Pairing-Code. Er darf nicht zentral synchronisiert, nicht im Sync-Live-Export abgelegt und nicht offen angezeigt werden.
-
-## Geplanter Ablauf Desktop zu iPad
-
-1. Desktop erzeugt lokal einen kurzlebigen Pairing-Code.
-2. Benutzer gibt diesen Code auf dem iPad ein oder scannt spaeter einen QR-Code.
-3. iPad bereitet eine lokale `ipadDeviceId` vor und sendet seine Geraetedaten zusammen mit dem Code.
-4. Desktop prueft den Code und zeigt die unbekannte Gegenstelle sichtbar zur manuellen Annahme.
-5. Desktop speichert das iPad lokal in `LocalNetworkSyncPairedDevices`.
-6. iPad speichert Desktop-Identitaet und `trustKey` lokal in seinen Sync-Einstellungen.
-7. Der Pairing-Code wird verworfen und ist fuer normale Sync-Laeufe nicht mehr noetig.
-
-Dieser Ablauf ist geplant, aber in diesem Stand nicht als Netzwerkfunktion implementiert.
-
-## Lokale Speicherung je Geraet
-
-Desktop speichert Pairing-Daten ausschliesslich lokal:
-
-```text
-BueroCockpitLocal/settings.local.json
-```
-
-Relevante Desktop-Felder:
-
-- `LocalNetworkSyncDeviceId`
-- `LocalNetworkSyncDeviceName`
-- `LocalNetworkSyncPairingCode`
-- `LocalNetworkSyncPairedDevices`
-
-iPad speichert Pairing-Daten ausschliesslich lokal in den Sync-Einstellungen der App. Relevante iPad-Felder:
-
-- `ipadDeviceId`
-- `ipadDeviceName`
-- `ipadPlatform`
-- `desktopAddress`
-- `desktopPort`
-- `desktopDeviceId`
-- `desktopName`
-- `desktopPlatform`
-- `pairingCode`
-- `pairedAt`
-- `lastSeenAt`
-- `trustKey`
-- `sharedSecret`
-
-## Grenzen dieses Stands
-
-- keine unkontrollierte Netzwerksuche, keine Subnetzsuche, kein UDP-Broadcast-Scan und kein Portscan
-- kein automatisch gestarteter Netzwerkdienst
-- kein automatisch geoeffneter TCP-/UDP-Port
-- Bonjour/mDNS optional, nur fuer den manuell gestarteten Testdienst und nur als `_buerocockpit._tcp`
-- manueller IP-/Adresse-Fallback, wenn Bonjour nicht verfuegbar ist
-- keine Hintergrund-Geraetesuche ausserhalb der sichtbaren lokalen Netzwerk-Sync-Ansicht
-- kein dauerhaftes Hintergrund-Polling
-- kein FileSystemWatcher
-- keine Datenuebertragung
-- keine echte Pairing-Validierung ueber Netzwerk
-- kein echter Pairing-Abschluss
-- keine Speicherung von Pairing-Geheimnissen in zentralen Daten oder Exportdateien
+- kein Release, kein Tag, keine Versionserhoehung.
+- kein echter Sync in diesem Schritt.
+- keine Aufgaben, Kategorien, Anhaenge oder sonstigen Produktivdaten uebertragen.
+- kein Desktop-Autostart fuer den Testdienst.
+- kein UDP-Broadcast.
+- kein Portscan.
+- keine unkontrollierte Hintergrundsuche.
+- keine automatische Datei-/Cloud-Migration.
+- keine Aenderung an produktiven OneDrive-/iCloud-Daten.

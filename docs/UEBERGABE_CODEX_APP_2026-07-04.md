@@ -106,3 +106,17 @@ Start im Projekt:
 
 cd "$HOME/AppProjekte/BueroCockpit"
 codex -m gpt-5.5
+
+## Statushinweis 2026-07-05
+
+Der lokale Netzwerk-Sync ist als neuer Zielweg bereinigt:
+
+- aktueller Bedienweg ohne Pairing-Code
+- aktueller Bedienweg ohne Live-Datei-/OneDrive-Kopplung
+- Desktop-Testdienst weiter nur manuell
+- neuer Statuspfad `/local-sync/status`
+- `/pairing/status` nur noch als tolerierter Alt-Endpunkt
+- Bonjour/mDNS optional fuer automatische Desktop-Suche
+- manuelle IP-Eingabe bleibt Fallback
+- Windows-Bonjour-Erkennung fuer `mDNSResponder` und `dns_sd.dll` vorbereitet
+- weiterhin kein echter Sync und keine Produktivdatenuebertragung

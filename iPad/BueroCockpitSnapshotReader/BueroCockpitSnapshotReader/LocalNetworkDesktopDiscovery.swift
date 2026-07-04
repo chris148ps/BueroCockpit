@@ -99,8 +99,9 @@ final class LocalNetworkDesktopDiscovery: NSObject, @unchecked Sendable, NetServ
         guard service.port > 0 else { return nil }
         guard let address = service.addresses?.compactMap(Self.ipAddress(from:)).first else { return nil }
         let txtValues = txtValues(from: service.txtRecordData())
+        let mode = txtValues["mode"] ?? ""
         guard txtValues["app"] == "BueroCockpit",
-              txtValues["mode"] == "pairing-test" else {
+              mode == "local-network-test" || mode == "pairing-test" else {
             return nil
         }
 

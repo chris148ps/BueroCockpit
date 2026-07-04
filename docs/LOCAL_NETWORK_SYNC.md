@@ -1,12 +1,12 @@
 # Lokaler Netzwerk-Sync
 
-Stand: 2026-07-04.
+Stand: 2026-07-05.
 
 Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren manuellen lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Es wird keine produktive Synchronisation implementiert.
 
 ## 1. Ziel
 
-Der lokale Netzwerk-Sync soll die bisherige iCloud-/Live-Aktualisierung langfristig abloesen. BueroCockpit Desktop bleibt das fuehrende System und nutzt weiterhin `OneDrive/BueroCockpit_Daten` als zentrale Datenquelle fuer Windows und Mac. Das iPad wird als mobiler Erfassungsclient angebunden:
+Der lokale Netzwerk-Sync soll die bisherige iCloud-/Live-Aktualisierung langfristig abloesen. BueroCockpit Desktop bleibt das fuehrende System und nutzt weiterhin `OneDrive/BueroCockpit_Daten` als zentrale Datenquelle fuer Windows und Mac. Pairing-Code, Live-Datei, OneDrive-Live-Datei und `IpadLiveFileTargetPath` sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync. Das iPad wird als mobiler Erfassungsclient angebunden:
 
 - Desktop stellt bei Bedarf einen aktuellen, iPad-lesbaren Snapshot oder Lesestand bereit.
 - iPad uebertraegt mobile Eingaenge, Fotos, Skizzen, Notizen und sonstige Dateien manuell an den Desktop.
@@ -39,7 +39,7 @@ Vorbereitet sind:
 - `LocalSyncService` als In-Memory-Service mit den Zustaenden `Disabled`, `Stopped`, `Starting`, `Running` und `Error`
 - `LocalSyncOptions` fuer lokale, geraetespezifische Konfiguration
 - lokale AppSettings fuer `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName`
-- Platzhaltermethoden fuer Status, Pairing-Code, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
+- Platzhaltermethoden fuer Status, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
 - ein Desktop-Einstellungsabschnitt, in dem Geraetename und Port lokal bearbeitet werden koennen
 
 Fuer Phase 2 galt:
@@ -60,12 +60,14 @@ Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separate
 
 Phase 3 ergaenzt einen ersten echten Desktop-Testdienst. Er ist nur fuer einen technischen Verbindungstest gedacht und darf ausschliesslich durch den Button `Lokalen Testdienst starten` im Bereich `Lokaler Netzwerk-Sync` gestartet werden. Das Oeffnen der App, das Oeffnen der Einstellungen und vorhandene lokale Einstellungen starten keinen Dienst.
 
-Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port. Wenn die native DNS-SD-/Bonjour-Bibliothek verfuegbar ist, kuendigt er sich fuer die Dauer des manuell gestarteten Testdienstes per Bonjour/mDNS als `_buerocockpit._tcp` an. Wenn Bonjour nicht verfuegbar ist, zeigt die Desktop-App einen Hinweis und der HTTP-Testdienst bleibt trotzdem aktiv. Fuer iPad-Tests kann die aktuelle Mac-LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/pairing/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Mac geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
+Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port. Wenn die native DNS-SD-/Bonjour-Bibliothek verfuegbar ist, kuendigt er sich fuer die Dauer des manuell gestarteten Testdienstes per Bonjour/mDNS als `_buerocockpit._tcp` an. Wenn Bonjour nicht verfuegbar ist, zeigt die Desktop-App einen Hinweis und der HTTP-Testdienst bleibt trotzdem aktiv. Fuer iPad-Tests kann die aktuelle LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/local-sync/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Desktop geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
 
 ```text
 GET /health
-GET /pairing/status
+GET /local-sync/status
 ```
+
+`/pairing/status` bleibt nur als tolerierter Alt-Endpunkt erhalten. Der aktuelle Bedienweg nutzt `/local-sync/status`.
 
 Die Antwort enthaelt keine Produktivdaten:
 
@@ -73,15 +75,14 @@ Die Antwort enthaelt keine Produktivdaten:
 {
   "app": "BueroCockpit",
   "status": "ok",
-  "mode": "pairing-test",
+  "mode": "local-network-test",
   "version": "0.4.14"
 }
 ```
 
 Weiterhin gilt:
 
-- keine iPad-Kopplung
-- kein Pairing-Abschluss
+- keine iPad-Kopplung und kein Abschluss einer Vertrauensbeziehung
 - keine Aufgaben, Kategorien, Anhaenge oder Einstellungen in der Antwort
 - Bonjour/mDNS optional, nur waehrend des manuell gestarteten Testdienstes und nur fuer `_buerocockpit._tcp`
 - manueller IP-/Adresse-Fallback, wenn Bonjour nicht verfuegbar ist
@@ -145,37 +146,33 @@ files/
 
 Die bestehende mobile Inbox kennt bereits `mobile-*`-Eintraege mit `aufgabe.json`, Status `new`, Fotos, Vorschauen, markierten Versionen, Skizzen und Dateien. Der lokale Netzwerk-Sync soll dieses fachliche Format wiederverwenden oder explizit versioniert daraus ableiten.
 
-## 5. Pairing-Konzept
+## 5. Lokale Vertrauensbasis fuer spaeter
 
-Das gemeinsame lokale Pairing-Datenformat ist in `docs/LOCAL_NETWORK_PAIRING.md` definiert. Dieses Sync-Konzept beschreibt nur den geplanten Ablauf rund um den spaeteren Transport.
+Der aktuelle Bedienweg in `docs/LOCAL_NETWORK_PAIRING.md` ist ein lokaler Netzwerk-Testweg ohne Einmal-Code. Dieses Sync-Konzept beschreibt nur den geplanten Ablauf rund um den spaeteren Transport.
 
-Pairing ist Voraussetzung fuer jeden Upload und fuer sensible Statusinformationen.
+Vor einem spaeteren echten Upload oder Abruf muss eine lokale Vertrauensbasis bewusst implementiert werden. Sie ist in diesem Stand nicht aktiv.
 
-Vorgeschlagener Ablauf:
+Geplanter Ablauf, noch nicht implementiert:
 
-1. Benutzer startet auf dem Desktop "iPad koppeln".
-2. Desktop erzeugt einen kurzlebigen Einmal-Code oder QR-Code.
-3. iPad liest Code/QR und sendet eine Pairing-Bestaetigung.
-4. Desktop zeigt Geraetename, Zeitpunkt und angeforderte Rechte.
-5. Benutzer bestaetigt die Kopplung am Desktop.
-6. iPad erhaelt einen `TrustKey` fuer spaetere manuelle Sync-Laeufe.
+1. Benutzer startet auf dem Desktop bewusst eine neue Vertrauensfreigabe.
+2. Desktop zeigt Geraetename, Zeitpunkt und angeforderte Rechte.
+3. Benutzer bestaetigt die Gegenstelle am Desktop.
+4. iPad und Desktop speichern lokale Geraetekenndaten fuer spaetere manuelle Sync-Laeufe.
 
 Regeln:
 
-- Einmal-Code laeuft kurzzeitig ab.
-- Pairing-Code wird nur einmal zur Erstkopplung verwendet.
-- Spaetere Wiedererkennung erfolgt ueber gespeicherte `DeviceId` und `TrustKey`.
-- TrustKey wird nicht dauerhaft offen angezeigt.
-- TrustKey kann am Desktop widerrufen werden.
+- Spaetere Wiedererkennung erfolgt ueber lokal gespeicherte Geraetekenndaten und einen widerrufbaren Vertrauenswert.
+- Der Vertrauenswert wird nicht dauerhaft offen angezeigt.
+- Der Vertrauenswert kann am Desktop widerrufen werden.
 - Unbekannte Geraete werden nie automatisch angenommen.
-- Pairing berechtigt nicht zum direkten Schreiben in Produktivdaten.
+- Eine Vertrauensfreigabe berechtigt nicht zum direkten Schreiben in Produktivdaten.
 
 ## 6. Sicherheitsregeln
 
 - Dienst nur im lokalen LAN nutzen.
 - Keine externe Freigabe oder Cloud-Weiterleitung.
-- Upload nur mit gueltigem Pairing.
-- Status- und Logdaten nur fuer gekoppelte Geraete, soweit sie nicht fuer die Kopplung selbst noetig sind.
+- Upload nur mit bewusst bestaetigter lokaler Vertrauensbasis.
+- Status- und Logdaten nur fuer freigegebene Geraete, soweit sie nicht fuer den technischen Verbindungstest noetig sind.
 - Keine automatische Annahme unbekannter Geraete.
 - Keine stille Loeschung mobiler Originale.
 - Desktop bestaetigt Uebernahme erst nach vollstaendiger Dateiablage und Pruefsumme.
@@ -190,24 +187,24 @@ Regeln:
 
 Dies ist ein Schnittstellenentwurf, keine Implementierung.
 
-### `GET /status`
+### `GET /local-sync/status`
 
-Liefert Servername, App-Version, Datenordnerstatus und Pairing-Status.
+Aktuell implementierter technischer Verbindungstest. Liefert keine Produktivdaten.
 
 Beispielantwort:
 
 ```json
 {
-  "serverName": "Mac mini",
-  "appName": "BueroCockpit",
-  "appVersion": "0.4.13",
-  "dataFolderAvailable": true,
-  "dataFolderDisplayName": "BueroCockpit_Daten",
-  "pairingRequired": true,
-  "pairedDeviceCount": 1,
-  "serverTimeUtc": "2026-07-02T10:00:00Z"
+  "app": "BueroCockpit",
+  "status": "ok",
+  "mode": "local-network-test",
+  "version": "0.4.14"
 }
 ```
+
+### `GET /status`
+
+Spaeterer Entwurf fuer freigegebene Geraete. Nicht implementiert.
 
 ### `GET /snapshot`
 
@@ -231,14 +228,6 @@ Mindestanforderungen:
 - Pruefsummen stimmen
 - Paket liegt in Staging/Inbox
 - Sync-Protokoll wurde geschrieben
-
-### `POST /pairing/start`
-
-Startet Kopplung oder gibt Metadaten fuer einen Einmal-Code/QR-Code aus.
-
-### `POST /pairing/confirm`
-
-Bestaetigt Kopplung mit Code und Geraetedaten. Die Desktop-App muss die Annahme unbekannter Geraete sichtbar machen und bestaetigen lassen.
 
 ### `GET /sync-log`
 
@@ -300,8 +289,7 @@ Kompatibilitaet:
 ## 9. Fehlerfaelle
 
 - Desktop nicht erreichbar: iPad zeigt Fehler und behaelt lokale Originale.
-- Pairing fehlt oder ist widerrufen: kein Upload, keine Snapshot-Ausgabe.
-- Einmal-Code abgelaufen: neue Kopplung starten.
+- Lokale Vertrauensbasis fehlt oder ist widerrufen: kein Upload, keine Snapshot-Ausgabe.
 - Datenordner fehlt oder ist gesperrt: `/status` meldet Fehler, Upload wird abgelehnt.
 - Upload unvollstaendig: Desktop verwirft Staging oder markiert Fehler; iPad behaelt Originale.
 - Pruefsumme falsch: keine Uebernahmebestaetigung.
@@ -313,7 +301,7 @@ Kompatibilitaet:
 
 ## 10. Offene technische Entscheidungen
 
-- Pairing-Bestaetigung und Vertrauensaufbau nach Bonjour-Fund
+- bewusster Vertrauensaufbau nach Bonjour-Fund oder manueller IP-Pruefung
 - HTTP lokal oder andere Transportart
 - TLS im lokalen Netz ja/nein
 - Windows-Firewall-Freigabe und Benutzerfuehrung
@@ -323,7 +311,7 @@ Kompatibilitaet:
 - Pruefsummenalgorithmus, voraussichtlich SHA-256
 - Manifestformat und Versionsnummern
 - Konfliktbehandlung und Dublettenpruefung
-- Speicherort und Verschluesselung von Pairing-Tokens
+- Speicherort und Verschluesselung lokaler Vertrauenswerte
 - Sichtbarkeit und Rotation des Sync-Logs
 - Begrenzungen fuer Upload-Groesse, Dateianzahl und erlaubte Dateitypen
 
@@ -334,7 +322,7 @@ Neue Abhaengigkeiten waeren erst bei einer echten Implementierung zu pruefen. De
 ### Phase 1: Konzept/DTOs
 
 - Architektur und Datenregeln dokumentieren.
-- Neutrale DTOs/Records fuer Status, Pairing und Upload-Manifest vorbereiten.
+- Neutrale DTOs/Records fuer Status und Upload-Manifest vorbereiten.
 - Keine Laufzeitlogik aktivieren.
 
 ### Phase 2: Desktop-Dienst optional hinter Schalter
@@ -343,11 +331,11 @@ Neue Abhaengigkeiten waeren erst bei einer echten Implementierung zu pruefen. De
 - Statusanzeige, Firewall-Hinweise und Log vorbereiten.
 - Kein automatischer Hintergrundbetrieb ohne Benutzerentscheidung.
 
-### Phase 3: iPad Pairing
+### Phase 3: iPad als lokalen Sync-Partner vormerken
 
-- QR-/Einmal-Code-Ablauf implementieren.
-- Token sicher speichern und widerrufbar machen.
-- Geraeteverwaltung im Desktop anzeigen.
+- Erfolgreich geprueften Desktop auf dem iPad vormerken.
+- Bonjour-Suche und manuelle IP sauber getrennt anzeigen.
+- Noch keine Produktivdaten uebertragen.
 
 ### Phase 4: Upload mobile Inbox
 

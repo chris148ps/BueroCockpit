@@ -12,8 +12,6 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private readonly LocalSyncOptions _options;
     private LocalSyncState _state;
     private string? _lastMessage;
-    private string? _pairingCode;
-    private DateTimeOffset? _pairingCodeCreatedAtUtc;
     private HttpListener? _listener;
     private CancellationTokenSource? _listenerCts;
     private Task? _listenerTask;
@@ -81,7 +79,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
             _listenerCts = new CancellationTokenSource();
             _listener = listener;
             _listenerTask = Task.Run(() => RunStatusListenerAsync(listener, _listenerCts.Token), CancellationToken.None);
-            var bonjourMessage = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            var bonjourMessage = LocalBonjourService.GetAvailabilityStatus().DisplayText;
             var bonjourStarted = false;
             try
             {
@@ -127,37 +125,6 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 ? "Testdienst gestoppt."
                 : "Lokaler Netzwerk-Sync ist deaktiviert.";
             return Task.FromResult(BuildStatusLocked());
-        }
-    }
-
-    public string CreatePairingCode()
-    {
-        lock (_gate)
-        {
-            _pairingCode = AppSettingsService.CreateLocalNetworkSyncPairingCode();
-            _pairingCodeCreatedAtUtc = DateTimeOffset.UtcNow;
-            _lastMessage = "Pairing-Code wurde nur lokal im Speicher vorbereitet.";
-            return _pairingCode;
-        }
-    }
-
-    public void ClearPairingCode()
-    {
-        lock (_gate)
-        {
-            _pairingCode = null;
-            _pairingCodeCreatedAtUtc = null;
-            _lastMessage = "Pairing-Code geloescht.";
-        }
-    }
-
-    public bool ValidatePairingCode(string? pairingCode)
-    {
-        lock (_gate)
-        {
-            return !string.IsNullOrWhiteSpace(pairingCode)
-                   && !string.IsNullOrWhiteSpace(_pairingCode)
-                   && string.Equals(pairingCode.Trim(), _pairingCode, StringComparison.Ordinal);
         }
     }
 
@@ -227,22 +194,6 @@ public sealed class LocalSyncService : ILocalSyncContracts
             Messages: messages);
     }
 
-    public PairingConfirmation ConfirmPairing(PairingRequest request, string pairingCode)
-    {
-        if (!ValidatePairingCode(pairingCode))
-        {
-            throw new InvalidOperationException("Pairing-Code ist ungueltig oder nicht vorbereitet.");
-        }
-
-        return new PairingConfirmation(
-            DesktopDeviceId: _options.DeviceId,
-            DesktopName: GetServerName(),
-            PairedDeviceId: request.DeviceId,
-            PairedDeviceName: request.DeviceName,
-            PairedAtUtc: DateTimeOffset.UtcNow,
-            TrustKey: string.Empty);
-    }
-
     public MobileInboxUploadResult ValidateMobileInboxUpload(MobileInboxUploadManifest manifest)
     {
         return ValidateMobileInboxManifest(manifest);
@@ -256,8 +207,6 @@ public sealed class LocalSyncService : ILocalSyncContracts
             AppVersion: _options.AppVersion,
             DataFolderAvailable: !string.IsNullOrWhiteSpace(_options.DataFolderPath) && Directory.Exists(_options.DataFolderPath),
             DataFolderDisplayName: GetDataFolderDisplayName(),
-            PairingRequired: true,
-            PairedDeviceCount: _options.PairedDevices.Count,
             ServerTimeUtc: DateTimeOffset.UtcNow,
             Message: $"{_state}: {_lastMessage}");
     }
@@ -285,6 +234,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
     {
         var path = context.Request.Url?.AbsolutePath ?? string.Empty;
         if (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(path, "/local-sync/status", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(path, "/pairing/status", StringComparison.OrdinalIgnoreCase))
         {
             context.Response.StatusCode = 404;
@@ -299,7 +249,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
             {
                 app = _options.AppName,
                 status = "ok",
-                mode = "pairing-test",
+                mode = "local-network-test",
                 version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion
             }).ConfigureAwait(false);
     }

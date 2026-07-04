@@ -7,6 +7,8 @@ namespace BueroCockpit.Services.LocalSync;
 internal sealed class LocalBonjourService : IDisposable
 {
     public const string ServiceType = "_buerocockpit._tcp";
+    private const string UnavailableMessage = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+    private const string WindowsRequiredMessage = "Bonjour fuer automatische Desktop-Suche auf Windows erforderlich.";
 
     private static readonly DNSServiceRegisterReply RegisterReply = OnRegisterReply;
     private readonly object _gate = new();
@@ -20,9 +22,10 @@ internal sealed class LocalBonjourService : IDisposable
 
     public bool Start(LocalSyncOptions options)
     {
-        if (!OperatingSystem.IsMacOS())
+        var availability = GetAvailabilityStatus();
+        if (!availability.CanPublish)
         {
-            LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            LastError = availability.DisplayText;
             IsAvailable = false;
             IsRunning = false;
             return false;
@@ -55,7 +58,7 @@ internal sealed class LocalBonjourService : IDisposable
             catch (Exception ex) when (IsNativeBonjourException(ex))
             {
                 _serviceRef = IntPtr.Zero;
-                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                LastError = UnavailableMessage;
                 IsAvailable = false;
                 IsRunning = false;
                 return false;
@@ -63,7 +66,7 @@ internal sealed class LocalBonjourService : IDisposable
             catch
             {
                 _serviceRef = IntPtr.Zero;
-                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                LastError = UnavailableMessage;
                 IsAvailable = false;
                 IsRunning = false;
                 return false;
@@ -72,7 +75,7 @@ internal sealed class LocalBonjourService : IDisposable
             if (error != 0)
             {
                 _serviceRef = IntPtr.Zero;
-                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                LastError = UnavailableMessage;
                 IsAvailable = false;
                 IsRunning = false;
                 return false;
@@ -116,12 +119,12 @@ internal sealed class LocalBonjourService : IDisposable
             }
             catch (Exception ex) when (IsNativeBonjourException(ex))
             {
-                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                LastError = UnavailableMessage;
                 IsAvailable = false;
             }
             catch
             {
-                LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                LastError = UnavailableMessage;
                 IsAvailable = false;
             }
 
@@ -144,7 +147,7 @@ internal sealed class LocalBonjourService : IDisposable
         var entries = new List<string>
         {
             "app=BueroCockpit",
-            "mode=pairing-test",
+            "mode=local-network-test",
             $"port={options.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
         };
 
@@ -178,7 +181,7 @@ internal sealed class LocalBonjourService : IDisposable
                 var error = DNSServiceProcessResult(serviceRef);
                 if (error != 0)
                 {
-                    LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+                    LastError = UnavailableMessage;
                     IsAvailable = false;
                     break;
                 }
@@ -186,12 +189,12 @@ internal sealed class LocalBonjourService : IDisposable
         }
         catch (Exception ex) when (IsNativeBonjourException(ex))
         {
-            LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            LastError = UnavailableMessage;
             IsAvailable = false;
         }
         catch
         {
-            LastError = "Bonjour nicht verfuegbar; manuelle IP-Eingabe verwenden.";
+            LastError = UnavailableMessage;
             IsAvailable = false;
         }
         finally
@@ -220,6 +223,103 @@ internal sealed class LocalBonjourService : IDisposable
             or SEHException
             or ExternalException
             or InvalidOperationException;
+    }
+
+    public static BonjourAvailabilityStatus GetAvailabilityStatus()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var serviceStatus = GetWindowsMdnsResponderStatus();
+            var hasDnsSd = TryLoadDnsSdLibrary("dns_sd.dll") || TryLoadDnsSdLibrary("dns_sd");
+            if (serviceStatus == WindowsServiceStatus.Running && hasDnsSd)
+            {
+                return new BonjourAvailabilityStatus(true, true, "Bonjour aktiv");
+            }
+
+            if (serviceStatus == WindowsServiceStatus.NotInstalled && !hasDnsSd)
+            {
+                return new BonjourAvailabilityStatus(false, false, $"{UnavailableMessage} {WindowsRequiredMessage}");
+            }
+
+            return new BonjourAvailabilityStatus(false, hasDnsSd, $"{UnavailableMessage} {WindowsRequiredMessage}");
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return TryLoadDnsSdLibrary("dns_sd")
+                ? new BonjourAvailabilityStatus(true, true, "Bonjour aktiv")
+                : new BonjourAvailabilityStatus(false, false, UnavailableMessage);
+        }
+
+        return new BonjourAvailabilityStatus(false, false, UnavailableMessage);
+    }
+
+    private static bool TryLoadDnsSdLibrary(string libraryName)
+    {
+        try
+        {
+            if (!NativeLibrary.TryLoad(libraryName, out var handle))
+            {
+                return false;
+            }
+
+            NativeLibrary.Free(handle);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static WindowsServiceStatus GetWindowsMdnsResponderStatus()
+    {
+        try
+        {
+            using var process = new System.Diagnostics.Process();
+            process.StartInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "sc.exe",
+                Arguments = "query mDNSResponder",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            if (!process.Start())
+            {
+                return WindowsServiceStatus.Unknown;
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            _ = process.StandardError.ReadToEnd();
+            if (!process.WaitForExit(1500))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                }
+
+                return WindowsServiceStatus.Unknown;
+            }
+
+            if (process.ExitCode != 0)
+            {
+                return WindowsServiceStatus.NotInstalled;
+            }
+
+            return output.Contains("RUNNING", StringComparison.OrdinalIgnoreCase)
+                ? WindowsServiceStatus.Running
+                : WindowsServiceStatus.Stopped;
+        }
+        catch
+        {
+            return WindowsServiceStatus.Unknown;
+        }
     }
 
     [DllImport("dns_sd", EntryPoint = "DNSServiceRegister", CallingConvention = CallingConvention.Cdecl)]
@@ -261,4 +361,14 @@ internal sealed class LocalBonjourService : IDisposable
     private enum DNSServiceErrorType : int
     {
     }
+
+    private enum WindowsServiceStatus
+    {
+        Unknown,
+        NotInstalled,
+        Stopped,
+        Running
+    }
 }
+
+internal sealed record BonjourAvailabilityStatus(bool CanPublish, bool DnsSdLibraryAvailable, string DisplayText);
