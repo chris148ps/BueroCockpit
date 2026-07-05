@@ -4,7 +4,6 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct MobileInspectionFormView: View {
-    let categoryNames: [String]
     let writer: MobileInboxWriter
     let draftStore: MobileInspectionDraftStore
     let editingEntryID: String?
@@ -31,20 +30,6 @@ struct MobileInspectionFormView: View {
     @State private var isDiscardConfirmationPresented = false
     @State private var pendingDeletion: MobileInspectionDeletion?
 
-    private var effectiveCategoryNames: [String] {
-        var snapshotCategories = categoryNames
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        let currentCategory = draft.category.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !currentCategory.isEmpty,
-           !snapshotCategories.contains(where: { $0.caseInsensitiveCompare(currentCategory) == .orderedSame }) {
-            snapshotCategories.append(currentCategory)
-        }
-        return snapshotCategories.isEmpty
-            ? ["Angebot erstellen", "Besichtigung", "Material bestellen", "Rückfrage"]
-            : snapshotCategories
-    }
-
     var body: some View {
         NavigationStack {
             formView
@@ -60,7 +45,7 @@ struct MobileInspectionFormView: View {
             filesSection
             errorSection
         }
-        .navigationTitle(editingEntryID == nil ? "Neue Besichtigung" : "Eingang bearbeiten")
+        .navigationTitle(editingEntryID == nil ? "Neue Aufgabe" : "Eingang bearbeiten")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Abbrechen", action: cancel)
@@ -75,11 +60,6 @@ struct MobileInspectionFormView: View {
         }
         .onAppear {
             restoreDraftIfNeeded()
-            normalizeCategory()
-        }
-        .onChange(of: categoryNames) { _, _ in
-            normalizeCategory()
-            persistCurrentDraft()
         }
         .onChange(of: selectedPhotoItems) { _, items in
             loadPhotosFromPickerItems(items)
@@ -176,18 +156,6 @@ struct MobileInspectionFormView: View {
         return current
     }
 
-    private var categoryPicker: some View {
-        Picker("Kategorie", selection: draftTextBinding(\.category)) {
-            ForEach(effectiveCategoryNames, id: \.self) { category in
-                categoryOption(category)
-            }
-        }
-    }
-
-    private func categoryOption(_ category: String) -> some View {
-        Text(category).tag(category)
-    }
-
     private var customerSection: AnyView {
         AnyView(Section("Kunde / Auftrag") {
             TextField("Kunde / Name", text: draftTextBinding(\.customerName))
@@ -199,7 +167,6 @@ struct MobileInspectionFormView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             TextField("Titel / Betreff", text: draftTextBinding(\.title))
-            categoryPicker
         })
     }
 
@@ -510,12 +477,6 @@ struct MobileInspectionFormView: View {
         }
     }
 
-    private func normalizeCategory() {
-        if draft.category.isEmpty || !effectiveCategoryNames.contains(draft.category) {
-            draft.category = effectiveCategoryNames.first ?? ""
-        }
-    }
-
     private func persistCurrentDraft() {
         guard !isRestoringDraft else {
             return
@@ -577,7 +538,7 @@ struct MobileInspectionFormView: View {
                 result = try writer.save(draft)
             }
             try? draftStore.discard()
-            draft = MobileInspectionDraft(category: effectiveCategoryNames.first ?? "")
+            draft = MobileInspectionDraft()
             selectedPhotoItems = []
             selectedLibraryPhotos = []
             cameraPhotos = []

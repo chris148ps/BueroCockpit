@@ -31,7 +31,7 @@ public sealed class MobileInboxEntry
     public bool HasFilePreviews => FilePreviews.Count > 0;
     public string DisplayStatusText => HasAttachmentIssues ? "Fehler" : Status.Trim().ToLowerInvariant() switch
     {
-        "approved" or "released" or "freigegeben" => "Freigegeben",
+        "approved" or "released" or "freigegeben" => "Neu",
         "imported" or "processed" or "done" or "verarbeitet" or "uebernommen" or "übernommen" => "Übernommen",
         "cleanup" or "ready-for-cleanup" or "bereinigung" => "Übernommen",
         "error" or "failed" or "fehlerhaft" => "Fehler",
@@ -40,21 +40,18 @@ public sealed class MobileInboxEntry
     public string StatusBadgeBackground => DisplayStatusText switch
     {
         "Fehler" => "#FFF1F0",
-        "Freigegeben" => "#E8F1FF",
         "Übernommen" => "#E9F7EF",
         _ => "#F4F1EA"
     };
     public string StatusBadgeBorderBrush => DisplayStatusText switch
     {
         "Fehler" => "#E48A8A",
-        "Freigegeben" => "#8FB8F6",
         "Übernommen" => "#88C9A1",
         _ => "#DAD4C7"
     };
     public string StatusBadgeForeground => DisplayStatusText switch
     {
         "Fehler" => "#B42318",
-        "Freigegeben" => "#2457A6",
         "Übernommen" => "#1F7A3F",
         _ => "#6E6255"
     };

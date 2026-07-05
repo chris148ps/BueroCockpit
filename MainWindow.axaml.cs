@@ -35,7 +35,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string TrashCategoryId = "__trash";
     private const string TrashCategoryName = "Papierkorb";
     private const string MobileInboxCategoryId = "__mobile_inbox";
-    private const string MobileInboxCategoryName = "Wartet auf Freigabe";
+    private const string MobileInboxCategoryName = "Mobile Eingänge";
     private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
     private const int MobileProcessedRetentionDays = 30;
     private const string OneDriveDataFolderName = "BueroCockpit_Daten";
@@ -9751,6 +9751,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static TaskItem CreateMobileInboxTask(MobileInboxEntry entry)
     {
+        var categoryChips = GetVisibleMobileInboxCategoryChips(entry.Category);
         return new TaskItem
         {
             Id = $"{MobileInboxCategoryId}:{entry.Id}",
@@ -9765,10 +9766,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Status = entry.DisplayStatusText,
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.CreatedAt,
-            CategoryNameChips = string.IsNullOrWhiteSpace(entry.Category)
-                ? new List<string>()
-                : new List<string> { entry.Category.Trim() },
-            ShowCategoryHint = !string.IsNullOrWhiteSpace(entry.Category),
+            CategoryNameChips = categoryChips,
+            ShowCategoryHint = categoryChips.Count > 0,
             IsMobileInboxCard = true,
             MobileInboxCreatedAtText = entry.CreatedAtText,
             MobileInboxAttachmentOverviewText = entry.MobileAttachmentOverviewText,
@@ -9776,6 +9775,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             MobileInboxStatusBadgeBorderBrush = entry.StatusBadgeBorderBrush,
             MobileInboxStatusBadgeForeground = entry.StatusBadgeForeground
         };
+    }
+
+    private static List<string> GetVisibleMobileInboxCategoryChips(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category) || IsLegacyMobileApprovalCategory(category))
+        {
+            return new List<string>();
+        }
+
+        return new List<string> { category.Trim() };
     }
 
     private static bool MobileInboxContains(string? value, string query)
@@ -9925,7 +9934,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private CategoryItem ResolveMobileInboxImportCategory(MobileInboxEntry entry)
     {
-        if (!string.IsNullOrWhiteSpace(entry.Category))
+        if (!string.IsNullOrWhiteSpace(entry.Category) && !IsLegacyMobileApprovalCategory(entry.Category))
         {
             var existingCategory = Categories.FirstOrDefault(category =>
                 !IsSpecialCategory(category) &&
@@ -9968,7 +9977,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 importNote
             };
 
-        if (!categoryWasMatched && !string.IsNullOrWhiteSpace(entry.Category))
+        if (!categoryWasMatched &&
+            !string.IsNullOrWhiteSpace(entry.Category) &&
+            !IsLegacyMobileApprovalCategory(entry.Category))
         {
             descriptionParts.Add($"Ursprüngliche iPad-Kategorie: {entry.Category.Trim()}");
         }
@@ -10495,6 +10506,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static string BuildMobileInboxImportMarker(string mobileInboxId)
     {
         return $"{MobileInboxImportMarkerPrefix} {mobileInboxId.Trim()}";
+    }
+
+    private static bool IsLegacyMobileApprovalCategory(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var legacyName = string.Join(" ", "Wartet", "auf", "Freigabe");
+        return string.Equals(value.Trim(), legacyName, StringComparison.CurrentCultureIgnoreCase);
     }
 
     private sealed record MobileProcessedCleanupResult(int DeletedCount, int FailedCount);

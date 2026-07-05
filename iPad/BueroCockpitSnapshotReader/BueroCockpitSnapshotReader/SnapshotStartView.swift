@@ -34,7 +34,7 @@ struct SnapshotStartView: View {
                         Text("BüroCockpit iPad")
                             .font(.largeTitle.bold())
 
-                        Text("Lokaler Netzwerk-Sync in Vorbereitung")
+                        Text("Noch keine lokalen Daten geladen")
                             .font(.title2.weight(.semibold))
                             .multilineTextAlignment(.center)
 

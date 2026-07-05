@@ -106,7 +106,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return [
             SnapshotCategoryGroup(
                 id: Self.mobilePendingCategoryID,
-                name: "Wartet auf Freigabe",
+                name: "Mobile Eingänge",
                 categoryIDs: [Self.mobilePendingCategoryID],
                 order: Int.min
             )
@@ -226,7 +226,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             return "Alle Aufgaben"
         }
         if selectedCategoryID == Self.mobilePendingCategoryID {
-            return "Wartet auf Freigabe"
+            return "Mobile Eingänge"
         }
 
         return categories.first(where: { $0.id == selectedCategoryID })?.name ?? "Aufgaben"
@@ -1153,13 +1153,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
             customerEmail: entry.email,
             customerPhone: entry.phone,
             categoryIds: [Self.mobilePendingCategoryID],
-            categoryNames: ["Wartet auf Freigabe", entry.category].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
+            categoryNames: visibleMobileCategoryNames(from: entry),
             dueDate: nil,
             reminderDate: nil,
             createdAt: entry.createdAt,
             updatedAt: nil,
             materialOrderedAt: nil,
-            status: "wartet auf Freigabe",
+            status: displayMobileInboxStatus(entry.status),
             notes: ([
                 entry.notes,
                 entry.attachmentSummary,
@@ -1174,6 +1174,34 @@ final class SnapshotBrowserViewModel: ObservableObject {
             attachmentRefs: [],
             sourceIndex: sourceIndex
         )
+    }
+
+    nonisolated private static func visibleMobileCategoryNames(from entry: MobileInboxPendingEntry) -> [String] {
+        let category = entry.category.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !category.isEmpty, !isLegacyMobileApprovalCategory(category) else {
+            return []
+        }
+
+        return [category]
+    }
+
+    nonisolated private static func displayMobileInboxStatus(_ status: String) -> String {
+        switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "", "new", "pending", "approved", "released", "freigegeben":
+            return "Neu"
+        case "imported", "processed", "done", "verarbeitet", "uebernommen", "übernommen":
+            return "Übernommen"
+        case "error", "failed", "fehlerhaft":
+            return "Fehler"
+        default:
+            return status
+        }
+    }
+
+    nonisolated private static func isLegacyMobileApprovalCategory(_ value: String) -> Bool {
+        let legacyName = ["Wartet", "auf", "Freigabe"].joined(separator: " ")
+        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedCaseInsensitiveCompare(legacyName) == .orderedSame
     }
 
     nonisolated private static func groupedCategories(from categories: [SnapshotCategory]) -> [SnapshotCategoryGroup] {

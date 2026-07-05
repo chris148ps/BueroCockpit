@@ -104,7 +104,7 @@ struct SnapshotSetupView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("BüroCockpit iPad")
                             .font(.largeTitle.bold())
-                        Text("Lokaler Netzwerk-Sync in Vorbereitung")
+                        Text("Lokaler Netzwerk-Sync")
                             .font(.title3)
                             .foregroundStyle(.secondary)
                     }

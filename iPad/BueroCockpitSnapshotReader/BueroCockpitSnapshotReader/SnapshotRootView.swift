@@ -100,7 +100,6 @@ struct SnapshotRootView: View {
                 syncSetupView(onDismiss: { presentedSheet = nil })
             case .mobileInspectionNew:
                 MobileInspectionFormView(
-                    categoryNames: viewModel.categories.map(\.name),
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
                     editingEntryID: nil,
@@ -121,7 +120,6 @@ struct SnapshotRootView: View {
                 )
             case .mobileInspectionEdit(let entryID):
                 MobileInspectionFormView(
-                    categoryNames: viewModel.categories.map(\.name),
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
                     editingEntryID: entryID,
@@ -306,9 +304,10 @@ struct SnapshotRootView: View {
 
             Button {
             } label: {
-                Label("Fotos", systemImage: "camera")
+                Image(systemName: "camera")
             }
             .disabled(true)
+            .accessibilityLabel("Foto-Modus")
             .buttonStyle(.borderless)
             .help("Foto-Modus vorbereitet, noch kein Foto-Sync aktiv")
 
@@ -328,7 +327,7 @@ struct SnapshotRootView: View {
                 Image(systemName: "plus")
             }
             .buttonStyle(.borderless)
-            .help("Neue mobile Besichtigung")
+            .help("Neue Aufgabe")
 
             Button {
                 refreshCurrentSyncSource()
@@ -476,8 +475,8 @@ struct SnapshotRootView: View {
             }
         case .idle:
             SnapshotEmptyStateView(
-                title: "Lokaler Netzwerk-Sync in Vorbereitung",
-                message: "Desktop-Testdienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich.",
+                title: "Noch keine lokalen Daten geladen",
+                message: "Zum Laden aktualisieren. Desktop-Testdienst in BüroCockpit starten, falls lokale Netzwerkdaten genutzt werden sollen.",
                 systemImage: "folder",
                 primaryButtonTitle: "Sync-Einstellungen",
                 primaryAction: { presentedSheet = .settings }
