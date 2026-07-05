@@ -76,6 +76,27 @@ final class MobilePhotoDraftStore: @unchecked Sendable {
         }
     }
 
+    func createDummyDraft(sourceDevice: String, source: MobilePhotoDraftSource = .iPadCamera) throws -> MobilePhotoDraftCollection {
+        var collection = load()
+        let now = Date()
+        let draft = MobilePhotoDraft(
+            id: UUID().uuidString,
+            createdAt: now,
+            updatedAt: now,
+            sourceDevice: sourceDevice,
+            source: source,
+            status: .draft,
+            linkedTaskId: nil,
+            originalLocalPath: nil,
+            annotatedLocalPath: nil,
+            note: "Interner Test-Fotoentwurf ohne Foto",
+            syncChangeId: nil
+        )
+        collection.drafts.insert(draft, at: 0)
+        try save(collection)
+        return collection
+    }
+
     func mobileChange(for draft: MobilePhotoDraft, deviceId: String) -> MobileChange {
         MobileChange(
             id: draft.syncChangeId ?? UUID().uuidString,

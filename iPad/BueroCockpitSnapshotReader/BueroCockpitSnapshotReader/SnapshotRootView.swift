@@ -5,6 +5,7 @@ struct SnapshotRootView: View {
     private enum PresentedSheet: Identifiable, Equatable {
         case setup
         case settings
+        case mobilePhotoDrafts
         case mobileInspectionNew
         case mobileInspectionEdit(String)
 
@@ -12,6 +13,7 @@ struct SnapshotRootView: View {
             switch self {
             case .setup: "setup"
             case .settings: "settings"
+            case .mobilePhotoDrafts: "mobilePhotoDrafts"
             case .mobileInspectionNew: "mobileInspectionNew"
             case .mobileInspectionEdit(let entryID): "mobileInspectionEdit-\(entryID)"
             }
@@ -29,6 +31,7 @@ struct SnapshotRootView: View {
     @State private var mobileInboxStore = MobileInboxStore()
     @State private var mobileInboxWriter = MobileInboxWriter()
     @State private var mobileInspectionDraftStore = MobileInspectionDraftStore()
+    @State private var mobilePhotoDraftStore = MobilePhotoDraftStore()
     @State private var isPackageImporterPresented = false
     @State private var activeImportMode: SnapshotImportMode?
     @State private var importStatusMessage: String?
@@ -98,6 +101,14 @@ struct SnapshotRootView: View {
                 setupView
             case .settings:
                 syncSetupView(onDismiss: { presentedSheet = nil })
+            case .mobilePhotoDrafts:
+                MobilePhotoDraftsView(
+                    store: mobilePhotoDraftStore,
+                    onDraftsChanged: {
+                        viewModel.loadMobilePhotoDrafts()
+                    },
+                    onDismiss: { presentedSheet = nil }
+                )
             case .mobileInspectionNew:
                 MobileInspectionFormView(
                     writer: mobileInboxWriter,
@@ -305,13 +316,13 @@ struct SnapshotRootView: View {
             localNetworkConnectionIndicator
 
             Button {
+                presentedSheet = .mobilePhotoDrafts
             } label: {
                 Image(systemName: "camera")
             }
-            .disabled(true)
             .accessibilityLabel("Foto-Modus")
             .buttonStyle(.borderless)
-            .help("Foto-Modus vorbereitet, noch kein Foto-Sync aktiv")
+            .help("Foto-Modus")
 
             if hasMobileInspectionDraft {
                 Button {
