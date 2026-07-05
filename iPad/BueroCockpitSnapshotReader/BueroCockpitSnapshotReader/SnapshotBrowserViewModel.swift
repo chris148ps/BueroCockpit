@@ -76,8 +76,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         self.syncSettingsStore = syncSettingsStore
         self.mobileInboxReader = mobileInboxReader
         syncSettings = syncSettingsStore.load()
-        setupRequired = !accessStore.isSetupCompleted
-        loadState = accessStore.isSetupCompleted ? .loading : .idle
+        setupRequired = false
+        loadState = .idle
         SnapshotPerformanceLog.event("ViewModel init")
     }
 
@@ -295,10 +295,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var loadingDescription: String {
-        if loadingTitle == "Google Drive wird aktualisiert …" {
+        if loadingTitle == "Google-Drive-Aktualisierung läuft …" {
             return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
         }
-        if loadingTitle == "iCloud Drive wird aktualisiert …" {
+        if loadingTitle == "iCloud-Datei wird gelesen …" {
             return "Bitte warten. Die App liest die ausgewählte Datei und prüft sie vor der lokalen Übernahme."
         }
         return "Bitte warten. Die lokale Datei wird gelesen."
@@ -312,15 +312,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
         didAttemptStartupLoad = true
         loadMobileInboxEntries()
         updateLocalNetworkDesktopConnectionStateForStoredSettings()
-        if accessStore.hasLocalSnapshot {
-            loadLocalSnapshot(isLaunch: true)
-        } else {
-            SnapshotPerformanceLog.event("Start local load skipped: no imported live file")
-            setupRequired = false
-            setupMessage = nil
+        setupRequired = false
+        setupMessage = nil
+        if syncStatusMessage == nil {
             syncStatusMessage = "Desktop-Testdienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich."
-            loadState = .idle
         }
+        loadState = document == nil ? .idle : loadState
+        SnapshotPerformanceLog.event(
+            accessStore.hasLocalSnapshot
+                ? "Startup snapshot autoload skipped: local snapshot remains available for manual reload"
+                : "Startup snapshot autoload skipped: no imported live file"
+        )
     }
 
     func importSnapshot(from sourceURL: URL) {
@@ -862,7 +864,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         searchText = ""
         noticeMessage = nil
         syncStatusMessage = "Google Drive wird geprüft …"
-        loadingTitle = "Google Drive wird aktualisiert …"
+        loadingTitle = "Google-Drive-Aktualisierung läuft …"
         loadState = .loading
 
         let reader = self.reader
@@ -911,7 +913,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 setupRequired = false
                 setupMessage = nil
                 apply(prepared: prepared)
-                SnapshotPerformanceLog.event(isLaunch ? "Start Google Drive load finished" : "Manual Google Drive load finished")
+                SnapshotPerformanceLog.event(isLaunch ? "Launch Google Drive load finished" : "Manual Google Drive load finished")
             case .fallback(let prepared, let onlineError):
                 var settings = syncSettings
                 settings.lastError = onlineError
@@ -947,7 +949,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         searchText = ""
         noticeMessage = nil
         syncStatusMessage = "Aktualisiere iCloud-Datei …"
-        loadingTitle = "iCloud Drive wird aktualisiert …"
+        loadingTitle = "iCloud-Datei wird gelesen …"
         if !keepCurrentView {
             loadState = .loading
         }
