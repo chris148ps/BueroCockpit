@@ -130,11 +130,11 @@ Ein manuell oder ueber die sichtbare Desktop-Liste vorgemerkter Desktop wird lok
 - letzte bekannte `changeVersion`.
 - Zeitstempel der letzten erfolgreichen Aenderungsstatus-Pruefung.
 
-Die automatische Suche darf diesen gespeicherten Desktop nicht loeschen, nicht herabstufen und nicht visuell durch eine Meldung ersetzen, die wie eine fehlende Einrichtung wirkt. Wenn die automatische Suche aktuell keinen Desktop findet, bleibt der Hauptstatus `Lokaler Desktop vorgemerkt`; nur die Suchmeldung darf auf `Automatische Suche hat aktuell keinen Desktop gefunden.` wechseln. Findet die Suche denselben Desktop wieder, duerfen Adresse/IP und Port aktualisiert werden. Findet die Suche einen anderen Desktop, wird er nur als weiterer gefundener Desktop angezeigt und erst nach Benutzeraktion vorgemerkt.
+Die automatische Suche darf diesen gespeicherten Desktop nicht loeschen, nicht herabstufen und nicht visuell durch eine Meldung ersetzen, die wie eine fehlende Einrichtung wirkt. Wenn die automatische Suche bei bereits vorgemerktem Desktop keinen weiteren Desktop findet, bleibt der Hauptstatus `Lokaler Desktop vorgemerkt`; nur die Suchmeldung darf auf `Automatische Suche: kein weiterer Desktop gefunden.` wechseln. Findet die Suche denselben Desktop wieder, duerfen Adresse/IP und Port aktualisiert werden. Findet die Suche einen anderen Desktop, wird er nur als weiterer gefundener Desktop angezeigt und erst nach Benutzeraktion vorgemerkt.
 
 Wenn Bonjour keinen weiteren Desktop findet, aber bereits eine manuelle Adresse erfolgreich vorgemerkt ist, zeigt die App keine widerspruechliche Hauptmeldung. Stattdessen gilt sinngemaess:
 
-- `Automatische Suche hat aktuell keinen Desktop gefunden.`
+- `Automatische Suche: kein weiterer Desktop gefunden.`
 - oder bei fehlendem Bonjour: `Bonjour-Suche nicht verfuegbar; manuelle Adresse wird verwendet`
 
 Beim Tippen auf `Diesen Desktop verwenden` speichert das iPad zuerst lokal den vorgemerkten Desktop. Danach sendet es einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Bei Erfolg zeigt die App `Desktop vorgemerkt, iPad am Desktop registriert.`. Wenn der POST fehlschlaegt, bleibt der lokale Desktop vorgemerkt und die App zeigt `Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich.`. Es gibt keinen Hintergrund-Retry und keine Endlosschleife; ein neuer Versuch passiert nur durch erneute Benutzeraktion.

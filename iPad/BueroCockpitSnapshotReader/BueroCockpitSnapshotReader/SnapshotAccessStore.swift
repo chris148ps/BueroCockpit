@@ -87,7 +87,7 @@ enum SnapshotAccessError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .noCachedSnapshot:
-            return "Es ist keine lokale Live-Datei verfügbar. Bitte Sync/live.bclive erneut importieren."
+            return "Es ist keine lokale Snapshot-Datei verfügbar. Bitte die Snapshot-Datei erneut importieren."
         case .iCloudSourceUnavailable:
             return "Bitte iCloud-Datei erneut auswählen."
         case .iCloudBookmarkFailed:

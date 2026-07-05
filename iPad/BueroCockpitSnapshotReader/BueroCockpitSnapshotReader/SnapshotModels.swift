@@ -177,12 +177,12 @@ extension SnapshotAttachmentIndex {
 
         if previewAvailable && (localURL != nil || packagePath != nil) {
             return originalAvailableInLiveSync
-                ? "Vorschau im Live-Sync enthalten"
-                : "Vorschau im Live-Sync enthalten · Original nicht synchronisiert"
+                ? "Vorschau lokal verfügbar"
+                : "Vorschau lokal verfügbar · Original noch nicht auf diesem Gerät verfügbar"
         }
 
         if fileExists && !originalAvailableInLiveSync {
-            return "Original nicht synchronisiert"
+            return "Original noch nicht auf diesem Gerät verfügbar"
         }
 
         return "Datei fehlt"
@@ -351,9 +351,9 @@ enum SnapshotReaderError: LocalizedError, Equatable {
         case .securityScopedAccessDenied(let fileName):
             return "Sicherheitszugriff wurde verweigert: \(fileName)"
         case .localCopyFailed:
-            return "Die Datei konnte nicht lokal kopiert werden. Bitte Sync/live.bclive erneut importieren."
+            return "Die Datei konnte nicht lokal kopiert werden. Bitte die Snapshot-Datei erneut importieren."
         case .localLiveFileUnreadable:
-            return "Die lokale Live-Datei konnte nicht gelesen werden. Bitte Sync/live.bclive erneut importieren."
+            return "Die lokale Snapshot-Datei konnte nicht gelesen werden. Bitte die Snapshot-Datei erneut importieren."
         case .missingRequiredFile(let fileName, _):
             switch fileName.lowercased() {
             case "metadata.json":
@@ -370,7 +370,7 @@ enum SnapshotReaderError: LocalizedError, Equatable {
         case .unreadableFolder(let folderName):
             return "Snapshot-Ordner konnte nicht geöffnet werden: \(folderName)"
         case .unreadableSnapshotPackage(let fileName, _):
-            return "Die lokale Live-Datei \(fileName) konnte nicht gelesen werden. Bitte Sync/live.bclive erneut importieren."
+            return "Die lokale Snapshot-Datei \(fileName) konnte nicht gelesen werden. Bitte die Snapshot-Datei erneut importieren."
         }
     }
 }

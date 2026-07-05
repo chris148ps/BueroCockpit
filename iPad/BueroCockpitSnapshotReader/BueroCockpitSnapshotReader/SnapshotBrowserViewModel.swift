@@ -526,7 +526,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             guard let self else { return }
             discoveredLocalNetworkDesktops = desktops
             if desktops.isEmpty, isLocalNetworkDesktopRemembered {
-                localNetworkDesktopAutoCheckMessage = "Automatische Suche hat aktuell keinen Desktop gefunden."
+                localNetworkDesktopAutoCheckMessage = "Automatische Suche: kein weiterer Desktop gefunden."
                 syncStatusMessage = "Lokaler Desktop vorgemerkt"
             }
             adoptRememberedLocalNetworkDesktopIfFound(in: desktops)
@@ -1361,7 +1361,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
             localNetworkDesktopConnectionState = .disconnected
             if isLocalNetworkDesktopRemembered {
                 syncStatusMessage = "Lokaler Desktop vorgemerkt"
-                localNetworkDesktopAutoCheckMessage = "Automatische Suche hat aktuell keinen Desktop gefunden."
+                localNetworkDesktopAutoCheckMessage = "Automatische Prüfung: Desktop aktuell nicht erreichbar."
             } else {
                 syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
             }

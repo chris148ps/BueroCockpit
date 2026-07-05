@@ -352,7 +352,7 @@ struct SnapshotSetupView: View {
 
     private var localNetworkDesktopDiscoveryEmptyText: String {
         if isLocalNetworkDesktopRemembered || localNetworkDesktopLastSuccessfulCheckText != nil {
-            return "Automatische Suche hat aktuell keinen Desktop gefunden."
+            return "Automatische Suche: kein weiterer Desktop gefunden."
         }
         return "Desktop im lokalen Netzwerk suchen oder IP manuell eingeben."
     }
