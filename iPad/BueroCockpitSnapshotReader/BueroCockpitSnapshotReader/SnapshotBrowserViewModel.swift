@@ -55,9 +55,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let mobileInboxReader: MobileInboxReader
     private var didAttemptStartupLoad = false
     private let localNetworkDesktopTestPort = 53941
-    private let localNetworkDesktopInitialAutoCheckDelayNanoseconds: UInt64 = 3_000_000_000
     private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
     private var localNetworkDesktopAutoCheckTask: Task<Void, Never>?
+    private var localNetworkDesktopAutoCheckAddress: String?
     private var isLocalNetworkDesktopServiceCheckRunning = false
     private var isLocalNetworkDesktopMainMonitoringActive = false
     private let localNetworkDesktopDiscovery = LocalNetworkDesktopDiscovery()
@@ -435,25 +435,27 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     func startLocalNetworkDesktopAutoCheck(address: String) {
         let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        localNetworkDesktopAutoCheckTask?.cancel()
 
         guard !normalizedAddress.isEmpty else {
+            localNetworkDesktopAutoCheckTask?.cancel()
+            localNetworkDesktopAutoCheckTask = nil
+            localNetworkDesktopAutoCheckAddress = nil
             localNetworkDesktopAutoCheckMessage = "Desktop-Adresse fehlt"
             localNetworkDesktopConnectionState = .disconnected
             return
         }
 
-        localNetworkDesktopAutoCheckMessage = "Erste Prüfung in ca. 3 Sekunden"
+        if localNetworkDesktopAutoCheckTask != nil,
+           localNetworkDesktopAutoCheckAddress == normalizedAddress {
+            return
+        }
+
+        localNetworkDesktopAutoCheckTask?.cancel()
+        localNetworkDesktopAutoCheckAddress = normalizedAddress
+        localNetworkDesktopAutoCheckMessage = "Prüfung läuft …"
         localNetworkDesktopConnectionState = .checking
-        let initialDelay = localNetworkDesktopInitialAutoCheckDelayNanoseconds
         let checkInterval = localNetworkDesktopAutoCheckIntervalNanoseconds
         localNetworkDesktopAutoCheckTask = Task { @MainActor [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: initialDelay)
-            } catch {
-                return
-            }
-
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.runLocalNetworkDesktopAutoCheck(address: normalizedAddress)
@@ -475,6 +477,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
         localNetworkDesktopAutoCheckTask?.cancel()
         localNetworkDesktopAutoCheckTask = nil
+        localNetworkDesktopAutoCheckAddress = nil
         localNetworkDesktopAutoCheckMessage = nil
     }
 
