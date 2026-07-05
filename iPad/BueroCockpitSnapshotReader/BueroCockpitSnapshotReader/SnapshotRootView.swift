@@ -103,6 +103,7 @@ struct SnapshotRootView: View {
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
                     editingEntryID: nil,
+                    availableCategories: viewModel.mobileInspectionCategoryNames,
                     onSaved: { result in
                         hasMobileInspectionDraft = false
                         mobileInboxMessage = "Gespeichert in \(result.entryURL.lastPathComponent)"
@@ -123,6 +124,7 @@ struct SnapshotRootView: View {
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
                     editingEntryID: entryID,
+                    availableCategories: viewModel.mobileInspectionCategoryNames,
                     onSaved: { result in
                         hasMobileInspectionDraft = false
                         mobileInboxMessage = "Aktualisiert: \(result.entryURL.lastPathComponent)"

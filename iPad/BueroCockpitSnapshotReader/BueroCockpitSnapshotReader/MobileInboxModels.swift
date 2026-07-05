@@ -77,7 +77,7 @@ struct MobileInspectionDraft: Equatable, Sendable {
     var files: [MobileInspectionFileInput] = []
 
     var hasUserContent: Bool {
-        let textValues = [customerName, address, phone, email, title, notes]
+        let textValues = [customerName, address, phone, email, title, category, notes]
         return textValues.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             || !photos.isEmpty
             || !sketches.isEmpty

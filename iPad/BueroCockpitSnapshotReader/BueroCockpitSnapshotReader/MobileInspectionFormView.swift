@@ -7,6 +7,7 @@ struct MobileInspectionFormView: View {
     let writer: MobileInboxWriter
     let draftStore: MobileInspectionDraftStore
     let editingEntryID: String?
+    let availableCategories: [String]
     let onSaved: (MobileInspectionSaveResult) -> Void
     let onNeedsFolderSelection: () -> Void
     let onDraftStateChanged: (Bool) -> Void
@@ -39,6 +40,7 @@ struct MobileInspectionFormView: View {
     private var formView: some View {
         Form {
             customerSection
+            categorySection
             notesSection
             photosSection
             sketchesSection
@@ -153,7 +155,28 @@ struct MobileInspectionFormView: View {
         current.photos = selectedLibraryPhotos + cameraPhotos
         current.sketches = sketches
         current.files = files
+        if Self.isLegacyMobileApprovalCategory(current.category) {
+            current.category = ""
+        }
         return current
+    }
+
+    private var categoryOptions: [String] {
+        var seen = Set<String>()
+        return availableCategories.compactMap { category in
+            let trimmed = category.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty,
+                  !Self.isLegacyMobileApprovalCategory(trimmed) else {
+                return nil
+            }
+
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else {
+                return nil
+            }
+
+            return trimmed
+        }
     }
 
     private var customerSection: AnyView {
@@ -167,6 +190,17 @@ struct MobileInspectionFormView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             TextField("Titel / Betreff", text: draftTextBinding(\.title))
+        })
+    }
+
+    private var categorySection: AnyView {
+        AnyView(Section("Kategorie") {
+            Picker("Kategorie", selection: categoryBinding) {
+                Text("Keine Kategorie").tag("")
+                ForEach(categoryOptions, id: \.self) { category in
+                    Text(category).tag(category)
+                }
+            }
         })
     }
 
@@ -358,6 +392,18 @@ struct MobileInspectionFormView: View {
         )
     }
 
+    private var categoryBinding: Binding<String> {
+        Binding(
+            get: {
+                Self.isLegacyMobileApprovalCategory(draft.category) ? "" : draft.category
+            },
+            set: { value in
+                draft.category = Self.isLegacyMobileApprovalCategory(value) ? "" : value
+                persistCurrentDraft()
+            }
+        )
+    }
+
     private func previewButton(
         title: String,
         fileName: String,
@@ -461,7 +507,7 @@ struct MobileInspectionFormView: View {
                 phone: restoredDraft.phone,
                 email: restoredDraft.email,
                 title: restoredDraft.title,
-                category: restoredDraft.category,
+                category: Self.isLegacyMobileApprovalCategory(restoredDraft.category) ? "" : restoredDraft.category,
                 notes: restoredDraft.notes
             )
             selectedPhotoItems = []
@@ -514,6 +560,12 @@ struct MobileInspectionFormView: View {
         }
     }
 
+    private static func isLegacyMobileApprovalCategory(_ value: String) -> Bool {
+        let legacyName = ["Wartet", "auf", "Freigabe"].joined(separator: " ")
+        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedCaseInsensitiveCompare(legacyName) == .orderedSame
+    }
+
     @MainActor
     private func saveAsync() async {
         if selectedPhotoItems.count != selectedLibraryPhotos.count {
@@ -531,6 +583,9 @@ struct MobileInspectionFormView: View {
             draft.photos = selectedLibraryPhotos + cameraPhotos
             draft.sketches = sketches
             draft.files = files
+            if Self.isLegacyMobileApprovalCategory(draft.category) {
+                draft.category = ""
+            }
             let result: MobileInspectionSaveResult
             if let editingEntryID {
                 result = try writer.update(entryID: editingEntryID, draft: draft)

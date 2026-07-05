@@ -113,6 +113,12 @@ final class SnapshotBrowserViewModel: ObservableObject {
         ] + groupedCategoryCache
     }
 
+    var mobileInspectionCategoryNames: [String] {
+        groupedCategoryCache
+            .map(\.name)
+            .filter { !Self.isLegacyMobileApprovalCategory($0) }
+    }
+
     var tasks: [SnapshotTask] {
         document?.tasks ?? []
     }

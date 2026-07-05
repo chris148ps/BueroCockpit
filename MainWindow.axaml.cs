@@ -4154,11 +4154,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ClearSelectedTask();
         }
 
-        var category = !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected && !IsTrashSelected
+        var category = !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected && !IsTrashSelected &&
+            SelectedCategory is not null &&
+            IsSelectableTaskCategory(SelectedCategory)
             ? SelectedCategory
             : null;
-        category ??= Categories.FirstOrDefault(c => c.Name == "Offene Aufgaben");
-        category ??= Categories.FirstOrDefault(c => !IsSpecialCategory(c));
+        category ??= Categories.FirstOrDefault(c =>
+            IsSelectableTaskCategory(c) &&
+            string.Equals(c.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase));
+        category ??= Categories.FirstOrDefault(IsSelectableTaskCategory);
         category ??= Categories.FirstOrDefault();
         if (category is null)
         {
@@ -9489,7 +9493,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshTaskCategories()
     {
         TaskCategories.Clear();
-        foreach (var category in Categories.Where(category => !IsSpecialCategory(category)))
+        foreach (var category in Categories.Where(IsSelectableTaskCategory))
         {
             TaskCategories.Add(category);
         }
@@ -9546,22 +9550,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? GetDefaultStartupCategory()
     {
         return Categories.FirstOrDefault(category =>
+                IsSelectableTaskCategory(category) &&
                 string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
             ?? Categories.FirstOrDefault(category =>
+                IsSelectableTaskCategory(category) &&
                 string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category))
+            ?? Categories.FirstOrDefault(IsSelectableTaskCategory)
             ?? Categories.FirstOrDefault();
     }
 
     private CategoryItem? GetStartupTaskCategory()
     {
         return Categories.FirstOrDefault(category =>
+                IsSelectableTaskCategory(category) &&
                 string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
             ?? Categories.FirstOrDefault(category =>
+                IsSelectableTaskCategory(category) &&
                 string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
             ?? Categories.FirstOrDefault(category =>
-                !IsSpecialCategory(category) && category.IsVisible)
-            ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
+                IsSelectableTaskCategory(category) && category.IsVisible)
+            ?? Categories.FirstOrDefault(IsSelectableTaskCategory);
     }
 
     private void ForceStartupTaskCategory()
@@ -9708,6 +9716,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                category.Id == MobileInboxCategoryId ||
                category.Id == SettingsCategoryId ||
                category.Name == OverviewCategoryName;
+    }
+
+    private static bool IsSelectableTaskCategory(CategoryItem category)
+    {
+        return !IsSpecialCategory(category) &&
+               !IsLegacyMobileApprovalCategory(category.Name);
     }
 
     private void LoadMobileInboxEntries()
@@ -9937,7 +9951,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(entry.Category) && !IsLegacyMobileApprovalCategory(entry.Category))
         {
             var existingCategory = Categories.FirstOrDefault(category =>
-                !IsSpecialCategory(category) &&
+                IsSelectableTaskCategory(category) &&
                 IsMatchingMobileInboxCategory(entry.Category, category.Name));
             if (existingCategory is not null)
             {
@@ -9946,9 +9960,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return Categories.FirstOrDefault(category =>
-                   !IsSpecialCategory(category) &&
+                   IsSelectableTaskCategory(category) &&
                    string.Equals(category.Name, "Offene Aufgaben", StringComparison.CurrentCultureIgnoreCase))
-               ?? Categories.First(category => !IsSpecialCategory(category));
+               ?? Categories.First(IsSelectableTaskCategory);
     }
 
     private static bool IsMatchingMobileInboxCategory(string? mobileCategoryName, string? categoryName)
