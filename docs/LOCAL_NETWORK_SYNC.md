@@ -423,3 +423,65 @@ Neue Abhaengigkeiten waeren erst bei einer echten Implementierung zu pruefen. De
 
 - iPad loescht lokale Originale erst nach bestaetigter Desktop-Uebernahme.
 - Loeschung bleibt sichtbar und darf nicht still nach einem Teilfehler erfolgen.
+
+## Verbindliche Regel: Mobile Änderungen niemals überschreiben
+
+Beim lokalen Netzwerk-Sync dürfen lokale Änderungen auf dem iPad oder iPhone niemals ungefragt durch den Desktop-Stand überschrieben werden.
+
+Wenn unterwegs auf dem iPad oder iPhone neue Inhalte entstehen, zum Beispiel:
+- neue Aufträge,
+- Fotos,
+- markierte Fotos,
+- Notizen,
+- Skizzen,
+- Anhänge,
+
+müssen diese mobilen Änderungen vor jeder Aktualisierung vom Desktop erkannt, gesichert und an den Desktop übertragen werden.
+
+Der Desktop-Stand darf nicht pauschal über den mobilen Stand geschrieben werden.
+
+### Grundsatz
+
+Synchronisation bedeutet Zusammenführen, nicht Ersetzen.
+
+### Erlaubtes Verhalten
+
+- Neue mobile Aufträge werden auf dem Desktop neu angelegt.
+- Neue mobile Fotos werden dem passenden Auftrag auf dem Desktop hinzugefügt.
+- Markierungen und Notizen werden als mobile Änderungen übertragen.
+- Nach erfolgreicher Desktop-Übernahme erhalten mobile Inhalte den Status „übertragen“.
+- Lokale mobile Originaldateien dürfen erst nach bestätigter Desktop-Übernahme später bereinigt werden.
+
+### Nicht erlaubtes Verhalten
+
+- Desktop-Snapshot ersetzt ungefragt den lokalen iPad-Stand.
+- Mobile Fotos verschwinden nach Desktop-Aktualisierung.
+- Mobile Aufträge werden verworfen, weil sie auf dem Desktop noch nicht existieren.
+- Lokale iPad-/iPhone-Änderungen werden ohne Konflikthinweis überschrieben.
+- Originalfotos werden gelöscht, bevor der Desktop den Empfang bestätigt hat.
+
+### Konflikte
+
+Wenn Desktop und mobiles Gerät denselben Inhalt geändert haben, darf nicht automatisch eine Seite gewinnen.
+
+Bei eindeutigen Ergänzungen soll zusammengeführt werden, zum Beispiel:
+- Desktop ändert Termin,
+- iPad fügt Foto hinzu.
+
+Wenn beide dasselbe Feld geändert haben, zum Beispiel Auftragstext oder Notiz, muss ein Konflikt erkannt und später sichtbar lösbar gemacht werden.
+
+Mögliche Konfliktlösung:
+- Desktop-Version behalten,
+- mobile Version übernehmen,
+- beide Inhalte zusammenführen.
+
+### Reihenfolge beim späteren Sync
+
+1. Mobile Änderungswarteschlange prüfen.
+2. Mobile Änderungen an den Desktop übertragen.
+3. Empfang durch Desktop bestätigen lassen.
+4. Mobile Einträge als übertragen markieren.
+5. Erst danach Desktop-Änderungen aufs mobile Gerät aktualisieren.
+6. Konflikte nicht automatisch überschreiben, sondern markieren.
+
+Diese Regel gilt dauerhaft für alle späteren Sync-Entwicklungen.

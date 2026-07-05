@@ -207,3 +207,19 @@ Wichtig:
 - Kein Release.
 - Kein Tag.
 - Keine Versionserhoehung.
+
+## Dauerhafte Regel: Mobile Änderungen schützen
+
+Bei allen künftigen Arbeiten am iPad-/iPhone-/lokalen Netzwerk-Sync gilt:
+
+Der Desktop darf lokale Änderungen auf iPad oder iPhone niemals ungefragt überschreiben.
+
+Neue mobile Aufträge, Fotos, markierte Fotos, Notizen, Skizzen und Anhänge müssen vor jeder Desktop-Aktualisierung erkannt, gesichert und an den Desktop übertragen werden.
+
+Synchronisation bedeutet Zusammenführen, nicht Ersetzen.
+
+Mobile Originaldateien dürfen erst nach bestätigter Übernahme auf dem Desktop bereinigt werden.
+
+Wenn Desktop und mobiles Gerät denselben Inhalt geändert haben, muss ein Konflikt erkannt werden. Es darf keine automatische, stille Überschreibung geben.
+
+Diese Regel ist verbindlich und darf bei späteren Codex-Aufträgen nicht entfernt oder umgangen werden.
