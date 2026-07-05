@@ -23,10 +23,11 @@ codex -m gpt-5.5
 ## Projektgrundsatz
 
 - Die Desktop-App bleibt das fuehrende System.
-- Die iPad-App bleibt vorerst lesend bzw. mobiler Erfassungsclient.
+- Die iPad-App startet kuenftig direkt in die Hauptansicht und bleibt vorerst lesend bzw. mobiler Erfassungsclient.
 - Daten liegen lokal. Cloud-/OneDrive-/iCloud-/Live-Datei- oder Datei-Sync ist nicht mehr Zielarchitektur.
 - Neuer Zielweg ist lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
 - Pairing-Code, Live-Datei, Cloud-Datei und Datei-Kopplung sind nicht mehr aktueller Kopplungsweg fuer den lokalen Netzwerk-Sync.
+- Spaeter duerfen Aenderungen ueber den lokalen Netzwerk-Sync automatisch angeboten, abgeholt oder uebertragen werden, sobald eine lokale Verbindung und die dafuer noetige Vertrauensbasis bewusst implementiert sind.
 
 ## Strikte Sperren ohne ausdrueckliche Freigabe
 
@@ -75,6 +76,7 @@ Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 - Der aktuelle Bedienweg zeigt keinen Pairing-Code und keine Live-Datei-/Cloud-/Datei-Kopplung.
 - Das iPad prueft den Desktop per lokaler Adresse oder findet ihn per Bonjour/mDNS, falls verfuegbar.
 - Manuelle IP-Eingabe bleibt der Fallback.
+- Der Statuspunkt in der iPad-Hauptansicht muss die lokale Desktop-Vormerkung selbst laden und ohne Oeffnen der Einstellungen automatisch aktualisieren.
 - Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Testdienst darf ohne Bonjour laufen.
 - Es gibt noch keinen echten Sync und keine Produktivdatenuebertragung, solange das nicht ausdruecklich beauftragt wird.
 
