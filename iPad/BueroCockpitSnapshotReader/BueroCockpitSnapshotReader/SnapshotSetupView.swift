@@ -8,7 +8,10 @@ struct SnapshotSetupView: View {
     let localNetworkDesktopStatusMessage: String?
     let localNetworkDesktopAutoCheckMessage: String?
     let discoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop]
+    let otherDiscoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop]
     let localNetworkDesktopAddress: String
+    let localNetworkDesktopPort: Int
+    let localNetworkDesktopName: String?
     let localNetworkDesktopLastSuccessfulCheckText: String?
     let localNetworkDesktopStoredStatus: String?
     let mobileInboxFolderPath: String?
@@ -39,7 +42,10 @@ struct SnapshotSetupView: View {
         localNetworkDesktopStatusMessage: String?,
         localNetworkDesktopAutoCheckMessage: String?,
         discoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop],
+        otherDiscoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop],
         localNetworkDesktopAddress: String,
+        localNetworkDesktopPort: Int,
+        localNetworkDesktopName: String?,
         localNetworkDesktopLastSuccessfulCheckText: String?,
         localNetworkDesktopStoredStatus: String?,
         mobileInboxFolderPath: String?,
@@ -66,7 +72,10 @@ struct SnapshotSetupView: View {
         self.localNetworkDesktopStatusMessage = localNetworkDesktopStatusMessage
         self.localNetworkDesktopAutoCheckMessage = localNetworkDesktopAutoCheckMessage
         self.discoveredLocalNetworkDesktops = discoveredLocalNetworkDesktops
+        self.otherDiscoveredLocalNetworkDesktops = otherDiscoveredLocalNetworkDesktops
         self.localNetworkDesktopAddress = localNetworkDesktopAddress
+        self.localNetworkDesktopPort = localNetworkDesktopPort
+        self.localNetworkDesktopName = localNetworkDesktopName
         self.localNetworkDesktopLastSuccessfulCheckText = localNetworkDesktopLastSuccessfulCheckText
         self.localNetworkDesktopStoredStatus = localNetworkDesktopStoredStatus
         self.mobileInboxFolderPath = mobileInboxFolderPath
@@ -162,6 +171,23 @@ struct SnapshotSetupView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Aktueller vorgemerkter Desktop")
+                        .font(.callout.weight(.semibold))
+                    if hasStoredLocalNetworkDesktop {
+                        Text(localNetworkDesktopNameText)
+                            .font(.callout.weight(.medium))
+                        Text("\(localNetworkDesktopAddress):\(localNetworkDesktopPort)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Noch kein Desktop vorgemerkt.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+
                 TextField("Desktop-Adresse, z. B. 192.168.1.20 oder mac-mini.local", text: $localNetworkDesktopAddressInput)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -211,28 +237,30 @@ struct SnapshotSetupView: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                } else if otherDiscoveredLocalNetworkDesktops.isEmpty {
+                    Label("Kein anderer BüroCockpit-Desktop gefunden.", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Gefundene Desktops")
+                        Text("Anderen BüroCockpit-Desktop gefunden")
                             .font(.callout.weight(.semibold))
-                        ForEach(discoveredLocalNetworkDesktops) { desktop in
-                            Button {
-                                localNetworkDesktopAddressInput = desktop.address
-                                onUseDiscoveredLocalNetworkDesktop(desktop)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(desktop.name)
-                                            .font(.callout.weight(.medium))
-                                        Text(desktop.displayEndpoint)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "arrow.down.circle")
+                        ForEach(otherDiscoveredLocalNetworkDesktops) { desktop in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(desktop.name)
+                                    .font(.callout.weight(.medium))
+                                Text(localNetworkDesktopEndpointText(for: desktop))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Button("Diesen Desktop verwenden") {
+                                    localNetworkDesktopAddressInput = desktop.address
+                                    onUseDiscoveredLocalNetworkDesktop(desktop)
                                 }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isWorking)
                             }
-                            .buttonStyle(.bordered)
+                            .padding(.vertical, 6)
                         }
                     }
                     .fixedSize(horizontal: false, vertical: true)
@@ -289,13 +317,37 @@ struct SnapshotSetupView: View {
     }
 
     private var localNetworkDesktopUseButtonTitle: String {
-        isLocalNetworkDesktopRemembered ? "Desktop ist vorgemerkt" : "Diesen Desktop verwenden"
+        isLocalNetworkDesktopAddressInputStored ? "Desktop ist vorgemerkt" : "Diesen Desktop verwenden"
     }
 
     private var isLocalNetworkDesktopRemembered: Bool {
         localNetworkDesktopStoredStatus == "lokaler Desktop vorgemerkt" ||
             localNetworkDesktopStoredStatus == "Lokaler Desktop vorgemerkt" ||
             localNetworkDesktopStoredStatus == "Desktop im lokalen Netzwerk gefunden"
+    }
+
+    private var hasStoredLocalNetworkDesktop: Bool {
+        !localNetworkDesktopAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isLocalNetworkDesktopAddressInputStored: Bool {
+        let storedAddress = localNetworkDesktopAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        let inputAddress = localNetworkDesktopAddressInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        return isLocalNetworkDesktopRemembered && !storedAddress.isEmpty && storedAddress == inputAddress
+    }
+
+    private var localNetworkDesktopNameText: String {
+        let trimmedName = localNetworkDesktopName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedName.isEmpty ? "BüroCockpit-Desktop" : trimmedName
+    }
+
+    private func localNetworkDesktopEndpointText(for desktop: LocalNetworkDiscoveredDesktop) -> String {
+        if let hostName = desktop.hostName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !hostName.isEmpty,
+           hostName != desktop.address {
+            return "\(hostName) / \(desktop.address):\(desktop.port)"
+        }
+        return desktop.displayEndpoint
     }
 
     private var localNetworkDesktopDiscoveryEmptyText: String {

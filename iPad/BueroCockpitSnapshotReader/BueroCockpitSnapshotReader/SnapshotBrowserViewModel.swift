@@ -264,6 +264,16 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.desktopPort ?? localNetworkDesktopTestPort
     }
 
+    var localNetworkDesktopName: String? {
+        syncSettings.localNetworkDesktop.desktopName
+    }
+
+    var otherDiscoveredLocalNetworkDesktops: [LocalNetworkDiscoveredDesktop] {
+        discoveredLocalNetworkDesktops.filter { desktop in
+            !Self.matchesLocalNetworkDesktop(desktop, remembered: syncSettings.localNetworkDesktop, fallbackPort: localNetworkDesktopTestPort)
+        }
+    }
+
     var localNetworkDesktopLastSuccessfulCheckText: String? {
         guard let date = syncSettings.localNetworkDesktop.lastSuccessfulCheckAt else {
             return nil
@@ -465,6 +475,11 @@ final class SnapshotBrowserViewModel: ObservableObject {
         }
 
         let port = localNetworkDesktopPort
+        guard shouldAutoCheckLocalNetworkDesktop(address: normalizedAddress, port: port) else {
+            localNetworkDesktopAutoCheckMessage = "Anderer Desktop gefunden. Wechsel nur über Benutzeraktion."
+            return
+        }
+
         if localNetworkDesktopAutoCheckTask != nil,
            localNetworkDesktopAutoCheckAddress == normalizedAddress,
            localNetworkDesktopAutoCheckPort == port {
@@ -529,9 +544,39 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func useDiscoveredLocalNetworkDesktop(_ desktop: LocalNetworkDiscoveredDesktop) {
-        saveDiscoveredLocalNetworkDesktop(desktop, status: "Desktop im lokalen Netzwerk gefunden")
-        syncStatusMessage = "Desktop im lokalen Netzwerk gefunden"
-        startLocalNetworkDesktopAutoCheck(address: desktop.address)
+        guard !isLocalNetworkDesktopServiceCheckRunning else { return }
+        isLocalNetworkDesktopServiceCheckRunning = true
+        loadingTitle = "Prüfung läuft …"
+        syncStatusMessage = "Anderer BüroCockpit-Desktop wird geprüft …"
+        localNetworkDesktopConnectionState = .checking
+
+        Task {
+            defer {
+                isLocalNetworkDesktopServiceCheckRunning = false
+            }
+
+            do {
+                let response = try await Self.fetchLocalNetworkDesktopStatus(
+                    address: desktop.address,
+                    port: desktop.port
+                )
+                guard response.isExpectedLocalNetworkTestStatus else {
+                    localNetworkDesktopConnectionState = .disconnected
+                    syncStatusMessage = "Anderer Desktop nicht übernommen: unerwartete Antwort"
+                    return
+                }
+
+                rememberLocalNetworkDesktop(desktop)
+                await checkLocalNetworkDesktopChangeStatus(address: desktop.address, port: desktop.port)
+                localNetworkDesktopConnectionState = .connected
+                syncStatusMessage = "Desktop vorgemerkt"
+                startLocalNetworkDesktopAutoCheck(address: desktop.address)
+                await rememberCurrentIpadAtDesktop(address: desktop.address, port: desktop.port)
+            } catch {
+                localNetworkDesktopConnectionState = .disconnected
+                syncStatusMessage = "Anderer Desktop nicht übernommen: \(Self.shortLocalNetworkDesktopError(error))"
+            }
+        }
     }
 
     func markLocalNetworkDesktopAsPreferred(address: String) {
@@ -541,23 +586,46 @@ final class SnapshotBrowserViewModel: ObservableObject {
             return
         }
 
+        guard !isLocalNetworkDesktopServiceCheckRunning else { return }
+        isLocalNetworkDesktopServiceCheckRunning = true
+        loadingTitle = "Prüfung läuft …"
+        syncStatusMessage = "Desktop wird geprüft …"
+        localNetworkDesktopConnectionState = .checking
+
         let deviceId = ensureLocalNetworkIpadIdentity()
         let deviceName = Self.currentIpadDeviceName()
-        var settings = syncSettings
-        settings.localNetworkDesktop.desktopAddress = normalizedAddress
-        settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
-        settings.localNetworkDesktop.localDesktopStatus = "Lokaler Desktop vorgemerkt"
-        settings.localNetworkDesktop.lastSuccessfulCheckAt = settings.localNetworkDesktop.lastSuccessfulCheckAt ?? Date()
-        settings.localNetworkDesktop.ipadDeviceId = deviceId
-        settings.localNetworkDesktop.ipadDeviceName = deviceName
-        settings.localNetworkDesktop.ipadPlatform = "iPadOS"
-        syncSettings = settings
-        syncSettingsStore.save(settings)
-        syncStatusMessage = "Lokaler Desktop vorgemerkt"
-        localNetworkDesktopConnectionState = .connected
 
         Task {
+            defer {
+                isLocalNetworkDesktopServiceCheckRunning = false
+            }
+
             do {
+                let statusResponse = try await Self.fetchLocalNetworkDesktopStatus(
+                    address: normalizedAddress,
+                    port: localNetworkDesktopTestPort
+                )
+                guard statusResponse.isExpectedLocalNetworkTestStatus else {
+                    localNetworkDesktopConnectionState = .disconnected
+                    syncStatusMessage = "Desktop nicht übernommen: unerwartete Antwort"
+                    return
+                }
+
+                var settings = syncSettings
+                settings.localNetworkDesktop.desktopAddress = normalizedAddress
+                settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
+                settings.localNetworkDesktop.localDesktopStatus = "Lokaler Desktop vorgemerkt"
+                settings.localNetworkDesktop.lastSuccessfulCheckAt = Date()
+                settings.localNetworkDesktop.ipadDeviceId = deviceId
+                settings.localNetworkDesktop.ipadDeviceName = deviceName
+                settings.localNetworkDesktop.ipadPlatform = "iPadOS"
+                syncSettings = settings
+                syncSettingsStore.save(settings)
+                await checkLocalNetworkDesktopChangeStatus(address: normalizedAddress, port: localNetworkDesktopTestPort)
+                localNetworkDesktopConnectionState = .connected
+                syncStatusMessage = "Lokaler Desktop vorgemerkt"
+                startLocalNetworkDesktopAutoCheck(address: normalizedAddress)
+
                 let response = try await Self.rememberIpadAtDesktop(
                     address: normalizedAddress,
                     port: localNetworkDesktopTestPort,
@@ -569,8 +637,46 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     ? "Desktop vorgemerkt, iPad am Desktop registriert."
                     : "Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich."
             } catch {
-                syncStatusMessage = "Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich."
+                localNetworkDesktopConnectionState = .disconnected
+                syncStatusMessage = "Desktop nicht übernommen: \(Self.shortLocalNetworkDesktopError(error))"
             }
+        }
+    }
+
+    private func rememberLocalNetworkDesktop(_ desktop: LocalNetworkDiscoveredDesktop) {
+        let deviceId = ensureLocalNetworkIpadIdentity()
+        let deviceName = Self.currentIpadDeviceName()
+        var settings = syncSettings
+        settings.localNetworkDesktop.desktopAddress = desktop.address
+        settings.localNetworkDesktop.desktopPort = desktop.port
+        settings.localNetworkDesktop.desktopDeviceId = desktop.deviceId
+        settings.localNetworkDesktop.desktopName = desktop.name
+        settings.localNetworkDesktop.desktopPlatform = nil
+        settings.localNetworkDesktop.lastSuccessfulCheckAt = Date()
+        settings.localNetworkDesktop.localDesktopStatus = "Lokaler Desktop vorgemerkt"
+        settings.localNetworkDesktop.ipadDeviceId = deviceId
+        settings.localNetworkDesktop.ipadDeviceName = deviceName
+        settings.localNetworkDesktop.ipadPlatform = "iPadOS"
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+    }
+
+    private func rememberCurrentIpadAtDesktop(address: String, port: Int) async {
+        let deviceId = ensureLocalNetworkIpadIdentity()
+        let deviceName = Self.currentIpadDeviceName()
+        do {
+            let response = try await Self.rememberIpadAtDesktop(
+                address: address,
+                port: port,
+                deviceId: deviceId,
+                deviceName: deviceName,
+                appVersion: Self.currentAppVersion()
+            )
+            syncStatusMessage = response.isExpectedRememberResponse
+                ? "Desktop vorgemerkt, iPad am Desktop registriert."
+                : "Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich."
+        } catch {
+            syncStatusMessage = "Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich."
         }
     }
 
@@ -579,18 +685,6 @@ final class SnapshotBrowserViewModel: ObservableObject {
         guard normalizedAddress != (syncSettings.localNetworkDesktop.desktopAddress ?? "") else {
             return
         }
-        guard syncSettings.localNetworkDesktop.lastSuccessfulCheckAt != nil ||
-            syncSettings.localNetworkDesktop.localDesktopStatus != nil else {
-            return
-        }
-
-        var settings = syncSettings
-        settings.localNetworkDesktop.desktopAddress = normalizedAddress.isEmpty ? nil : normalizedAddress
-        settings.localNetworkDesktop.desktopPort = localNetworkDesktopTestPort
-        settings.localNetworkDesktop.lastSuccessfulCheckAt = nil
-        settings.localNetworkDesktop.localDesktopStatus = nil
-        syncSettings = settings
-        syncSettingsStore.save(settings)
         syncStatusMessage = normalizedAddress.isEmpty ? "Desktop-Adresse fehlt" : "Bereit zur Prüfung"
     }
 
@@ -1291,6 +1385,19 @@ final class SnapshotBrowserViewModel: ObservableObject {
             : .checking
     }
 
+    private func shouldAutoCheckLocalNetworkDesktop(address: String, port: Int) -> Bool {
+        let remembered = syncSettings.localNetworkDesktop
+        guard Self.isRememberedLocalNetworkDesktop(remembered) else {
+            return true
+        }
+        return Self.matchesLocalNetworkDesktopEndpoint(
+            address: address,
+            port: port,
+            remembered: remembered,
+            fallbackPort: localNetworkDesktopTestPort
+        )
+    }
+
     private func loadStoredLocalNetworkDesktopSettings() {
         let storedSettings = syncSettingsStore.load()
         guard storedSettings.localNetworkDesktop != syncSettings.localNetworkDesktop else {
@@ -1326,6 +1433,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private func saveSuccessfulLocalNetworkDesktopCheck(address: String, port: Int) {
         var settings = syncSettings
         let previousStatus = settings.localNetworkDesktop.localDesktopStatus
+        if Self.isRememberedLocalNetworkDesktop(settings.localNetworkDesktop),
+           !Self.matchesLocalNetworkDesktopEndpoint(
+               address: address,
+               port: port,
+               remembered: settings.localNetworkDesktop,
+               fallbackPort: localNetworkDesktopTestPort
+           ) {
+            return
+        }
         settings.localNetworkDesktop.desktopAddress = address
         settings.localNetworkDesktop.desktopPort = port
         settings.localNetworkDesktop.lastSuccessfulCheckAt = Date()
@@ -1362,16 +1478,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
         let rememberedName = remembered.desktopName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let rememberedAddress = remembered.desktopAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
         let match = desktops.first { desktop in
-            if let rememberedDeviceId, !rememberedDeviceId.isEmpty {
-                return desktop.deviceId == rememberedDeviceId
-            }
-            if let rememberedName, !rememberedName.isEmpty {
-                return desktop.name == rememberedName
-            }
-            if let rememberedAddress, !rememberedAddress.isEmpty {
-                return desktop.address == rememberedAddress && desktop.port == (remembered.desktopPort ?? localNetworkDesktopTestPort)
-            }
-            return false
+            Self.matchesLocalNetworkDesktop(
+                desktop,
+                rememberedDeviceId: rememberedDeviceId,
+                rememberedName: rememberedName,
+                rememberedAddress: rememberedAddress,
+                rememberedPort: remembered.desktopPort ?? localNetworkDesktopTestPort
+            )
         }
 
         guard let match else { return }
@@ -1390,6 +1503,62 @@ final class SnapshotBrowserViewModel: ObservableObject {
             status == "lokaler Desktop vorgemerkt" ||
             status == "Lokaler Desktop vorgemerkt" ||
             status == "Desktop im lokalen Netzwerk gefunden"
+    }
+
+    nonisolated private static func matchesLocalNetworkDesktop(
+        _ desktop: LocalNetworkDiscoveredDesktop,
+        remembered: LocalNetworkDesktopPairing,
+        fallbackPort: Int
+    ) -> Bool {
+        let rememberedDeviceId = remembered.desktopDeviceId?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rememberedName = remembered.desktopName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rememberedAddress = remembered.desktopAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return matchesLocalNetworkDesktop(
+            desktop,
+            rememberedDeviceId: rememberedDeviceId,
+            rememberedName: rememberedName,
+            rememberedAddress: rememberedAddress,
+            rememberedPort: remembered.desktopPort ?? fallbackPort
+        )
+    }
+
+    nonisolated private static func matchesLocalNetworkDesktopEndpoint(
+        address: String,
+        port: Int,
+        remembered: LocalNetworkDesktopPairing,
+        fallbackPort: Int
+    ) -> Bool {
+        let rememberedAddress = remembered.desktopAddress?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !rememberedAddress.isEmpty else {
+            return false
+        }
+        return rememberedAddress.caseInsensitiveCompare(address) == .orderedSame &&
+            (remembered.desktopPort ?? fallbackPort) == port
+    }
+
+    nonisolated private static func matchesLocalNetworkDesktop(
+        _ desktop: LocalNetworkDiscoveredDesktop,
+        rememberedDeviceId: String?,
+        rememberedName: String?,
+        rememberedAddress: String?,
+        rememberedPort: Int
+    ) -> Bool {
+        if let rememberedDeviceId, !rememberedDeviceId.isEmpty {
+            return desktop.deviceId == rememberedDeviceId
+        }
+        if let rememberedName, !rememberedName.isEmpty {
+            return desktop.name == rememberedName
+        }
+        if let hostName = desktop.hostName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           let rememberedAddress,
+           !rememberedAddress.isEmpty,
+           hostName.caseInsensitiveCompare(rememberedAddress) == .orderedSame {
+            return desktop.port == rememberedPort
+        }
+        if let rememberedAddress, !rememberedAddress.isEmpty {
+            return desktop.address == rememberedAddress && desktop.port == rememberedPort
+        }
+        return false
     }
 
     nonisolated private static func shortLocalNetworkDesktopError(_ error: Error) -> String {
