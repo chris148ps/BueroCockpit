@@ -14,6 +14,7 @@ struct SnapshotSetupView: View {
     let localNetworkDesktopName: String?
     let localNetworkDesktopLastSuccessfulCheckText: String?
     let localNetworkDesktopStoredStatus: String?
+    let pendingMobileChangeCount: Int
     let mobileInboxFolderPath: String?
     let mobileInboxMessage: String?
     let isWorking: Bool
@@ -46,6 +47,7 @@ struct SnapshotSetupView: View {
         localNetworkDesktopName: String?,
         localNetworkDesktopLastSuccessfulCheckText: String?,
         localNetworkDesktopStoredStatus: String?,
+        pendingMobileChangeCount: Int,
         mobileInboxFolderPath: String?,
         mobileInboxMessage: String?,
         isWorking: Bool,
@@ -74,6 +76,7 @@ struct SnapshotSetupView: View {
         self.localNetworkDesktopName = localNetworkDesktopName
         self.localNetworkDesktopLastSuccessfulCheckText = localNetworkDesktopLastSuccessfulCheckText
         self.localNetworkDesktopStoredStatus = localNetworkDesktopStoredStatus
+        self.pendingMobileChangeCount = pendingMobileChangeCount
         self.mobileInboxFolderPath = mobileInboxFolderPath
         self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
@@ -148,6 +151,11 @@ struct SnapshotSetupView: View {
                 .foregroundStyle(localNetworkDesktopStatusColor)
 
             Text("Desktop im lokalen Netzwerk suchen oder IP manuell eingeben. Noch kein echter Sync aktiv.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Label("Mobile Änderungen ausstehend: \(pendingMobileChangeCount)", systemImage: "tray.full")
+                .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 

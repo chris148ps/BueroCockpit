@@ -37,6 +37,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var loadingTitle = "Snapshot wird geladen …"
     @Published private(set) var mobileInboxEntries: [MobileInboxPendingEntry] = []
+    @Published private(set) var pendingMobileChangeCount = 0
     @Published private var groupedCategoryCache: [SnapshotCategoryGroup] = []
     @Published private var taskCountByCategoryID: [String: Int] = [:]
     @Published var selectedCategoryID: String = "__all_tasks__"
@@ -53,6 +54,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let accessStore: SnapshotAccessStore
     private let syncSettingsStore: SnapshotSyncSettingsStore
     private let mobileInboxReader: MobileInboxReader
+    private let mobileChangeQueueStore: MobileChangeQueueStore
     private var didAttemptStartupLoad = false
     private let localNetworkDesktopTestPort = 53941
     private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
@@ -69,12 +71,14 @@ final class SnapshotBrowserViewModel: ObservableObject {
         reader: SnapshotReader = SnapshotReader(),
         accessStore: SnapshotAccessStore = SnapshotAccessStore(),
         syncSettingsStore: SnapshotSyncSettingsStore = SnapshotSyncSettingsStore(),
-        mobileInboxReader: MobileInboxReader = MobileInboxReader()
+        mobileInboxReader: MobileInboxReader = MobileInboxReader(),
+        mobileChangeQueueStore: MobileChangeQueueStore = MobileChangeQueueStore()
     ) {
         self.reader = reader
         self.accessStore = accessStore
         self.syncSettingsStore = syncSettingsStore
         self.mobileInboxReader = mobileInboxReader
+        self.mobileChangeQueueStore = mobileChangeQueueStore
         syncSettings = syncSettingsStore.load()
         setupRequired = false
         loadState = .idle
@@ -311,6 +315,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
         didAttemptStartupLoad = true
         loadMobileInboxEntries()
+        loadMobileChangeQueue()
         updateLocalNetworkDesktopConnectionStateForStoredSettings()
         setupRequired = false
         setupMessage = nil
@@ -781,6 +786,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
             } else if selectedCategoryID == Self.mobilePendingCategoryID {
                 selectedTaskID = filteredTasks.first?.id
             }
+        }
+    }
+
+    func loadMobileChangeQueue() {
+        let store = mobileChangeQueueStore
+        Task {
+            let queue = await Task.detached(priority: .utility) {
+                store.load()
+            }.value
+
+            pendingMobileChangeCount = queue.pendingChangeCount
         }
     }
 

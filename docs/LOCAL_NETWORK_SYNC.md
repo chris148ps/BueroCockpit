@@ -4,6 +4,8 @@ Stand: 2026-07-05.
 
 Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen, lokale Geraete-Vormerkungen und harmlose Aenderungsmetadaten vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Die iPad-App startet kuenftig direkt in die Hauptansicht und prueft die Desktop-Verbindung im sichtbaren Betrieb automatisch. Es wird keine produktive Synchronisation implementiert.
 
+Auf dem iPad ist vorbereitend eine lokale `MobileChangeQueue` im App-Support-Verzeichnis der App angelegt. Sie sammelt spaeter mobile Aenderungen als JSON, wird beim Start nicht-blockierend geladen und ist aktuell nur eine lokale Warteschlange ohne Uebertragung. Eine fehlende oder defekte Queue-Datei blockiert die App nicht; der Sync-Bereich zeigt nur die Anzahl nicht abgeschlossener mobiler Aenderungen.
+
 ## 1. Ziel
 
 Der lokale Netzwerk-Sync soll der einzige kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App sein. BueroCockpit Desktop bleibt das fuehrende System; Daten liegen lokal. Fruehere dateibasierte Kopplungen sind nicht mehr Zielarchitektur und nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync. Das iPad wird als mobiler Erfassungsclient angebunden:
@@ -24,6 +26,7 @@ Nicht Bestandteil dieses Konzeptschritts:
 - kein Serverstart im App-Lifecycle
 - kein echter iPad-Sync und keine Produktivdatenuebertragung
 - keine Datenuebertragung
+- keine Uebertragung der iPad-`MobileChangeQueue`
 - kein Umbau des Snapshot-Exports
 - keine Datenmigration
 - kein Verschieben von Alt-, Benutzer- oder Produktivdateien
@@ -177,6 +180,22 @@ files/
 ```
 
 Die bestehende mobile Inbox kennt bereits `mobile-*`-Eintraege mit `aufgabe.json`, Status `new`, Fotos, Vorschauen, markierten Versionen, Skizzen und Dateien. Der lokale Netzwerk-Sync soll dieses fachliche Format wiederverwenden oder explizit versioniert daraus ableiten.
+
+### MobileChangeQueue auf dem iPad
+
+Die `MobileChangeQueue` ist die vorbereitete lokale Sammelstelle fuer spaetere mobile Aenderungen. Sie liegt ausschliesslich im iPad-App-Support-Verzeichnis und wird nicht in zentrale Desktop-Einstellungen, Live-Dateien, Cloud-Dateien oder Produktivdaten geschrieben.
+
+Ein `MobileChange` enthaelt `id`, `type`, optional `entityId`, `createdAt`, `updatedAt`, `deviceId`, `status`, `retryCount`, optional `lastError` und ein freies JSON-`payload`. Vorbereitete Typen sind `createTask`, `updateTask`, `addPhoto`, `annotatePhoto`, `addNote` und `addAttachment`.
+
+Statuswerte:
+
+- `pending`: lokal erfasst, noch nicht uebertragen
+- `sending`: fuer spaeteren Versand vorgemerkt
+- `sent`: spaeter erfolgreich uebernommen
+- `failed`: spaeterer Versand fehlgeschlagen
+- `conflict`: Konflikt erkannt, keine stille Ueberschreibung erlaubt
+
+Aktueller Stand: Es gibt keinen echten Sync, keine Aufgaben-/Foto-/Anhang-Uebertragung und keine automatische Desktop-Uebernahme. Desktop-Aktualisierungen duerfen mobile Aenderungen nicht ungefragt ersetzen; spaetere Synchronisation muss zusammenfuehren und Konflikte sichtbar machen.
 
 ## 5. Lokale Vertrauensbasis fuer spaeter
 

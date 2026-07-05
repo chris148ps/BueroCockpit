@@ -231,6 +231,7 @@ struct SnapshotRootView: View {
             localNetworkDesktopName: viewModel.localNetworkDesktopName,
             localNetworkDesktopLastSuccessfulCheckText: viewModel.localNetworkDesktopLastSuccessfulCheckText,
             localNetworkDesktopStoredStatus: viewModel.localNetworkDesktopStatus,
+            pendingMobileChangeCount: viewModel.pendingMobileChangeCount,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
