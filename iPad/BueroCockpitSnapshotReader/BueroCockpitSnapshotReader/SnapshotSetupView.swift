@@ -22,10 +22,8 @@ struct SnapshotSetupView: View {
     let onTestGoogleDrive: (String) -> Void
     let onTestLocalNetworkDesktopService: (String) -> Void
     let onUseLocalNetworkDesktop: (String) -> Void
-    let onStartLocalNetworkDesktopAutoCheck: (String) -> Void
-    let onStopLocalNetworkDesktopAutoCheck: () -> Void
-    let onStartLocalNetworkDesktopDiscovery: () -> Void
-    let onStopLocalNetworkDesktopDiscovery: () -> Void
+    let onEnsureLocalNetworkMonitoring: (String) -> Void
+    let onStopLocalNetworkMonitoring: () -> Void
     let onUseDiscoveredLocalNetworkDesktop: (LocalNetworkDiscoveredDesktop) -> Void
     let onLocalNetworkDesktopAddressChanged: (String) -> Void
     let onSelectMobileInboxFolder: () -> Void
@@ -56,10 +54,8 @@ struct SnapshotSetupView: View {
         onTestGoogleDrive: @escaping (String) -> Void,
         onTestLocalNetworkDesktopService: @escaping (String) -> Void,
         onUseLocalNetworkDesktop: @escaping (String) -> Void,
-        onStartLocalNetworkDesktopAutoCheck: @escaping (String) -> Void,
-        onStopLocalNetworkDesktopAutoCheck: @escaping () -> Void,
-        onStartLocalNetworkDesktopDiscovery: @escaping () -> Void,
-        onStopLocalNetworkDesktopDiscovery: @escaping () -> Void,
+        onEnsureLocalNetworkMonitoring: @escaping (String) -> Void,
+        onStopLocalNetworkMonitoring: @escaping () -> Void,
         onUseDiscoveredLocalNetworkDesktop: @escaping (LocalNetworkDiscoveredDesktop) -> Void,
         onLocalNetworkDesktopAddressChanged: @escaping (String) -> Void,
         onSelectMobileInboxFolder: @escaping () -> Void,
@@ -86,10 +82,8 @@ struct SnapshotSetupView: View {
         self.onTestGoogleDrive = onTestGoogleDrive
         self.onTestLocalNetworkDesktopService = onTestLocalNetworkDesktopService
         self.onUseLocalNetworkDesktop = onUseLocalNetworkDesktop
-        self.onStartLocalNetworkDesktopAutoCheck = onStartLocalNetworkDesktopAutoCheck
-        self.onStopLocalNetworkDesktopAutoCheck = onStopLocalNetworkDesktopAutoCheck
-        self.onStartLocalNetworkDesktopDiscovery = onStartLocalNetworkDesktopDiscovery
-        self.onStopLocalNetworkDesktopDiscovery = onStopLocalNetworkDesktopDiscovery
+        self.onEnsureLocalNetworkMonitoring = onEnsureLocalNetworkMonitoring
+        self.onStopLocalNetworkMonitoring = onStopLocalNetworkMonitoring
         self.onUseDiscoveredLocalNetworkDesktop = onUseDiscoveredLocalNetworkDesktop
         self.onLocalNetworkDesktopAddressChanged = onLocalNetworkDesktopAddressChanged
         self.onSelectMobileInboxFolder = onSelectMobileInboxFolder
@@ -135,7 +129,7 @@ struct SnapshotSetupView: View {
             .onChange(of: localNetworkDesktopAddressInput) { _, address in
                 onLocalNetworkDesktopAddressChanged(address)
                 guard isLocalNetworkSyncVisible else { return }
-                onStartLocalNetworkDesktopAutoCheck(address)
+                onEnsureLocalNetworkMonitoring(address)
             }
             .toolbar {
                 if let onDismiss {
@@ -269,13 +263,11 @@ struct SnapshotSetupView: View {
         }
         .onAppear {
             isLocalNetworkSyncVisible = true
-            onStartLocalNetworkDesktopAutoCheck(localNetworkDesktopAddressInput)
-            onStartLocalNetworkDesktopDiscovery()
+            onEnsureLocalNetworkMonitoring(localNetworkDesktopAddressInput)
         }
         .onDisappear {
             isLocalNetworkSyncVisible = false
-            onStopLocalNetworkDesktopAutoCheck()
-            onStopLocalNetworkDesktopDiscovery()
+            onStopLocalNetworkMonitoring()
         }
     }
 

@@ -61,6 +61,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private var localNetworkDesktopAutoCheckPort: Int?
     private var isLocalNetworkDesktopServiceCheckRunning = false
     private var isLocalNetworkDesktopMainMonitoringActive = false
+    private var isLocalNetworkDesktopSettingsMonitoringActive = false
     private var isLocalNetworkDesktopDiscoveryActive = false
     private let localNetworkDesktopDiscovery = LocalNetworkDesktopDiscovery()
 
@@ -289,6 +290,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
         Self.isRememberedLocalNetworkDesktop(syncSettings.localNetworkDesktop)
     }
 
+    private var isLocalNetworkDesktopMonitoringActive: Bool {
+        isLocalNetworkDesktopMainMonitoringActive || isLocalNetworkDesktopSettingsMonitoringActive
+    }
+
     var loadingDescription: String {
         if loadingTitle == "Google Drive wird aktualisiert …" {
             return "Bitte warten. Die App lädt die Datei einmalig und prüft sie vor der lokalen Übernahme."
@@ -437,28 +442,44 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func startMainLocalNetworkDesktopMonitoring() {
-        print("Hauptansicht startet Desktop-Statusprüfung")
-        let wasAlreadyActive = isLocalNetworkDesktopMainMonitoringActive
         isLocalNetworkDesktopMainMonitoringActive = true
-        loadStoredLocalNetworkDesktopSettings()
-
-        let address = localNetworkDesktopAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        if address.isEmpty {
-            startLocalNetworkDesktopAutoCheck(address: address)
-        } else {
-            print("Gespeicherter Desktop geladen: \(address):\(localNetworkDesktopPort)")
-            startLocalNetworkDesktopAutoCheck(address: address)
-        }
-
-        if !wasAlreadyActive {
-            startLocalNetworkDesktopDiscovery()
-        }
+        ensureLocalNetworkMonitoringStarted(reason: "Hauptansicht")
     }
 
     func stopMainLocalNetworkDesktopMonitoring() {
         isLocalNetworkDesktopMainMonitoringActive = false
         stopLocalNetworkDesktopAutoCheck()
         stopLocalNetworkDesktopDiscovery()
+    }
+
+    func startSettingsLocalNetworkDesktopMonitoring(address: String) {
+        isLocalNetworkDesktopSettingsMonitoringActive = true
+        ensureLocalNetworkMonitoringStarted(reason: "Einstellungen", addressOverride: address)
+    }
+
+    func stopSettingsLocalNetworkDesktopMonitoring() {
+        isLocalNetworkDesktopSettingsMonitoringActive = false
+        stopLocalNetworkDesktopAutoCheck()
+        stopLocalNetworkDesktopDiscovery()
+    }
+
+    private func ensureLocalNetworkMonitoringStarted(reason: String, addressOverride: String? = nil) {
+        print("\(reason) startet Desktop-Statusmonitoring")
+        loadStoredLocalNetworkDesktopSettings()
+
+        let storedAddress = localNetworkDesktopAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        if storedAddress.isEmpty {
+            print("Vorgemerkter Desktop geladen: keiner")
+        } else {
+            let name = localNetworkDesktopName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let displayName = name.isEmpty ? "ohne Namen" : name
+            print("Vorgemerkter Desktop geladen: \(displayName) \(storedAddress):\(localNetworkDesktopPort)")
+        }
+
+        let requestedAddress = addressOverride?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let address = requestedAddress.isEmpty ? storedAddress : requestedAddress
+        startLocalNetworkDesktopAutoCheck(address: address)
+        startLocalNetworkDesktopDiscovery()
     }
 
     func startLocalNetworkDesktopAutoCheck(address: String) {
@@ -491,6 +512,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         localNetworkDesktopAutoCheckPort = port
         localNetworkDesktopAutoCheckMessage = "Prüfung läuft …"
         localNetworkDesktopConnectionState = .checking
+        print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.checking.title)")
         let checkInterval = localNetworkDesktopAutoCheckIntervalNanoseconds
         localNetworkDesktopAutoCheckTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
@@ -509,7 +531,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func stopLocalNetworkDesktopAutoCheck() {
-        guard !isLocalNetworkDesktopMainMonitoringActive else {
+        guard !isLocalNetworkDesktopMonitoringActive else {
             return
         }
         localNetworkDesktopAutoCheckTask?.cancel()
@@ -535,7 +557,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     func stopLocalNetworkDesktopDiscovery() {
-        guard !isLocalNetworkDesktopMainMonitoringActive else {
+        guard !isLocalNetworkDesktopMonitoringActive else {
             return
         }
         isLocalNetworkDesktopDiscoveryActive = false
@@ -1326,6 +1348,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         isLocalNetworkDesktopServiceCheckRunning = true
         localNetworkDesktopAutoCheckMessage = "Prüfung läuft …"
         localNetworkDesktopConnectionState = .checking
+        print("Statusprüfung gestartet: http://\(address):\(port)/local-sync/status")
+        print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.checking.title)")
 
         defer {
             isLocalNetworkDesktopServiceCheckRunning = false
@@ -1346,7 +1370,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 localNetworkDesktopAutoCheckMessage = isLocalNetworkDesktopRemembered
                     ? "Vorgemerkter Desktop erreichbar"
                     : "Desktop-Testdienst erreichbar"
-                print("Desktop-Statusprüfung erfolgreich")
+                print("/local-sync/status erfolgreich")
+                print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.connected.title)")
             } else {
                 localNetworkDesktopConnectionState = .disconnected
                 if isLocalNetworkDesktopRemembered {
@@ -1355,7 +1380,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 } else {
                     syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
                 }
-                print("Desktop-Statusprüfung fehlgeschlagen: unerwartete Antwort")
+                print("/local-sync/status Fehler: unerwartete Antwort")
+                print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.disconnected.title)")
             }
         } catch {
             localNetworkDesktopConnectionState = .disconnected
@@ -1366,7 +1392,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
             }
             adoptRememberedLocalNetworkDesktopIfFound(in: discoveredLocalNetworkDesktops)
-            print("Desktop-Statusprüfung fehlgeschlagen: \(Self.shortLocalNetworkDesktopError(error))")
+            print("/local-sync/status Fehler: \(Self.shortLocalNetworkDesktopError(error))")
+            print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.disconnected.title)")
         }
     }
 

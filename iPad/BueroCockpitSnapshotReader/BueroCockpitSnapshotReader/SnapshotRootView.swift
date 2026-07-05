@@ -243,17 +243,11 @@ struct SnapshotRootView: View {
             onUseLocalNetworkDesktop: { address in
                 viewModel.markLocalNetworkDesktopAsPreferred(address: address)
             },
-            onStartLocalNetworkDesktopAutoCheck: { address in
-                viewModel.startLocalNetworkDesktopAutoCheck(address: address)
+            onEnsureLocalNetworkMonitoring: { address in
+                viewModel.startSettingsLocalNetworkDesktopMonitoring(address: address)
             },
-            onStopLocalNetworkDesktopAutoCheck: {
-                viewModel.stopLocalNetworkDesktopAutoCheck()
-            },
-            onStartLocalNetworkDesktopDiscovery: {
-                viewModel.startLocalNetworkDesktopDiscovery()
-            },
-            onStopLocalNetworkDesktopDiscovery: {
-                viewModel.stopLocalNetworkDesktopDiscovery()
+            onStopLocalNetworkMonitoring: {
+                viewModel.stopSettingsLocalNetworkDesktopMonitoring()
             },
             onUseDiscoveredLocalNetworkDesktop: { desktop in
                 viewModel.useDiscoveredLocalNetworkDesktop(desktop)
@@ -286,12 +280,6 @@ struct SnapshotRootView: View {
             }
         )
         .navigationSplitViewStyle(.balanced)
-        .onAppear {
-            viewModel.startMainLocalNetworkDesktopMonitoring()
-        }
-        .onDisappear {
-            viewModel.stopMainLocalNetworkDesktopMonitoring()
-        }
     }
 
     private var contentColumnView: some View {
