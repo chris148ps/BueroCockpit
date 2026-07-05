@@ -232,6 +232,7 @@ struct SnapshotRootView: View {
             localNetworkDesktopLastSuccessfulCheckText: viewModel.localNetworkDesktopLastSuccessfulCheckText,
             localNetworkDesktopStoredStatus: viewModel.localNetworkDesktopStatus,
             pendingMobileChangeCount: viewModel.pendingMobileChangeCount,
+            openMobilePhotoDraftCount: viewModel.openMobilePhotoDraftCount,
             mobileInboxFolderPath: mobileInboxFolderPath ?? mobileInboxStore.selectedFolderDisplayPath,
             mobileInboxMessage: mobileInboxMessage,
             isWorking: viewModel.isSyncing,
@@ -302,6 +303,14 @@ struct SnapshotRootView: View {
             Spacer()
 
             localNetworkConnectionIndicator
+
+            Button {
+            } label: {
+                Label("Fotos", systemImage: "camera")
+            }
+            .disabled(true)
+            .buttonStyle(.borderless)
+            .help("Foto-Modus vorbereitet, noch kein Foto-Sync aktiv")
 
             if hasMobileInspectionDraft {
                 Button {

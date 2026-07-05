@@ -15,6 +15,7 @@ struct SnapshotSetupView: View {
     let localNetworkDesktopLastSuccessfulCheckText: String?
     let localNetworkDesktopStoredStatus: String?
     let pendingMobileChangeCount: Int
+    let openMobilePhotoDraftCount: Int
     let mobileInboxFolderPath: String?
     let mobileInboxMessage: String?
     let isWorking: Bool
@@ -48,6 +49,7 @@ struct SnapshotSetupView: View {
         localNetworkDesktopLastSuccessfulCheckText: String?,
         localNetworkDesktopStoredStatus: String?,
         pendingMobileChangeCount: Int,
+        openMobilePhotoDraftCount: Int,
         mobileInboxFolderPath: String?,
         mobileInboxMessage: String?,
         isWorking: Bool,
@@ -77,6 +79,7 @@ struct SnapshotSetupView: View {
         self.localNetworkDesktopLastSuccessfulCheckText = localNetworkDesktopLastSuccessfulCheckText
         self.localNetworkDesktopStoredStatus = localNetworkDesktopStoredStatus
         self.pendingMobileChangeCount = pendingMobileChangeCount
+        self.openMobilePhotoDraftCount = openMobilePhotoDraftCount
         self.mobileInboxFolderPath = mobileInboxFolderPath
         self.mobileInboxMessage = mobileInboxMessage
         self.isWorking = isWorking
@@ -155,6 +158,11 @@ struct SnapshotSetupView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Label("Mobile Änderungen ausstehend: \(pendingMobileChangeCount)", systemImage: "tray.full")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Label("Foto-Entwürfe vorbereitet: \(openMobilePhotoDraftCount)", systemImage: "camera")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

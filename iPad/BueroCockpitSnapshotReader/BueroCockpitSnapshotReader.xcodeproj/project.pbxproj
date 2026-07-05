@@ -18,6 +18,7 @@
 		4FD20688DC6B4934BF83BCE1 /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94B3645E8E84E45BFA4EFBE /* BueroCockpitSnapshotReader/SnapshotCategoryListView.swift */; };
 		55EC2C81C6934E6182D91D16 /* BueroCockpitSnapshotReader/MobileInboxReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6DDA7ECBB94258B71857DC /* BueroCockpitSnapshotReader/MobileInboxReader.swift */; };
 		5F8E31D0E93A4E5A8B0D68B7 /* BueroCockpitSnapshotReader/MobileChangeQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7950482BF54AFEB83D1D5A /* BueroCockpitSnapshotReader/MobileChangeQueueStore.swift */; };
+		61F83EC6C26C47E793F4A6F9 /* BueroCockpitSnapshotReader/MobilePhotoDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B91E9C536764EEC8B364864 /* BueroCockpitSnapshotReader/MobilePhotoDraftStore.swift */; };
 		6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */; };
 		773F8650E2B440A1836DDF7F /* BueroCockpitSnapshotReader/SnapshotStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968ECB264B4DC6909F482B /* BueroCockpitSnapshotReader/SnapshotStartView.swift */; };
 		77A83F20D14948DC95A6B25E /* BueroCockpitSnapshotReader/SnapshotSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E19B840C5F714A2DBA33068A /* BueroCockpitSnapshotReader/SnapshotSetupView.swift */; };
@@ -40,6 +41,7 @@
 		58C7B1A4E6FB42B09E1977D3 /* BueroCockpitSnapshotReader/SnapshotAccessStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotAccessStore.swift; sourceTree = SOURCE_ROOT; };
 		58649F0CAC67404C9F982F96 /* BueroCockpitSnapshotReader/README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = BueroCockpitSnapshotReader/README.md; sourceTree = SOURCE_ROOT; };
 		6B7950482BF54AFEB83D1D5A /* BueroCockpitSnapshotReader/MobileChangeQueueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobileChangeQueueStore.swift; sourceTree = SOURCE_ROOT; };
+		6B91E9C536764EEC8B364864 /* BueroCockpitSnapshotReader/MobilePhotoDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/MobilePhotoDraftStore.swift; sourceTree = SOURCE_ROOT; };
 		6D13C46345A048748D753E12 /* BueroCockpitSnapshotReader/SnapshotRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BueroCockpitSnapshotReader/SnapshotRootView.swift; sourceTree = SOURCE_ROOT; };
 		72B7B4D77E404F96B5FB7FC2 /* BueroCockpitSnapshotReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = BueroCockpitSnapshotReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		73D3BFFA08764834B01A9809 /* BueroCockpitSnapshotReader/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BueroCockpitSnapshotReader/Info.plist; sourceTree = SOURCE_ROOT; };
@@ -111,6 +113,7 @@
 				4D9F6C8BA2E35F1BB7C4D5E6 /* BueroCockpitSnapshotReader/SnapshotSync.swift */,
 				0E7A9D492B9E4854933484B3 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift */,
 				6B7950482BF54AFEB83D1D5A /* BueroCockpitSnapshotReader/MobileChangeQueueStore.swift */,
+				6B91E9C536764EEC8B364864 /* BueroCockpitSnapshotReader/MobilePhotoDraftStore.swift */,
 				8D27989755A2497A91316497 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift */,
 				FC6DDA7ECBB94258B71857DC /* BueroCockpitSnapshotReader/MobileInboxReader.swift */,
 				91F034D2E6B448A59135CC02 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift */,
@@ -212,6 +215,7 @@
 				3C8E5B7A91F24D0AA6B3C4D5 /* BueroCockpitSnapshotReader/SnapshotSync.swift in Sources */,
 				4C03BEB4733B4D7291A24F53 /* BueroCockpitSnapshotReader/LocalNetworkDesktopDiscovery.swift in Sources */,
 				5F8E31D0E93A4E5A8B0D68B7 /* BueroCockpitSnapshotReader/MobileChangeQueueStore.swift in Sources */,
+				61F83EC6C26C47E793F4A6F9 /* BueroCockpitSnapshotReader/MobilePhotoDraftStore.swift in Sources */,
 				6C0D28E1902446F38464E2B2 /* BueroCockpitSnapshotReader/MobileInboxWriter.swift in Sources */,
 				55EC2C81C6934E6182D91D16 /* BueroCockpitSnapshotReader/MobileInboxReader.swift in Sources */,
 				318E90B145A74B1D9F6D2CC7 /* BueroCockpitSnapshotReader/SnapshotPerformanceLog.swift in Sources */,

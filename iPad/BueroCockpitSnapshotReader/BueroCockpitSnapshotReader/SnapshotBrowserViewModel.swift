@@ -38,6 +38,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var loadingTitle = "Snapshot wird geladen …"
     @Published private(set) var mobileInboxEntries: [MobileInboxPendingEntry] = []
     @Published private(set) var pendingMobileChangeCount = 0
+    @Published private(set) var openMobilePhotoDraftCount = 0
     @Published private var groupedCategoryCache: [SnapshotCategoryGroup] = []
     @Published private var taskCountByCategoryID: [String: Int] = [:]
     @Published var selectedCategoryID: String = "__all_tasks__"
@@ -55,6 +56,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let syncSettingsStore: SnapshotSyncSettingsStore
     private let mobileInboxReader: MobileInboxReader
     private let mobileChangeQueueStore: MobileChangeQueueStore
+    private let mobilePhotoDraftStore: MobilePhotoDraftStore
     private var didAttemptStartupLoad = false
     private let localNetworkDesktopTestPort = 53941
     private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
@@ -72,13 +74,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
         accessStore: SnapshotAccessStore = SnapshotAccessStore(),
         syncSettingsStore: SnapshotSyncSettingsStore = SnapshotSyncSettingsStore(),
         mobileInboxReader: MobileInboxReader = MobileInboxReader(),
-        mobileChangeQueueStore: MobileChangeQueueStore = MobileChangeQueueStore()
+        mobileChangeQueueStore: MobileChangeQueueStore = MobileChangeQueueStore(),
+        mobilePhotoDraftStore: MobilePhotoDraftStore = MobilePhotoDraftStore()
     ) {
         self.reader = reader
         self.accessStore = accessStore
         self.syncSettingsStore = syncSettingsStore
         self.mobileInboxReader = mobileInboxReader
         self.mobileChangeQueueStore = mobileChangeQueueStore
+        self.mobilePhotoDraftStore = mobilePhotoDraftStore
         syncSettings = syncSettingsStore.load()
         setupRequired = false
         loadState = .idle
@@ -316,6 +320,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         didAttemptStartupLoad = true
         loadMobileInboxEntries()
         loadMobileChangeQueue()
+        loadMobilePhotoDrafts()
         updateLocalNetworkDesktopConnectionStateForStoredSettings()
         setupRequired = false
         setupMessage = nil
@@ -797,6 +802,17 @@ final class SnapshotBrowserViewModel: ObservableObject {
             }.value
 
             pendingMobileChangeCount = queue.pendingChangeCount
+        }
+    }
+
+    func loadMobilePhotoDrafts() {
+        let store = mobilePhotoDraftStore
+        Task {
+            let collection = await Task.detached(priority: .utility) {
+                store.load()
+            }.value
+
+            openMobilePhotoDraftCount = collection.openDraftCount
         }
     }
 

@@ -6,6 +6,8 @@ Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren lokalen Netz
 
 Auf dem iPad ist vorbereitend eine lokale `MobileChangeQueue` im App-Support-Verzeichnis der App angelegt. Sie sammelt spaeter mobile Aenderungen als JSON, wird beim Start nicht-blockierend geladen und ist aktuell nur eine lokale Warteschlange ohne Uebertragung. Eine fehlende oder defekte Queue-Datei blockiert die App nicht; der Sync-Bereich zeigt nur die Anzahl nicht abgeschlossener mobiler Aenderungen.
 
+Ergaenzend ist ein lokaler `MobilePhotoDraft`-Speicher im iPad-App-Support-Verzeichnis vorbereitet. Er bildet zwei spaetere Foto-Ablaeufe ab: Foto-Modus vor Auftrag, bei dem Fotos gesammelt und markiert werden, bevor daraus ein Auftrag entsteht, sowie Auftrag zuerst, bei dem ein Foto direkt einem bestehenden Auftrag zugeordnet wird. Die Foto-Entwuerfe koennen spaeter als `addPhoto` an die `MobileChangeQueue` angedockt werden, werden aktuell aber nicht uebertragen und aendern keine echten Auftraege.
+
 ## 1. Ziel
 
 Der lokale Netzwerk-Sync soll der einzige kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App sein. BueroCockpit Desktop bleibt das fuehrende System; Daten liegen lokal. Fruehere dateibasierte Kopplungen sind nicht mehr Zielarchitektur und nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync. Das iPad wird als mobiler Erfassungsclient angebunden:
