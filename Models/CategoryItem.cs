@@ -64,7 +64,6 @@ public sealed class CategoryItem : ObservableObject
                 OnPropertyChanged(nameof(IsDropBefore));
                 OnPropertyChanged(nameof(IsDropInside));
                 OnPropertyChanged(nameof(IsDropAfter));
-                OnPropertyChanged(nameof(SidebarBorderBrush));
             }
         }
     }
@@ -72,19 +71,7 @@ public sealed class CategoryItem : ObservableObject
     public bool IsDropBefore => DropVisualState == CategoryDropVisualState.Before;
     public bool IsDropInside => DropVisualState == CategoryDropVisualState.Inside;
     public bool IsDropAfter => DropVisualState == CategoryDropVisualState.After;
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set
-        {
-            if (SetProperty(ref _isSelected, value))
-            {
-                OnPropertyChanged(nameof(SidebarBorderBrush));
-            }
-        }
-    }
-
-    public string SidebarBorderBrush => IsDropInside ? "#1D4ED8" : "#000000";
+    public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
 }
 
 public enum CategoryDropVisualState

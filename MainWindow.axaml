@@ -266,19 +266,19 @@
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
-      <Setter Property="Background" Value="#00000008" />
-      <Setter Property="BorderBrush" Value="#000000" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonHoverBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
     </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem:selected Border.CategoryItemFrame">
-      <Setter Property="Background" Value="#00000010" />
-      <Setter Property="BorderBrush" Value="#000000" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
     </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
-      <Setter Property="Background" Value="#00000014" />
-      <Setter Property="BorderBrush" Value="#000000" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
     </Style>
     <Style Selector="TextBlock.CategoryExpandGlyph">
       <Setter Property="Width" Value="10" />
@@ -419,8 +419,8 @@
                       HorizontalAlignment="Stretch"
                       CornerRadius="9"
                       Padding="10,9"
-                      Background="Transparent"
-                      BorderBrush="{Binding SidebarBorderBrush}"
+                      Background="{DynamicResource SurfaceBackgroundBrush}"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="CategorySettingsItem_OnDragOver"
