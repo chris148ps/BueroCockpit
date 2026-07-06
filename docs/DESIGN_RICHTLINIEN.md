@@ -9,17 +9,32 @@ BüroCockpit. Vor jeder UI-Aenderung muss sie gelesen und eingehalten werden.
 - Vorhandene Design-Ressourcen, Styles, Brushes, Tokens und wiederverwendbare
   UI-Bausteine sind zu bevorzugen.
 - Keine harten Farben verwenden, wenn passende Design-Ressourcen existieren.
+- Harte Farben nur mit ausdruecklicher Freigabe.
 - Keine weissen Rahmen verwenden.
 - Keine tiefschwarzen Standardrahmen verwenden.
-- Kategorie-Rahmen sollen wie andere Kartenrahmen aussehen.
+- Kategorie-Rahmen sollen dieselbe Rahmenlogik und denselben Stil wie normale
+  Karten- und Task-Karten-Rahmen verwenden.
+- Kategoriezeilen links duerfen nicht pauschal `#000000` oder tiefschwarz sein.
+- Normale Kategoriezeilen nutzen einen ruhigen Hintergrund, denselben
+  Kartenrahmen wie die uebrigen Karten und bleiben nicht dauerhaft sehr hell.
 
 ## Interaktion und Zustand
 
-- Hover-Zustaende muessen sichtbar sein.
-- Auswahl-Zustaende muessen sichtbar und staerker als Hover-Zustaende sein.
-- Kategorieflächen duerfen nicht dauerhaft ganz hell hervorgehoben bleiben.
+- Hover-Zustaende muessen deutlich sichtbar sein und auf vorhandenen Hover-
+  Ressourcen aufbauen.
+- Hover muss staerker als der Normalzustand sein.
+- Hover verschwindet beim Mouse-Out.
+- Auswahl-Zustaende muessen klar staerker als Hover-Zustaende sein und
+  dauerhaft sichtbar bleiben, solange sie ausgewählt sind.
+- Auswahl darf keine weisse Flaeche und keinen tiefschwarzen Sonderrahmen
+  verwenden.
+- Ein Akzentbalken oder ein staerkerer vorhandener Akzent-/Kartenrahmen ist
+  erlaubt.
 - Drag-&-Drop-Markierungen duerfen nur waehrend Drag & Drop angezeigt werden.
 - Drop-Markierungen muessen nach Drop oder Abbruch zurueckgesetzt werden.
+- Beim Drag & Drop gilt: oben/unten zeigt eine Einfuegelinie, mittig eine
+  Zielmarkierung.
+- Nach Drop oder Abbruch muessen alle temporaren Markierungen verschwinden.
 
 ## Kategorien und Navigation
 

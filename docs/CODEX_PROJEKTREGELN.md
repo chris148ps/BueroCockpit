@@ -9,11 +9,11 @@ Diese Datei ist die zentrale Regelquelle fuer Codex- und Agentenarbeit im Projek
 - Moeglichst viel ohne Codex erledigen.
 - Erst Terminalbefehle, gezielte Suche mit `grep`/`sed`, kleine Patch-Skripte oder einzelne ueberschaubare Dateiaenderungen nutzen, wenn das sicher reicht.
 - Codex nur bei groesseren oder zusammenhaengenden Aenderungen, komplexem UI, Architekturarbeit, schwer nachvollziehbaren Fehlern oder mehreren betroffenen Dateien verwenden.
-- Bei Codex-Aufgaben grundsaetzlich Modell `gpt-5.5` verwenden.
-- `AGENTS.md` und `docs/CODEX_PROJEKTREGELN.md` sind bei jeder Codex-Aufgabe zuerst zu lesen.
+- Bei Codex-Aufgaben Modell `gpt-5.5` verwenden.
+- Vor jeder Codex-Aufgabe `AGENTS.md` und diese Datei lesen.
 - Wenn sich Projektregeln, Codex-Regeln, Sperren, Modellvorgaben, Arbeitsweise oder wiederkehrende Pruefpflichten aendern, muessen `AGENTS.md` und/oder `docs/CODEX_PROJEKTREGELN.md` automatisch mit angepasst werden.
 
-Passender Codex-Startbefehl:
+Codex-Startbefehl:
 
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
@@ -23,22 +23,28 @@ codex -m gpt-5.5
 ## Projektgrundsatz
 
 - Die Desktop-App bleibt das fuehrende System.
-- Die iPad-App startet kuenftig direkt in die Hauptansicht und bleibt vorerst lesend bzw. mobiler Erfassungsclient.
-- Daten liegen lokal. Cloud-/OneDrive-/iCloud-/Live-Datei- oder Datei-Sync ist nicht mehr Zielarchitektur.
-- Neuer Zielweg ist lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
-- Pairing-Code, Live-Datei, Cloud-Datei und Datei-Kopplung sind nicht mehr aktueller Kopplungsweg fuer den lokalen Netzwerk-Sync.
-- Spaeter duerfen Aenderungen ueber den lokalen Netzwerk-Sync automatisch angeboten, abgeholt oder uebertragen werden, sobald eine lokale Verbindung und die dafuer noetige Vertrauensbasis bewusst implementiert sind.
+- Die iPad-App startet direkt in die Hauptansicht und bleibt vorerst lesend bzw. mobiler Erfassungsclient.
+- Daten liegen lokal.
+- Zielweg fuer spaetere Zusammenarbeit ist lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
+- Pairing-Code, Live-Datei, Cloud-Datei und Datei-Kopplung sind nicht mehr der aktuelle Kopplungsweg.
+- Spaetere Freigabe- oder Transportfunktionen werden nur bewusst und getrennt eingefuehrt.
 
-## Strikte Sperren ohne ausdrueckliche Freigabe
+## Sicherheitsregeln
 
-- Kein Release.
-- Kein Tag.
-- Keine Versionserhoehung.
+- Kein Release ohne ausdrueckliche Freigabe.
+- Kein Tag und keine Versionserhoehung ohne ausdrueckliche Freigabe.
 - Keine produktiven Daten verschieben oder loeschen.
-- Keine iCloud-/OneDrive-Dateien verschieben.
-- Keine Aenderungen an `tasks.json`, `categories.json`, `attachments` oder sonstigen Produktivdaten.
-- Keine Datenmigration.
-- Keine automatische Datenuebertragung.
+- Keine riskante Datenmigration ohne Freigabe.
+- Keine alte Cloud-/Live-Datei-/Pairing-Code-Logik wieder aktivieren.
+- Kein Desktop-Autostart.
+- Kein UDP-Broadcast oder Portscan.
+- Keine Nebenbaustellen.
+- Build- und Testpflicht einhalten.
+- Ohne ausdruecklichen Auftrag keine Benutzerdateien, CloudStorage-, iCloud- oder OneDrive-Dateien loeschen, verschieben oder veraendern.
+- Wenn der Nutzer solche Dateien ausdruecklich pruefen, bearbeiten, bereinigen, importieren, synchronisieren oder fuer Release-/Projektzwecke verwenden will, ist das erlaubt.
+- Trotzdem niemals unkontrolliert loeschen oder massenhaft verschieben.
+- Vor riskanten Aenderungen an Benutzer- oder Cloud-Dateien Rueckfrage oder eine klare Sicherung/Pruefung einplanen.
+- Keine Aenderungen an `tasks.json`, `categories.json`, `attachments` oder sonstigen Produktivdaten ohne ausdrueckliche Freigabe.
 
 ## Netzwerk-/Sync-Sperren ohne ausdrueckliche Freigabe
 
@@ -79,6 +85,14 @@ Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 - Der Statuspunkt in der iPad-Hauptansicht muss die lokale Desktop-Vormerkung selbst laden und ohne Oeffnen der Einstellungen automatisch aktualisieren.
 - Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Testdienst darf ohne Bonjour laufen.
 - Es gibt noch keinen echten Sync und keine Produktivdatenuebertragung, solange das nicht ausdruecklich beauftragt wird.
+
+## Release-Ablauf
+
+- Kein Release ohne ausdrueckliche Freigabe.
+- Ein ausdruecklicher Release-Auftrag bedeutet immer den kompletten Ablauf inklusive GitHub-Upload.
+- Pruefung vor dem Release: `git status` und `git pull origin main`, danach `dotnet build` und bei iPad-Code zusaetzlich `xcodebuild`.
+- Der aktuelle Release-Befehl ist `./scripts/release.sh <version>`.
+- Danach Artefakte pruefen, Release-Commit erstellen, `git tag v<version>` setzen, `git push origin main` ausfuehren, `git push origin v<version>` ausfuehren, `gh release create` mit Upload aller passenden Artefakte ausfuehren und zuletzt `gh release view` pruefen.
 
 ## Arbeitsweise vor Aenderungen
 

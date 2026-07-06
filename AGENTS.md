@@ -1,31 +1,30 @@
 # BueroCockpit - Agentenregeln
 
-Die zentralen Projektregeln stehen in:
+Die zentralen Projektregeln stehen in `docs/CODEX_PROJEKTREGELN.md`.
 
-    docs/CODEX_PROJEKTREGELN.md
+Start fuer Codex-Aufgaben:
 
-Vor jeder Codex-Aufgabe immer zuerst lesen:
+```bash
+cd "$HOME/AppProjekte/BueroCockpit"
+codex -m gpt-5.5
+```
 
-    cd "$HOME/AppProjekte/BueroCockpit"
-    sed -n '1,220p' AGENTS.md
-    sed -n '1,260p' docs/CODEX_PROJEKTREGELN.md
+Vor jeder Aufgabe immer zuerst lesen:
 
-Vor UI-Aenderungen zusaetzlich lesen und einhalten:
+- `docs/CODEX_PROJEKTREGELN.md`
+- bei UI- und Design-Aenderungen zusaetzlich `docs/DESIGN_RICHTLINIEN.md`
+- bei iPad-, Sync-, Foto- oder Netzwerk-Themen zusaetzlich `docs/LOCAL_NETWORK_SYNC.md`
 
-    cd "$HOME/AppProjekte/BueroCockpit"
-    sed -n '1,240p' docs/DESIGN_RICHTLINIEN.md
+Arbeitsweise:
 
-Kurzregeln:
+- Kleine Terminal-, Such- und Patch-Aufgaben moeglichst ohne Codex erledigen.
+- Codex fuer groessere zusammenhaengende UI-, Datenmodell- oder Architekturarbeiten verwenden.
+- Vor Aenderungen `git status` und `git pull origin main` pruefen.
+- Nach Aenderungen `git diff --check` und `dotnet build` pruefen.
+- Bei iPad-Code zusaetzlich `xcodebuild` pruefen.
 
-- Sprache: Deutsch.
-- Immer vollstaendige Terminalbefehle ausgeben.
-- Moeglichst viel ohne Codex per Terminal, Suche oder kleinem Patch erledigen.
-- Wenn Codex noetig ist, in diesem Projekt grundsaetzlich dieses Modell verwenden:
+Release-Regel:
 
-    cd "$HOME/AppProjekte/BueroCockpit"
-    codex -m gpt-5.5
-
-- Keine Releases, Tags oder Versionserhoehungen ohne ausdrueckliche Freigabe.
-- Keine produktiven Daten, iCloud-Dateien oder OneDrive-Dateien verschieben, loeschen oder migrieren.
-- Keine Netzwerk-/Sync-Aktivierung ohne ausdrueckliche Freigabe.
-- Wenn sich Projektregeln, Codex-Regeln, Sperren, Modellvorgaben, Arbeitsweise oder wiederkehrende Pruefpflichten aendern, muessen `AGENTS.md` und/oder `docs/CODEX_PROJEKTREGELN.md` automatisch mit angepasst werden.
+- Kein Release ohne ausdrueckliche Freigabe.
+- Wenn der Nutzer ausdruecklich `Release erstellen` sagt, bedeutet das immer der komplette Release-Ablauf: Version setzen, Release-Skript ausfuehren, Release-Commit, Tag, `git push origin main`, `git push origin v<version>`, GitHub Release erstellen, Artefakte hochladen und `gh release view` pruefen.
+- Aktueller Release-Befehl: `./scripts/release.sh <version>`.

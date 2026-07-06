@@ -2,17 +2,44 @@
 
 Stand: 2026-07-05.
 
-Dieses Dokument beschreibt die Zielarchitektur fuer einen spaeteren lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und der iPad-App. In diesem Stand ist auf der Desktop-Seite ein ausschliesslich manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen, lokale Geraete-Vormerkungen und harmlose Aenderungsmetadaten vorbereitet. Solange dieser Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen, damit das iPad geaenderte IP-Adressen auffinden kann. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP der Fallback und der Testdienst laeuft trotzdem weiter. Die iPad-App startet kuenftig direkt in die Hauptansicht und prueft die Desktop-Verbindung im sichtbaren Betrieb automatisch. Es wird keine produktive Synchronisation implementiert.
+Dieses Dokument trennt drei Dinge sauber:
 
-Auf dem iPad ist vorbereitend eine lokale `MobileChangeQueue` im App-Support-Verzeichnis der App angelegt. Sie sammelt spaeter mobile Aenderungen als JSON, wird beim Start nicht-blockierend geladen und ist aktuell nur eine lokale Warteschlange ohne Uebertragung. Eine fehlende oder defekte Queue-Datei blockiert die App nicht; der Sync-Bereich zeigt nur die Anzahl nicht abgeschlossener mobiler Aenderungen.
+- aktueller Stand
+- verbindliche Regeln
+- spaeter geplante Zielrichtung
 
-Ergaenzend ist ein lokaler `MobilePhotoDraft`-Speicher im iPad-App-Support-Verzeichnis vorbereitet. Er bildet zwei spaetere Foto-Ablaeufe ab: Foto-Modus vor Auftrag, bei dem Fotos gesammelt und markiert werden, bevor daraus ein Auftrag entsteht, sowie Auftrag zuerst, bei dem ein Foto direkt einem bestehenden Auftrag zugeordnet wird. Die Foto-Entwuerfe koennen spaeter als `addPhoto` an die `MobileChangeQueue` angedockt werden, werden aktuell aber nicht uebertragen und aendern keine echten Auftraege.
+## Aktueller Stand
 
-Der Foto-Modus ist aktuell nur ein lokaler Entwurfsmodus auf dem iPad. Er zeigt gespeicherte `MobilePhotoDrafts` und kann interne Test-Entwuerfe ohne echte Fotos anlegen; es gibt noch keinen Kameraablauf, keinen Upload und keine Uebernahme in Produktivdaten.
+- Auf der Desktop-Seite ist ein manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen, lokale Geraete-Vormerkungen und harmlose Aenderungsmetadaten vorbereitet.
+- Solange der Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP die Fallback.
+- Die iPad-App startet direkt in die Hauptansicht und prueft die Desktop-Verbindung im sichtbaren Betrieb automatisch.
+- Es wird keine produktive Synchronisation implementiert.
+- Auf dem iPad gibt es eine lokale `MobileChangeQueue` im App-Support-Verzeichnis. Sie ist nur eine lokale Warteschlange ohne Uebertragung.
+- Auf dem iPad gibt es zusaetzlich lokale `MobilePhotoDrafts` fuer den Foto-Modus.
+- Der Foto-Modus ist aktuell nur ein lokaler Entwurfsmodus auf dem iPad. Es gibt keinen produktiven Upload und keine Uebernahme in Produktivdaten.
+
+## Verbindliche Regeln
+
+- Mobile Eingänge ist technisch keine normale Kategorie mehr.
+- Falls der Eintrag technisch noch benoetigt wird, ist Mobile Eingänge nur ein interner bzw. systemischer Eingang oder eine technische Inbox.
+- Mobile Eingänge darf nicht dauerhaft links als normale Kategorie angezeigt werden.
+- Mobile Eingänge darf nicht als normale Zielkategorie in Kategorieauswahlen angeboten werden.
+- Lokaler Netzwerk-Sync bleibt der Zielweg.
+- Alte iCloud-/OneDrive-/Live-Datei-/Cloud-Live-Sync-Wege sind nicht der aktuelle Zielweg.
+- Mobile Änderungen auf iPad oder iPhone duerfen niemals ungefragt durch den Desktop-Stand ueberschrieben werden.
+- Wenn mobile Aenderungen und Desktop-Stand denselben Inhalt betreffen, muessen Konflikte sichtbar gemacht werden.
+- Foto-Modus bleibt lokal. Keine Uploads und kein echter Produktiv-Sync, bis das ausdruecklich umgesetzt wird.
+
+## Spaeter geplant
+
+- Lokaler Netzwerk-Sync soll spaeter der einzige kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App sein.
+- Mobile Aenderungen, Fotos, Skizzen, Notizen und Dateien sollen spaeter bewusst uebertragen werden.
+- Vor einem spaeteren echten Upload oder Abruf muss eine lokale Vertrauensbasis bewusst implementiert werden.
+- Fruehere dateibasierte Kopplungen bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen.
 
 ## 1. Ziel
 
-Der lokale Netzwerk-Sync soll der einzige kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App sein. BueroCockpit Desktop bleibt das fuehrende System; Daten liegen lokal. Fruehere dateibasierte Kopplungen sind nicht mehr Zielarchitektur und nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync. Das iPad wird als mobiler Erfassungsclient angebunden:
+BueroCockpit Desktop bleibt das fuehrende System; Daten liegen lokal. Der lokale Netzwerk-Sync ist der kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App. Das iPad wird als mobiler Erfassungsclient angebunden:
 
 - Desktop stellt bei Bedarf einen aktuellen, iPad-lesbaren Snapshot oder Lesestand bereit.
 - iPad uebertraegt mobile Eingaenge, Fotos, Skizzen, Notizen und sonstige Dateien manuell an den Desktop.
@@ -33,7 +60,7 @@ Nicht Bestandteil dieses Konzeptschritts:
 - keine Uebertragung der iPad-`MobileChangeQueue`
 - kein Umbau des Snapshot-Exports
 - keine Datenmigration
-- kein Verschieben von Alt-, Benutzer- oder Produktivdateien
+- kein unkontrolliertes Verschieben von Alt-, Benutzer- oder Produktivdateien
 - kein FileSystemWatcher, kein Polling, kein LiveReload
 - keine stille Hintergrundsynchronisation
 
