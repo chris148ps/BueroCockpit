@@ -266,15 +266,19 @@
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
-      <Setter Property="BorderBrush" Value="#000000" />
+      <Setter Property="Background" Value="#00000008" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem:selected Border.CategoryItemFrame">
+      <Setter Property="Background" Value="#00000010" />
       <Setter Property="BorderBrush" Value="#000000" />
-      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="ListBox#CategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
+      <Setter Property="Background" Value="#00000014" />
       <Setter Property="BorderBrush" Value="#000000" />
-      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="TextBlock.CategoryExpandGlyph">
       <Setter Property="Width" Value="10" />
@@ -415,9 +419,9 @@
                       HorizontalAlignment="Stretch"
                       CornerRadius="9"
                       Padding="10,9"
-                      Background="{DynamicResource SurfaceElevatedBrush}"
-                      BorderBrush="{Binding SidebarBorderBrush}"
-                      BorderThickness="1"
+                      Background="Transparent"
+                      BorderBrush="Transparent"
+                      BorderThickness="0"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="CategorySettingsItem_OnDragOver"
                       DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
