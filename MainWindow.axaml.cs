@@ -55,6 +55,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string DeskItemTypeFile = "File";
     private const string DeskItemTypePdf = "Pdf";
     private const string DeskItemTypeImage = "Image";
+    private static readonly DataFormat<string> CategoryDragDataFormat =
+        DataFormat.CreateInProcessFormat<string>("buerocockpit-category-id");
     private static readonly HashSet<string> DeskImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
@@ -137,6 +139,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isSettingsLocalNetworkSyncOpen;
     private bool _isSettingsTechniciansOpen;
     private bool _isSettingsCategoriesOpen;
+    private bool _isSettingsOrdersOpen;
     private bool _isSettingsUpdatesOpen;
     private bool _isSettingsDiagnosticsOpen;
     private bool _isUpdateAvailable;
@@ -174,6 +177,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isLoadingDeskItems;
     private bool _isApplyingDeskDrag;
     private bool _isApplyingDeskResize;
+    private CategoryItem? _categoryDragCandidate;
+    private PointerPressedEventArgs? _categoryDragStartEvent;
+    private Point _categoryDragStartPoint;
+    private bool _isDraggingCategory;
     private bool _deskInitialViewApplied;
     private bool _startupWindowBoundsApplied;
     private double _deskFitZoom = 1.0;
@@ -926,6 +933,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsSettingsLocalNetworkSyncOpen => _isSettingsLocalNetworkSyncOpen;
     public bool IsSettingsTechniciansOpen => _isSettingsTechniciansOpen;
     public bool IsSettingsCategoriesOpen => _isSettingsCategoriesOpen;
+    public bool IsSettingsOrdersOpen => _isSettingsOrdersOpen;
     public bool IsSettingsUpdatesOpen => _isSettingsUpdatesOpen;
     public bool IsSettingsDiagnosticsOpen => _isSettingsDiagnosticsOpen;
     public string SettingsGeneralToggleText => IsSettingsGeneralOpen ? "-" : "+";
@@ -933,6 +941,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string SettingsLocalNetworkSyncToggleText => IsSettingsLocalNetworkSyncOpen ? "-" : "+";
     public string SettingsTechniciansToggleText => IsSettingsTechniciansOpen ? "-" : "+";
     public string SettingsCategoriesToggleText => IsSettingsCategoriesOpen ? "-" : "+";
+    public string SettingsOrdersToggleText => IsSettingsOrdersOpen ? "-" : "+";
     public string SettingsUpdatesToggleText => IsSettingsUpdatesOpen ? "-" : "+";
     public string SettingsDiagnosticsToggleText => IsSettingsDiagnosticsOpen ? "-" : "+";
     public string IpadLiveFileLastSuccessfulExport
@@ -3179,6 +3188,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             case "Categories":
                 SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, !IsSettingsCategoriesOpen, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
                 break;
+            case "Orders":
+                SetSettingsSectionOpen(ref _isSettingsOrdersOpen, !IsSettingsOrdersOpen, nameof(IsSettingsOrdersOpen), nameof(SettingsOrdersToggleText));
+                break;
             case "Updates":
                 SetSettingsSectionOpen(ref _isSettingsUpdatesOpen, !IsSettingsUpdatesOpen, nameof(IsSettingsUpdatesOpen), nameof(SettingsUpdatesToggleText));
                 break;
@@ -3195,6 +3207,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SetSettingsSectionOpen(ref _isSettingsLocalNetworkSyncOpen, false, nameof(IsSettingsLocalNetworkSyncOpen), nameof(SettingsLocalNetworkSyncToggleText));
         SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, false, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
         SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, false, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
+        SetSettingsSectionOpen(ref _isSettingsOrdersOpen, false, nameof(IsSettingsOrdersOpen), nameof(SettingsOrdersToggleText));
         SetSettingsSectionOpen(ref _isSettingsUpdatesOpen, false, nameof(IsSettingsUpdatesOpen), nameof(SettingsUpdatesToggleText));
         SetSettingsSectionOpen(ref _isSettingsDiagnosticsOpen, false, nameof(IsSettingsDiagnosticsOpen), nameof(SettingsDiagnosticsToggleText));
     }
@@ -5889,6 +5902,286 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         ApplySelectedCategoryContent();
         UpdateCategoryCounts();
+    }
+
+    private void CategorySettingsItem_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control ||
+            control.DataContext is not CategoryItem category ||
+            !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed ||
+            !CanDragCategory(category))
+        {
+            _categoryDragCandidate = null;
+            _categoryDragStartEvent = null;
+            return;
+        }
+
+        _categoryDragCandidate = category;
+        _categoryDragStartEvent = e;
+        _categoryDragStartPoint = e.GetPosition(this);
+    }
+
+    private async void CategorySettingsItem_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_categoryDragCandidate is null || _categoryDragStartEvent is null || _isDraggingCategory)
+        {
+            return;
+        }
+
+        if (sender is not Control control || !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+        {
+            _categoryDragCandidate = null;
+            _categoryDragStartEvent = null;
+            return;
+        }
+
+        var point = e.GetPosition(this);
+        if (Math.Abs(point.X - _categoryDragStartPoint.X) < 6 &&
+            Math.Abs(point.Y - _categoryDragStartPoint.Y) < 6)
+        {
+            return;
+        }
+
+        var category = _categoryDragCandidate;
+        _isDraggingCategory = true;
+        try
+        {
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.Create(CategoryDragDataFormat, category.Id));
+            await DragDrop.DoDragDropAsync(_categoryDragStartEvent, data, DragDropEffects.Move);
+        }
+        finally
+        {
+            _isDraggingCategory = false;
+            _categoryDragCandidate = null;
+            _categoryDragStartEvent = null;
+        }
+    }
+
+    private void CategorySettingsItem_OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = TryGetDraggedCategory(e, out var dragged) &&
+                        sender is Control { DataContext: CategoryItem target } &&
+                        CanDropCategoryOnTarget(dragged, target)
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void CategorySettingsItem_OnDrop(object? sender, DragEventArgs e)
+    {
+        if (!TryGetDraggedCategory(e, out var dragged) ||
+            sender is not Control { DataContext: CategoryItem target } ||
+            !CanDropCategoryOnTarget(dragged, target))
+        {
+            CategoryMessage = "Kategorie konnte nicht verschoben werden.";
+            e.Handled = true;
+            return;
+        }
+
+        var targetControl = (Control)sender;
+        if (string.Equals(dragged.ParentId, target.ParentId, StringComparison.OrdinalIgnoreCase))
+        {
+            var relativeY = targetControl.Bounds.Height <= 0
+                ? 0.5
+                : e.GetPosition(targetControl).Y / targetControl.Bounds.Height;
+            if (relativeY < 0.25 || relativeY > 0.75)
+            {
+                MoveCategoryWithinParent(dragged, target, beforeTarget: relativeY < 0.25);
+            }
+            else
+            {
+                MoveCategoryToParent(dragged, target.Id);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        MoveCategoryToParent(dragged, target.Id);
+        e.Handled = true;
+    }
+
+    private void CategoryRootDropZone_OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = TryGetDraggedCategory(e, out var dragged) && CanMoveCategoryToRoot(dragged)
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+    }
+
+    private void CategoryRootDropZone_OnDrop(object? sender, DragEventArgs e)
+    {
+        if (!TryGetDraggedCategory(e, out var dragged) || !CanMoveCategoryToRoot(dragged))
+        {
+            CategoryMessage = "Kategorie konnte nicht zur Hauptkategorie gemacht werden.";
+            return;
+        }
+
+        MoveCategoryToParent(dragged, parentId: null);
+        e.Handled = true;
+    }
+
+    private bool TryGetDraggedCategory(DragEventArgs e, out CategoryItem category)
+    {
+        category = null!;
+        var categoryId = e.DataTransfer.TryGetValue(CategoryDragDataFormat);
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return false;
+        }
+
+        category = Categories.FirstOrDefault(item => string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase))!;
+        return category is not null && CanDragCategory(category);
+    }
+
+    private static bool CanDragCategory(CategoryItem category)
+    {
+        return !string.IsNullOrWhiteSpace(category.Id) && IsSelectableTaskCategory(category);
+    }
+
+    private bool CanDropCategoryOnTarget(CategoryItem dragged, CategoryItem target)
+    {
+        if (!CanDragCategory(dragged) ||
+            !CanDragCategory(target) ||
+            IsSpecialCategory(dragged) ||
+            IsSpecialCategory(target) ||
+            IsArchiveCategory(dragged) ||
+            IsArchiveCategory(target) ||
+            IsLegacyMobileApprovalCategory(dragged.Name) ||
+            IsLegacyMobileApprovalCategory(target.Name) ||
+            string.Equals(dragged.Id, target.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !IsDescendantOf(target, dragged.Id);
+    }
+
+    private bool CanMoveCategoryToRoot(CategoryItem category)
+    {
+        return CanDragCategory(category) &&
+               !IsSpecialCategory(category) &&
+               !IsArchiveCategory(category) &&
+               !IsLegacyMobileApprovalCategory(category.Name) &&
+               !string.IsNullOrWhiteSpace(category.ParentId);
+    }
+
+    private bool IsDescendantOf(CategoryItem category, string possibleAncestorId)
+    {
+        var current = category;
+        while (!string.IsNullOrWhiteSpace(current.ParentId))
+        {
+            if (string.Equals(current.ParentId, possibleAncestorId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var parent = Categories.FirstOrDefault(item => string.Equals(item.Id, current.ParentId, StringComparison.OrdinalIgnoreCase));
+            if (parent is null)
+            {
+                return false;
+            }
+
+            current = parent;
+        }
+
+        return false;
+    }
+
+    private void MoveCategoryWithinParent(CategoryItem dragged, CategoryItem target, bool beforeTarget)
+    {
+        var siblings = GetCategorySiblings(dragged.ParentId)
+            .Where(category => !string.Equals(category.Id, dragged.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var targetIndex = siblings.FindIndex(category => string.Equals(category.Id, target.Id, StringComparison.OrdinalIgnoreCase));
+        if (targetIndex < 0)
+        {
+            CategoryMessage = "Zielkategorie wurde nicht gefunden.";
+            return;
+        }
+
+        var insertIndex = beforeTarget ? targetIndex : targetIndex + 1;
+        siblings.Insert(insertIndex, dragged);
+        NormalizeCategorySortOrder(siblings);
+        PersistCategoryTreeChange(siblings, "Kategorie-Reihenfolge geändert.");
+    }
+
+    private void MoveCategoryToParent(CategoryItem dragged, string? parentId)
+    {
+        if (string.Equals(dragged.ParentId, parentId, StringComparison.OrdinalIgnoreCase))
+        {
+            CategoryMessage = "Kategorie ist bereits an dieser Stelle.";
+            return;
+        }
+
+        var changed = new List<CategoryItem>();
+        var oldSiblings = GetCategorySiblings(dragged.ParentId)
+            .Where(category => !string.Equals(category.Id, dragged.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        NormalizeCategorySortOrder(oldSiblings);
+        changed.AddRange(oldSiblings);
+
+        dragged.ParentId = parentId;
+        dragged.IsExpanded = false;
+        if (!string.IsNullOrWhiteSpace(parentId))
+        {
+            var parent = Categories.FirstOrDefault(category => string.Equals(category.Id, parentId, StringComparison.OrdinalIgnoreCase));
+            if (parent is not null)
+            {
+                parent.IsExpanded = true;
+            }
+        }
+
+        var newSiblings = GetCategorySiblings(parentId)
+            .Where(category => !string.Equals(category.Id, dragged.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        newSiblings.Add(dragged);
+        NormalizeCategorySortOrder(newSiblings);
+        changed.AddRange(newSiblings);
+
+        PersistCategoryTreeChange(changed, parentId is null
+            ? "Kategorie ist jetzt Hauptkategorie."
+            : "Kategorie wurde untergeordnet.");
+    }
+
+    private List<CategoryItem> GetCategorySiblings(string? parentId)
+    {
+        return Categories
+            .Where(category =>
+                !IsSpecialCategory(category) &&
+                !IsArchiveCategory(category) &&
+                !IsLegacyMobileApprovalCategory(category.Name) &&
+                string.Equals(category.ParentId ?? string.Empty, parentId ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private static void NormalizeCategorySortOrder(IReadOnlyList<CategoryItem> categories)
+    {
+        for (var index = 0; index < categories.Count; index++)
+        {
+            categories[index].SortOrder = index;
+        }
+    }
+
+    private void PersistCategoryTreeChange(IEnumerable<CategoryItem> categories, string message)
+    {
+        var changed = categories
+            .Where(category => !IsSpecialCategory(category))
+            .GroupBy(category => category.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+        foreach (var category in changed)
+        {
+            SaveCategoryAndQueueIpadSnapshot(category, "Kategoriebaum geändert");
+        }
+
+        RefreshCategoryDependentViews();
+        ApplySelectedCategoryContent();
+        UpdateCategoryCounts();
+        CategoryMessage = message;
     }
 
     private void HideCategory_OnClick(object? sender, RoutedEventArgs e)
@@ -9565,20 +9858,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
-        var ordered = new List<CategoryItem>();
-        void AddBranch(CategoryItem category, int level, string path)
+        var visibleSidebarCategories = new List<CategoryItem>();
+        void AddBranch(CategoryItem category, int level, string path, bool isVisibleInSidebar)
         {
             PrepareCategoryDisplay(category, level, string.IsNullOrWhiteSpace(path) ? category.Name : path, byParent.ContainsKey(category.Id));
-            ordered.Add(category);
+            if (isVisibleInSidebar)
+            {
+                visibleSidebarCategories.Add(category);
+            }
 
-            if (!category.HasChildren || !category.IsExpanded)
+            if (!category.HasChildren)
             {
                 return;
             }
 
+            var childrenVisibleInSidebar = isVisibleInSidebar && category.IsExpanded;
             foreach (var child in byParent[category.Id])
             {
-                AddBranch(child, level + 1, $"{category.SelectionName} / {child.Name}");
+                AddBranch(child, level + 1, $"{category.SelectionName} / {child.Name}", childrenVisibleInSidebar);
             }
         }
 
@@ -9590,7 +9887,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var category in rootCategories)
         {
-            AddBranch(category, 0, category.Name);
+            AddBranch(category, 0, category.Name, isVisibleInSidebar: true);
         }
 
         SidebarCategories.Clear();
@@ -9600,7 +9897,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SidebarCategories.Add(category);
         }
 
-        foreach (var category in ordered.Where(category => !IsArchiveCategory(category)))
+        foreach (var category in visibleSidebarCategories.Where(category => !IsArchiveCategory(category)))
         {
             SidebarCategories.Add(category);
         }

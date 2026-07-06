@@ -11,7 +11,7 @@ public sealed class CategoryItem : ObservableObject
     private bool _isVisible = true;
     private int _taskCount;
     private bool _isSelected;
-    private bool _isExpanded = true;
+    private bool _isExpanded;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get => _name; set => SetProperty(ref _name, value); }

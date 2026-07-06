@@ -276,6 +276,17 @@
       <Setter Property="BorderBrush" Value="#000000" />
       <Setter Property="BorderThickness" Value="1.5" />
     </Style>
+    <Style Selector="Button.CategoryExpandButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Button.CategoryExpandButton:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
     <Style Selector="Border.Card">
       <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
@@ -352,54 +363,24 @@
           </Grid>
         </Grid>
 
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+        <Grid DockPanel.Dock="Top"
+              ColumnDefinitions="*"
+              Margin="0,0,0,8"
+              DragDrop.AllowDrop="True"
+              DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
+              DragDrop.Drop="CategoryRootDropZone_OnDrop">
           <TextBlock Grid.Column="0"
                      Text="Kategorien"
                      FontWeight="SemiBold"
                      Foreground="{DynamicResource TextSecondaryBrush}"
                      VerticalAlignment="Center" />
-          <StackPanel Grid.Column="1"
-                      Orientation="Horizontal"
-                      Spacing="4">
-            <Button Width="26"
-                    Height="26"
-                    MinWidth="26"
-                    MinHeight="26"
-                    Padding="0"
-                    HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center"
-                    ToolTip.Tip="Ausgewählte Kategorie nach oben"
-                    Click="MoveCategoryUp_OnClick">
-              <TextBlock Text="↑"
-                         FontSize="13"
-                         LineHeight="13"
-                         TextAlignment="Center"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Margin="0,-1,0,0" />
-            </Button>
-            <Button Width="26"
-                    Height="26"
-                    MinWidth="26"
-                    MinHeight="26"
-                    Padding="0"
-                    HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center"
-                    ToolTip.Tip="Ausgewählte Kategorie nach unten"
-                    Click="MoveCategoryDown_OnClick">
-              <TextBlock Text="↓"
-                         FontSize="13"
-                         LineHeight="13"
-                         TextAlignment="Center"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Margin="0,-1,0,0" />
-            </Button>
-          </StackPanel>
         </Grid>
 
         <ListBox x:Name="CategoryList"
                  HorizontalAlignment="Stretch"
+                 DragDrop.AllowDrop="True"
+                 DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
+                 DragDrop.Drop="CategoryRootDropZone_OnDrop"
                  ItemsSource="{Binding SidebarCategories}"
                  SelectedItem="{Binding SelectedCategory}"
                  SelectionChanged="CategoryList_OnSelectionChanged">
@@ -411,7 +392,12 @@
                       Padding="10,9"
                       Background="{DynamicResource SurfaceElevatedBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
-                      BorderThickness="1">
+                      BorderThickness="1"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="CategorySettingsItem_OnDragOver"
+                      DragDrop.Drop="CategorySettingsItem_OnDrop"
+                      PointerPressed="CategorySettingsItem_OnPointerPressed"
+                      PointerMoved="CategorySettingsItem_OnPointerMoved">
                 <Border.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Umbenennen" Click="CategoryRenameFromMenu_OnClick" />
@@ -421,6 +407,7 @@
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" MinWidth="200" ColumnSpacing="6">
                   <Border Width="{Binding SidebarIndent}" />
                   <Button Grid.Column="1"
+                          Classes="CategoryExpandButton"
                           Width="22"
                           Height="22"
                           MinWidth="22"
@@ -1335,7 +1322,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="10" IsVisible="{Binding IsSettingsCategoriesOpen}">
-                <TextBlock Text="Hier werden Kategorien als Baum angelegt und verwaltet. Drag &amp; Drop fuer Reihenfolge und Unterkategorien folgt in einem separaten Schritt."
+                <TextBlock Text="Hier werden Kategorien als Baum angelegt und per Drag &amp; Drop sortiert oder untergeordnet."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap"
                            Margin="0,4,0,8" />
@@ -1351,15 +1338,28 @@
                            FontSize="12"
                            TextWrapping="Wrap"
                            Margin="0,6,0,0" />
-                <Button Content="Archiv öffnen"
-                        Classes="Secondary"
-                        HorizontalAlignment="Left"
-                        IsVisible="{Binding HasArchiveCategory}"
-                        Click="OpenArchiveCategory_OnClick" />
+                <Border Classes="InlineCard"
+                        Margin="0,8,0,0"
+                        Padding="10"
+                        DragDrop.AllowDrop="True"
+                        DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
+                        DragDrop.Drop="CategoryRootDropZone_OnDrop">
+                  <TextBlock Text="Hauptkategorien"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                </Border>
                 <ItemsControl ItemsSource="{Binding TaskCategories}" Margin="0,8,0,0">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
+                      <Border Classes="InlineCard"
+                              Margin="0,0,0,6"
+                              Padding="10"
+                              DragDrop.AllowDrop="True"
+                              DragDrop.DragOver="CategorySettingsItem_OnDragOver"
+                              DragDrop.Drop="CategorySettingsItem_OnDrop"
+                              PointerPressed="CategorySettingsItem_OnPointerPressed"
+                              PointerMoved="CategorySettingsItem_OnPointerMoved">
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
                             <Border Width="{Binding SelectionIndent}" />
@@ -1372,6 +1372,27 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="Card">
+            <StackPanel Spacing="10">
+              <Button Classes="SettingsSectionHeader" Tag="Orders" Click="SettingsSectionHeader_OnClick">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Aufträge" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsOrdersToggleText}" />
+                </Grid>
+              </Button>
+              <StackPanel Spacing="10" IsVisible="{Binding IsSettingsOrdersOpen}">
+                <TextBlock Text="Auftragsbezogene Sonderbereiche und Verwaltungszugänge."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <Button Content="Archiv öffnen"
+                        Classes="Secondary"
+                        HorizontalAlignment="Left"
+                        IsVisible="{Binding HasArchiveCategory}"
+                        Click="OpenArchiveCategory_OnClick" />
               </StackPanel>
             </StackPanel>
           </Border>
