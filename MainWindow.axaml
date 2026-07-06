@@ -287,6 +287,12 @@
     <Style Selector="TextBlock.CategoryExpandGlyph:pointerover">
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
+    <Style Selector="Border.CategoryDropLine">
+      <Setter Property="Height" Value="3" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="Margin" Value="12,0,12,0" />
+    </Style>
     <Style Selector="Border.Card">
       <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
@@ -366,8 +372,10 @@
         <Grid DockPanel.Dock="Top"
               ColumnDefinitions="*"
               Margin="0,0,0,8"
+              Background="{Binding CategoryRootDropBackground}"
               DragDrop.AllowDrop="True"
               DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
+              DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
               DragDrop.Drop="CategoryRootDropZone_OnDrop">
           <TextBlock Grid.Column="0"
                      Text="Kategorien"
@@ -390,11 +398,12 @@
                       HorizontalAlignment="Stretch"
                       CornerRadius="9"
                       Padding="10,9"
-                      Background="{DynamicResource SurfaceElevatedBrush}"
-                      BorderBrush="{DynamicResource BorderBrushDark}"
+                      Background="{Binding SidebarBackground}"
+                      BorderBrush="{Binding SidebarBorderBrush}"
                       BorderThickness="1"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="CategorySettingsItem_OnDragOver"
+                      DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
                       DragDrop.Drop="CategorySettingsItem_OnDrop"
                       PointerPressed="CategorySettingsItem_OnPointerPressed"
                       PointerMoved="CategorySettingsItem_OnPointerMoved"
@@ -405,21 +414,34 @@
                     <MenuItem Header="Löschen" Click="CategoryDeleteFromMenu_OnClick" />
                   </ContextMenu>
                 </Border.ContextMenu>
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto" MinWidth="200" ColumnSpacing="6">
-                  <Border Width="{Binding SidebarIndent}" />
-                  <TextBlock Grid.Column="1"
-                             Classes="CategoryExpandGlyph"
-                             Text="{Binding ExpandGlyph}"
-                             Cursor="Hand"
-                             PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
-                  <TextBlock Grid.Column="2"
-                             Text="{Binding DisplayName}"
-                             FontWeight="SemiBold"
-                             TextTrimming="CharacterEllipsis"
-                             VerticalAlignment="Center" />
-                  <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
-                    <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
-                  </Border>
+                <Grid MinWidth="200">
+                  <Border Classes="CategoryDropLine"
+                          VerticalAlignment="Top"
+                          IsVisible="{Binding IsDropBefore}" />
+                  <Border Classes="CategoryDropLine"
+                          VerticalAlignment="Bottom"
+                          IsVisible="{Binding IsDropAfter}" />
+                  <Border Background="#2B6FDB18"
+                          BorderBrush="#2563EB"
+                          BorderThickness="1.5"
+                          CornerRadius="7"
+                          IsVisible="{Binding IsDropInside}" />
+                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+                    <Border Width="{Binding SidebarIndent}" />
+                    <TextBlock Grid.Column="1"
+                               Classes="CategoryExpandGlyph"
+                               Text="{Binding ExpandGlyph}"
+                               Cursor="Hand"
+                               PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding DisplayName}"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
+                      <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Border>
+                  </Grid>
                 </Grid>
               </Border>
             </DataTemplate>
@@ -1338,8 +1360,10 @@
                 <Border Classes="InlineCard"
                         Margin="0,8,0,0"
                         Padding="10"
+                        Background="{Binding CategoryRootDropBackground}"
                         DragDrop.AllowDrop="True"
                         DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
+                        DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
                         DragDrop.Drop="CategoryRootDropZone_OnDrop">
                   <TextBlock Text="Hauptkategorien"
                              Foreground="{DynamicResource TextSecondaryBrush}"
@@ -1354,6 +1378,7 @@
                               Padding="10"
                               DragDrop.AllowDrop="True"
                               DragDrop.DragOver="CategorySettingsItem_OnDragOver"
+                              DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
                               DragDrop.Drop="CategorySettingsItem_OnDrop"
                               PointerPressed="CategorySettingsItem_OnPointerPressed"
                               PointerMoved="CategorySettingsItem_OnPointerMoved">

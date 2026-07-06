@@ -13,6 +13,7 @@ public sealed class CategoryItem : ObservableObject
     private bool _isSelected;
     private bool _isExpanded;
     private bool _hasChildren;
+    private CategoryDropVisualState _dropVisualState = CategoryDropVisualState.None;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get => _name; set => SetProperty(ref _name, value); }
@@ -52,6 +53,25 @@ public sealed class CategoryItem : ObservableObject
     public int SidebarIndent => Math.Clamp(Level, 0, 4) * 16;
     public int SelectionIndent => Math.Clamp(Level, 0, 4) * 18;
     public string ExpandGlyph => HasChildren ? (IsExpanded ? "▾" : "▸") : string.Empty;
+    public CategoryDropVisualState DropVisualState
+    {
+        get => _dropVisualState;
+        set
+        {
+            if (SetProperty(ref _dropVisualState, value))
+            {
+                OnPropertyChanged(nameof(IsDropBefore));
+                OnPropertyChanged(nameof(IsDropInside));
+                OnPropertyChanged(nameof(IsDropAfter));
+                OnPropertyChanged(nameof(SidebarBackground));
+                OnPropertyChanged(nameof(SidebarBorderBrush));
+            }
+        }
+    }
+
+    public bool IsDropBefore => DropVisualState == CategoryDropVisualState.Before;
+    public bool IsDropInside => DropVisualState == CategoryDropVisualState.Inside;
+    public bool IsDropAfter => DropVisualState == CategoryDropVisualState.After;
     public bool IsSelected
     {
         get => _isSelected;
@@ -65,6 +85,14 @@ public sealed class CategoryItem : ObservableObject
         }
     }
 
-    public string SidebarBackground => IsSelected ? "#DDEBFF" : Color;
-    public string SidebarBorderBrush => IsSelected ? "#8DBEFF" : "Transparent";
+    public string SidebarBackground => IsDropInside ? "#EAF2FF" : IsSelected ? "#DDEBFF" : Color;
+    public string SidebarBorderBrush => IsDropInside ? "#2563EB" : IsSelected ? "#8DBEFF" : "Transparent";
+}
+
+public enum CategoryDropVisualState
+{
+    None,
+    Before,
+    Inside,
+    After
 }

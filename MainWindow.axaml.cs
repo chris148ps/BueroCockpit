@@ -188,6 +188,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private PointerPressedEventArgs? _categoryDragStartEvent;
     private Point _categoryDragStartPoint;
     private bool _isDraggingCategory;
+    private CategoryItem? _categoryDropTarget;
+    private bool _isCategoryRootDropTarget;
     private bool _deskInitialViewApplied;
     private bool _startupWindowBoundsApplied;
     private double _deskFitZoom = 1.0;
@@ -656,6 +658,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                                    SelectedCategory is not null &&
                                                    IsSelectableTaskCategory(SelectedCategory);
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
+    public string CategoryRootDropBackground => _isCategoryRootDropTarget ? "#EAF2FF" : "Transparent";
     public MobileInboxEntry? SelectedMobileInboxEntry =>
         SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
     public bool HasMobileInboxPhotoPreviews => MobileInboxPhotoPreviews.Count > 0;
@@ -5969,16 +5972,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isDraggingCategory = false;
             _categoryDragCandidate = null;
             _categoryDragStartEvent = null;
+            ClearCategoryDropVisuals();
         }
     }
 
     private void CategorySettingsItem_OnDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = TryGetDraggedCategory(e, out var dragged) &&
-                        sender is Control { DataContext: CategoryItem target } &&
-                        CanDropCategoryOnTarget(dragged, target)
-            ? DragDropEffects.Move
-            : DragDropEffects.None;
+        ClearCategoryRootDropVisual();
+
+        if (TryGetDraggedCategory(e, out var dragged) &&
+            sender is Control { DataContext: CategoryItem target } control &&
+            CanDropCategoryOnTarget(dragged, target))
+        {
+            SetCategoryDropVisual(target, GetCategoryDropVisualState(control, e));
+            e.DragEffects = DragDropEffects.Move;
+        }
+        else
+        {
+            ClearCategoryDropVisuals();
+            e.DragEffects = DragDropEffects.None;
+        }
+
         e.Handled = true;
     }
 
@@ -5986,6 +6000,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!TryGetDraggedCategory(e, out var dragged))
         {
+            ClearCategoryDropVisuals();
             e.Handled = true;
             return;
         }
@@ -5993,58 +6008,133 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (sender is not Control { DataContext: CategoryItem target } ||
             !CanDropCategoryOnTarget(dragged, target))
         {
+            ClearCategoryDropVisuals();
             CategoryMessage = "Kategorie konnte nicht verschoben werden.";
             e.Handled = true;
             return;
         }
 
         var targetControl = (Control)sender;
-        if (string.Equals(dragged.ParentId, target.ParentId, StringComparison.OrdinalIgnoreCase))
+        var dropState = GetCategoryDropVisualState(targetControl, e);
+        switch (dropState)
         {
-            var relativeY = targetControl.Bounds.Height <= 0
-                ? 0.5
-                : e.GetPosition(targetControl).Y / targetControl.Bounds.Height;
-            if (relativeY < 0.25 || relativeY > 0.75)
-            {
-                MoveCategoryWithinParent(dragged, target, beforeTarget: relativeY < 0.25);
-            }
-            else
-            {
+            case CategoryDropVisualState.Before:
+                MoveCategoryNextToTarget(dragged, target, beforeTarget: true);
+                break;
+            case CategoryDropVisualState.After:
+                MoveCategoryNextToTarget(dragged, target, beforeTarget: false);
+                break;
+            default:
                 MoveCategoryToParent(dragged, target.Id);
-            }
-
-            e.Handled = true;
-            return;
+                break;
         }
 
-        MoveCategoryToParent(dragged, target.Id);
+        ClearCategoryDropVisuals();
         e.Handled = true;
     }
 
     private void CategoryRootDropZone_OnDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = TryGetDraggedCategory(e, out var dragged) && CanMoveCategoryToRoot(dragged)
-            ? DragDropEffects.Move
-            : DragDropEffects.None;
+        ClearCategoryItemDropVisual();
+        if (TryGetDraggedCategory(e, out var dragged) && CanMoveCategoryToRoot(dragged))
+        {
+            SetCategoryRootDropVisual(true);
+            e.DragEffects = DragDropEffects.Move;
+        }
+        else
+        {
+            SetCategoryRootDropVisual(false);
+            e.DragEffects = DragDropEffects.None;
+        }
+
+        e.Handled = true;
     }
 
     private void CategoryRootDropZone_OnDrop(object? sender, DragEventArgs e)
     {
         if (!TryGetDraggedCategory(e, out var dragged))
         {
+            ClearCategoryDropVisuals();
             e.Handled = true;
             return;
         }
 
         if (!CanMoveCategoryToRoot(dragged))
         {
+            ClearCategoryDropVisuals();
             CategoryMessage = "Kategorie konnte nicht zur Hauptkategorie gemacht werden.";
             e.Handled = true;
             return;
         }
 
         MoveCategoryToParent(dragged, parentId: null);
+        ClearCategoryDropVisuals();
         e.Handled = true;
+    }
+
+    private void CategoryDropZone_OnDragLeave(object? sender, RoutedEventArgs e)
+    {
+        ClearCategoryDropVisuals();
+    }
+
+    private static CategoryDropVisualState GetCategoryDropVisualState(Control targetControl, DragEventArgs e)
+    {
+        var height = targetControl.Bounds.Height;
+        if (height <= 0)
+        {
+            return CategoryDropVisualState.Inside;
+        }
+
+        var relativeY = Math.Clamp(e.GetPosition(targetControl).Y / height, 0, 1);
+        return relativeY switch
+        {
+            < 0.30 => CategoryDropVisualState.Before,
+            > 0.70 => CategoryDropVisualState.After,
+            _ => CategoryDropVisualState.Inside
+        };
+    }
+
+    private void SetCategoryDropVisual(CategoryItem target, CategoryDropVisualState state)
+    {
+        if (_categoryDropTarget is not null &&
+            !string.Equals(_categoryDropTarget.Id, target.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            _categoryDropTarget.DropVisualState = CategoryDropVisualState.None;
+        }
+
+        _categoryDropTarget = target;
+        target.DropVisualState = state;
+    }
+
+    private void SetCategoryRootDropVisual(bool isDropTarget)
+    {
+        if (_isCategoryRootDropTarget == isDropTarget)
+        {
+            return;
+        }
+
+        _isCategoryRootDropTarget = isDropTarget;
+        OnPropertyChanged(nameof(CategoryRootDropBackground));
+    }
+
+    private void ClearCategoryItemDropVisual()
+    {
+        if (_categoryDropTarget is not null)
+        {
+            _categoryDropTarget.DropVisualState = CategoryDropVisualState.None;
+            _categoryDropTarget = null;
+        }
+    }
+
+    private void ClearCategoryRootDropVisual()
+    {
+        SetCategoryRootDropVisual(false);
+    }
+
+    private void ClearCategoryDropVisuals()
+    {
+        ClearCategoryItemDropVisual();
+        ClearCategoryRootDropVisual();
     }
 
     private bool TryGetDraggedCategory(DragEventArgs e, out CategoryItem category)
@@ -6176,6 +6266,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         PersistCategoryTreeChange(siblings, "Kategorie-Reihenfolge geändert.");
     }
 
+    private void MoveCategoryNextToTarget(CategoryItem dragged, CategoryItem target, bool beforeTarget)
+    {
+        var targetParentId = target.ParentId;
+        var changed = new List<CategoryItem>();
+
+        if (!string.Equals(dragged.ParentId, targetParentId, StringComparison.OrdinalIgnoreCase))
+        {
+            var oldSiblings = GetCategorySiblings(dragged.ParentId)
+                .Where(category => !string.Equals(category.Id, dragged.Id, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            NormalizeCategorySortOrder(oldSiblings);
+            changed.AddRange(oldSiblings);
+            dragged.ParentId = targetParentId;
+        }
+
+        var newSiblings = GetCategorySiblings(targetParentId)
+            .Where(category => !string.Equals(category.Id, dragged.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var targetIndex = newSiblings.FindIndex(category => string.Equals(category.Id, target.Id, StringComparison.OrdinalIgnoreCase));
+        if (targetIndex < 0)
+        {
+            CategoryMessage = "Zielkategorie wurde nicht gefunden.";
+            return;
+        }
+
+        var insertIndex = beforeTarget ? targetIndex : targetIndex + 1;
+        newSiblings.Insert(insertIndex, dragged);
+        NormalizeCategorySortOrder(newSiblings);
+        changed.AddRange(newSiblings);
+
+        PersistCategoryTreeChange(changed, beforeTarget
+            ? "Kategorie wurde davor einsortiert."
+            : "Kategorie wurde danach einsortiert.");
+    }
+
     private void MoveCategoryToParent(CategoryItem dragged, string? parentId)
     {
         if (string.Equals(dragged.ParentId, parentId, StringComparison.OrdinalIgnoreCase))
@@ -6293,13 +6418,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 TextWrapping = TextWrapping.Wrap
             });
         }
-        else
-        {
-            foreach (var task in archivedTasks)
-            {
-                content.Children.Add(CreateArchiveTaskRow(task));
-            }
-        }
 
         var dialog = new Window
         {
@@ -6337,11 +6455,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         };
 
+        if (archivedTasks.Count > 0)
+        {
+            content.Children.Clear();
+            foreach (var task in archivedTasks)
+            {
+                content.Children.Add(CreateArchiveTaskRow(task, dialog));
+            }
+        }
+
         DockPanel.SetDock(((DockPanel)((Border)dialog.Content!).Child!).Children[0], Dock.Top);
         await dialog.ShowDialog(this);
     }
 
-    private Control CreateArchiveTaskRow(TaskItem task)
+    private Control CreateArchiveTaskRow(TaskItem task, Window? dialog)
     {
         var details = new List<string>();
         var categoryNames = GetTaskCategoryNameList(task);
@@ -6365,35 +6492,137 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             details.Add($"Wiedervorlage: {FormatDateShort(task.FollowUpDate)}");
         }
 
-        return new Border
+        var openButton = new Button
+        {
+            Content = "Öffnen",
+            Padding = new Thickness(10, 5),
+            MinWidth = 78
+        };
+        openButton.Classes.Add("Secondary");
+        openButton.Click += (_, _) =>
+        {
+            dialog?.Close();
+            OpenArchivedTask(task);
+        };
+
+        var restoreButton = new Button
+        {
+            Content = "Zurück in Offene Aufgaben",
+            Padding = new Thickness(10, 5)
+        };
+        restoreButton.Classes.Add("Secondary");
+        restoreButton.Click += (_, _) =>
+        {
+            RestoreArchivedTaskToOpenTasks(task);
+            dialog?.Close();
+        };
+
+        var row = new Border
         {
             BorderBrush = new SolidColorBrush(Color.Parse("#E5E7EB")),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10),
-            Child = new StackPanel
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = new Grid
             {
-                Spacing = 4,
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = 12,
                 Children =
                 {
-                    new TextBlock
+                    new StackPanel
                     {
-                        Text = FormatArchiveTaskTitle(task),
-                        FontSize = 14,
-                        FontWeight = FontWeight.SemiBold,
-                        Foreground = new SolidColorBrush(Color.Parse("#111827")),
-                        TextWrapping = TextWrapping.Wrap
+                        Spacing = 4,
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = FormatArchiveTaskTitle(task),
+                                FontSize = 14,
+                                FontWeight = FontWeight.SemiBold,
+                                Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                TextWrapping = TextWrapping.Wrap
+                            },
+                            new TextBlock
+                            {
+                                Text = details.Count == 0 ? "Keine weiteren Angaben." : string.Join(" · ", details),
+                                FontSize = 12,
+                                Foreground = new SolidColorBrush(Color.Parse("#4B5563")),
+                                TextWrapping = TextWrapping.Wrap
+                            }
+                        }
                     },
-                    new TextBlock
+                    new StackPanel
                     {
-                        Text = details.Count == 0 ? "Keine weiteren Angaben." : string.Join(" · ", details),
-                        FontSize = 12,
-                        Foreground = new SolidColorBrush(Color.Parse("#4B5563")),
-                        TextWrapping = TextWrapping.Wrap
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Children =
+                        {
+                            openButton,
+                            restoreButton
+                        }
                     }
                 }
             }
         };
+
+        Grid.SetColumn((Control)((Grid)row.Child!).Children[1], 1);
+        row.DoubleTapped += (_, _) =>
+        {
+            dialog?.Close();
+            OpenArchivedTask(task);
+        };
+        return row;
+    }
+
+    private void OpenArchivedTask(TaskItem task)
+    {
+        NavigateToTask(task, fromGlobalSearch: false);
+        if (SelectedTask?.Id == task.Id)
+        {
+            LoadTaskDetails();
+        }
+    }
+
+    private void RestoreArchivedTaskToOpenTasks(TaskItem task)
+    {
+        var openCategory = Categories.FirstOrDefault(category =>
+                IsSelectableTaskCategory(category) &&
+                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(category =>
+                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
+            ?? Categories.FirstOrDefault(IsSelectableTaskCategory);
+        if (openCategory is null)
+        {
+            CategoryMessage = "Offene Aufgaben wurde nicht gefunden.";
+            return;
+        }
+
+        CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+        EnsureTaskCategoryState(task);
+        task.Status = "Offen";
+        task.CompletedAt = null;
+        task.CategoryId = openCategory.Id;
+        task.CategoryIds.RemoveAll(categoryId =>
+        {
+            var category = Categories.FirstOrDefault(item =>
+                string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+            return category is not null && IsArchiveCategory(category);
+        });
+        task.CategoryIds.RemoveAll(categoryId =>
+            string.Equals(categoryId, openCategory.Id, StringComparison.OrdinalIgnoreCase));
+        task.CategoryIds.Insert(0, openCategory.Id);
+        task.UpdatedAt = DateTime.Now;
+
+        SaveTaskAndQueueIpadSnapshot(task);
+        UpdateTaskCategoryPresentation(task);
+        RefreshTaskCategories();
+        SelectCategoryAndTask(openCategory, task);
+        LoadTaskDetails();
+        RefreshGlobalSearchResults();
+        UpdateCategoryCounts();
+        CategoryMessage = "Auftrag wurde in Offene Aufgaben zurückgeholt.";
     }
 
     private static string FormatArchiveTaskTitle(TaskItem task)
