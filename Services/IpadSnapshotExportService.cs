@@ -1362,7 +1362,8 @@ public sealed class IpadSnapshotExportService
     private sealed record SnapshotCategory(
         string Id,
         string Name,
-        int Order);
+        int Order,
+        string? ParentId);
 
     private sealed record SnapshotAttachmentIndex(
         string Id,
@@ -1395,7 +1396,7 @@ public sealed class IpadSnapshotExportService
     {
         return repository.GetCategories()
             .Where(category => !IsSystemSettingsCategory(category))
-            .Select(category => new SnapshotCategory(category.Id, category.Name, category.SortOrder))
+            .Select(category => new SnapshotCategory(category.Id, category.Name, category.SortOrder, category.ParentId))
             .ToList();
     }
 

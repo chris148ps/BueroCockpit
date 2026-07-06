@@ -1211,58 +1211,75 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     nonisolated private static func groupedCategories(from categories: [SnapshotCategory]) -> [SnapshotCategoryGroup] {
-        struct Bucket {
-            var name: String
-            var categoryIDs: [String]
-            var order: Int
-        }
-
-        var buckets: [String: Bucket] = [:]
-        var orderedKeys: [String] = []
-
-        for (index, category) in categories.enumerated() {
+        let visibleCategories = categories.enumerated().compactMap { index, category -> (SnapshotCategory, String, Int)? in
             let trimmedName = category.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedName.isEmpty,
-                  !isSystemSettingsCategory(id: category.id, name: trimmedName) else {
-                continue
-            }
-
-            let key = trimmedName.lowercased()
-            if var bucket = buckets[key] {
-                if !bucket.categoryIDs.contains(category.id) {
-                    bucket.categoryIDs.append(category.id)
-                }
-                bucket.order = min(bucket.order, category.order ?? index)
-                buckets[key] = bucket
-            } else {
-                buckets[key] = Bucket(
-                    name: trimmedName,
-                    categoryIDs: [category.id],
-                    order: category.order ?? index
-                )
-                orderedKeys.append(key)
-            }
-        }
-
-        return orderedKeys.compactMap { key in
-            guard let bucket = buckets[key] else {
+                  !isSystemSettingsCategory(id: category.id, name: trimmedName),
+                  !isLegacyMobileApprovalCategory(trimmedName),
+                  trimmedName.caseInsensitiveCompare("Archiv") != .orderedSame else {
                 return nil
             }
 
-            return SnapshotCategoryGroup(
-                id: key,
-                name: bucket.name,
-                categoryIDs: bucket.categoryIDs,
-                order: bucket.order
-            )
+            return (category, trimmedName, category.order ?? index)
         }
-        .sorted {
-            if $0.order != $1.order {
-                return $0.order < $1.order
+
+        let byID = Dictionary(uniqueKeysWithValues: visibleCategories.map { ($0.0.id, $0) })
+        let byParent = Dictionary(grouping: visibleCategories) { item in
+            item.0.parentId ?? ""
+        }
+        var result: [SnapshotCategoryGroup] = []
+
+        func descendantIDs(for categoryID: String) -> [String] {
+            var ids: [String] = []
+            for child in byParent[categoryID] ?? [] {
+                ids.append(child.0.id)
+                ids.append(contentsOf: descendantIDs(for: child.0.id))
+            }
+            return ids
+        }
+
+        func addBranch(_ item: (SnapshotCategory, String, Int), path: String) {
+            let children = (byParent[item.0.id] ?? [])
+                .sorted {
+                    if $0.2 != $1.2 {
+                        return $0.2 < $1.2
+                    }
+
+                    return $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending
+                }
+            result.append(SnapshotCategoryGroup(
+                id: item.0.id,
+                name: path,
+                categoryIDs: [item.0.id] + descendantIDs(for: item.0.id),
+                order: item.2
+            ))
+
+            for child in children {
+                addBranch(child, path: "\(path) / \(child.1)")
+            }
+        }
+
+        let roots = visibleCategories
+            .filter { item in
+                guard let parentId = item.0.parentId, !parentId.isEmpty else {
+                    return true
+                }
+
+                return byID[parentId] == nil
+            }
+            .sorted {
+                if $0.2 != $1.2 {
+                    return $0.2 < $1.2
+                }
+
+                return $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending
             }
 
-            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        for root in roots {
+            addBranch(root, path: root.1)
         }
+
+        return result
     }
 
     nonisolated private static func isSystemSettingsCategory(id: String, name: String) -> Bool {

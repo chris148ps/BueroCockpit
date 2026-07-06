@@ -33,6 +33,7 @@ public sealed class BueroRepository
             CREATE TABLE IF NOT EXISTS Categories (
                 Id TEXT PRIMARY KEY,
                 Name TEXT NOT NULL,
+                ParentId TEXT NULL,
                 SortOrder INTEGER NOT NULL,
                 SortMode TEXT NOT NULL DEFAULT 'Erstellt am',
                 Color TEXT NOT NULL,
@@ -159,6 +160,7 @@ public sealed class BueroRepository
             """);
 
         SeedDefaultCategories(connection);
+        EnsureDefaultCategoryTree(connection);
     }
 
     public List<CategoryItem> GetCategories()
@@ -166,10 +168,10 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, Name, SortOrder, SortMode, Color, IsVisible
+            SELECT Id, Name, ParentId, SortOrder, SortMode, Color, IsVisible
             FROM Categories
             WHERE IsVisible = 1
-            ORDER BY SortOrder, Name;
+            ORDER BY COALESCE(ParentId, ''), SortOrder, Name;
             """;
 
         using var reader = command.ExecuteReader();
@@ -180,10 +182,11 @@ public sealed class BueroRepository
             {
                 Id = reader.GetString(0),
                 Name = reader.GetString(1),
-                SortOrder = reader.GetInt32(2),
-                SortMode = reader.GetString(3),
-                Color = reader.GetString(4),
-                IsVisible = reader.GetInt32(5) == 1
+                ParentId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                SortOrder = reader.GetInt32(3),
+                SortMode = reader.GetString(4),
+                Color = reader.GetString(5),
+                IsVisible = reader.GetInt32(6) == 1
             });
         }
 
@@ -195,9 +198,9 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, Name, SortOrder, SortMode, Color, IsVisible
+            SELECT Id, Name, ParentId, SortOrder, SortMode, Color, IsVisible
             FROM Categories
-            ORDER BY SortOrder, Name;
+            ORDER BY COALESCE(ParentId, ''), SortOrder, Name;
             """;
 
         using var reader = command.ExecuteReader();
@@ -208,10 +211,11 @@ public sealed class BueroRepository
             {
                 Id = reader.GetString(0),
                 Name = reader.GetString(1),
-                SortOrder = reader.GetInt32(2),
-                SortMode = reader.GetString(3),
-                Color = reader.GetString(4),
-                IsVisible = reader.GetInt32(5) == 1
+                ParentId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                SortOrder = reader.GetInt32(3),
+                SortMode = reader.GetString(4),
+                Color = reader.GetString(5),
+                IsVisible = reader.GetInt32(6) == 1
             });
         }
 
@@ -270,10 +274,11 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO Categories (Id, Name, SortOrder, SortMode, Color, IsVisible)
-            VALUES ($id, $name, $sortOrder, $sortMode, $color, $isVisible)
+            INSERT INTO Categories (Id, Name, ParentId, SortOrder, SortMode, Color, IsVisible)
+            VALUES ($id, $name, $parentId, $sortOrder, $sortMode, $color, $isVisible)
             ON CONFLICT(Id) DO UPDATE SET
                 Name = excluded.Name,
+                ParentId = excluded.ParentId,
                 SortOrder = excluded.SortOrder,
                 SortMode = excluded.SortMode,
                 Color = excluded.Color,
@@ -281,6 +286,7 @@ public sealed class BueroRepository
             """;
         command.Parameters.AddWithValue("$id", category.Id);
         command.Parameters.AddWithValue("$name", category.Name);
+        command.Parameters.AddWithValue("$parentId", string.IsNullOrWhiteSpace(category.ParentId) ? DBNull.Value : category.ParentId);
         command.Parameters.AddWithValue("$sortOrder", category.SortOrder);
         command.Parameters.AddWithValue("$sortMode", category.SortMode);
         command.Parameters.AddWithValue("$color", category.Color);
@@ -1019,6 +1025,7 @@ public sealed class BueroRepository
     private static void MigrateSchema(SqliteConnection connection)
     {
         AddColumnIfMissing(connection, "Categories", "SortMode", "TEXT NOT NULL DEFAULT 'Erstellt am'");
+        AddColumnIfMissing(connection, "Categories", "ParentId", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "SentAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "MaterialOrderedAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
@@ -1084,35 +1091,141 @@ public sealed class BueroRepository
             return;
         }
 
-        var defaults = new[]
+        var defaults = new (string Name, string? ParentName)[]
         {
-            "Übersicht",
-            "Offene Aufgaben",
-            "Angebote erstellen",
-            "Angebote gesendet",
-            "Material bestellen",
-            "Terminieren",
-            "Terminiert",
-            "Wartet auf Kunde",
-            "Protokolle",
-            "Retoure / Rückgabe",
-            "Archiv"
+            ("Schreibtisch", null),
+            ("Offene Aufgaben", null),
+            ("Angebot", null),
+            ("erstellen", "Angebot"),
+            ("gesendet", "Angebot"),
+            ("Material", null),
+            ("bestellen", "Material"),
+            ("bestellt", "Material"),
+            ("Termin", null),
+            ("terminieren", "Termin"),
+            ("terminiert", "Termin"),
+            ("zum terminieren gegeben", "Termin"),
+            ("Firma", null),
+            ("Retouren", "Firma"),
+            ("Lager", "Firma"),
+            ("Netzbetreiber", null),
+            ("SH-Netz", "Netzbetreiber"),
+            ("Marktstammdatenregister", "Netzbetreiber"),
+            ("Wartet auf Kunde", null)
         };
 
+        var categoryIdsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < defaults.Length; i++)
         {
+            var id = Guid.NewGuid().ToString("N");
+            categoryIdsByName[defaults[i].Name] = id;
             using var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO Categories (Id, Name, SortOrder, SortMode, Color, IsVisible)
-                VALUES ($id, $name, $sortOrder, $sortMode, $color, 1);
+                INSERT INTO Categories (Id, Name, ParentId, SortOrder, SortMode, Color, IsVisible)
+                VALUES ($id, $name, $parentId, $sortOrder, $sortMode, $color, 1);
                 """;
-            command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            command.Parameters.AddWithValue("$name", defaults[i]);
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$name", defaults[i].Name);
+            object parentValue = defaults[i].ParentName is { } parentName &&
+                                 categoryIdsByName.TryGetValue(parentName, out var parentId)
+                ? parentId
+                : DBNull.Value;
+            command.Parameters.AddWithValue("$parentId", parentValue);
             command.Parameters.AddWithValue("$sortOrder", i);
             command.Parameters.AddWithValue("$sortMode", "Erstellt am");
             command.Parameters.AddWithValue("$color", i == 0 ? "#E9EEF7" : "#F2F3F5");
             command.ExecuteNonQuery();
         }
+    }
+
+    private static void EnsureDefaultCategoryTree(SqliteConnection connection)
+    {
+        var roots = new[]
+        {
+            "Offene Aufgaben",
+            "Angebot",
+            "Material",
+            "Termin",
+            "Firma",
+            "Netzbetreiber",
+            "Wartet auf Kunde"
+        };
+
+        var rootIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < roots.Length; i++)
+        {
+            rootIds[roots[i]] = EnsureCategory(connection, roots[i], null, i + 1);
+        }
+
+        EnsureCategory(connection, "erstellen", rootIds["Angebot"], 0, "Angebote erstellen");
+        EnsureCategory(connection, "gesendet", rootIds["Angebot"], 1, "Angebote gesendet");
+        EnsureCategory(connection, "bestellen", rootIds["Material"], 0, "Material bestellen");
+        EnsureCategory(connection, "bestellt", rootIds["Material"], 1);
+        EnsureCategory(connection, "terminieren", rootIds["Termin"], 0, "Terminieren");
+        EnsureCategory(connection, "terminiert", rootIds["Termin"], 1, "Terminiert");
+        EnsureCategory(connection, "zum terminieren gegeben", rootIds["Termin"], 2);
+        EnsureCategory(connection, "Retouren", rootIds["Firma"], 0, "Retoure / Rückgabe");
+        EnsureCategory(connection, "Lager", rootIds["Firma"], 1);
+        EnsureCategory(connection, "SH-Netz", rootIds["Netzbetreiber"], 0);
+        EnsureCategory(connection, "Marktstammdatenregister", rootIds["Netzbetreiber"], 1);
+    }
+
+    private static string EnsureCategory(SqliteConnection connection, string name, string? parentId, int sortOrder, params string[] legacyNames)
+    {
+        var existing = FindCategoryIdByNames(connection, legacyNames.Prepend(name));
+        if (!string.IsNullOrWhiteSpace(existing))
+        {
+            using var updateCommand = connection.CreateCommand();
+            updateCommand.CommandText = """
+                UPDATE Categories
+                SET Name = $name,
+                    ParentId = $parentId,
+                    SortOrder = $sortOrder,
+                    IsVisible = 1
+                WHERE Id = $id;
+                """;
+            updateCommand.Parameters.AddWithValue("$id", existing);
+            updateCommand.Parameters.AddWithValue("$name", name);
+            updateCommand.Parameters.AddWithValue("$parentId", string.IsNullOrWhiteSpace(parentId) ? DBNull.Value : parentId);
+            updateCommand.Parameters.AddWithValue("$sortOrder", sortOrder);
+            updateCommand.ExecuteNonQuery();
+            return existing;
+        }
+
+        var id = Guid.NewGuid().ToString("N");
+        using var insertCommand = connection.CreateCommand();
+        insertCommand.CommandText = """
+            INSERT INTO Categories (Id, Name, ParentId, SortOrder, SortMode, Color, IsVisible)
+            VALUES ($id, $name, $parentId, $sortOrder, 'Erstellt am', '#F2F3F5', 1);
+            """;
+        insertCommand.Parameters.AddWithValue("$id", id);
+        insertCommand.Parameters.AddWithValue("$name", name);
+        insertCommand.Parameters.AddWithValue("$parentId", string.IsNullOrWhiteSpace(parentId) ? DBNull.Value : parentId);
+        insertCommand.Parameters.AddWithValue("$sortOrder", sortOrder);
+        insertCommand.ExecuteNonQuery();
+        return id;
+    }
+
+    private static string? FindCategoryIdByNames(SqliteConnection connection, IEnumerable<string> names)
+    {
+        foreach (var name in names)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT Id
+                FROM Categories
+                WHERE lower(trim(Name)) = lower(trim($name))
+                LIMIT 1;
+                """;
+            command.Parameters.AddWithValue("$name", name);
+            var result = command.ExecuteScalar() as string;
+            if (!string.IsNullOrWhiteSpace(result))
+            {
+                return result;
+            }
+        }
+
+        return null;
     }
 
 

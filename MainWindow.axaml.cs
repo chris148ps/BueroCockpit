@@ -226,6 +226,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<CategoryItem> Categories { get; } = new();
+    public ObservableCollection<CategoryItem> SidebarCategories { get; } = new();
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
     public ObservableCollection<TaskCategorySelection> TaskCategorySelections { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
@@ -635,7 +636,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
-    public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible && !IsTrashSelected && !IsMobileInboxSelected;
+    public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible &&
+                                                   !IsTrashSelected &&
+                                                   !IsMobileInboxSelected &&
+                                                   SelectedCategory is not null &&
+                                                   !IsArchiveCategory(SelectedCategory);
+    public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
     public MobileInboxEntry? SelectedMobileInboxEntry =>
         SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
     public bool HasMobileInboxPhotoPreviews => MobileInboxPhotoPreviews.Count > 0;
@@ -1654,6 +1660,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return propertyName is
             nameof(CategoryItem.Name) or
+            nameof(CategoryItem.ParentId) or
             nameof(CategoryItem.SortOrder) or
             nameof(CategoryItem.Color) or
             nameof(CategoryItem.IsVisible);
@@ -2633,7 +2640,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Categories.Clear();
             Categories.Add(CreateOverviewCategory());
             Categories.Add(CreateDeskCategory());
-            Categories.Add(CreateMobileInboxCategory());
             foreach (var category in _repository.GetCategories())
             {
                 if (IsSpecialCategory(category) ||
@@ -2650,6 +2656,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             Categories.Add(CreateTrashCategory());
             Categories.Add(CreateSettingsCategory());
+            RebuildCategoryTreeViews();
             RefreshTaskCategories();
 
             AllTasks.Clear();
@@ -2726,7 +2733,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? AllTasks.Where(t => !t.IsDeleted)
                     : IsTrashSelected
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
-                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)));
+                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategoryOrDescendant(t, selected)));
             }
             else
             {
@@ -3680,12 +3687,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             else
             {
-                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id));
+                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategoryOrDescendant(task, category));
             }
         }
 
         OnPropertyChanged(nameof(HasTrashItems));
         OnPropertyChanged(nameof(IsTrashEmpty));
+        OnPropertyChanged(nameof(HasArchiveCategory));
     }
 
     private void LoadDeskItems()
@@ -5894,6 +5902,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RemoveCategory(SelectedCategory);
     }
 
+    private void OpenArchiveCategory_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var archiveCategory = Categories.FirstOrDefault(IsArchiveCategory);
+        if (archiveCategory is null)
+        {
+            CategoryMessage = "Archiv-Kategorie wurde nicht gefunden.";
+            return;
+        }
+
+        SelectedCategory = archiveCategory;
+        ApplySelectedCategoryContent();
+    }
+
     private void RemoveCategory(CategoryItem category)
     {
         if (IsSpecialCategory(category))
@@ -5925,6 +5946,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshCategoryDependentViews()
     {
+        RebuildCategoryTreeViews();
         RefreshTaskCategories();
         foreach (var task in AllTasks)
         {
@@ -5932,6 +5954,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         RefreshGlobalSearchResults();
+    }
+
+    private void ToggleCategoryExpanded_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: CategoryItem category } || !category.HasChildren)
+        {
+            return;
+        }
+
+        category.IsExpanded = !category.IsExpanded;
+        RebuildCategoryTreeViews();
     }
 
     private async void DuplicateTask_OnClick(object? sender, RoutedEventArgs e)
@@ -9493,7 +9526,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshTaskCategories()
     {
         TaskCategories.Clear();
-        foreach (var category in Categories.Where(IsSelectableTaskCategory))
+        foreach (var category in GetOrderedTaskCategories())
         {
             TaskCategories.Add(category);
         }
@@ -9516,6 +9549,100 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 category,
                 TaskBelongsToCategory(SelectedTask, category.Id)));
         }
+    }
+
+    private void RebuildCategoryTreeViews()
+    {
+        var normalCategories = Categories
+            .Where(category => !IsSpecialCategory(category) && !IsLegacyMobileApprovalCategory(category.Name))
+            .ToList();
+        var byParent = normalCategories
+            .GroupBy(category => category.ParentId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(category => category.SortOrder)
+                    .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var ordered = new List<CategoryItem>();
+        void AddBranch(CategoryItem category, int level, string path)
+        {
+            PrepareCategoryDisplay(category, level, string.IsNullOrWhiteSpace(path) ? category.Name : path, byParent.ContainsKey(category.Id));
+            ordered.Add(category);
+
+            if (!category.HasChildren || !category.IsExpanded)
+            {
+                return;
+            }
+
+            foreach (var child in byParent[category.Id])
+            {
+                AddBranch(child, level + 1, $"{category.SelectionName} / {child.Name}");
+            }
+        }
+
+        var rootCategories = normalCategories
+            .Where(category => string.IsNullOrWhiteSpace(category.ParentId) || !normalCategories.Any(parent => string.Equals(parent.Id, category.ParentId, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        foreach (var category in rootCategories)
+        {
+            AddBranch(category, 0, category.Name);
+        }
+
+        SidebarCategories.Clear();
+        foreach (var category in Categories.Where(category => category.Id == OverviewCategoryId || category.Id == DeskCategoryId))
+        {
+            PrepareCategoryDisplay(category, 0, category.Name, hasChildren: false);
+            SidebarCategories.Add(category);
+        }
+
+        foreach (var category in ordered.Where(category => !IsArchiveCategory(category)))
+        {
+            SidebarCategories.Add(category);
+        }
+
+        foreach (var category in Categories.Where(category => category.Id == SettingsCategoryId))
+        {
+            PrepareCategoryDisplay(category, 0, category.Name, hasChildren: false);
+            SidebarCategories.Add(category);
+        }
+    }
+
+    private static void PrepareCategoryDisplay(CategoryItem category, int level, string selectionName, bool hasChildren)
+    {
+        category.Level = level;
+        category.DisplayName = category.Name;
+        category.SelectionName = selectionName;
+        category.HasChildren = hasChildren;
+    }
+
+    private IEnumerable<CategoryItem> GetOrderedTaskCategories()
+    {
+        return Categories
+            .Where(IsSelectableTaskCategory)
+            .OrderBy(category => category.ParentId is null ? category.SortOrder : GetRootSortOrder(category))
+            .ThenBy(category => category.SelectionName, StringComparer.CurrentCultureIgnoreCase);
+    }
+
+    private int GetRootSortOrder(CategoryItem category)
+    {
+        var current = category;
+        while (!string.IsNullOrWhiteSpace(current.ParentId))
+        {
+            var parent = Categories.FirstOrDefault(item => string.Equals(item.Id, current.ParentId, StringComparison.OrdinalIgnoreCase));
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent;
+        }
+
+        return current.SortOrder;
     }
 
     private static bool EnsureTaskCategoryState(TaskItem task)
@@ -9680,6 +9807,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return GetTaskCategoryIds(task).Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
     }
 
+    private bool TaskBelongsToCategoryOrDescendant(TaskItem task, CategoryItem category)
+    {
+        if (TaskBelongsToCategory(task, category.Id))
+        {
+            return true;
+        }
+
+        var descendantIds = GetDescendantCategoryIds(category.Id);
+        return descendantIds.Count > 0 && GetTaskCategoryIds(task).Any(descendantIds.Contains);
+    }
+
+    private HashSet<string> GetDescendantCategoryIds(string categoryId)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Queue<string>();
+        pending.Enqueue(categoryId);
+
+        while (pending.Count > 0)
+        {
+            var currentId = pending.Dequeue();
+            foreach (var child in Categories.Where(category => string.Equals(category.ParentId, currentId, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (result.Add(child.Id))
+                {
+                    pending.Enqueue(child.Id);
+                }
+            }
+        }
+
+        return result;
+    }
+
     private static List<string> GetTaskCategoryIds(TaskItem task)
     {
         var categoryIds = new List<string>();
@@ -9721,7 +9880,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool IsSelectableTaskCategory(CategoryItem category)
     {
         return !IsSpecialCategory(category) &&
+               !IsArchiveCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name);
+    }
+
+    private static bool IsArchiveCategory(CategoryItem category)
+    {
+        return string.Equals(category.Name?.Trim(), "Archiv", StringComparison.OrdinalIgnoreCase);
     }
 
     private void LoadMobileInboxEntries()
@@ -11441,7 +11606,7 @@ public sealed class TaskCategorySelection
     }
 
     public CategoryItem Category { get; }
-    public string Name => Category.Name;
+    public string Name => string.IsNullOrWhiteSpace(Category.SelectionName) ? Category.Name : Category.SelectionName;
     public bool IsSelected { get; set; }
 }
 

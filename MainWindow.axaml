@@ -400,7 +400,7 @@
 
         <ListBox x:Name="CategoryList"
                  HorizontalAlignment="Stretch"
-                 ItemsSource="{Binding Categories}"
+                 ItemsSource="{Binding SidebarCategories}"
                  SelectedItem="{Binding SelectedCategory}"
                  SelectionChanged="CategoryList_OnSelectionChanged">
           <ListBox.ItemTemplate>
@@ -418,12 +418,22 @@
                     <MenuItem Header="Löschen" Click="CategoryDeleteFromMenu_OnClick" />
                   </ContextMenu>
                 </Border.ContextMenu>
-                <Grid ColumnDefinitions="*,Auto" MinWidth="200">
-                  <TextBlock Text="{Binding Name}"
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" MinWidth="200" ColumnSpacing="6">
+                  <Border Width="{Binding SidebarIndent}" />
+                  <Button Grid.Column="1"
+                          Width="22"
+                          Height="22"
+                          MinWidth="22"
+                          MinHeight="22"
+                          Padding="0"
+                          Content="{Binding ExpandGlyph}"
+                          Click="ToggleCategoryExpanded_OnClick" />
+                  <TextBlock Grid.Column="2"
+                             Text="{Binding DisplayName}"
                              FontWeight="SemiBold"
                              TextTrimming="CharacterEllipsis"
                              VerticalAlignment="Center" />
-                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
+                  <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
                     <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
                 </Grid>
@@ -1325,7 +1335,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="10" IsVisible="{Binding IsSettingsCategoriesOpen}">
-                <TextBlock Text="Hier werden Kategorien angelegt und verwaltet."
+                <TextBlock Text="Hier werden Kategorien als Baum angelegt und verwaltet. Drag &amp; Drop fuer Reihenfolge und Unterkategorien folgt in einem separaten Schritt."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap"
                            Margin="0,4,0,8" />
@@ -1341,12 +1351,20 @@
                            FontSize="12"
                            TextWrapping="Wrap"
                            Margin="0,6,0,0" />
+                <Button Content="Archiv öffnen"
+                        Classes="Secondary"
+                        HorizontalAlignment="Left"
+                        IsVisible="{Binding HasArchiveCategory}"
+                        Click="OpenArchiveCategory_OnClick" />
                 <ItemsControl ItemsSource="{Binding TaskCategories}" Margin="0,8,0,0">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                          <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                            <Border Width="{Binding SelectionIndent}" />
+                            <TextBlock Text="{Binding SelectionName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
                           <Button Grid.Column="1" Content="Umbenennen" Classes="Secondary" Click="CategoryRenameFromSettings_OnClick" />
                           <Button Grid.Column="2" Content="Entfernen" Classes="Secondary" Click="CategoryRemoveFromSettings_OnClick" />
                         </Grid>

@@ -80,7 +80,7 @@ final class SnapshotReader: @unchecked Sendable {
                 return nil
             }
 
-            return SnapshotCategory(id: id, name: name, order: raw.order ?? index)
+            return SnapshotCategory(id: id, name: name, order: raw.order ?? index, parentId: raw.parentId)
         }
 
         let tasks: [SnapshotTask] = rawTasks.enumerated().compactMap { index, raw -> SnapshotTask? in
@@ -159,7 +159,7 @@ final class SnapshotReader: @unchecked Sendable {
                     return nil
                 }
 
-                return SnapshotCategory(id: id, name: name, order: raw.order ?? index)
+                return SnapshotCategory(id: id, name: name, order: raw.order ?? index, parentId: raw.parentId)
             }
 
             let tasks: [SnapshotTask] = rawTasks.enumerated().compactMap { index, raw -> SnapshotTask? in
@@ -565,6 +565,7 @@ private struct RawCategory: Decodable {
     let id: String?
     let name: String?
     let order: Int?
+    let parentId: String?
 }
 
 private struct RawTask: Decodable {

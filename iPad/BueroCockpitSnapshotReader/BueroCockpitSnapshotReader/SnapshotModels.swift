@@ -13,6 +13,7 @@ struct SnapshotCategory: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let order: Int?
+    let parentId: String?
 }
 
 struct SnapshotCategoryGroup: Identifiable, Equatable, Sendable {
