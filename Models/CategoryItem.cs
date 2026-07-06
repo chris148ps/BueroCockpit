@@ -84,7 +84,7 @@ public sealed class CategoryItem : ObservableObject
         }
     }
 
-    public string SidebarBorderBrush => IsDropInside ? "#1D4ED8" : IsSelected ? "#111827" : "Transparent";
+    public string SidebarBorderBrush => IsDropInside ? "#1D4ED8" : "#000000";
 }
 
 public enum CategoryDropVisualState
