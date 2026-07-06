@@ -52,6 +52,7 @@ public sealed class CategoryItem : ObservableObject
     public bool IsChildCategory => !string.IsNullOrWhiteSpace(ParentId);
     public int SidebarIndent => Math.Clamp(Level, 0, 4) * 16;
     public int SelectionIndent => Math.Clamp(Level, 0, 4) * 18;
+    public Avalonia.Thickness DropLineMargin => new(SidebarIndent + 20, 0, 10, 0);
     public string ExpandGlyph => HasChildren ? (IsExpanded ? "▾" : "▸") : string.Empty;
     public CategoryDropVisualState DropVisualState
     {
@@ -63,7 +64,6 @@ public sealed class CategoryItem : ObservableObject
                 OnPropertyChanged(nameof(IsDropBefore));
                 OnPropertyChanged(nameof(IsDropInside));
                 OnPropertyChanged(nameof(IsDropAfter));
-                OnPropertyChanged(nameof(SidebarBackground));
                 OnPropertyChanged(nameof(SidebarBorderBrush));
             }
         }
@@ -79,14 +79,12 @@ public sealed class CategoryItem : ObservableObject
         {
             if (SetProperty(ref _isSelected, value))
             {
-                OnPropertyChanged(nameof(SidebarBackground));
                 OnPropertyChanged(nameof(SidebarBorderBrush));
             }
         }
     }
 
-    public string SidebarBackground => IsDropInside ? "#EAF2FF" : IsSelected ? "#DDEBFF" : Color;
-    public string SidebarBorderBrush => IsDropInside ? "#2563EB" : IsSelected ? "#8DBEFF" : "Transparent";
+    public string SidebarBorderBrush => IsDropInside ? "#1D4ED8" : IsSelected ? "#111827" : "#D6DDE8";
 }
 
 public enum CategoryDropVisualState

@@ -288,10 +288,15 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.CategoryDropLine">
-      <Setter Property="Height" Value="3" />
+      <Setter Property="Height" Value="2" />
       <Setter Property="CornerRadius" Value="2" />
-      <Setter Property="Background" Value="#2563EB" />
-      <Setter Property="Margin" Value="12,0,12,0" />
+      <Setter Property="Background" Value="#1D4ED8" />
+    </Style>
+    <Style Selector="Border.CategoryDropInside">
+      <Setter Property="Background" Value="#1D4ED810" />
+      <Setter Property="BorderBrush" Value="#1D4ED8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="7" />
     </Style>
     <Style Selector="Border.Card">
       <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
@@ -377,11 +382,23 @@
               DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
               DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
               DragDrop.Drop="CategoryRootDropZone_OnDrop">
-          <TextBlock Grid.Column="0"
-                     Text="Kategorien"
-                     FontWeight="SemiBold"
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     VerticalAlignment="Center" />
+          <Border BorderBrush="{Binding CategoryRootDropBorderBrush}"
+                  BorderThickness="0,0,0,2"
+                  Padding="0,0,0,4">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0"
+                         Text="Kategorien"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="als Hauptkategorie"
+                         FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         IsVisible="{Binding IsCategoryRootDropTarget}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </Border>
         </Grid>
 
         <ListBox x:Name="CategoryList"
@@ -398,7 +415,7 @@
                       HorizontalAlignment="Stretch"
                       CornerRadius="9"
                       Padding="10,9"
-                      Background="{Binding SidebarBackground}"
+                      Background="{DynamicResource SurfaceElevatedBrush}"
                       BorderBrush="{Binding SidebarBorderBrush}"
                       BorderThickness="1"
                       DragDrop.AllowDrop="True"
@@ -416,15 +433,14 @@
                 </Border.ContextMenu>
                 <Grid MinWidth="200">
                   <Border Classes="CategoryDropLine"
+                          Margin="{Binding DropLineMargin}"
                           VerticalAlignment="Top"
                           IsVisible="{Binding IsDropBefore}" />
                   <Border Classes="CategoryDropLine"
+                          Margin="{Binding DropLineMargin}"
                           VerticalAlignment="Bottom"
                           IsVisible="{Binding IsDropAfter}" />
-                  <Border Background="#2B6FDB18"
-                          BorderBrush="#2563EB"
-                          BorderThickness="1.5"
-                          CornerRadius="7"
+                  <Border Classes="CategoryDropInside"
                           IsVisible="{Binding IsDropInside}" />
                   <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                     <Border Width="{Binding SidebarIndent}" />
@@ -1361,6 +1377,7 @@
                         Margin="0,8,0,0"
                         Padding="10"
                         Background="{Binding CategoryRootDropBackground}"
+                        BorderBrush="{Binding CategoryRootDropBorderBrush}"
                         DragDrop.AllowDrop="True"
                         DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
                         DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
@@ -1382,13 +1399,25 @@
                               DragDrop.Drop="CategorySettingsItem_OnDrop"
                               PointerPressed="CategorySettingsItem_OnPointerPressed"
                               PointerMoved="CategorySettingsItem_OnPointerMoved">
-                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
-                            <Border Width="{Binding SelectionIndent}" />
-                            <TextBlock Text="{Binding SelectionName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                          </StackPanel>
-                          <Button Grid.Column="1" Content="Umbenennen" Classes="Secondary" Click="CategoryRenameFromSettings_OnClick" />
-                          <Button Grid.Column="2" Content="Entfernen" Classes="Secondary" Click="CategoryRemoveFromSettings_OnClick" />
+                        <Grid>
+                          <Border Classes="CategoryDropLine"
+                                  Margin="{Binding DropLineMargin}"
+                                  VerticalAlignment="Top"
+                                  IsVisible="{Binding IsDropBefore}" />
+                          <Border Classes="CategoryDropLine"
+                                  Margin="{Binding DropLineMargin}"
+                                  VerticalAlignment="Bottom"
+                                  IsVisible="{Binding IsDropAfter}" />
+                          <Border Classes="CategoryDropInside"
+                                  IsVisible="{Binding IsDropInside}" />
+                          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                              <Border Width="{Binding SelectionIndent}" />
+                              <TextBlock Text="{Binding SelectionName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Umbenennen" Classes="Secondary" Click="CategoryRenameFromSettings_OnClick" />
+                            <Button Grid.Column="2" Content="Entfernen" Classes="Secondary" Click="CategoryRemoveFromSettings_OnClick" />
+                          </Grid>
                         </Grid>
                       </Border>
                     </DataTemplate>

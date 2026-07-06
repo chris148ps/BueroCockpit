@@ -658,7 +658,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                                    SelectedCategory is not null &&
                                                    IsSelectableTaskCategory(SelectedCategory);
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
-    public string CategoryRootDropBackground => _isCategoryRootDropTarget ? "#EAF2FF" : "Transparent";
+    public bool IsCategoryRootDropTarget => _isCategoryRootDropTarget;
+    public string CategoryRootDropBackground => _isCategoryRootDropTarget ? "#1D4ED80D" : "Transparent";
+    public string CategoryRootDropBorderBrush => _isCategoryRootDropTarget ? "#1D4ED8" : "Transparent";
     public MobileInboxEntry? SelectedMobileInboxEntry =>
         SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
     public bool HasMobileInboxPhotoPreviews => MobileInboxPhotoPreviews.Count > 0;
@@ -6114,7 +6116,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _isCategoryRootDropTarget = isDropTarget;
+        OnPropertyChanged(nameof(IsCategoryRootDropTarget));
         OnPropertyChanged(nameof(CategoryRootDropBackground));
+        OnPropertyChanged(nameof(CategoryRootDropBorderBrush));
     }
 
     private void ClearCategoryItemDropVisual()
