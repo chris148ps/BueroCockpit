@@ -61,7 +61,9 @@ public sealed class TaskItem : ObservableObject
             if (SetProperty(ref _dueDate, value))
             {
                 OnPropertyChanged(nameof(DueDateText));
+                OnPropertyChanged(nameof(DueDateCompactText));
                 OnPropertyChanged(nameof(DueDateOverviewText));
+                OnPropertyChanged(nameof(HasDueDate));
             }
         }
     }
@@ -150,6 +152,11 @@ public sealed class TaskItem : ObservableObject
     }
 
     public string DueDateText => DueDate?.ToString("dd.MM.yyyy") ?? "-";
+    public string DueDateCompactText => DueDate is null
+        ? string.Empty
+        : DueDate.Value.TimeOfDay == TimeSpan.Zero
+            ? DueDate.Value.ToString("dd.MM.yyyy")
+            : DueDate.Value.ToString("dd.MM.yyyy HH:mm");
     public string DueDateOverviewText => DueDate is null
         ? "-"
         : DueDate.Value.TimeOfDay == TimeSpan.Zero
@@ -158,6 +165,7 @@ public sealed class TaskItem : ObservableObject
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
     public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
     public string MaterialOrderedAtText => MaterialOrderedAt?.ToString("dd.MM.yyyy") ?? "-";
+    public bool HasDueDate => DueDate.HasValue;
     public bool HasFollowUpDate => FollowUpDate.HasValue;
     public bool IsFollowUpOverdue => FollowUpDate.HasValue && FollowUpDate.Value.Date < DateTime.Today;
     public bool HasTechnician => !string.IsNullOrWhiteSpace(Technician);

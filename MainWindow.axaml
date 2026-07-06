@@ -674,6 +674,10 @@
                                        Foreground="#D1D1D6"
                                        FontSize="12" />
                           </Grid>
+                          <TextBlock Text="{Binding DueDateCompactText, StringFormat='Termin: {0}'}"
+                                     IsVisible="{Binding HasDueDate}"
+                                     Foreground="#D1D1D6"
+                                     FontSize="12" />
                         </StackPanel>
                       </Border>
                     </DataTemplate>
