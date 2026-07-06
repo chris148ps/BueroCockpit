@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 
 struct MobilePhotoDraftsView: View {
     let store: MobilePhotoDraftStore
@@ -8,6 +9,8 @@ struct MobilePhotoDraftsView: View {
 
     @State private var collection = MobilePhotoDraftCollection()
     @State private var statusMessage: String?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isImportingPhoto = false
 
     var body: some View {
         NavigationStack {
@@ -22,11 +25,25 @@ struct MobilePhotoDraftsView: View {
                 }
 
                 Section {
+                    PhotosPicker(
+                        selection: $selectedPhotoItem,
+                        matching: .images
+                    ) {
+                        Label("Foto auswählen", systemImage: "photo.on.rectangle")
+                    }
+                    .disabled(isImportingPhoto)
+
+                    if isImportingPhoto {
+                        ProgressView("Foto wird lokal gespeichert ...")
+                    }
+                }
+
+                Section {
                     if collection.drafts.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Label("Noch keine Foto-Entwürfe", systemImage: "photo.on.rectangle.angled")
                                 .font(.headline)
-                            Text("Der Foto-Modus speichert aktuell nur lokale Entwürfe. Es wird noch kein Foto aufgenommen, importiert oder übertragen.")
+                            Text("Der Foto-Modus speichert ausgewählte Bilder nur lokal auf diesem iPad. Es wird noch nichts übertragen oder einem Auftrag zugeordnet.")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -64,32 +81,107 @@ struct MobilePhotoDraftsView: View {
                 }
             }
             .onAppear(perform: loadDrafts)
+            .onChange(of: selectedPhotoItem) { _, item in
+                guard let item else { return }
+                importPhoto(item)
+            }
         }
     }
 
     private func draftRow(_ draft: MobilePhotoDraft) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(draftTitle(for: draft))
-                .font(.headline)
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .top, spacing: 12) {
+            thumbnailView(for: draft)
 
-            Text(draftMetadata(for: draft))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(draftTitle(for: draft))
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            if let note = draft.note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text(note)
-                    .font(.callout)
+                Text(draftMetadata(for: draft))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let note = draft.note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(note)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .padding(.vertical, 4)
     }
 
+    @ViewBuilder
+    private func thumbnailView(for draft: MobilePhotoDraft) -> some View {
+        if let image = thumbnailImage(for: draft) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "photo")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+                .frame(width: 64, height: 64)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func thumbnailImage(for draft: MobilePhotoDraft) -> UIImage? {
+        if let thumbnailPath = draft.thumbnailPath,
+           let image = UIImage(contentsOfFile: thumbnailPath) {
+            return image
+        }
+
+        if let imagePath = draft.localImagePath ?? draft.originalLocalPath {
+            return UIImage(contentsOfFile: imagePath)
+        }
+
+        return nil
+    }
+
     private func loadDrafts() {
         collection = store.load()
+    }
+
+    private func importPhoto(_ item: PhotosPickerItem) {
+        Task {
+            await importPhotoAsync(item)
+        }
+    }
+
+    @MainActor
+    private func importPhotoAsync(_ item: PhotosPickerItem) async {
+        isImportingPhoto = true
+        statusMessage = nil
+        defer {
+            isImportingPhoto = false
+            selectedPhotoItem = nil
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
+                statusMessage = "Das ausgewählte Foto konnte nicht gelesen werden."
+                return
+            }
+
+            collection = try store.importPhotoDraft(
+                imageData: data,
+                originalFilename: nil,
+                sourceDevice: UIDevice.current.name,
+                source: .photoLibrary
+            )
+            statusMessage = "Foto lokal als Entwurf gespeichert."
+            onDraftsChanged()
+        } catch {
+            statusMessage = "Foto konnte nicht gespeichert werden: \(error.localizedDescription)"
+        }
     }
 
     private func createTestDraft() {
@@ -106,6 +198,9 @@ struct MobilePhotoDraftsView: View {
         if let linkedTaskId = draft.linkedTaskId?.trimmingCharacters(in: .whitespacesAndNewlines), !linkedTaskId.isEmpty {
             return "Entwurf für Auftrag \(linkedTaskId)"
         }
+        if let originalFilename = draft.originalFilename?.trimmingCharacters(in: .whitespacesAndNewlines), !originalFilename.isEmpty {
+            return originalFilename
+        }
         return "Freier Foto-Entwurf"
     }
 
@@ -121,6 +216,8 @@ struct MobilePhotoDraftsView: View {
         switch source {
         case .iPadCamera:
             return "iPad-Kamera"
+        case .photoLibrary:
+            return "Fotoauswahl"
         case .iPhoneImport:
             return "iPhone-Import"
         case .shareExtension:
