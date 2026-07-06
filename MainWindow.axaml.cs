@@ -61,6 +61,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string DeskItemTypeFile = "File";
     private const string DeskItemTypePdf = "Pdf";
     private const string DeskItemTypeImage = "Image";
+    private const string CategoryDragTextPrefix = "buerocockpit-category:";
     private static readonly DataFormat<string> CategoryDragDataFormat =
         DataFormat.CreateInProcessFormat<string>("buerocockpit-category-id");
     private static readonly HashSet<string> DeskImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -2748,7 +2749,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? AllTasks.Where(t => !t.IsDeleted)
                     : IsTrashSelected
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
-                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)));
+                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToSelectedCategory(t, selected)));
             }
             else
             {
@@ -3706,7 +3707,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             else
             {
-                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id));
+                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToSelectedCategory(task, category));
             }
         }
 
@@ -5950,12 +5951,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var category = _categoryDragCandidate;
+        var dragData = CreateCategoryDragData(category);
+        if (dragData is null)
+        {
+            _categoryDragCandidate = null;
+            _categoryDragStartEvent = null;
+            return;
+        }
+
         _isDraggingCategory = true;
         try
         {
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.Create(CategoryDragDataFormat, category.Id));
-            await DragDrop.DoDragDropAsync(_categoryDragStartEvent, data, DragDropEffects.Move);
+            await DragDrop.DoDragDropAsync(_categoryDragStartEvent, dragData, DragDropEffects.Move);
         }
         finally
         {
@@ -5977,8 +5984,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategorySettingsItem_OnDrop(object? sender, DragEventArgs e)
     {
-        if (!TryGetDraggedCategory(e, out var dragged) ||
-            sender is not Control { DataContext: CategoryItem target } ||
+        if (!TryGetDraggedCategory(e, out var dragged))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (sender is not Control { DataContext: CategoryItem target } ||
             !CanDropCategoryOnTarget(dragged, target))
         {
             CategoryMessage = "Kategorie konnte nicht verschoben werden.";
@@ -6018,9 +6030,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategoryRootDropZone_OnDrop(object? sender, DragEventArgs e)
     {
-        if (!TryGetDraggedCategory(e, out var dragged) || !CanMoveCategoryToRoot(dragged))
+        if (!TryGetDraggedCategory(e, out var dragged))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (!CanMoveCategoryToRoot(dragged))
         {
             CategoryMessage = "Kategorie konnte nicht zur Hauptkategorie gemacht werden.";
+            e.Handled = true;
             return;
         }
 
@@ -6031,7 +6050,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool TryGetDraggedCategory(DragEventArgs e, out CategoryItem category)
     {
         category = null!;
-        var categoryId = e.DataTransfer.TryGetValue(CategoryDragDataFormat);
+        var categoryId = TryGetDraggedCategoryId(e.DataTransfer);
         if (string.IsNullOrWhiteSpace(categoryId))
         {
             return false;
@@ -6039,6 +6058,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         category = Categories.FirstOrDefault(item => string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase))!;
         return category is not null && CanDragCategory(category);
+    }
+
+    private static DataTransfer? CreateCategoryDragData(CategoryItem category)
+    {
+        if (!CanDragCategory(category))
+        {
+            return null;
+        }
+
+        var categoryId = category.Id.Trim();
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return null;
+        }
+
+        var item = new DataTransferItem();
+        item.Set(CategoryDragDataFormat, categoryId);
+        item.SetText($"{CategoryDragTextPrefix}{categoryId}");
+
+        var data = new DataTransfer();
+        data.Add(item);
+        return data.Items.Count > 0 ? data : null;
+    }
+
+    private static string? TryGetDraggedCategoryId(IDataTransfer dataTransfer)
+    {
+        var categoryId = dataTransfer.TryGetValue(CategoryDragDataFormat);
+        if (!string.IsNullOrWhiteSpace(categoryId))
+        {
+            return categoryId.Trim();
+        }
+
+        var text = dataTransfer.TryGetText();
+        if (string.IsNullOrWhiteSpace(text) ||
+            !text.StartsWith(CategoryDragTextPrefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        categoryId = text[CategoryDragTextPrefix.Length..].Trim();
+        return string.IsNullOrWhiteSpace(categoryId) ? null : categoryId;
     }
 
     private static bool CanDragCategory(CategoryItem category)
@@ -6445,8 +6505,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        category.IsExpanded = !category.IsExpanded;
-        RebuildCategoryTreeViews();
+        var selectedCategory = SelectedCategory;
+        var wasSuppressingCategorySelection = _suppressCategorySelectionChanged;
+
+        _suppressCategorySelectionChanged = true;
+        try
+        {
+            category.IsExpanded = !category.IsExpanded;
+            RebuildCategoryTreeViews();
+
+            if (selectedCategory is not null && SidebarCategories.Contains(selectedCategory))
+            {
+                SelectedCategory = selectedCategory;
+                if (CategoryList is not null)
+                {
+                    CategoryList.SelectedItem = selectedCategory;
+                }
+            }
+        }
+        finally
+        {
+            _suppressCategorySelectionChanged = wasSuppressingCategorySelection;
+        }
+
+        ApplySelectedCategoryContent();
     }
 
     private async void DuplicateTask_OnClick(object? sender, RoutedEventArgs e)
@@ -10292,6 +10374,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return GetTaskCategoryIds(task).Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool TaskBelongsToSelectedCategory(TaskItem task, CategoryItem category)
+    {
+        if (!TaskBelongsToCategory(task, category.Id))
+        {
+            return false;
+        }
+
+        var descendantIds = GetDescendantCategoryIds(category.Id);
+        return descendantIds.Count == 0 || !GetTaskCategoryIds(task).Any(descendantIds.Contains);
     }
 
     private bool TaskBelongsToCategoryOrDescendant(TaskItem task, CategoryItem category)
