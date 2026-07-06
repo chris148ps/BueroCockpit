@@ -10,6 +10,11 @@ Vor jeder Codex-Aufgabe immer zuerst lesen:
     sed -n '1,220p' AGENTS.md
     sed -n '1,260p' docs/CODEX_PROJEKTREGELN.md
 
+Vor UI-Aenderungen zusaetzlich lesen und einhalten:
+
+    cd "$HOME/AppProjekte/BueroCockpit"
+    sed -n '1,240p' docs/DESIGN_RICHTLINIEN.md
+
 Kurzregeln:
 
 - Sprache: Deutsch.
