@@ -44,6 +44,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string CompanyOneDriveWindowsFolderName = "OneDrive - Elektro Schweim";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
+    private static readonly HashSet<string> RootEndCategoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        DeskCategoryName,
+        "Offene Aufgaben",
+        "Wartet auf Kunde"
+    };
     private const string SortFieldDate = "Datum";
     private const string SortFieldName = "Name";
     private const string SortFieldManual = "Manuell";
@@ -647,7 +653,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                                    !IsTrashSelected &&
                                                    !IsMobileInboxSelected &&
                                                    SelectedCategory is not null &&
-                                                   !IsArchiveCategory(SelectedCategory);
+                                                   IsSelectableTaskCategory(SelectedCategory);
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
     public MobileInboxEntry? SelectedMobileInboxEntry =>
         SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
@@ -4378,7 +4384,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _selectionNavigationDepth > 0 ||
             SelectedTask is null ||
             sender is not CheckBox checkBox ||
-            checkBox.DataContext is not TaskCategorySelection selection)
+            checkBox.DataContext is not TaskCategorySelection selection ||
+            !selection.IsSelectable)
         {
             return;
         }
@@ -6036,7 +6043,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool CanDragCategory(CategoryItem category)
     {
-        return !string.IsNullOrWhiteSpace(category.Id) && IsSelectableTaskCategory(category);
+        return !string.IsNullOrWhiteSpace(category.Id) &&
+               !IsSpecialCategory(category) &&
+               !IsArchiveCategory(category) &&
+               !IsLegacyMobileApprovalCategory(category.Name);
     }
 
     private bool CanDropCategoryOnTarget(CategoryItem dragged, CategoryItem target)
@@ -6195,17 +6205,163 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RemoveCategory(SelectedCategory);
     }
 
-    private void OpenArchiveCategory_OnClick(object? sender, RoutedEventArgs e)
+    private async void OpenArchiveCategory_OnClick(object? sender, RoutedEventArgs e)
     {
-        var archiveCategory = Categories.FirstOrDefault(IsArchiveCategory);
-        if (archiveCategory is null)
+        await ShowArchiveDialogAsync();
+    }
+
+    private async Task ShowArchiveDialogAsync()
+    {
+        var archivedTasks = AllTasks
+            .Where(task => !task.IsDeleted && IsArchivedForSearch(task))
+            .OrderByDescending(task => task.CompletedAt ?? task.UpdatedAt)
+            .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        var content = new StackPanel
         {
-            CategoryMessage = "Archiv-Kategorie wurde nicht gefunden.";
-            return;
+            Spacing = 8
+        };
+
+        if (archivedTasks.Count == 0)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = "Keine archivierten Aufträge vorhanden.",
+                Foreground = new SolidColorBrush(Color.Parse("#6B7280")),
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+        else
+        {
+            foreach (var task in archivedTasks)
+            {
+                content.Children.Add(CreateArchiveTaskRow(task));
+            }
         }
 
-        SelectedCategory = archiveCategory;
-        ApplySelectedCategoryContent();
+        var dialog = new Window
+        {
+            Title = "Archiv",
+            Width = 640,
+            MinWidth = 520,
+            MaxHeight = 560,
+            CanResize = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Content = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                Padding = new Thickness(16),
+                Child = new DockPanel
+                {
+                    LastChildFill = true,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Archiv",
+                            FontSize = 20,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Margin = new Thickness(0, 0, 0, 12)
+                        },
+                        new ScrollViewer
+                        {
+                            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                            Content = content
+                        }
+                    }
+                }
+            }
+        };
+
+        DockPanel.SetDock(((DockPanel)((Border)dialog.Content!).Child!).Children[0], Dock.Top);
+        await dialog.ShowDialog(this);
+    }
+
+    private Control CreateArchiveTaskRow(TaskItem task)
+    {
+        var details = new List<string>();
+        var categoryNames = GetTaskCategoryNameList(task);
+        if (categoryNames.Count > 0)
+        {
+            details.Add($"Kategorie: {string.Join(", ", categoryNames)}");
+        }
+
+        if (task.CompletedAt.HasValue)
+        {
+            details.Add($"Archivdatum: {FormatDateShort(task.CompletedAt)}");
+        }
+
+        if (task.DueDate.HasValue)
+        {
+            details.Add($"Termin: {FormatArchiveDateTime(task.DueDate)}");
+        }
+
+        if (task.FollowUpDate.HasValue)
+        {
+            details.Add($"Wiedervorlage: {FormatDateShort(task.FollowUpDate)}");
+        }
+
+        return new Border
+        {
+            BorderBrush = new SolidColorBrush(Color.Parse("#E5E7EB")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10),
+            Child = new StackPanel
+            {
+                Spacing = 4,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = FormatArchiveTaskTitle(task),
+                        FontSize = 14,
+                        FontWeight = FontWeight.SemiBold,
+                        Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = details.Count == 0 ? "Keine weiteren Angaben." : string.Join(" · ", details),
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Color.Parse("#4B5563")),
+                        TextWrapping = TextWrapping.Wrap
+                    }
+                }
+            }
+        };
+    }
+
+    private static string FormatArchiveTaskTitle(TaskItem task)
+    {
+        var customer = task.CustomerName?.Trim();
+        var title = task.Title?.Trim();
+        if (!string.IsNullOrWhiteSpace(customer) && !string.IsNullOrWhiteSpace(title))
+        {
+            return $"{customer} - {title}";
+        }
+
+        return !string.IsNullOrWhiteSpace(customer)
+            ? customer
+            : !string.IsNullOrWhiteSpace(title)
+                ? title
+                : "Ohne Titel";
+    }
+
+    private static string FormatArchiveDateTime(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return string.Empty;
+        }
+
+        return value.Value.TimeOfDay == TimeSpan.Zero
+            ? FormatDateShort(value)
+            : value.Value.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("de-DE"));
     }
 
     private void RemoveCategory(CategoryItem category)
@@ -9873,7 +10029,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             TaskCategorySelections.Add(new TaskCategorySelection(
                 category,
-                TaskBelongsToCategory(SelectedTask, category.Id)));
+                TaskBelongsToCategory(SelectedTask, category.Id),
+                IsSelectableTaskCategory(category)));
         }
     }
 
@@ -9953,7 +10110,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private IEnumerable<CategoryItem> GetOrderedTaskCategories()
     {
         return Categories
-            .Where(IsSelectableTaskCategory)
+            .Where(IsTaskCategoryChoiceVisible)
             .OrderBy(category => category.ParentId is null ? category.SortOrder : GetRootSortOrder(category))
             .ThenBy(category => category.SelectionName, StringComparer.CurrentCultureIgnoreCase);
     }
@@ -10207,11 +10364,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                category.Name == OverviewCategoryName;
     }
 
-    private static bool IsSelectableTaskCategory(CategoryItem category)
+    private bool IsTaskCategoryChoiceVisible(CategoryItem category)
     {
-        return !IsSpecialCategory(category) &&
-               !IsArchiveCategory(category) &&
-               !IsLegacyMobileApprovalCategory(category.Name);
+        return IsDeskCategory(category) ||
+               (!IsSpecialCategory(category) &&
+                !IsArchiveCategory(category) &&
+                !IsLegacyMobileApprovalCategory(category.Name));
+    }
+
+    private bool IsSelectableTaskCategory(CategoryItem category)
+    {
+        if (!IsTaskCategoryChoiceVisible(category) || HasChildCategories(category))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(category.ParentId))
+        {
+            return RootEndCategoryNames.Contains(category.Name.Trim());
+        }
+
+        return true;
+    }
+
+    private bool HasChildCategories(CategoryItem category)
+    {
+        return Categories.Any(child =>
+            string.Equals(child.ParentId, category.Id, StringComparison.OrdinalIgnoreCase) &&
+            IsTaskCategoryChoiceVisible(child));
+    }
+
+    private static bool IsDeskCategory(CategoryItem category)
+    {
+        return string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), DeskCategoryName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsArchiveCategory(CategoryItem category)
@@ -11929,15 +12115,17 @@ public sealed class TaskSearchResult
 
 public sealed class TaskCategorySelection
 {
-    public TaskCategorySelection(CategoryItem category, bool isSelected)
+    public TaskCategorySelection(CategoryItem category, bool isSelected, bool isSelectable)
     {
         Category = category;
         IsSelected = isSelected;
+        IsSelectable = isSelectable;
     }
 
     public CategoryItem Category { get; }
     public string Name => string.IsNullOrWhiteSpace(Category.SelectionName) ? Category.Name : Category.SelectionName;
     public bool IsSelected { get; set; }
+    public bool IsSelectable { get; }
 }
 
 public enum DuplicateTaskChoice

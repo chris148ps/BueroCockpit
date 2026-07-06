@@ -115,6 +115,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     var mobileInspectionCategoryNames: [String] {
         groupedCategoryCache
+            .filter { Self.isSelectableMobileInspectionCategory($0) }
             .map(\.name)
             .filter { !Self.isLegacyMobileApprovalCategory($0) }
     }
@@ -1208,6 +1209,34 @@ final class SnapshotBrowserViewModel: ObservableObject {
         let legacyName = ["Wartet", "auf", "Freigabe"].joined(separator: " ")
         return value.trimmingCharacters(in: .whitespacesAndNewlines)
             .localizedCaseInsensitiveCompare(legacyName) == .orderedSame
+    }
+
+    nonisolated private static func isSelectableMobileInspectionCategory(_ category: SnapshotCategoryGroup) -> Bool {
+        let trimmedName = category.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty,
+              category.categoryIDs.count == 1,
+              !isLegacyMobileApprovalCategory(trimmedName),
+              trimmedName.caseInsensitiveCompare("Archiv") != .orderedSame,
+              trimmedName.caseInsensitiveCompare("Mobile Eingänge") != .orderedSame else {
+            return false
+        }
+
+        if trimmedName.contains(" / ") {
+            return true
+        }
+
+        return isRootEndCategory(trimmedName)
+    }
+
+    nonisolated private static func isRootEndCategory(_ name: String) -> Bool {
+        let rootEndCategories = [
+            "Schreibtisch",
+            "Offene Aufgaben",
+            "Wartet auf Kunde"
+        ]
+        return rootEndCategories.contains { candidate in
+            name.caseInsensitiveCompare(candidate) == .orderedSame
+        }
     }
 
     nonisolated private static func groupedCategories(from categories: [SnapshotCategory]) -> [SnapshotCategoryGroup] {

@@ -2286,6 +2286,7 @@
                 <DataTemplate>
                   <CheckBox Content="{Binding Name}"
                             IsChecked="{Binding IsSelected}"
+                            IsEnabled="{Binding IsSelectable}"
                             Margin="0,0,16,8"
                             Click="TaskCategoryCheckBox_OnChanged" />
                 </DataTemplate>
