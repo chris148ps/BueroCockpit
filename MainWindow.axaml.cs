@@ -2742,7 +2742,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? AllTasks.Where(t => !t.IsDeleted)
                     : IsTrashSelected
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
-                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategoryOrDescendant(t, selected)));
+                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToCategory(t, selected.Id)));
             }
             else
             {
@@ -3700,7 +3700,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             else
             {
-                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategoryOrDescendant(task, category));
+                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id));
             }
         }
 
@@ -6249,9 +6249,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshGlobalSearchResults();
     }
 
-    private void ToggleCategoryExpanded_OnClick(object? sender, RoutedEventArgs e)
+    private void ToggleCategoryExpanded_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Button { DataContext: CategoryItem category } || !category.HasChildren)
+        if (sender is not Control { DataContext: CategoryItem category } ||
+            !category.HasChildren ||
+            !e.GetCurrentPoint((Control)sender).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        ToggleCategoryExpanded(category);
+        e.Handled = true;
+    }
+
+    private void CategoryItemFrame_OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is StyledElement source && source.Classes.Contains("CategoryExpandGlyph"))
+        {
+            return;
+        }
+
+        if (sender is not Control { DataContext: CategoryItem category } ||
+            !category.HasChildren ||
+            !string.IsNullOrWhiteSpace(category.ParentId))
+        {
+            return;
+        }
+
+        _categoryDragCandidate = null;
+        _categoryDragStartEvent = null;
+        ToggleCategoryExpanded(category);
+        e.Handled = true;
+    }
+
+    private void ToggleCategoryExpanded(CategoryItem category)
+    {
+        if (!category.HasChildren)
         {
             return;
         }

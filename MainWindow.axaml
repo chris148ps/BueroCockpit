@@ -276,16 +276,16 @@
       <Setter Property="BorderBrush" Value="#000000" />
       <Setter Property="BorderThickness" Value="1.5" />
     </Style>
-    <Style Selector="Button.CategoryExpandButton">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="Padding" Value="0" />
+    <Style Selector="TextBlock.CategoryExpandGlyph">
+      <Setter Property="Width" Value="10" />
+      <Setter Property="MinWidth" Value="10" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
     </Style>
-    <Style Selector="Button.CategoryExpandButton:pointerover">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="Transparent" />
+    <Style Selector="TextBlock.CategoryExpandGlyph:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.Card">
       <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
@@ -397,7 +397,8 @@
                       DragDrop.DragOver="CategorySettingsItem_OnDragOver"
                       DragDrop.Drop="CategorySettingsItem_OnDrop"
                       PointerPressed="CategorySettingsItem_OnPointerPressed"
-                      PointerMoved="CategorySettingsItem_OnPointerMoved">
+                      PointerMoved="CategorySettingsItem_OnPointerMoved"
+                      DoubleTapped="CategoryItemFrame_OnDoubleTapped">
                 <Border.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Umbenennen" Click="CategoryRenameFromMenu_OnClick" />
@@ -406,15 +407,11 @@
                 </Border.ContextMenu>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" MinWidth="200" ColumnSpacing="6">
                   <Border Width="{Binding SidebarIndent}" />
-                  <Button Grid.Column="1"
-                          Classes="CategoryExpandButton"
-                          Width="22"
-                          Height="22"
-                          MinWidth="22"
-                          MinHeight="22"
-                          Padding="0"
-                          Content="{Binding ExpandGlyph}"
-                          Click="ToggleCategoryExpanded_OnClick" />
+                  <TextBlock Grid.Column="1"
+                             Classes="CategoryExpandGlyph"
+                             Text="{Binding ExpandGlyph}"
+                             Cursor="Hand"
+                             PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
                   <TextBlock Grid.Column="2"
                              Text="{Binding DisplayName}"
                              FontWeight="SemiBold"

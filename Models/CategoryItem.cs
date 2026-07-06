@@ -12,6 +12,7 @@ public sealed class CategoryItem : ObservableObject
     private int _taskCount;
     private bool _isSelected;
     private bool _isExpanded;
+    private bool _hasChildren;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get => _name; set => SetProperty(ref _name, value); }
@@ -22,8 +23,29 @@ public sealed class CategoryItem : ObservableObject
     public string Color { get => _color; set => SetProperty(ref _color, value); }
     public bool IsVisible { get => _isVisible; set => SetProperty(ref _isVisible, value); }
     public int TaskCount { get => _taskCount; set => SetProperty(ref _taskCount, value); }
-    public bool HasChildren { get; set; }
-    public bool IsExpanded { get => _isExpanded; set => SetProperty(ref _isExpanded, value); }
+    public bool HasChildren
+    {
+        get => _hasChildren;
+        set
+        {
+            if (SetProperty(ref _hasChildren, value))
+            {
+                OnPropertyChanged(nameof(ExpandGlyph));
+            }
+        }
+    }
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetProperty(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(ExpandGlyph));
+            }
+        }
+    }
     public string DisplayName { get; set; } = string.Empty;
     public string SelectionName { get; set; } = string.Empty;
     public bool IsChildCategory => !string.IsNullOrWhiteSpace(ParentId);
