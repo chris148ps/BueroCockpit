@@ -155,6 +155,18 @@ final class MobilePhotoDraftStore: @unchecked Sendable {
         return collection
     }
 
+    func removeDraft(id: String) throws -> MobilePhotoDraftCollection {
+        var collection = load()
+        guard let index = collection.drafts.firstIndex(where: { $0.id == id }) else {
+            return collection
+        }
+
+        let draft = collection.drafts.remove(at: index)
+        try save(collection)
+        try removeLocalFiles(for: draft)
+        return collection
+    }
+
     func mobileChange(for draft: MobilePhotoDraft, deviceId: String) -> MobileChange {
         MobileChange(
             id: draft.syncChangeId ?? UUID().uuidString,
@@ -205,6 +217,52 @@ final class MobilePhotoDraftStore: @unchecked Sendable {
             .appendingPathComponent("BueroCockpit", isDirectory: true)
             .appendingPathComponent("MobilePhotoDrafts", isDirectory: true)
             .appendingPathComponent(draftID, isDirectory: true)
+    }
+
+    private func removeLocalFiles(for draft: MobilePhotoDraft) throws {
+        let draftDirectoryURL = try draftAssetDirectoryURL(for: draft.id).standardizedFileURL
+        let paths = Set([
+            draft.localImagePath,
+            draft.originalLocalPath,
+            draft.thumbnailPath
+        ].compactMap { $0 })
+
+        for path in paths {
+            let fileURL = URL(fileURLWithPath: path).standardizedFileURL
+            guard fileURL.path.hasPrefix(draftDirectoryURL.path + "/") else {
+                continue
+            }
+            try removeItemIfExists(at: fileURL)
+        }
+
+        try removeDirectoryIfEmpty(at: draftDirectoryURL)
+    }
+
+    private func removeItemIfExists(at url: URL) throws {
+        guard fileManager.fileExists(atPath: url.path) else {
+            return
+        }
+
+        do {
+            try fileManager.removeItem(at: url)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            return
+        }
+    }
+
+    private func removeDirectoryIfEmpty(at url: URL) throws {
+        guard fileManager.fileExists(atPath: url.path) else {
+            return
+        }
+
+        do {
+            let remainingItems = try fileManager.contentsOfDirectory(atPath: url.path)
+            if remainingItems.isEmpty {
+                try fileManager.removeItem(at: url)
+            }
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            return
+        }
     }
 
     private static func sanitizedFilename(_ filename: String?, fallback: String) -> String {

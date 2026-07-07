@@ -11,6 +11,7 @@ struct MobilePhotoDraftsView: View {
     @State private var statusMessage: String?
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isImportingPhoto = false
+    @State private var draftPendingRemoval: MobilePhotoDraft?
 
     var body: some View {
         NavigationStack {
@@ -52,6 +53,13 @@ struct MobilePhotoDraftsView: View {
                     } else {
                         ForEach(collection.drafts) { draft in
                             draftRow(draft)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        requestRemoval(of: draft)
+                                    } label: {
+                                        Label("Entfernen", systemImage: "trash")
+                                    }
+                                }
                         }
                     }
                 } header: {
@@ -85,7 +93,36 @@ struct MobilePhotoDraftsView: View {
                 guard let item else { return }
                 importPhoto(item)
             }
+            .confirmationDialog(
+                "Foto-Entwurf entfernen?",
+                isPresented: removalConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                if let draft = draftPendingRemoval {
+                    Button("Entfernen", role: .destructive) {
+                        removeDraft(draft)
+                    }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                if let draft = draftPendingRemoval {
+                    Text("\(draftTitle(for: draft)) und die zugehörigen lokalen Bilddateien werden von diesem iPad entfernt.")
+                } else {
+                    Text("Der lokale Entwurf und die zugehörigen lokalen Bilddateien werden von diesem iPad entfernt.")
+                }
+            }
         }
+    }
+
+    private var removalConfirmationPresented: Binding<Bool> {
+        Binding(
+            get: { draftPendingRemoval != nil },
+            set: { isPresented in
+                if !isPresented {
+                    draftPendingRemoval = nil
+                }
+            }
+        )
     }
 
     private func draftRow(_ draft: MobilePhotoDraft) -> some View {
@@ -109,6 +146,17 @@ struct MobilePhotoDraftsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
+            Spacer(minLength: 8)
+
+            Button(role: .destructive) {
+                requestRemoval(of: draft)
+            } label: {
+                Label("Entfernen", systemImage: "trash")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Foto-Entwurf entfernen")
         }
         .padding(.vertical, 4)
     }
@@ -191,6 +239,22 @@ struct MobilePhotoDraftsView: View {
             onDraftsChanged()
         } catch {
             statusMessage = "Test-Fotoentwurf konnte nicht gespeichert werden: \(error.localizedDescription)"
+        }
+    }
+
+    private func requestRemoval(of draft: MobilePhotoDraft) {
+        draftPendingRemoval = draft
+    }
+
+    private func removeDraft(_ draft: MobilePhotoDraft) {
+        do {
+            collection = try store.removeDraft(id: draft.id)
+            statusMessage = "Foto-Entwurf entfernt."
+            onDraftsChanged()
+        } catch {
+            collection = store.load()
+            statusMessage = "Foto-Entwurf konnte nicht entfernt werden: \(error.localizedDescription)"
+            onDraftsChanged()
         }
     }
 
