@@ -4,6 +4,7 @@ import PhotosUI
 
 struct MobilePhotoDraftsView: View {
     let store: MobilePhotoDraftStore
+    let availableTasks: [SnapshotTask]
     let onDraftsChanged: () -> Void
     let onDismiss: () -> Void
 
@@ -12,6 +13,7 @@ struct MobilePhotoDraftsView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isImportingPhoto = false
     @State private var draftPendingRemoval: MobilePhotoDraft?
+    @State private var draftPendingAssignment: MobilePhotoDraft?
 
     var body: some View {
         NavigationStack {
@@ -51,6 +53,13 @@ struct MobilePhotoDraftsView: View {
                         }
                         .padding(.vertical, 8)
                     } else {
+                        if availableTasks.isEmpty {
+                            Text("Es sind noch keine Snapshot-Aufträge geladen. Foto-Entwürfe bleiben lokal gespeichert; die Zuordnung ist möglich, sobald ein Snapshot mit Aufträgen vorhanden ist.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
                         ForEach(collection.drafts) { draft in
                             draftRow(draft)
                                 .swipeActions(edge: .trailing) {
@@ -111,6 +120,20 @@ struct MobilePhotoDraftsView: View {
                     Text("Der lokale Entwurf und die zugehörigen lokalen Bilddateien werden von diesem iPad entfernt.")
                 }
             }
+            .sheet(item: $draftPendingAssignment) { draft in
+                MobilePhotoDraftTaskPickerView(
+                    draftTitle: draftTitle(for: draft),
+                    tasks: availableTasks,
+                    selectedTaskID: draft.linkedTaskId,
+                    onSelect: { task in
+                        assignDraft(draft, to: task)
+                    },
+                    onClear: clearAssignmentAction(for: draft),
+                    onDismiss: {
+                        draftPendingAssignment = nil
+                    }
+                )
+            }
         }
     }
 
@@ -145,6 +168,17 @@ struct MobilePhotoDraftsView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                assignmentView(for: draft)
+
+                Button {
+                    draftPendingAssignment = draft
+                } label: {
+                    Label(draft.linkedTaskId == nil ? "Auftrag zuordnen" : "Auftrag ändern", systemImage: "link")
+                }
+                .buttonStyle(.borderless)
+                .disabled(availableTasks.isEmpty)
+                .accessibilityHint(availableTasks.isEmpty ? "Es sind keine Snapshot-Aufträge geladen." : "")
             }
 
             Spacer(minLength: 8)
@@ -159,6 +193,38 @@ struct MobilePhotoDraftsView: View {
             .accessibilityLabel("Foto-Entwurf entfernen")
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func assignmentView(for draft: MobilePhotoDraft) -> some View {
+        if let linkedTaskId = draft.linkedTaskId?.trimmingCharacters(in: .whitespacesAndNewlines), !linkedTaskId.isEmpty {
+            if let task = task(for: linkedTaskId) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Zugeordnet", systemImage: "checkmark.circle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(taskDisplayTitle(task))
+                        .font(.callout.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let detail = taskDisplayDetail(task) {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            } else {
+                Label("Zugeordnet: Auftrag \(linkedTaskId)", systemImage: "checkmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            Label("Noch keinem Auftrag zugeordnet", systemImage: "link.badge.plus")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     @ViewBuilder
@@ -258,10 +324,45 @@ struct MobilePhotoDraftsView: View {
         }
     }
 
-    private func draftTitle(for draft: MobilePhotoDraft) -> String {
-        if let linkedTaskId = draft.linkedTaskId?.trimmingCharacters(in: .whitespacesAndNewlines), !linkedTaskId.isEmpty {
-            return "Entwurf für Auftrag \(linkedTaskId)"
+    private func assignDraft(_ draft: MobilePhotoDraft, to task: SnapshotTask) {
+        do {
+            collection = try store.updateLinkedTask(for: draft.id, linkedTaskId: task.id)
+            statusMessage = "Foto-Entwurf lokal zugeordnet."
+            draftPendingAssignment = nil
+            onDraftsChanged()
+        } catch {
+            collection = store.load()
+            statusMessage = "Zuordnung konnte nicht gespeichert werden: \(error.localizedDescription)"
+            draftPendingAssignment = nil
+            onDraftsChanged()
         }
+    }
+
+    private func clearAssignedTask(for draft: MobilePhotoDraft) {
+        do {
+            collection = try store.updateLinkedTask(for: draft.id, linkedTaskId: nil)
+            statusMessage = "Zuordnung lokal entfernt."
+            draftPendingAssignment = nil
+            onDraftsChanged()
+        } catch {
+            collection = store.load()
+            statusMessage = "Zuordnung konnte nicht entfernt werden: \(error.localizedDescription)"
+            draftPendingAssignment = nil
+            onDraftsChanged()
+        }
+    }
+
+    private func clearAssignmentAction(for draft: MobilePhotoDraft) -> (() -> Void)? {
+        guard draft.linkedTaskId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            return nil
+        }
+
+        return {
+            clearAssignedTask(for: draft)
+        }
+    }
+
+    private func draftTitle(for draft: MobilePhotoDraft) -> String {
         if let originalFilename = draft.originalFilename?.trimmingCharacters(in: .whitespacesAndNewlines), !originalFilename.isEmpty {
             return originalFilename
         }
@@ -308,4 +409,138 @@ struct MobilePhotoDraftsView: View {
         }
     }
 
+    private func task(for taskID: String) -> SnapshotTask? {
+        availableTasks.first { $0.id == taskID }
+    }
+
+    private func taskDisplayTitle(_ task: SnapshotTask) -> String {
+        task.displayPrimaryTitle
+    }
+
+    private func taskDisplayDetail(_ task: SnapshotTask) -> String? {
+        SnapshotDisplayFormatter.joinedMetadata([
+            task.displaySecondaryTitle,
+            task.displayStatus,
+            task.displayCreatedAt.map { "Erstellt \($0)" },
+            task.id
+        ])
+    }
+
+}
+
+private struct MobilePhotoDraftTaskPickerView: View {
+    let draftTitle: String
+    let tasks: [SnapshotTask]
+    let selectedTaskID: String?
+    let onSelect: (SnapshotTask) -> Void
+    let onClear: (() -> Void)?
+    let onDismiss: () -> Void
+
+    @State private var searchText = ""
+
+    private var filteredTasks: [SnapshotTask] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return tasks
+        }
+        return tasks.filter { $0.searchableText.localizedCaseInsensitiveContains(query) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text(draftTitle)
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Die Auswahl wird nur lokal im Foto-Entwurf gespeichert.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Section {
+                    if tasks.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Keine Snapshot-Aufträge", systemImage: "tray")
+                                .font(.headline)
+                            Text("Lade oder importiere zuerst einen Snapshot mit Aufträgen. Der Foto-Entwurf bleibt unverändert lokal gespeichert.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.vertical, 8)
+                    } else if filteredTasks.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Keine Treffer", systemImage: "magnifyingglass")
+                                .font(.headline)
+                            Text("Für diese Suche wurde kein Auftrag im lokalen Snapshot gefunden.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.vertical, 8)
+                    } else {
+                        ForEach(filteredTasks) { task in
+                            Button {
+                                onSelect(task)
+                            } label: {
+                                HStack(alignment: .top, spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(task.displayPrimaryTitle)
+                                            .font(.headline)
+                                            .foregroundStyle(.primary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        if let detail = taskDetail(task) {
+                                            Text(detail)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }
+
+                                    Spacer(minLength: 8)
+
+                                    if task.id == selectedTaskID {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(.tint)
+                                            .accessibilityLabel("Aktuell zugeordnet")
+                                    }
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } header: {
+                    Text("Auftrag auswählen")
+                }
+
+                if let onClear {
+                    Section {
+                        Button(role: .destructive, action: onClear) {
+                            Label("Zuordnung entfernen", systemImage: "link.badge.minus")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Auftrag zuordnen")
+            .searchable(text: $searchText, prompt: "Aufträge suchen")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Schließen", action: onDismiss)
+                }
+            }
+        }
+    }
+
+    private func taskDetail(_ task: SnapshotTask) -> String? {
+        SnapshotDisplayFormatter.joinedMetadata([
+            task.displaySecondaryTitle,
+            task.displayStatus,
+            task.displayCategoryNames.first,
+            task.displayCreatedAt.map { "Erstellt \($0)" },
+            task.id
+        ])
+    }
 }

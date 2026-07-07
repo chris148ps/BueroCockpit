@@ -104,6 +104,7 @@ struct SnapshotRootView: View {
             case .mobilePhotoDrafts:
                 MobilePhotoDraftsView(
                     store: mobilePhotoDraftStore,
+                    availableTasks: viewModel.tasks,
                     onDraftsChanged: {
                         viewModel.loadMobilePhotoDrafts()
                     },

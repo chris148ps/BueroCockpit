@@ -167,6 +167,26 @@ final class MobilePhotoDraftStore: @unchecked Sendable {
         return collection
     }
 
+    func updateLinkedTask(for id: String, linkedTaskId: String?) throws -> MobilePhotoDraftCollection {
+        var collection = load()
+        guard let index = collection.drafts.firstIndex(where: { $0.id == id }) else {
+            return collection
+        }
+
+        let trimmedTaskId = linkedTaskId?.trimmingCharacters(in: .whitespacesAndNewlines)
+        collection.drafts[index].linkedTaskId = trimmedTaskId?.isEmpty == false ? trimmedTaskId : nil
+        collection.drafts[index].updatedAt = Date()
+
+        if collection.drafts[index].linkedTaskId != nil {
+            collection.drafts[index].status = .assigned
+        } else if collection.drafts[index].status == .assigned {
+            collection.drafts[index].status = .draft
+        }
+
+        try save(collection)
+        return collection
+    }
+
     func mobileChange(for draft: MobilePhotoDraft, deviceId: String) -> MobileChange {
         MobileChange(
             id: draft.syncChangeId ?? UUID().uuidString,
