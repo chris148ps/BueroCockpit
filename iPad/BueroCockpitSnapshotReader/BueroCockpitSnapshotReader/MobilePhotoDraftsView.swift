@@ -171,6 +171,13 @@ struct MobilePhotoDraftsView: View {
 
                 assignmentView(for: draft)
 
+                if hasMissingLocalImage(for: draft) {
+                    Label("Lokale Bilddatei nicht gefunden", systemImage: "exclamationmark.triangle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Button {
                     draftPendingAssignment = draft
                 } label: {
@@ -258,6 +265,14 @@ struct MobilePhotoDraftsView: View {
         }
 
         return nil
+    }
+
+    private func hasMissingLocalImage(for draft: MobilePhotoDraft) -> Bool {
+        guard draft.localImagePath != nil || draft.originalLocalPath != nil || draft.thumbnailPath != nil else {
+            return false
+        }
+
+        return thumbnailImage(for: draft) == nil
     }
 
     private func loadDrafts() {
