@@ -171,8 +171,8 @@ struct MobilePhotoDraftsView: View {
 
                 assignmentView(for: draft)
 
-                if hasMissingLocalImage(for: draft) {
-                    Label("Lokale Bilddatei nicht gefunden", systemImage: "exclamationmark.triangle")
+                ForEach(localFileIssueTexts(for: draft), id: \.self) { issueText in
+                    Label(issueText, systemImage: "exclamationmark.triangle")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -267,12 +267,29 @@ struct MobilePhotoDraftsView: View {
         return nil
     }
 
-    private func hasMissingLocalImage(for draft: MobilePhotoDraft) -> Bool {
-        guard draft.localImagePath != nil || draft.originalLocalPath != nil || draft.thumbnailPath != nil else {
-            return false
+    private func localFileIssueTexts(for draft: MobilePhotoDraft) -> [String] {
+        [
+            localFileIssueText(path: draft.originalLocalPath ?? draft.localImagePath, label: "Originaldatei"),
+            localFileIssueText(path: draft.thumbnailPath, label: "Vorschaubild"),
+            localFileIssueText(path: draft.annotatedLocalPath, label: "Markierte Datei")
+        ].compactMap { $0 }
+    }
+
+    private func localFileIssueText(path: String?, label: String) -> String? {
+        guard let path, !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
         }
 
-        return thumbnailImage(for: draft) == nil
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: path) else {
+            return "\(label) nicht gefunden"
+        }
+
+        guard UIImage(contentsOfFile: path) != nil else {
+            return "\(label) nicht lesbar"
+        }
+
+        return nil
     }
 
     private func loadDrafts() {
