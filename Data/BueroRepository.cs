@@ -271,6 +271,13 @@ public sealed class BueroRepository
 
     public void SaveCategory(CategoryItem category)
     {
+        ArgumentNullException.ThrowIfNull(category);
+        if (string.IsNullOrWhiteSpace(category.Name))
+        {
+            throw new ArgumentException("Eine Kategorie benötigt einen Namen.", nameof(category));
+        }
+
+        category.Name = category.Name.Trim();
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """

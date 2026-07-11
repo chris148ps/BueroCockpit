@@ -2,23 +2,18 @@
 
 ## Ziel
 
-Die Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Anlegen, Speichern, Umbenennen und Löschen prüfen.
+Die drei Desktop-Korrekturen in einer regulär startbaren macOS-App manuell abnehmen.
 
 ## Geplante Schritte
 
-1. Isolierten, nichtproduktiven Settings-Datensatz vorbereiten.
-2. Profil anlegen, bearbeiten, speichern und erneut laden.
-3. Löschen eines beliebigen Profils prüfen.
+1. App vollständig starten und Übersicht als Startansicht bestätigen.
+2. Kategorie sowie Einstellungen vor je einem Neustart öffnen und danach erneut Übersicht prüfen.
+3. Darstellung, Daten & Pfade und Kategorienverwaltung visuell und ohne produktive Änderungen kontrollieren.
 
 ## Vermutlich betroffene Dateien
 
-- Services/LiveSettingsService.cs
-- MainWindow.axaml
-- MainWindow.axaml.cs
-- docs/codex_journal/
-- docs/codex_last_run.md
-- docs/NEXT_TASK.md
+- Keine Codeänderung vorgesehen; nur Desktop-App und vorhandene Laufdokumentation bei abweichendem Ergebnis.
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktive Sync/live/settings.json, Aufgaben- und Kategorien-Daten, Netzwerkdienst, iPad-Code, Installer, Releases, Tags, Versionen und main.
+- Produktivdaten, Kategorien, Aufträge, Netzwerk-Sync, Installer, Releaseprozess, Versionen, Tags und `main`.

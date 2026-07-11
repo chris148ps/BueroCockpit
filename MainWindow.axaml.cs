@@ -244,6 +244,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<CategoryItem> Categories { get; } = new();
     public ObservableCollection<CategoryItem> SidebarCategories { get; } = new();
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
+    public ObservableCollection<CategoryItem> CategoryManagementCategories { get; } = new();
     public ObservableCollection<TaskCategorySelection> TaskCategorySelections { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
     public ObservableCollection<TaskItem> VisibleTasks { get; } = new();
@@ -1446,7 +1447,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LoadData();
         LoadBackupEntries();
         CleanupNavigationCategories();
-        SelectStartupTaskCategory();
+        SelectOverviewAtStartup();
     }
 
     protected override void OnOpened(EventArgs e)
@@ -1862,13 +1863,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void SelectStartupTaskCategory()
+    private void SelectOverviewAtStartup()
     {
         var startupCategory = Categories.FirstOrDefault(category =>
-                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category =>
-                string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category => !IsSpecialCategory(category));
+            string.Equals(category.Id, OverviewCategoryId, StringComparison.OrdinalIgnoreCase));
 
         if (startupCategory is null)
         {
@@ -10531,6 +10529,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var category in GetOrderedTaskCategories())
         {
             TaskCategories.Add(category);
+        }
+
+        CategoryManagementCategories.Clear();
+        foreach (var category in TaskCategories.Where(category =>
+                     !IsSpecialCategory(category) &&
+                     !string.IsNullOrWhiteSpace(category.Name)))
+        {
+            CategoryManagementCategories.Add(category);
         }
 
         RefreshTaskCategorySelections();

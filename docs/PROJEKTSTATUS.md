@@ -28,6 +28,8 @@ Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 - Auftragsbezogene Schreibtisch-Notizzettel mit Abwahl/Löschung.
 - Gleichberechtigte Technikerprofile mit Name, Kürzel, E-Mail und Telefon.
 - Horizontale Desktop-Einstellungstabs und Windows-11-Dark-Technikeransicht.
+- Desktop startet stets in der Übersicht; Backup liegt unter Daten & Pfade und
+  die Kategorienverwaltung zeigt keine technischen Sonderbereiche.
 - Robusteres Leeren von Datumsfeldern und vorhandener Autospeicher-Timer.
 - Semantische Desktop-Ressourcen für Dark-/Light-Modus.
 - Native iPadOS-Toolbar und systemeigene Suche.
