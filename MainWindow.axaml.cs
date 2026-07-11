@@ -337,22 +337,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public ObservableCollection<string> TechnicianOptions { get; } = new();
-    private string _newTechnicianName = string.Empty;
+    public ObservableCollection<TechnicianProfile> TechnicianProfiles { get; } = new();
+    private TechnicianProfile? _selectedTechnicianProfile;
+    private string _technicianNameInput = string.Empty;
+    private string _technicianAbbreviationInput = string.Empty;
+    private string _technicianEmailInput = string.Empty;
+    private string _technicianPhoneInput = string.Empty;
+    private string _selectedSettingsTab = "General";
 
-    public string NewTechnicianName
+    public TechnicianProfile? SelectedTechnicianProfile
     {
-        get => _newTechnicianName;
+        get => _selectedTechnicianProfile;
         set
         {
-            if (_newTechnicianName == value)
-            {
-                return;
-            }
-
-            _newTechnicianName = value;
-            OnPropertyChanged(nameof(NewTechnicianName));
+            if (ReferenceEquals(_selectedTechnicianProfile, value)) return;
+            _selectedTechnicianProfile = value;
+            LoadTechnicianEditor(value);
+            OnPropertyChanged(nameof(SelectedTechnicianProfile));
+            OnPropertyChanged(nameof(HasSelectedTechnicianProfile));
         }
     }
+
+    public bool HasSelectedTechnicianProfile => SelectedTechnicianProfile is not null;
+
+    public string TechnicianNameInput { get => _technicianNameInput; set => SetTechnicianEditorValue(ref _technicianNameInput, value, nameof(TechnicianNameInput)); }
+    public string TechnicianAbbreviationInput { get => _technicianAbbreviationInput; set => SetTechnicianEditorValue(ref _technicianAbbreviationInput, value, nameof(TechnicianAbbreviationInput)); }
+    public string TechnicianEmailInput { get => _technicianEmailInput; set => SetTechnicianEditorValue(ref _technicianEmailInput, value, nameof(TechnicianEmailInput)); }
+    public string TechnicianPhoneInput { get => _technicianPhoneInput; set => SetTechnicianEditorValue(ref _technicianPhoneInput, value, nameof(TechnicianPhoneInput)); }
+    public bool IsSettingsGeneralTabSelected => _selectedSettingsTab == "General";
+    public bool IsSettingsOrdersTabSelected => _selectedSettingsTab == "Orders";
+    public bool IsSettingsCategoriesTabSelected => _selectedSettingsTab == "Categories";
+    public bool IsSettingsTechniciansTabSelected => _selectedSettingsTab == "Technicians";
+    public bool IsSettingsDisplayTabSelected => _selectedSettingsTab == "Display";
+    public bool IsSettingsDataTabSelected => _selectedSettingsTab == "DataSync";
+    public bool IsSettingsSyncTabSelected => _selectedSettingsTab == "LocalNetworkSync";
+    public bool IsSettingsGeneralOrDisplayTabSelected => IsSettingsGeneralTabSelected || IsSettingsDisplayTabSelected;
 
     public string[] PriorityOptions { get; } = ["Niedrig", "Normal", "Hoch", "Dringend"];
     public string[] MaterialStatusOptions { get; } = ["benötigt", "bestellt", "vorhanden", "verbaut", "retour", "erledigt"];
@@ -3223,8 +3242,57 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         VisibleTasks.Clear();
         TaskListCaption = "Einstellungen";
         ClearSearchTextWithoutRefresh();
-        ResetSettingsSections();
+        SelectSettingsTab("General");
         LoadBackupEntries();
+    }
+
+    private void SettingsTab_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tab })
+        {
+            SelectSettingsTab(tab);
+        }
+    }
+
+    private void SelectSettingsTab(string tab)
+    {
+        _selectedSettingsTab = tab;
+        ResetSettingsSections();
+        switch (tab)
+        {
+            case "General":
+            case "Display":
+                SetSettingsSectionOpen(ref _isSettingsGeneralOpen, true, nameof(IsSettingsGeneralOpen), nameof(SettingsGeneralToggleText));
+                break;
+            case "Orders":
+                SetSettingsSectionOpen(ref _isSettingsOrdersOpen, true, nameof(IsSettingsOrdersOpen), nameof(SettingsOrdersToggleText));
+                break;
+            case "Categories":
+                SetSettingsSectionOpen(ref _isSettingsCategoriesOpen, true, nameof(IsSettingsCategoriesOpen), nameof(SettingsCategoriesToggleText));
+                break;
+            case "Technicians":
+                SetSettingsSectionOpen(ref _isSettingsTechniciansOpen, true, nameof(IsSettingsTechniciansOpen), nameof(SettingsTechniciansToggleText));
+                break;
+            case "DataSync":
+                SetSettingsSectionOpen(ref _isSettingsDataSyncOpen, true, nameof(IsSettingsDataSyncOpen), nameof(SettingsDataSyncToggleText));
+                break;
+            case "LocalNetworkSync":
+                SetSettingsSectionOpen(ref _isSettingsLocalNetworkSyncOpen, true, nameof(IsSettingsLocalNetworkSyncOpen), nameof(SettingsLocalNetworkSyncToggleText));
+                break;
+        }
+        OnPropertyChanged(nameof(IsSettingsGeneralTabSelected));
+        OnPropertyChanged(nameof(IsSettingsOrdersTabSelected));
+        OnPropertyChanged(nameof(IsSettingsCategoriesTabSelected));
+        OnPropertyChanged(nameof(IsSettingsTechniciansTabSelected));
+        OnPropertyChanged(nameof(IsSettingsDisplayTabSelected));
+        OnPropertyChanged(nameof(IsSettingsDataTabSelected));
+        OnPropertyChanged(nameof(IsSettingsSyncTabSelected));
+        OnPropertyChanged(nameof(IsSettingsGeneralOrDisplayTabSelected));
+
+        if (tab == "Technicians")
+        {
+            LoadTechnicianOptions();
+        }
     }
 
     private void SettingsSectionHeader_OnClick(object? sender, RoutedEventArgs e)
@@ -12357,19 +12425,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void LoadTechnicianOptions()
     {
         TechnicianOptions.Clear();
+        TechnicianProfiles.Clear();
 
         var settings = _liveSettingsService.Load(ResolveLiveSettingsSyncRootDirectory(), _appSettings.TechnicianNames);
-        foreach (var name in settings.TechnicianNames)
+        foreach (var profile in settings.Technicians)
         {
-            TechnicianOptions.Add(name);
+            TechnicianProfiles.Add(profile);
+            TechnicianOptions.Add(profile.Name);
         }
+
+        SelectedTechnicianProfile = TechnicianProfiles.FirstOrDefault(profile => profile.IsStandard)
+            ?? TechnicianProfiles.FirstOrDefault();
     }
 
     private void SaveTechnicianOptions()
     {
         var settings = new LiveSettings
         {
-            TechnicianNames = TechnicianOptions.ToList()
+            Technicians = TechnicianProfiles.ToList()
         };
         _liveSettingsService.Save(ResolveLiveSettingsSyncRootDirectory(), settings);
         LoadTechnicianOptions();
@@ -12386,29 +12459,66 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void AddTechnician_OnClick(object? sender, RoutedEventArgs e)
     {
-        var name = NewTechnicianName.Trim();
+        var profile = new TechnicianProfile { Name = "Neuer Techniker" };
+        var number = 2;
+        while (TechnicianProfiles.Any(existing => string.Equals(existing.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            profile.Name = $"Neuer Techniker {number++}";
+        }
 
-        if (string.IsNullOrWhiteSpace(name))
+        TechnicianProfiles.Add(profile);
+        SelectedTechnicianProfile = profile;
+    }
+
+    private void SaveTechnicianProfile_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedTechnicianProfile is null)
         {
             return;
         }
 
-        if (!TechnicianOptions.Any(existing => string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)))
+        var name = TechnicianNameInput.Trim();
+        if (string.IsNullOrWhiteSpace(name) || TechnicianProfiles.Any(profile =>
+                !ReferenceEquals(profile, SelectedTechnicianProfile) &&
+                string.Equals(profile.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
-            TechnicianOptions.Add(name);
-            SaveTechnicianOptions();
+            return;
         }
 
-        NewTechnicianName = string.Empty;
+        SelectedTechnicianProfile.Name = name;
+        SelectedTechnicianProfile.Abbreviation = TechnicianAbbreviationInput.Trim();
+        SelectedTechnicianProfile.Email = TechnicianEmailInput.Trim();
+        SelectedTechnicianProfile.Phone = TechnicianPhoneInput.Trim();
+        SaveTechnicianOptions();
     }
 
     private void RemoveTechnician_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: string technicianName })
+        if (sender is Button { DataContext: TechnicianProfile profile } && !profile.IsStandard)
         {
-            TechnicianOptions.Remove(technicianName);
+            TechnicianProfiles.Remove(profile);
+            if (ReferenceEquals(SelectedTechnicianProfile, profile))
+            {
+                SelectedTechnicianProfile = TechnicianProfiles.FirstOrDefault();
+            }
             SaveTechnicianOptions();
         }
+    }
+
+    private void LoadTechnicianEditor(TechnicianProfile? profile)
+    {
+        TechnicianNameInput = profile?.Name ?? string.Empty;
+        TechnicianAbbreviationInput = profile?.Abbreviation ?? string.Empty;
+        TechnicianEmailInput = profile?.Email ?? string.Empty;
+        TechnicianPhoneInput = profile?.Phone ?? string.Empty;
+    }
+
+    private void SetTechnicianEditorValue(ref string field, string? value, string propertyName)
+    {
+        var normalized = value ?? string.Empty;
+        if (field == normalized) return;
+        field = normalized;
+        OnPropertyChanged(propertyName);
     }
 
     private void OnPropertyChanged(string propertyName)

@@ -2,22 +2,23 @@
 
 ## Ziel
 
-Den bestehenden Draft-PR #1 nach der Dark-Konsolidierung prüfen und beim nächsten Auftrag nur neue fachliche Änderungen veröffentlichen.
+Die neue Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Speichern, Umbenennen und Löschen prüfen.
 
 ## Geplante Schritte
 
-1. PR #1 und den finalen codex/work-Commit prüfen.
-2. Beim nächsten Auftrag die Designrichtlinien erneut vor der UI-Änderung lesen.
-3. Nur tatsächlich geänderte Dateien mit --include veröffentlichen.
+1. Isolierten, nichtproduktiven Settings-Datensatz vorbereiten.
+2. Profil anlegen, bearbeiten, speichern und erneut laden.
+3. Löschschutz des Standard-Profils und Löschen eines Nichtstandard-Profils prüfen.
 
 ## Vermutlich betroffene Dateien
 
-- docs/codex_run_template.md
+- Services/LiveSettingsService.cs
+- MainWindow.axaml
+- MainWindow.axaml.cs
 - docs/codex_journal/
 - docs/codex_last_run.md
 - docs/NEXT_TASK.md
-- fachlich geänderte Dateien des nächsten Auftrags
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- main, Merge-Zustand, Datenmodelle, Persistenz, Netzwerk-Sync, Installer, Releases, Tags und Versionsdateien.
+- Produktive Sync/live/settings.json, Aufgaben- und Kategorien-Daten, Netzwerkdienst, iPad-Code, Installer, Releases, Tags, Versionen und main.

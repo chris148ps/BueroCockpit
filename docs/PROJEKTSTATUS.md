@@ -5,14 +5,16 @@
 BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer
 lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der aktuelle
 Desktop-Stand enthält eine hierarchische Kategorie-Navigation, konsolidierte
-Dark-/Light-Designressourcen, lokale Schreibtisch-Notizen und einen
-zeitgesteuerten Autospeicher. Die iPad-App nutzt eine eigenständige native
-iPadOS-Navigation und Toolbar.
+Dark-/Light-Designressourcen, lokale Schreibtisch-Notizen, zeitgesteuerten
+Autospeicher und eine profilbasierte Technikerverwaltung in den Einstellungen.
+Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 
 ## Architektur
 
 - Desktop: Avalonia UI, führendes System, lokale SQLite-/Dateidaten.
 - iPad: SwiftUI Snapshot Reader und mobiler Erfassungsclient.
+- Techniker: zentral gespeicherte, rückwärtskompatible Profile in den bestehenden
+  Live-Settings; die Namensliste bleibt für Auftragsauswahlen verfügbar.
 - Synchronisation: lokaler Netzwerk-Sync ist vorbereitet, aber kein echter
   produktiver Datentransfer aktiv.
 - Veröffentlichung: größere Codex-Arbeiten werden über `codex/work` und einen
@@ -24,7 +26,9 @@ iPadOS-Navigation und Toolbar.
 - Kategorieauswahl ohne nicht auswählbare Hauptkategorien.
 - Dashboard-Navigation mit passender Kategorieauswahl.
 - Auftragsbezogene Schreibtisch-Notizzettel mit Abwahl/Löschung.
-- Kompakter Techniker-Entfernen-Button und entfernte Statusauswahl im Detail.
+- Profilbasierte Technikerverwaltung mit Name, Kürzel, E-Mail, Telefon,
+  Standard-Schutz und kompatibler Namensliste für Aufträge.
+- Horizontale Desktop-Einstellungstabs und Windows-11-Dark-Technikeransicht.
 - Robusteres Leeren von Datumsfeldern und vorhandener Autospeicher-Timer.
 - Semantische Desktop-Ressourcen für Dark-/Light-Modus.
 - Konsolidierte Windows-11-Dark-Zustände für Karten, Kategorien, Eingaben,
@@ -45,5 +49,7 @@ iPadOS-Navigation und Toolbar.
 - `main` bleibt unverändert und erhält keine automatischen Pushes.
 - `codex/work` ist der dauerhafte Arbeitsbranch für veröffentlichte Codex-
   Arbeitsstände.
+- Alte `technicianNames` bleiben beim Lesen und Schreiben kompatibel; neue
+  Profilfelder liegen additiv in `technicians`.
 - Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses
   Workflows.

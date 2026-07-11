@@ -2,58 +2,69 @@
 
 ## Datum/Uhrzeit
 
-2026-07-11 20:54 +0200
+2026-07-11 21:23 +0200
 
 ## Letzter Auftrag
 
-Windows-11-Dark-Umstellung der Desktop-Oberfläche konsolidieren
+Desktop-Einstellungen und Technikerverwaltung an Windows-11-Dark-Referenz angleichen
 
 ## Zusammenfassung
 
-Die verbliebenen klaren Desktop-Rahmenausreißer sind auf zentrale Windows-11-Ressourcen zurückgeführt; der bestehende Draft-PR #1 wurde mit der visuellen Nachbesserung aktualisiert.
+Die Desktop-Einstellungen und die Technikerverwaltung folgen der Referenzansicht. Bestehende Namenslisten bleiben kompatibel, neue Profildaten werden im vorhandenen zentralen Live-Settings-Format gespeichert.
 
 ## Geänderte Dateien
 
 - MainWindow.axaml
+- MainWindow.axaml.cs
+- Services/LiveSettingsService.cs
 - docs/PROJEKTSTATUS.md
-- docs/codex_journal/2026-07-11_20-54_dark-konsolidierung.md
 - docs/codex_last_run.md
 - docs/NEXT_TASK.md
+- docs/codex_journal/
+- scripts/update-codex-documentation.sh
 
 ## Tests
 
-- `git status --short` und Branchprüfung erfolgreich.
-- Direkte Farb-/Brush-/Radius-Suche über Desktop-XAML und C# durchgeführt.
-- `git diff --check` erfolgreich.
-- `dotnet build` erfolgreich; nur vorhandene NuGet-Netzwerkwarnungen.
-- `dotnet run` als realer Desktop-Starttest erfolgreich gestartet und kontrolliert beendet.
-- Keine Datenmodell-, Persistenz-, Netzwerk-, Installer- oder Releaseänderungen.
-- Commit 65814f9 auf codex/work erstellt, gepusht und Draft-PR #1 aktualisiert.
+- git diff --check erfolgreich.
+- dotnet build erfolgreich mit 0 Fehlern.
+- scripts/run-macos-bundle.sh Debug erfolgreich.
+- Reale Start- und Sichtprüfung: Einstellungen, alle sieben Tabs, Technikerliste, Techniker-Auswahl, Formular und Lösch-X geprüft.
+- Keine vorhandenen Techniker gelöscht oder Profildaten verändert; der Standard-Techniker war ohne Löschaktion sichtbar.
 
 ## Git-Status
 
 ```text
-Arbeitsbaum sauber nach dem Push von codex/work.
-``` 
+ M MainWindow.axaml
+ M MainWindow.axaml.cs
+ M Services/LiveSettingsService.cs
+ M docs/NEXT_TASK.md
+ M docs/PROJEKTSTATUS.md
+ M docs/codex_last_run.md
+ M scripts/update-codex-documentation.sh
+?? docs/codex_journal/2026-07-11_21-23_techniker-einstellungen.md
+```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-a8d00ddeecd54487b60491d2bbe906d1f28aa0b0
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Fachliche Sonderflächen für Schreibtisch-Dokumente und mobile Statusbadges verwenden weiterhin eigene Kontrastfarben.
-- Die visuelle Prüfung erfolgte per Ressourcen-/XAML-Inspektion und Starttest; eine pixelgenaue Screenshot-Abnahme ist nicht Bestandteil dieses Laufs.
+- Ein umfassender Funktionslauf für Speichern und Löschen mit produktiven Technikerdaten wurde bewusst nicht ausgeführt, damit keine vorhandenen lokalen Daten verändert oder gelöscht werden.
+- Der echte lokale Netzwerk-Sync bleibt unverändert vorbereitet und deaktiviert.
 
 ## Empfohlener nächster Schritt
 
-Den bestehenden Draft-PR #1 nach der Dark-Konsolidierung prüfen und beim nächsten Auftrag nur neue fachliche Änderungen veröffentlichen.
+Die neue Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Speichern, Umbenennen und Löschen prüfen.
 
-1. PR #1 und den finalen codex/work-Commit prüfen.
-2. Beim nächsten Auftrag die Designrichtlinien erneut vor der UI-Änderung lesen.
-3. Nur tatsächlich geänderte Dateien mit --include veröffentlichen.
+1. Isolierten, nichtproduktiven Settings-Datensatz vorbereiten.
+2. Profil anlegen, bearbeiten, speichern und erneut laden.
+3. Löschschutz des Standard-Profils und Löschen eines Nichtstandard-Profils prüfen.

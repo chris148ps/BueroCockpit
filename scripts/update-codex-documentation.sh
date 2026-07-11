@@ -232,7 +232,7 @@ $TESTS
 
 \`\`\`text
 $status_text
-\`\`\` 
+\`\`\`
 
 ## Branch
 

@@ -174,6 +174,43 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
+    <Style Selector="Button.SettingsTab">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Button.SettingsTab:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.SettingsTab.Selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.TechnicianDelete">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+      <Setter Property="FontSize" Value="21" />
+    </Style>
+    <Style Selector="Button.TechnicianDelete:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonDangerHoverBackgroundBrush}" />
+    </Style>
+    <Style Selector="Button.TechnicianDelete:focus-visible">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
     <Style Selector="TextBlock.SettingsSectionToggle">
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
@@ -1170,11 +1207,21 @@
       <ScrollViewer>
         <StackPanel Spacing="18">
           <StackPanel>
-            <TextBlock Text="Einstellungen" FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Datenspeicher und lokale Sicherungen" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
+            <TextBlock Text="Einstellungen" FontSize="22" FontWeight="SemiBold" />
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,14,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Classes="SettingsTab" Tag="General" Click="SettingsTab_OnClick" Content="Allgemein" Classes.Selected="{Binding IsSettingsGeneralTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Orders" Click="SettingsTab_OnClick" Content="Aufträge" Classes.Selected="{Binding IsSettingsOrdersTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Categories" Click="SettingsTab_OnClick" Content="Kategorien" Classes.Selected="{Binding IsSettingsCategoriesTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Technicians" Click="SettingsTab_OnClick" Content="Techniker" Classes.Selected="{Binding IsSettingsTechniciansTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Display" Click="SettingsTab_OnClick" Content="Darstellung" Classes.Selected="{Binding IsSettingsDisplayTabSelected}" />
+                <Button Classes="SettingsTab" Tag="DataSync" Click="SettingsTab_OnClick" Content="Daten &amp; Pfade" Classes.Selected="{Binding IsSettingsDataTabSelected}" />
+                <Button Classes="SettingsTab" Tag="LocalNetworkSync" Click="SettingsTab_OnClick" Content="Sync" Classes.Selected="{Binding IsSettingsSyncTabSelected}" />
+              </StackPanel>
+            </ScrollViewer>
           </StackPanel>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsGeneralOrDisplayTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="General" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Allgemein">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1265,7 +1312,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsDataTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="DataSync" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Datenordner und Synchronisation">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1311,7 +1358,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsSyncTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="LocalNetworkSync" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Lokaler Netzwerk-Sync">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1398,7 +1445,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="False">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="Technicians" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Techniker">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1413,7 +1460,7 @@
                            Margin="0,4,0,8" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <TextBox Grid.Column="0"
-                           Text="{Binding NewTechnicianName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           Text="{Binding TechnicianNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="Monteurname" />
                   <Button Grid.Column="1" Content="Hinzufügen" Click="AddTechnician_OnClick" />
                 </Grid>
@@ -1440,7 +1487,50 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding IsSettingsTechniciansTabSelected}">
+            <Border Grid.Column="0" Classes="Card" Padding="0" MinHeight="470">
+              <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel Margin="18,16,18,14" Spacing="4">
+                  <TextBlock Text="Techniker / Monteure" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Text="Verwalte deine Techniker und Monteure." Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <ListBox Grid.Row="1" ItemsSource="{Binding TechnicianProfiles}"
+                         SelectedItem="{Binding SelectedTechnicianProfile, Mode=TwoWay}"
+                         BorderThickness="0" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Border Padding="18,13" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="0,1,0,0">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="15" />
+                          <TextBlock Grid.Column="1" Text="Standard" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsVisible="{Binding IsStandard}" />
+                          <Button Grid.Column="1" Classes="TechnicianDelete" Content="×" ToolTip.Tip="Techniker löschen"
+                                  AutomationProperties.Name="Techniker löschen" IsVisible="{Binding CanDelete}" Click="RemoveTechnician_OnClick" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Grid.Row="2" Content="＋  Techniker hinzufügen" Classes="Secondary" HorizontalAlignment="Left" Margin="18,14" Click="AddTechnician_OnClick" />
+              </Grid>
+            </Border>
+            <Border Grid.Column="1" Classes="Card" MinHeight="470">
+              <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Techniker bearbeiten" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Text="Daten des ausgewählten Technikers." Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Margin="0,24,0,0" Spacing="14" IsEnabled="{Binding HasSelectedTechnicianProfile}">
+                  <StackPanel Spacing="6"><TextBlock Text="Name" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                  <StackPanel Spacing="6"><TextBlock Text="Kürzel (optional)" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianAbbreviationInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                  <StackPanel Spacing="6"><TextBlock Text="E-Mail (optional)" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianEmailInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                  <StackPanel Spacing="6"><TextBlock Text="Telefon (optional)" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianPhoneInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                </StackPanel>
+                <Button Grid.Row="2" Content="Speichern" Classes="Primary" HorizontalAlignment="Right" IsEnabled="{Binding HasSelectedTechnicianProfile}" Click="SaveTechnicianProfile_OnClick" />
+              </Grid>
+            </Border>
+          </Grid>
+
+          <Border Classes="Card" IsVisible="{Binding IsSettingsCategoriesTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="Categories" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Kategorien">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1519,7 +1609,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsOrdersTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="Orders" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Aufträge">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1540,7 +1630,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsGeneralTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="Updates" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Updates">
                 <Grid ColumnDefinitions="*,Auto">
@@ -1577,7 +1667,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsGeneralTabSelected}">
             <StackPanel Spacing="10">
               <Button Classes="SettingsSectionHeader" Tag="Diagnostics" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Diagnose">
                 <Grid ColumnDefinitions="*,Auto">

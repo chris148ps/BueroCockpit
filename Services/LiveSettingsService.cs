@@ -8,6 +8,30 @@ public sealed class LiveSettings
 {
     [JsonPropertyName("technicianNames")]
     public List<string> TechnicianNames { get; set; } = [];
+
+    [JsonPropertyName("technicians")]
+    public List<TechnicianProfile> Technicians { get; set; } = [];
+}
+
+public sealed class TechnicianProfile
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("abbreviation")]
+    public string Abbreviation { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("phone")]
+    public string Phone { get; set; } = string.Empty;
+
+    [JsonPropertyName("isStandard")]
+    public bool IsStandard { get; set; }
+
+    [JsonIgnore]
+    public bool CanDelete => !IsStandard;
 }
 
 public sealed class LiveSettingsService
@@ -24,14 +48,17 @@ public sealed class LiveSettingsService
 
         var settingsPath = GetSettingsPath(syncRootDirectory);
         var settings = LoadExistingSettings(settingsPath, out var wasInvalid);
-        settings.TechnicianNames = NormalizeTechnicianNames(settings.TechnicianNames);
+        NormalizeTechnicians(settings);
 
-        if (settings.TechnicianNames.Count == 0)
+        if (settings.Technicians.Count == 0)
         {
             var localNames = NormalizeTechnicianNames(localTechnicianNames);
             if (localNames.Count > 0)
             {
-                settings.TechnicianNames = localNames;
+                settings.Technicians = localNames
+                    .Select((name, index) => new TechnicianProfile { Name = name, IsStandard = index == 0 })
+                    .ToList();
+                NormalizeTechnicians(settings);
                 Save(syncRootDirectory, settings);
                 Debug.WriteLine($"Live settings migrated local technician names to {settingsPath}");
                 return settings;
@@ -56,7 +83,7 @@ public sealed class LiveSettingsService
         var settingsPath = GetSettingsPath(syncRootDirectory);
         try
         {
-            settings.TechnicianNames = NormalizeTechnicianNames(settings.TechnicianNames);
+            NormalizeTechnicians(settings);
             Directory.CreateDirectory(Path.GetDirectoryName(settingsPath) ?? syncRootDirectory);
             var json = JsonSerializer.Serialize(settings, Options);
             File.WriteAllText(settingsPath, json);
@@ -115,5 +142,38 @@ public sealed class LiveSettingsService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static void NormalizeTechnicians(LiveSettings settings)
+    {
+        var profiles = (settings.Technicians ?? [])
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.Name))
+            .Select(profile => new TechnicianProfile
+            {
+                Name = profile.Name.Trim(),
+                Abbreviation = profile.Abbreviation?.Trim() ?? string.Empty,
+                Email = profile.Email?.Trim() ?? string.Empty,
+                Phone = profile.Phone?.Trim() ?? string.Empty,
+                IsStandard = profile.IsStandard
+            })
+            .GroupBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (profiles.Count == 0)
+        {
+            profiles = NormalizeTechnicianNames(settings.TechnicianNames)
+                .Select((name, index) => new TechnicianProfile { Name = name, IsStandard = index == 0 })
+                .ToList();
+        }
+
+        if (profiles.Count > 0 && !profiles.Any(profile => profile.IsStandard))
+        {
+            profiles[0].IsStandard = true;
+        }
+
+        settings.Technicians = profiles;
+        settings.TechnicianNames = profiles.Select(profile => profile.Name).ToList();
     }
 }
