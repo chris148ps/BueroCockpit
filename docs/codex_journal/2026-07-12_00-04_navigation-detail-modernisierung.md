@@ -1,16 +1,14 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Navigation und Kategorien trennen sowie die Auftragsdetailansicht modernisieren
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-12 00:04 +0200
+Systemnavigation dauerhaft von Benutzerkategorien trennen und die vollständige normale Auftragsdetailansicht im vorhandenen Windows-11-Design modernisieren, ohne Fachlogik, Bindings, Commands, Events, Persistenz oder Produktivdaten zu verändern.
 
-## Letzter Auftrag
+## Umsetzung
 
-Navigation und Kategorien trennen sowie die Auftragsdetailansicht modernisieren
+`MainWindow.axaml.cs` führt getrennte `SystemNavigationCategories`- und `UserCategories`-Mengen. Systemseiten werden über bekannte IDs/Namen und reservierte `__`-IDs erkannt; leere Einträge, Archiv und legacy-only Sonderbereiche werden nicht als Benutzerkategorien angeboten. Kategorienverwaltung, Auftragsauswahl, Sortierung, Verschieben und Drag-&-Drop verwenden die Benutzerkategorien. Bestehende Systemseiten bleiben für die Navigation verfügbar und bestehende Benutzerkategorien/Aufträge wurden nicht gelöscht oder migriert.
 
-## Zusammenfassung
-
-Die Systemnavigation ist dauerhaft von Benutzerkategorien getrennt. Die Auftragsdetailansicht ist im vorhandenen Windows-11-Design modernisiert; die bestehende Bedienung bleibt erhalten.
+Die normale Auftragsdetailansicht in `MainWindow.axaml` verwendet neue lokale Designklassen für große Karten, ruhige semantische Flächen, Überschriften, Untertitel, Feldlabels, Chips, Gruppenabstände und den Aktionskopf. Alle bestehenden Bindings, Commands und Events blieben erhalten.
 
 ## Geänderte Dateien
 
@@ -32,7 +30,16 @@ Die Systemnavigation ist dauerhaft von Benutzerkategorien getrennt. Die Auftrags
 - Kategorienverwaltung enthält keine Systemseiten; vorhandene Benutzerkategorien und Unterkategorien sind sichtbar.
 - Task-Kategorieauswahl enthält keine Systemseiten wie Übersicht, Schreibtisch, Archiv oder Einstellungen.
 
-## Git-Status
+## Ergebnis
+
+Die Systemnavigation ist dauerhaft von Benutzerkategorien getrennt. Die Auftragsdetailansicht ist im vorhandenen Windows-11-Design modernisiert; die bestehende Bedienung bleibt erhalten.
+
+## Bekannte offene Punkte
+
+- Keine fachlichen offenen Punkte aus diesem Auftrag.
+- Draft-PR #1 bleibt der einzige PR und wird über den vorgeschriebenen Helper aktualisiert.
+
+## Aktueller Git-Status
 
 ```text
  M MainWindow.axaml
@@ -41,27 +48,3 @@ Die Systemnavigation ist dauerhaft von Benutzerkategorien getrennt. Die Auftrags
  M docs/PROJEKTSTATUS.md
 ?? docs/codex_journal/2026-07-12_00-04_navigation-detail-modernisierung.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Keine fachlichen offenen Punkte aus diesem Auftrag.
-- Draft-PR #1 bleibt der einzige PR und wird über den vorgeschriebenen Helper aktualisiert.
-
-## Empfohlener nächster Schritt
-
-Die Änderungen im bestehenden Draft-PR #1 fachlich prüfen und manuell zur Review freigeben.
-
-1. Diff und sichtbare Abnahme im Draft-PR #1 prüfen.
-2. Nach fachlicher Freigabe den bestehenden PR manuell weiterführen.

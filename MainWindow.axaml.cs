@@ -244,6 +244,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<CategoryItem> Categories { get; } = new();
     public ObservableCollection<CategoryItem> SidebarCategories { get; } = new();
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
+    public ObservableCollection<CategoryItem> SystemNavigationCategories { get; } = new();
+    public ObservableCollection<CategoryItem> UserCategories { get; } = new();
     public ObservableCollection<CategoryItem> CategoryManagementCategories { get; } = new();
     public ObservableCollection<TaskCategorySelection> TaskCategorySelections { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
@@ -1839,12 +1841,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         var categoriesToRemove = Categories
             .Where(category =>
-                !string.Equals(category.Id, OverviewCategoryId, StringComparison.OrdinalIgnoreCase) &&
-                (string.Equals(category.Name, OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category.Name, "Übersicht", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
-                (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
-                 !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase))))
+                !IsCanonicalSystemNavigationCategory(category) &&
+                (string.Equals(category.Name?.Trim(), OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(category.Name?.Trim(), "Dashboard", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(category.Name?.Trim(), DeskCategoryName, StringComparison.OrdinalIgnoreCase)))
             .ToList();
 
         foreach (var category in categoriesToRemove)
@@ -5891,7 +5891,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? FindCategoryByName(string name, string? excludedCategoryId = null)
     {
         var normalizedName = NormalizeCategoryName(name);
-        return Categories.FirstOrDefault(category =>
+        return UserCategories.FirstOrDefault(category =>
             !string.Equals(category.Id, excludedCategoryId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(NormalizeCategoryName(category.Name), normalizedName, StringComparison.CurrentCultureIgnoreCase));
     }
@@ -5949,7 +5949,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int GetNextVisibleCategorySortOrder()
     {
         var maxSortOrder = Categories
-            .Where(category => !IsSpecialCategory(category))
+            .Where(IsUserCategory)
             .Select(category => category.SortOrder)
             .DefaultIfEmpty(-1)
             .Max();
@@ -6012,7 +6012,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var movableCategories = Categories
-            .Where(category => !IsSpecialCategory(category))
+            .Where(IsUserCategory)
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -6049,30 +6049,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ReorderVisibleCategories(string selectedCategoryId)
     {
-        var deskCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId);
-        var settingsCategory = Categories.FirstOrDefault(category => category.Id == SettingsCategoryId);
-
         var orderedCategories = Categories
-            .Where(category => !IsSpecialCategory(category))
+            .Where(IsUserCategory)
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
         Categories.Clear();
 
-        if (deskCategory is not null)
+        foreach (var category in SystemNavigationCategories
+                     .OrderBy(category => category.SortOrder)
+                     .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase))
         {
-            Categories.Add(deskCategory);
+            Categories.Add(category);
         }
 
         foreach (var category in orderedCategories)
         {
             Categories.Add(category);
-        }
-
-        if (settingsCategory is not null)
-        {
-            Categories.Add(settingsCategory);
         }
 
         var selectedCategory = Categories.FirstOrDefault(category =>
@@ -6516,7 +6510,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return Categories
             .Where(category =>
-                !IsSpecialCategory(category) &&
+                IsUserCategory(category) &&
                 !IsArchiveCategory(category) &&
                 !IsLegacyMobileApprovalCategory(category.Name) &&
                 string.Equals(category.ParentId ?? string.Empty, parentId ?? string.Empty, StringComparison.OrdinalIgnoreCase))
@@ -10525,6 +10519,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshTaskCategories()
     {
+        SystemNavigationCategories.Clear();
+        foreach (var category in Categories.Where(IsSystemNavigationCategory))
+        {
+            SystemNavigationCategories.Add(category);
+        }
+
+        UserCategories.Clear();
+        foreach (var category in Categories.Where(IsUserCategory))
+        {
+            UserCategories.Add(category);
+        }
+
         TaskCategories.Clear();
         foreach (var category in GetOrderedTaskCategories())
         {
@@ -10532,9 +10538,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CategoryManagementCategories.Clear();
-        foreach (var category in TaskCategories.Where(category =>
-                     !IsSpecialCategory(category) &&
-                     !string.IsNullOrWhiteSpace(category.Name)))
+        foreach (var category in UserCategories)
         {
             CategoryManagementCategories.Add(category);
         }
@@ -10642,7 +10646,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private IEnumerable<CategoryItem> GetOrderedTaskCategories()
     {
-        return Categories
+        return UserCategories
             .Where(IsTaskCategoryChoiceVisible)
             .OrderBy(category => category.ParentId is null ? category.SortOrder : GetRootSortOrder(category))
             .ThenBy(category => category.SelectionName, StringComparer.CurrentCultureIgnoreCase);
@@ -10905,20 +10909,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsSpecialCategory(CategoryItem category)
     {
-        return category.Id == OverviewCategoryId ||
-               category.Id == DeskCategoryId ||
-               category.Id == TrashCategoryId ||
-               category.Id == MobileInboxCategoryId ||
-               category.Id == SettingsCategoryId ||
-               category.Name == OverviewCategoryName;
+        return IsSystemNavigationCategory(category) ||
+               IsLegacyMobileApprovalCategory(category.Name);
+    }
+
+    private static bool IsSystemNavigationCategory(CategoryItem category)
+    {
+        if (string.IsNullOrWhiteSpace(category.Id))
+        {
+            return true;
+        }
+
+        return category.Id.StartsWith("__", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), "Dashboard", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), DeskCategoryName, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), SettingsCategoryName, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), TrashCategoryName, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), MobileInboxCategoryName, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Name?.Trim(), "Archiv", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCanonicalSystemNavigationCategory(CategoryItem category)
+    {
+        return string.Equals(category.Id, OverviewCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, TrashCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, MobileInboxCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUserCategory(CategoryItem category)
+    {
+        return !string.IsNullOrWhiteSpace(category.Name) &&
+               !IsSystemNavigationCategory(category) &&
+               !IsLegacyMobileApprovalCategory(category.Name);
     }
 
     private bool IsTaskCategoryChoiceVisible(CategoryItem category)
     {
-        return IsDeskCategory(category) ||
-               (!IsSpecialCategory(category) &&
-                !IsArchiveCategory(category) &&
-                !IsLegacyMobileApprovalCategory(category.Name));
+        return IsUserCategory(category) &&
+               !IsArchiveCategory(category);
     }
 
     private bool IsSelectableTaskCategory(CategoryItem category)

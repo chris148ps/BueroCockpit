@@ -28,6 +28,49 @@
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="Margin" Value="0,14,0,8" />
     </Style>
+    <Style Selector="TextBlock.TaskDetailSectionTitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="TextBlock.TaskDetailFieldLabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.TaskDetailSubtitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.TaskDetailCard">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.TaskDetailInset">
+      <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.TaskDetailHeader">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.TaskDetailChip">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
     <Style Selector="TextBox, ComboBox, DatePicker, NumericUpDown">
       <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
@@ -2350,27 +2393,33 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasNormalSelectedTask}">
-          <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
-            <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
-            <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="3" Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,0" />
-            <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" />
-          </Grid>
+        <StackPanel Classes="TaskDetailRoot" Margin="24" Spacing="14" IsVisible="{Binding HasNormalSelectedTask}">
+          <Border Classes="TaskDetailHeader">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+              <StackPanel Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="Auftragsdetails" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Text="Stammdaten, Organisation, Termine und Dateien an einem Ort."
+                           Classes="TaskDetailSubtitle" />
+              </StackPanel>
+              <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="12,0,8,0" />
+              <Button Grid.Column="3" Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,0" />
+              <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" />
+            </Grid>
+          </Border>
 
-          <TextBlock Text="Hinweis: Ähnliche Aufträge werden beim Speichern geprüft."
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     Margin="0,-4,0,2" />
+          <Border Classes="TaskDetailInset">
+            <TextBlock Text="Hinweis: Ähnliche Aufträge werden beim Speichern geprüft."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap" />
+          </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Aufgabe" />
-          <Border Classes="Card" Padding="14">
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Aufgabe" />
+          <Border Classes="TaskDetailCard">
             <StackPanel Spacing="8">
-              <TextBlock Text="Kunde" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Text="Kunde" Classes="TaskDetailFieldLabel" />
               <TextBox Text="{Binding SelectedTask.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kundenname" GotFocus="TaskDetailEditor_OnGotFocus" />
 
-              <TextBlock Text="Kundenadresse" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="Kundenadresse" Classes="TaskDetailFieldLabel" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.CustomerAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Adresse"
                        AcceptsReturn="True"
@@ -2380,23 +2429,23 @@
 
               <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,6,0,0">
                 <StackPanel Spacing="6">
-                  <TextBlock Text="Kunden-E-Mail" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="Kunden-E-Mail" Classes="TaskDetailFieldLabel" />
                   <TextBox Text="{Binding SelectedTask.CustomerEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="E-Mail-Adresse"
                            GotFocus="TaskDetailEditor_OnGotFocus" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="6">
-                  <TextBlock Text="Telefonnummer" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="Telefonnummer" Classes="TaskDetailFieldLabel" />
                   <TextBox Text="{Binding SelectedTask.CustomerPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="Telefonnummer"
                            GotFocus="TaskDetailEditor_OnGotFocus" />
                 </StackPanel>
               </Grid>
 
-              <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="Titel" Classes="TaskDetailFieldLabel" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kurzer Aufgabentitel" GotFocus="TaskDetailEditor_OnGotFocus" />
 
-              <TextBlock Text="Beschreibung / Notiz" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="Beschreibung / Notiz" Classes="TaskDetailFieldLabel" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Notizen, Verlauf, offene Punkte"
                        AcceptsReturn="True"
@@ -2406,12 +2455,12 @@
             </StackPanel>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Organisation" Margin="0,8,0,0" />
-          <Border Classes="Card" Padding="12">
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Organisation" />
+          <Border Classes="TaskDetailCard">
             <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Monteur" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="0" Grid.Column="1" Text="Gesendet am" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="0" Grid.Column="2" Text="Material bestellt am" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Monteur" Classes="TaskDetailFieldLabel" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="Gesendet am" Classes="TaskDetailFieldLabel" />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Material bestellt am" Classes="TaskDetailFieldLabel" />
 
               <ComboBox Grid.Row="1"
                         Grid.Column="0"
@@ -2446,12 +2495,10 @@
             </Grid>
           </Border>
 
-          <Border Classes="Card"
-                  Padding="12"
+          <Border Classes="TaskDetailCard"
                   IsVisible="{Binding SelectedTask.HasCategoryNameChips}">
             <StackPanel Spacing="8">
-              <TextBlock Text="Zugeordnete Kategorien"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Text="Zugeordnete Kategorien" Classes="TaskDetailFieldLabel" />
               <ItemsControl ItemsSource="{Binding SelectedTask.CategoryNameChips}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -2460,11 +2507,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Background="{DynamicResource AccentSoftBrush}"
-                            BorderBrush="{DynamicResource AccentSoftBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="7"
-                            Padding="6,2"
+                    <Border Classes="TaskDetailChip"
                             Margin="0,0,4,4">
                       <TextBlock Text="{Binding}"
                                  FontSize="12"
@@ -2476,8 +2519,8 @@
             </StackPanel>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Kategorien" Margin="0,12,0,0" />
-          <Border Classes="Card" Padding="12">
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Kategorien" />
+          <Border Classes="TaskDetailCard">
             <ItemsControl ItemsSource="{Binding TaskCategorySelections}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -2495,13 +2538,13 @@
             </ItemsControl>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Termine" Margin="0,12,0,0" />
-          <Border Classes="Card" Padding="14">
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Termine" />
+          <Border Classes="TaskDetailCard">
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="2*,*,2*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-                <TextBlock Text="Termin" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="1" Text="Uhrzeit" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="2" Text="Wiedervorlage" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Text="Termin" Classes="TaskDetailFieldLabel" />
+                <TextBlock Grid.Column="1" Text="Uhrzeit" Classes="TaskDetailFieldLabel" />
+                <TextBlock Grid.Column="2" Text="Wiedervorlage" Classes="TaskDetailFieldLabel" />
                 <StackPanel Grid.Row="1" Spacing="6">
                   <TextBox Text="{Binding DueDateInputText}"
                            Tag="DueDate"
@@ -2536,19 +2579,16 @@
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-            <TextBlock Classes="SectionTitle" Text="Material" Margin="0" />
+          <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+            <TextBlock Classes="TaskDetailSectionTitle" Text="Material" Margin="0" />
             <Button Grid.Column="1" Content="+ Material hinzufügen" Click="AddMaterial_OnClick" />
           </Grid>
           <TextBlock Text="Materialpositionen für diesen Auftrag."
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     Margin="0,-4,0,2" />
+                     Classes="TaskDetailSubtitle"
+                     Margin="0,-6,0,0" />
 
-          <Border Classes="Card"
+          <Border Classes="TaskDetailCard"
                   IsVisible="{Binding HasNoMaterials}"
-                  Padding="12"
                   Margin="0,0,0,8">
             <TextBlock Text="Noch kein Material erfasst." Foreground="{DynamicResource TextSecondaryBrush}" />
           </Border>
@@ -2556,7 +2596,7 @@
           <ItemsControl ItemsSource="{Binding Materials}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Classes="Card" Margin="0,0,0,8" Padding="12">
+                <Border Classes="TaskDetailCard" Margin="0,0,0,8">
                   <Grid ColumnDefinitions="120,78,*,132,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
                     <TextBlock Text="Menge" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <TextBlock Grid.Column="1" Text="Einheit" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
@@ -2662,8 +2702,8 @@
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-            <TextBlock Classes="SectionTitle" Text="Anhänge" Margin="0" />
+          <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+            <TextBlock Classes="TaskDetailSectionTitle" Text="Anhänge" Margin="0" />
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
                         Spacing="8">
@@ -2672,16 +2712,11 @@
             </StackPanel>
           </Grid>
           <TextBlock Text="Dateien, Fotos und PDFs zum Auftrag."
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     Margin="0,-4,0,2" />
+                     Classes="TaskDetailSubtitle"
+                     Margin="0,-6,0,0" />
 
-          <Border Classes="Card"
-                  Padding="14"
+          <Border Classes="TaskDetailInset"
                   Margin="0,0,0,10"
-                  Background="{DynamicResource InputBackgroundBrush}"
-                  BorderBrush="{DynamicResource BorderBrushDark}"
                   DragDrop.AllowDrop="True"
                   DragDrop.DragOver="AttachmentDropZone_OnDragOver"
                   DragDrop.Drop="AttachmentDropZone_OnDrop">
@@ -2693,9 +2728,8 @@
           <ItemsControl ItemsSource="{Binding Attachments}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Classes="Card"
+                <Border Classes="TaskDetailCard"
                         Margin="0,0,0,8"
-                        Padding="12"
                         Background="{DynamicResource SurfaceBackgroundBrush}"
                         BorderBrush="{DynamicResource BorderBrushDark}"
                         PointerPressed="AttachmentCard_OnPointerPressed">

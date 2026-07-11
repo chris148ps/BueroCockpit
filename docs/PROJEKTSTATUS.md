@@ -4,7 +4,8 @@
 
 BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer
 lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der aktuelle
-Desktop-Stand enthält eine hierarchische Kategorie-Navigation, konsolidierte
+Desktop-Stand enthält eine hierarchische Kategorie-Navigation mit klarer
+Trennung zwischen Systemnavigation und Benutzerkategorien, konsolidierte
 Dark-/Light-Designressourcen, lokale Schreibtisch-Notizen, zeitgesteuerten
 Autospeicher und eine profilbasierte Technikerverwaltung ohne Sonderrolle.
 Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
@@ -12,6 +13,9 @@ Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 ## Architektur
 
 - Desktop: Avalonia UI, führendes System, lokale SQLite-/Dateidaten.
+- Navigation: Systemseiten sind über reservierte IDs/Namen und `__`-IDs
+  geschützt; Benutzerkategorien werden für Verwaltung und Auftragsauswahl
+  separat aufgebaut.
 - iPad: SwiftUI Snapshot Reader und mobiler Erfassungsclient.
 - Techniker: zentral gespeicherte, rückwärtskompatible Profile in den bestehenden
   Live-Settings; die Namensliste bleibt für Auftragsauswahlen verfügbar.
@@ -23,8 +27,13 @@ Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 ## Erledigte Hauptfunktionen
 
 - Kategoriebaum mit Unterkategorien und aggregierten Auftragszahlen.
+- Systemnavigation und Benutzerkategorien sind in den UI-Quellmengen getrennt;
+  Systemseiten erscheinen nicht in Kategorienverwaltung oder Auftragsauswahl.
 - Kategorieauswahl ohne nicht auswählbare Hauptkategorien.
 - Dashboard-Navigation mit passender Kategorieauswahl.
+- Moderne Auftragsdetailansicht mit großen Karten, semantischen Flächen,
+  einheitlichen Eingabefeldern, Gruppen und Aktionsbereich ohne geänderte
+  Bindings, Events oder Commands.
 - Auftragsbezogene Schreibtisch-Notizzettel mit Abwahl/Löschung.
 - Gleichberechtigte Technikerprofile mit Name, Kürzel, E-Mail und Telefon.
 - Horizontale Desktop-Einstellungstabs und Windows-11-Dark-Technikeransicht.
@@ -49,5 +58,7 @@ Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
   Arbeitsstände.
 - Alte `technicianNames` bleiben beim Lesen und Schreiben kompatibel; neue
   Profilfelder liegen additiv in `technicians`, ohne Standard-Sonderrolle.
+- Systemnavigation wird nicht als Benutzerkategorie behandelt; bestehende
+  Benutzerkategorien und Aufträge bleiben unverändert.
 - Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses
   Workflows.
