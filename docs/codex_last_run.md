@@ -45,16 +45,13 @@ Die Desktop-Einstellungen und die Technikerverwaltung folgen der Referenzansicht
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+e06938fe49dc9786e9669ee5d3f178bd02d3daaa
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
