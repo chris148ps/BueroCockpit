@@ -25,7 +25,7 @@ Den bestehenden Git-Helfer auf den festen Branch codex/work umgestellt. Sicherhe
 - bash -n für beide Skripte erfolgreich.
 - Git-Helfer-Dry-Run erfolgreich; kein Branch, Commit, Push oder PR erzeugt.
 - Offene Draft-PR-Suche für codex/work nach main erfolgreich; vor dem Lauf kein PR vorhanden.
-- Echter Commit-, Push- und Draft-PR-Lauf erfolgreich: Branch codex/work, Arbeitscommit 5d2f96f, Metadatencommit ef38235, Draft-PR #1 erstellt und zu origin gepusht.
+- Echter Commit-, Push- und Draft-PR-Lauf erfolgreich: Branch codex/work, Arbeitscommit 5d2f96f, Metadatencommit ef38235, Draft-PR #1 erstellt und zu origin gepusht. Ein zweiter kontrollierter Lauf aktualisierte denselben Draft-PR #1 ohne einen zweiten PR zu erstellen.
 
 ## Ergebnis
 
@@ -47,7 +47,6 @@ Der Workflow kann den festen Branch codex/work veröffentlichen und genau einen 
  M Services/AppSettingsService.cs
  M docs/DESIGN_RICHTLINIEN.md
  M iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader/SnapshotRootView.swift
- M scripts/publish-codex-work.sh
- ?? macOS/
+?? macOS/
 ?? scripts/run-macos-bundle.sh
 ```
