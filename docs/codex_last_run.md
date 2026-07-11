@@ -27,7 +27,7 @@ Der Projektworkflow besitzt jetzt einen getrennten Dokumentations- und Git-Verö
 - bash -n für beide Skripte erfolgreich.
 - Dokumentationsrunner-Dry-Run erfolgreich.
 - Git-Helfer-Dry-Run erfolgreich; kein Branch, Commit oder Push erzeugt.
-- Kontrollierter echter Branch-, Commit- und Push-Lauf folgt nach dieser Dokumentation.
+- Kontrollierter echter Branch-, Commit- und Push-Lauf erfolgreich: Branch codex/work-2026-07-11-git-workflow, Arbeitscommit 5eea8e1, Metadatencommit cd33fa3, Push zu origin erfolgreich.
 
 ## Git-Status
 
@@ -48,7 +48,7 @@ Der Projektworkflow besitzt jetzt einen getrennten Dokumentations- und Git-Verö
 ?? scripts/publish-codex-work.sh
 ?? scripts/run-macos-bundle.sh
 ?? scripts/update-codex-documentation.sh
-``` 
+```
 
 ## Branch
 codex/work-2026-07-11-git-workflow

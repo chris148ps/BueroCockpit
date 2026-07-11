@@ -159,7 +159,14 @@ if ! git diff --cached --quiet; then
   git commit -m "Codex: Dokumentationsmetadaten aktualisieren"
   METADATA_COMMIT="$(git rev-parse HEAD)"
   if [ "$PUSH_SUCCESS" = "Ja" ]; then
-    git push "$REMOTE" "$TARGET_BRANCH"
+    if ! git push "$REMOTE" "$TARGET_BRANCH"; then
+      PUSH_SUCCESS="Nein"
+      update_last_run_field "Push erfolgreich" "$PUSH_SUCCESS"
+      git add -- "$LAST_RUN"
+      git commit -m "Codex: Pushstatus dokumentieren"
+      METADATA_COMMIT="$(git rev-parse HEAD)"
+      echo "WARNUNG: Der Metadaten-Push ist fehlgeschlagen." >&2
+    fi
   fi
 else
   METADATA_COMMIT="$WORK_COMMIT"
