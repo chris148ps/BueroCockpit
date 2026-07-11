@@ -51,16 +51,13 @@ Der Projektworkflow besitzt jetzt einen getrennten Dokumentations- und Git-Verö
 ``` 
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work-2026-07-11-git-workflow
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+5eea8e1bbd38c8e6947a183f0725de3c082822c4
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
