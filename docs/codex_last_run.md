@@ -43,16 +43,13 @@ Die Systemnavigation ist dauerhaft von Benutzerkategorien getrennt. Die Auftrags
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+4cd7e167ade94ee2927d84bd7a148a0906ed4d29
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
