@@ -49,7 +49,7 @@ Der Workflow kann den festen Branch codex/work veröffentlichen und genau einen 
 codex/work
 
 ## Commit
-481e03d7e5f0a0ab939b194659a997681685921d
+e47505c47aa752477f4ee63191c8416d7bfc5a9d
 
 ## Push erfolgreich
 Ja
