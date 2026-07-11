@@ -32,7 +32,6 @@ Der Projektworkflow besitzt jetzt einen getrennten Dokumentations- und Git-Verö
 ## Git-Status
 
 ```text
- M AGENTS.md
  M App.axaml
  M App.axaml.cs
  M MainWindow.axaml
@@ -40,14 +39,8 @@ Der Projektworkflow besitzt jetzt einen getrennten Dokumentations- und Git-Verö
  M Services/AppSettingsService.cs
  M docs/DESIGN_RICHTLINIEN.md
  M iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader/SnapshotRootView.swift
-?? docs/NEXT_TASK.md
-?? docs/codex_journal/
-?? docs/codex_last_run.md
-?? docs/codex_run_template.md
-?? macOS/
-?? scripts/publish-codex-work.sh
-?? scripts/run-macos-bundle.sh
-?? scripts/update-codex-documentation.sh
+ ?? macOS/
+ ?? scripts/run-macos-bundle.sh
 ```
 
 ## Branch
