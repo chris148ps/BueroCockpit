@@ -2,68 +2,63 @@
 
 ## Datum/Uhrzeit
 
-2026-07-11 20:33 +0200
+2026-07-11 20:54 +0200
 
 ## Letzter Auftrag
 
-Lokale fachliche Desktop-, iPad- und macOS-Änderungen vollständig auf codex/work veröffentlichen
+Windows-11-Dark-Umstellung der Desktop-Oberfläche konsolidieren
 
 ## Zusammenfassung
 
-Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und vollständig im bestehenden Draft-PR #1 auf codex/work veröffentlicht.
+Die verbliebenen klaren Desktop-Rahmenausreißer sind auf zentrale Windows-11-Ressourcen zurückgeführt; der bestehende Draft-PR wird mit der visuellen Nachbesserung aktualisiert.
 
 ## Geänderte Dateien
 
-- App.axaml
-- App.axaml.cs
 - MainWindow.axaml
-- MainWindow.axaml.cs
-- Services/AppSettingsService.cs
-- docs/DESIGN_RICHTLINIEN.md
 - docs/PROJEKTSTATUS.md
-- iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader/SnapshotRootView.swift
-- macOS/Info.plist
-- scripts/run-macos-bundle.sh
-- docs/codex_journal/2026-07-11_20-33_fachliche-aenderungen.md
+- docs/codex_journal/2026-07-11_20-54_dark-konsolidierung.md
 - docs/codex_last_run.md
 - docs/NEXT_TASK.md
 
 ## Tests
 
 - `git status --short` und Branchprüfung erfolgreich.
-- `bash -n scripts/run-macos-bundle.sh` erfolgreich.
-- `bash -n scripts/update-codex-documentation.sh scripts/publish-codex-work.sh` erfolgreich.
+- Direkte Farb-/Brush-/Radius-Suche über Desktop-XAML und C# durchgeführt.
+- `git diff --check` erfolgreich.
 - `dotnet build` erfolgreich; nur vorhandene NuGet-Netzwerkwarnungen.
-- `xcodebuild -quiet ... CODE_SIGNING_ALLOWED=NO build` erfolgreich.
 - `dotnet run` als realer Desktop-Starttest erfolgreich gestartet und kontrolliert beendet.
-- Keine neuen offensichtlichen Debugreste oder ungenutzten Projektdateien festgestellt.
-- Commit c3edf59 auf codex/work erstellt, gepusht und Draft-PR #1 aktualisiert.
+- Keine Datenmodell-, Persistenz-, Netzwerk-, Installer- oder Releaseänderungen.
 
 ## Git-Status
 
 ```text
-Arbeitsbaum sauber nach dem Push von codex/work.
+ M MainWindow.axaml
+ M docs/NEXT_TASK.md
+ M docs/PROJEKTSTATUS.md
+?? docs/codex_journal/2026-07-11_20-54_dark-konsolidierung.md
 ``` 
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-20fbccaad81dd309d01ae9a46b485d3e73c78f88
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Der echte lokale Netzwerk-Sync bleibt deaktiviert.
-- Nicht ausgewählte lokale Änderungen außerhalb der fachlich geprüften Pfade bleiben bewusst uncommitted.
-- Die Semantik bestehender Diagnose-Logs wurde nicht verändert.
+- Fachliche Sonderflächen für Schreibtisch-Dokumente und mobile Statusbadges verwenden weiterhin eigene Kontrastfarben.
+- Die visuelle Prüfung erfolgte per Ressourcen-/XAML-Inspektion und Starttest; eine pixelgenaue Screenshot-Abnahme ist nicht Bestandteil dieses Laufs.
 
 ## Empfohlener nächster Schritt
 
-Den bestehenden Draft-PR #1 nach dem Push prüfen und den nächsten fachlichen Codex-Auftrag wieder über codex/work aktualisieren.
+Den bestehenden Draft-PR #1 nach der Dark-Konsolidierung prüfen und beim nächsten Auftrag nur neue fachliche Änderungen veröffentlichen.
 
-1. PR #1 und den veröffentlichten Commitstand prüfen.
-2. Beim nächsten Auftrag nur fachlich zugehörige --include-Pfade verwenden.
-3. Nach Bedarf PROJEKTSTATUS.md erneut fachlich aktualisieren.
+1. PR #1 und den finalen codex/work-Commit prüfen.
+2. Beim nächsten Auftrag die Designrichtlinien erneut vor der UI-Änderung lesen.
+3. Nur tatsächlich geänderte Dateien mit --include veröffentlichen.

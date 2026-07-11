@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Den bestehenden Draft-PR #1 nach dem Push prüfen und den nächsten fachlichen Codex-Auftrag wieder über codex/work aktualisieren.
+Den bestehenden Draft-PR #1 nach der Dark-Konsolidierung prüfen und beim nächsten Auftrag nur neue fachliche Änderungen veröffentlichen.
 
 ## Geplante Schritte
 
-1. PR #1 und den veröffentlichten Commitstand prüfen.
-2. Beim nächsten Auftrag nur fachlich zugehörige --include-Pfade verwenden.
-3. Nach Bedarf PROJEKTSTATUS.md erneut fachlich aktualisieren.
+1. PR #1 und den finalen codex/work-Commit prüfen.
+2. Beim nächsten Auftrag die Designrichtlinien erneut vor der UI-Änderung lesen.
+3. Nur tatsächlich geänderte Dateien mit --include veröffentlichen.
 
 ## Vermutlich betroffene Dateien
 
@@ -20,4 +20,4 @@ Den bestehenden Draft-PR #1 nach dem Push prüfen und den nächsten fachlichen C
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- main, Merge-Zustand, Tags, Releases, Versionsdateien, Produktivdaten, Netzwerk-Sync und Installer.
+- main, Merge-Zustand, Datenmodelle, Persistenz, Netzwerk-Sync, Installer, Releases, Tags und Versionsdateien.

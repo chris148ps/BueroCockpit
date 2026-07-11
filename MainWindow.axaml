@@ -204,7 +204,7 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="CornerRadius" Value="15" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
@@ -350,12 +350,12 @@
     <Style Selector="ListBox#TaskList ListBoxItem:selected Border.Card.TaskCard">
       <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="ListBox#TaskList ListBoxItem:selected:pointerover Border.Card.TaskCard">
       <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Border.InlineCard">
       <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
@@ -492,7 +492,7 @@
             <DataTemplate>
               <Border Classes="CategoryItemFrame"
                       HorizontalAlignment="Stretch"
-                      CornerRadius="9"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
                       Padding="10,9"
                       Background="{DynamicResource SurfaceBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
@@ -533,7 +533,7 @@
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" />
-                    <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
+                    <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="7,2">
                       <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                     </Border>
                   </Grid>
@@ -564,7 +564,7 @@
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{Binding DashboardThisWeekSection.Title}" FontSize="16" FontWeight="SemiBold" />
-                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="9,3">
                     <TextBlock Text="{Binding DashboardThisWeekSection.Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
                 </Grid>
@@ -580,7 +580,7 @@
                       <Border Background="{DynamicResource SurfaceElevatedBrush}"
                               BorderBrush="{DynamicResource BorderBrushDark}"
                               BorderThickness="1"
-                              CornerRadius="10"
+                              CornerRadius="{DynamicResource CornerRadiusLarge}"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
@@ -643,7 +643,7 @@
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{Binding DashboardNextWeekSection.Title}" FontSize="16" FontWeight="SemiBold" />
-                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="9,3">
                     <TextBlock Text="{Binding DashboardNextWeekSection.Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
                 </Grid>
@@ -659,7 +659,7 @@
                       <Border Background="{DynamicResource SurfaceElevatedBrush}"
                               BorderBrush="{DynamicResource BorderBrushDark}"
                               BorderThickness="1"
-                              CornerRadius="10"
+                              CornerRadius="{DynamicResource CornerRadiusLarge}"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
@@ -724,7 +724,7 @@
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Classes="FollowUpCardTitle" Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
-                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="10" Padding="9,3">
+                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="9,3">
                     <TextBlock Classes="FollowUpCountText" Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" />
                   </Border>
                 </Grid>
@@ -735,7 +735,7 @@
                       <Border Background="{DynamicResource DangerBackgroundBrush}"
                               BorderBrush="{DynamicResource DangerBrush}"
                               BorderThickness="1"
-                              CornerRadius="10"
+                              CornerRadius="{DynamicResource CornerRadiusLarge}"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
@@ -895,7 +895,7 @@
                                 Height="{Binding Height}"
                                 Background="{Binding NoteBackground}"
                                 BorderBrush="{Binding NoteBorderBrush}"
-                                BorderThickness="1.2"
+                                BorderThickness="1"
                                 CornerRadius="{DynamicResource CornerRadiusLarge}"
                                 Tag="DeskNoteRoot"
                                 ClipToBounds="True"
@@ -1012,7 +1012,7 @@
                                 Height="{Binding Height}"
                                 Background="{Binding FileCardBackground}"
                                 BorderBrush="{Binding FileCardBorderBrush}"
-                                BorderThickness="1.2"
+                                BorderThickness="1"
                                 CornerRadius="{DynamicResource CornerRadiusLarge}"
                                 Tag="DeskFileRoot"
                                 ClipToBounds="False"
@@ -1090,7 +1090,7 @@
                                     <Border Background="{Binding FileCardBadgeBackground}"
                                             BorderBrush="{Binding FileCardBadgeBorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="12"
+                                            CornerRadius="{DynamicResource CornerRadiusLarge}"
                                             Padding="16,12">
                                       <TextBlock Text="{Binding FileKindLabel}"
                                                  FontSize="28"
@@ -1227,7 +1227,7 @@
                         <DataTemplate>
                           <Border BorderBrush="{DynamicResource BorderBrush}"
                                   BorderThickness="1"
-                                  CornerRadius="10"
+                                  CornerRadius="{DynamicResource CornerRadiusLarge}"
                                   Padding="10"
                                   Margin="0,0,0,8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -1765,7 +1765,7 @@
                   <Border Background="{DynamicResource AccentSoftBrush}"
                           BorderBrush="{DynamicResource AccentSoftBorderBrush}"
                           BorderThickness="1"
-                          CornerRadius="10"
+                          CornerRadius="{DynamicResource CornerRadiusLarge}"
                           Padding="10"
                           Margin="0,0,0,8"
                           PointerPressed="GlobalSearchResult_OnPointerPressed">
@@ -2533,7 +2533,7 @@
 
                       <Border MinHeight="220"
                       MaxHeight="520"
-                      CornerRadius="12"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
                       Background="{DynamicResource InputBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
@@ -2569,7 +2569,7 @@
               <Border Background="{DynamicResource InputBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
-                      CornerRadius="10"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
                       Padding="10">
                 <StackPanel Spacing="8">
                   <TextBlock Text="iPad-Bearbeitung"
@@ -2650,7 +2650,7 @@
                     </ContextMenu>
                   </Border.ContextMenu>
                   <Grid ColumnDefinitions="170,*,Auto" ColumnSpacing="12">
-                    <Border Grid.Column="0" Width="160" Height="110" CornerRadius="10" Background="{DynamicResource InputBackgroundBrush}" ClipToBounds="True">
+                    <Border Grid.Column="0" Width="160" Height="110" CornerRadius="{DynamicResource CornerRadiusLarge}" Background="{DynamicResource InputBackgroundBrush}" ClipToBounds="True">
                       <Grid>
                         <Image IsVisible="{Binding HasThumbnail}"
                                Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"

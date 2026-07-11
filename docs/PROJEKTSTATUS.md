@@ -27,6 +27,8 @@ iPadOS-Navigation und Toolbar.
 - Kompakter Techniker-Entfernen-Button und entfernte Statusauswahl im Detail.
 - Robusteres Leeren von Datumsfeldern und vorhandener Autospeicher-Timer.
 - Semantische Desktop-Ressourcen für Dark-/Light-Modus.
+- Konsolidierte Windows-11-Dark-Zustände für Karten, Kategorien, Eingaben,
+  Fokus, Auswahl und Dialog-/Preview-Rahmen.
 - Native iPadOS-Toolbar und systemeigene Suche.
 - Lokales macOS-Bundle-Hilfsskript.
 
