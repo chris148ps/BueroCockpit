@@ -33,10 +33,11 @@ Desktop-Kategorien, aggregierte Zähler, Detailformular, Schreibtisch-Notizzette
 - `xcodebuild -quiet ... CODE_SIGNING_ALLOWED=NO build` erfolgreich.
 - `dotnet run` als realer Desktop-Starttest erfolgreich gestartet und kontrolliert beendet.
 - Keine neuen offensichtlichen Debugreste oder ungenutzten Projektdateien festgestellt.
+- Commit c3edf59 auf codex/work erstellt, gepusht und Draft-PR #1 aktualisiert.
 
 ## Ergebnis
 
-Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird vollständig im bestehenden Draft-PR #1 auf codex/work veröffentlicht.
+Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und vollständig im bestehenden Draft-PR #1 auf codex/work veröffentlicht.
 
 ## Bekannte offene Punkte
 
@@ -47,16 +48,5 @@ Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird volls
 ## Aktueller Git-Status
 
 ```text
- M App.axaml
- M App.axaml.cs
- M MainWindow.axaml
- M MainWindow.axaml.cs
- M Services/AppSettingsService.cs
- M docs/DESIGN_RICHTLINIEN.md
- M docs/NEXT_TASK.md
- M iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader/SnapshotRootView.swift
-?? docs/PROJEKTSTATUS.md
-?? docs/codex_journal/2026-07-11_20-33_fachliche-aenderungen.md
-?? macOS/
-?? scripts/run-macos-bundle.sh
+Arbeitsbaum sauber nach dem Push von codex/work.
 ```
