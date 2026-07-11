@@ -1,16 +1,14 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Übersicht als zentrale Tagesarbeitsübersicht ausbauen
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-12 00:26 +0200
+Die Startseite Übersicht mit vier ruhigen, realen und read-only Bereichen für Termine, Wiedervorlagen, Mobile Eingänge und Synchronisation ausbauen.
 
-## Letzter Auftrag
+## Umsetzung
 
-Übersicht als zentrale Tagesarbeitsübersicht ausbauen
+Die bestehende Dashboard-Abfrage wurde um eine Heute-Gruppe und ein aktuelles deutsches Datum ergänzt. Die Übersicht zeigt Termine für Heute, Diese Woche und Nächste Woche, heutige Wiedervorlagen mit Anzahl und roter Hervorhebung nur bei echten Treffern, neue Mobile-Inbox-Aufträge/Fotos/Skizzen aus vorhandenen Entry-Daten sowie einen read-only Desktop-/Netzwerk-Sync-Status. Fehlende Daten zeigen die angeforderten freundlichen Leerzustände; erfolgreiche Synchronisation wird nicht erfunden, wenn kein Zeitpunkt vorhanden ist.
 
-## Zusammenfassung
-
-Die Startseite Übersicht ist eine schlichte zentrale Tagesarbeitsübersicht mit ausschließlich den angeforderten Informationen und realen Daten.
+Die Übersicht wurde in `MainWindow.axaml` auf ruhige, gleichartige Windows-11-Dark-Karten mit semantischen Ressourcen, konsistenten Abständen und einer resize-fähigen Grid-Struktur umgestellt. Kategorien, Aufträge, Datenmodell, Persistenz und Netzwerk-Sync wurden nicht verändert.
 
 ## Geänderte Dateien
 
@@ -34,7 +32,16 @@ Die Startseite Übersicht ist eine schlichte zentrale Tagesarbeitsübersicht mit
 - Fenster vergrößert: alle vier Bereiche weiterhin sichtbar.
 - Keine Produktivdaten, Kategorien, Aufträge oder Sync-Dienste verändert/gestartet.
 
-## Git-Status
+## Ergebnis
+
+Die Startseite Übersicht ist eine schlichte zentrale Tagesarbeitsübersicht mit ausschließlich den angeforderten Informationen und realen Daten.
+
+## Bekannte offene Punkte
+
+- Keine fachlichen offenen Punkte aus diesem Auftrag.
+- Der bestehende Draft-PR #1 bleibt der einzige PR und wird über den vorgeschriebenen Helper aktualisiert.
+
+## Aktueller Git-Status
 
 ```text
  M MainWindow.axaml
@@ -43,27 +50,3 @@ Die Startseite Übersicht ist eine schlichte zentrale Tagesarbeitsübersicht mit
  M docs/PROJEKTSTATUS.md
 ?? docs/codex_journal/2026-07-12_00-26_dashboard-tagesuebersicht.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Keine fachlichen offenen Punkte aus diesem Auftrag.
-- Der bestehende Draft-PR #1 bleibt der einzige PR und wird über den vorgeschriebenen Helper aktualisiert.
-
-## Empfohlener nächster Schritt
-
-Die Dashboard-Änderungen im bestehenden Draft-PR #1 fachlich prüfen und manuell zur Review freigeben.
-
-1. Diff und sichtbare Abnahme im Draft-PR #1 prüfen.
-2. Nach fachlicher Freigabe den bestehenden PR manuell weiterführen.

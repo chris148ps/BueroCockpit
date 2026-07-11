@@ -2,7 +2,7 @@
 
 ## Ziel
 
-Die Änderungen im bestehenden Draft-PR #1 fachlich prüfen und manuell zur Review freigeben.
+Die Dashboard-Änderungen im bestehenden Draft-PR #1 fachlich prüfen und manuell zur Review freigeben.
 
 ## Geplante Schritte
 
@@ -16,4 +16,4 @@ Die Änderungen im bestehenden Draft-PR #1 fachlich prüfen und manuell zur Revi
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktivdaten, Datenmodell, Persistenzschema, Netzwerk-Sync, Installer, Releaseprozess, Versionen, Tags und `main`.
+- Produktivdaten, Datenmodell, Persistenz, Kategorien, Aufträge, Netzwerk-Sync, Installer, Releaseprozess, Versionen, Tags und `main`.

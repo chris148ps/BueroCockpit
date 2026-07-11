@@ -15,6 +15,32 @@
   <Window.Resources>
     <converters:ThumbnailImageConverter x:Key="ThumbnailImageConverter" />
     <converters:DeskThumbnailImageConverter x:Key="DeskThumbnailImageConverter" />
+    <DataTemplate x:Key="DashboardTaskTemplate">
+      <Border Classes="InlineCard"
+              Margin="0,0,0,8"
+              PointerPressed="DashboardTask_OnPointerPressed">
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Wiedervorlage bestätigen"
+                      IsVisible="{Binding HasFollowUpDate}"
+                      Click="ConfirmFollowUp_OnClick" />
+          </ContextMenu>
+        </Border.ContextMenu>
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding DueDateOverviewText, StringFormat='Termin: {0}'}"
+                     IsVisible="{Binding HasDueDate}"
+                     Classes="OverviewCardSubtitle" />
+          <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
+                     IsVisible="{Binding HasFollowUpDate}"
+                     Classes="OverviewCardSubtitle" />
+          <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
+                     IsVisible="{Binding HasTechnician}"
+                     Classes="OverviewCardSubtitle" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
   </Window.Resources>
 
   <Window.Styles>
@@ -70,6 +96,34 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
       <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style Selector="Border.OverviewCard">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Border.OverviewSubCard">
+      <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.OverviewCardTitle">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.OverviewCardSubtitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.OverviewEmpty">
+      <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,8,0,0" />
     </Style>
     <Style Selector="TextBox, ComboBox, DatePicker, NumericUpDown">
       <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
@@ -460,6 +514,10 @@
     <Style Selector="Border.FollowUpCard.HasFollowUps Border.FollowUpCount">
       <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
     </Style>
+    <Style Selector="Border.FollowUpCard.HasFollowUps Border.InlineCard">
+      <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    </Style>
     <Style Selector="Border.FollowUpCard.HasFollowUps TextBlock.FollowUpCountText">
       <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
     </Style>
@@ -634,10 +692,134 @@
         <StackPanel Spacing="18">
           <StackPanel>
             <TextBlock Text="Übersicht" FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding DashboardDateText}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
+            <TextBlock Text="Heute" Classes="OverviewCardTitle" Margin="0,6,0,0" />
+            <TextBlock Text="{Binding DashboardTodayText}" Classes="OverviewCardSubtitle" Margin="0,2,0,0" />
           </StackPanel>
 
-          <StackPanel Orientation="Horizontal" Spacing="18">
+          <Border Classes="Card OverviewCard">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Termine" Classes="OverviewCardTitle" />
+                  <TextBlock Text="Heute, diese Woche und nächste Woche"
+                             Classes="OverviewCardSubtitle" />
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding DashboardTodaySection.Count, StringFormat='Heute: {0}'}"
+                           Classes="OverviewCardSubtitle"
+                           VerticalAlignment="Center" />
+              </Grid>
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                <Border Classes="OverviewSubCard">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DashboardTodaySection.Title}" Classes="OverviewCardTitle" />
+                      <TextBlock Grid.Column="1" Text="{Binding DashboardTodaySection.Count}" Classes="OverviewCardSubtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding DashboardTodaySection.EmptyText}"
+                               IsVisible="{Binding DashboardTodaySection.HasNoTasks}"
+                               Classes="OverviewEmpty" />
+                    <ItemsControl ItemsSource="{Binding DashboardTodaySection.Tasks}"
+                                  ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="OverviewSubCard">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DashboardThisWeekSection.Title}" Classes="OverviewCardTitle" />
+                      <TextBlock Grid.Column="1" Text="{Binding DashboardThisWeekSection.Count}" Classes="OverviewCardSubtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding DashboardThisWeekSection.EmptyText}"
+                               IsVisible="{Binding DashboardThisWeekSection.HasNoTasks}"
+                               Classes="OverviewEmpty" />
+                    <ItemsControl ItemsSource="{Binding DashboardThisWeekSection.Tasks}"
+                                  ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="OverviewSubCard">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DashboardNextWeekSection.Title}" Classes="OverviewCardTitle" />
+                      <TextBlock Grid.Column="1" Text="{Binding DashboardNextWeekSection.Count}" Classes="OverviewCardSubtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding DashboardNextWeekSection.EmptyText}"
+                               IsVisible="{Binding DashboardNextWeekSection.HasNoTasks}"
+                               Classes="OverviewEmpty" />
+                    <ItemsControl ItemsSource="{Binding DashboardNextWeekSection.Tasks}"
+                                  ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+            <Border Classes="Card OverviewCard FollowUpCard"
+                    Classes.HasFollowUps="{Binding HasFollowUpTasks}">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="OverviewCardTitle FollowUpCardTitle" Text="Wiedervorlagen" />
+                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="8,3">
+                    <TextBlock Classes="FollowUpCountText" Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" />
+                  </Border>
+                </Grid>
+                <TextBlock Text="Keine Wiedervorlagen."
+                           IsVisible="{Binding HasNoFollowUpTasks}"
+                           Classes="OverviewEmpty" />
+                <ItemsControl ItemsSource="{Binding FollowUpTasks}"
+                              ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Classes="Card OverviewCard">
+              <StackPanel Spacing="10">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Mobile Eingänge" Classes="OverviewCardTitle" />
+                  <TextBlock Text="Neue Aufträge, Fotos und Skizzen"
+                             Classes="OverviewCardSubtitle" />
+                </StackPanel>
+                <TextBlock Text="Keine neuen mobilen Eingänge."
+                           IsVisible="{Binding HasNoNewMobileInboxData}"
+                           Classes="OverviewEmpty" />
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8" IsVisible="{Binding HasNewMobileInboxData}">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Neue Aufträge" />
+                    <TextBlock Grid.Column="1" Text="{Binding NewMobileInboxTaskCount}" Classes="OverviewCardSubtitle" />
+                  </Grid>
+                  <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Neue Fotos" />
+                    <TextBlock Grid.Column="1" Text="{Binding NewMobilePhotoCount}" Classes="OverviewCardSubtitle" />
+                  </Grid>
+                  <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Neue Skizzen" />
+                    <TextBlock Grid.Column="1" Text="{Binding NewMobileSketchCount}" Classes="OverviewCardSubtitle" />
+                  </Grid>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Classes="Card OverviewCard">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Synchronisation" Classes="OverviewCardTitle" />
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
+                  <TextBlock Text="Desktop" Classes="OverviewCardSubtitle" />
+                  <TextBlock Grid.Column="1" Text="{Binding DesktopConnectionStatusText}" />
+                  <TextBlock Grid.Row="1" Text="Netzwerk-Sync" Classes="OverviewCardSubtitle" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding NetworkSyncStatusText}" />
+                </Grid>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Letzte erfolgreiche Synchronisation" Classes="OverviewCardSubtitle" />
+                  <TextBlock Text="{Binding LastSuccessfulSynchronizationText}" Classes="OverviewCardSubtitle" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Verbundenes Gerät" Classes="OverviewCardSubtitle" />
+                  <TextBlock Text="{Binding ConnectedDeviceText}" TextWrapping="Wrap" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="False">
             <Border Classes="Card"
                     Width="365"
                     MinHeight="230">

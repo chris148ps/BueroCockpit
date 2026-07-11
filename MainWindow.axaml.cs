@@ -263,6 +263,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<BackupListItem> BackupEntries { get; } = new();
     public ObservableCollection<LocalNetworkRememberedDeviceListItem> LocalNetworkRememberedDevices { get; } = new();
 
+    private DashboardSection _dashboardTodaySection = new(
+        "Heute",
+        "Keine Termine vorhanden.",
+        0,
+        Array.Empty<TaskItem>());
+
+    public DashboardSection DashboardTodaySection
+    {
+        get => _dashboardTodaySection;
+        private set
+        {
+            if (ReferenceEquals(_dashboardTodaySection, value))
+            {
+                return;
+            }
+
+            _dashboardTodaySection = value;
+            OnPropertyChanged(nameof(DashboardTodaySection));
+        }
+    }
+
     private DashboardSection _dashboardThisWeekSection = new(
         "Diese Woche",
         "Keine Termine für diese Woche.",
@@ -667,6 +688,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsTrashEmpty => IsTrashSelected && !HasVisibleTasks;
     public bool HasTrashItems => AllTasks.Any(task => task.IsDeleted);
     public bool HasFollowUpTasks => FollowUpTasks.Count > 0;
+    public bool HasNoFollowUpTasks => !HasFollowUpTasks;
     public int FollowUpTaskCount => FollowUpTasks.Count;
     public bool CanUndoTaskChange => _hasPendingTaskUndo && _taskUndoSnapshot is not null;
     public string UndoTaskChangeText => CanUndoTaskChange
@@ -775,6 +797,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public bool HasMobileInboxCleanupStatus => !string.IsNullOrWhiteSpace(MobileInboxCleanupStatus);
     public string DashboardDateText => $"Termine für die aktuelle und nächste Woche ab {GetWeekStart(DateTime.Today):dd.MM.yyyy}";
+    public string DashboardTodayText => DateTime.Today.ToString("dddd, dd. MMMM yyyy", CultureInfo.GetCultureInfo("de-DE"));
+    public string DesktopConnectionStatusText => "verbunden";
+    public string NetworkSyncStatusText => _localNetworkSyncTestService is not null
+        ? "aktiv"
+        : "inaktiv";
+    public string LastSuccessfulSynchronizationText => "Noch keine erfolgreiche Synchronisation.";
+    public string ConnectedDeviceText => LocalNetworkRememberedDevices.FirstOrDefault()?.DeviceName ?? "Kein mobiles Gerät verbunden.";
+    public bool HasNewMobileInboxData => NewMobileInboxTaskCount > 0 || NewMobilePhotoCount > 0 || NewMobileSketchCount > 0;
+    public bool HasNoNewMobileInboxData => !HasNewMobileInboxData;
+    public int NewMobileInboxTaskCount => MobileInboxEntries.Count(IsNewMobileInboxEntry);
+    public int NewMobilePhotoCount => MobileInboxEntries
+        .Where(IsNewMobileInboxEntry)
+        .Sum(entry => entry.OriginalPhotoPaths.Count > 0 ? entry.OriginalPhotoPaths.Count : entry.PhotoPreviews.Count);
+    public int NewMobileSketchCount => MobileInboxEntries
+        .Where(IsNewMobileInboxEntry)
+        .Sum(entry => entry.SketchPreviews.Count);
     public string AppDataDirectory => ResolveDisplayDirectory(AppPaths.AppDataDirectory);
     public string DefaultAppDataDirectory => ResolveDisplayDirectory(AppPaths.DefaultAppDataDirectory);
     public string DatabasePath => ResolveDisplayPath(AppPaths.DatabasePath);
@@ -3697,6 +3735,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         RefreshFollowUpTasks();
         var weekStart = GetWeekStart(DateTime.Today);
+        var today = DateTime.Today;
+
+        DashboardTodaySection = CreateDashboardSection(
+            "Heute",
+            "Keine Termine vorhanden.",
+            GetOverviewTasks(today, today.AddDays(1)));
 
         DashboardThisWeekSection = CreateDashboardSection(
             "Diese Woche",
@@ -3708,8 +3752,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             GetOverviewTasks(weekStart.AddDays(7), weekStart.AddDays(14)));
 
         DashboardSections.Clear();
+        DashboardSections.Add(DashboardTodaySection);
         DashboardSections.Add(DashboardThisWeekSection);
         DashboardSections.Add(DashboardNextWeekSection);
+    }
+
+    private static bool IsNewMobileInboxEntry(MobileInboxEntry entry)
+    {
+        return string.Equals(entry.DisplayStatusText, "Neu", StringComparison.OrdinalIgnoreCase);
     }
 
     private void RefreshFollowUpTasks()
@@ -3723,6 +3773,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         OnPropertyChanged(nameof(HasFollowUpTasks));
+        OnPropertyChanged(nameof(HasNoFollowUpTasks));
         OnPropertyChanged(nameof(FollowUpTaskCount));
     }
 
@@ -8150,6 +8201,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshLocalNetworkSyncDisplayProperties()
     {
         OnPropertyChanged(nameof(LocalNetworkSyncStatusText));
+        OnPropertyChanged(nameof(NetworkSyncStatusText));
         OnPropertyChanged(nameof(LocalNetworkSyncBonjourStatusText));
         OnPropertyChanged(nameof(LocalNetworkSyncDeviceNameText));
         OnPropertyChanged(nameof(LocalNetworkSyncPortText));
@@ -8157,6 +8209,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalNetworkSyncHintText));
         OnPropertyChanged(nameof(HasLocalNetworkRememberedDevices));
         OnPropertyChanged(nameof(HasNoLocalNetworkRememberedDevices));
+        OnPropertyChanged(nameof(ConnectedDeviceText));
     }
 
     private void LocalNetworkSyncTestService_DeviceRemembered(object? sender, LocalNetworkRememberedDevice e)
@@ -10997,6 +11050,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             MobileInboxEntries.Add(entry);
         }
+
+        OnPropertyChanged(nameof(HasNewMobileInboxData));
+        OnPropertyChanged(nameof(HasNoNewMobileInboxData));
+        OnPropertyChanged(nameof(NewMobileInboxTaskCount));
+        OnPropertyChanged(nameof(NewMobilePhotoCount));
+        OnPropertyChanged(nameof(NewMobileSketchCount));
     }
 
     private IEnumerable<TaskItem> GetMobileInboxTasks(string? searchText)
