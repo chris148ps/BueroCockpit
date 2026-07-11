@@ -13,7 +13,7 @@ esac
 publish_dir="$repo_root/bin/$configuration/macos-bundle-publish"
 bundle_dir="$repo_root/bin/$configuration/BueroCockpit.app"
 
-mkdir -p "$publish_dir" "$bundle_dir/Contents/MacOS"
+mkdir -p "$publish_dir" "$bundle_dir/Contents/MacOS" "$bundle_dir/Contents/Resources"
 
 dotnet publish "$repo_root/BueroCockpit.csproj" \
   -c "$configuration" \
@@ -26,6 +26,7 @@ dotnet publish "$repo_root/BueroCockpit.csproj" \
 cp -R "$publish_dir/." "$bundle_dir/Contents/MacOS/"
 cp "$repo_root/macOS/Info.plist" "$bundle_dir/Contents/Info.plist"
 chmod +x "$bundle_dir/Contents/MacOS/BueroCockpit"
+codesign --force --deep --sign - "$bundle_dir"
 
 echo "$bundle_dir"
 open "$bundle_dir"

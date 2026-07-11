@@ -1,16 +1,12 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Sichtbare Desktop-Abnahme auf regulär startbarem macOS-App-Pfad
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-11 23:44 +0200
+Die im vorherigen Auftrag umgesetzten Korrekturen sichtbar in einer regulär startbaren macOS-App prüfen und den Bundle-Startfehler minimal beheben.
 
-## Letzter Auftrag
+## Umsetzung
 
-Sichtbare Desktop-Abnahme auf regulär startbarem macOS-App-Pfad
-
-## Zusammenfassung
-
-Die sichtbare Desktop-Abnahme ist erfolgreich. Der reguläre macOS-App-Pfad ist startfähig; die drei Korrekturbereiche verhalten sich wie erwartet.
+Der reguläre Start über `bin/Debug/BueroCockpit.app` schlug zunächst mit `RBSRequestErrorDomain Code=5` und `NSPOSIXErrorDomain Code=162` fehl. Ursache war der unvollständige macOS-App-Wrapper des Laufskripts. `scripts/run-macos-bundle.sh` legt nun `Contents/Resources` an und signiert das erzeugte Bundle ad hoc mit `codesign --force --deep --sign -`. Produktivdaten, Kategorien, Aufträge und Backups wurden nicht verändert; eine Wiederherstellung wurde nicht ausgelöst.
 
 ## Geänderte Dateien
 
@@ -31,34 +27,19 @@ Die sichtbare Desktop-Abnahme ist erfolgreich. Der reguläre macOS-App-Pfad ist 
 - `git diff --check`: erfolgreich.
 - `dotnet build`: nach dem Fix erfolgreich, 0 Warnungen, 0 Fehler.
 
-## Git-Status
+## Ergebnis
+
+Die sichtbare Desktop-Abnahme ist erfolgreich. Der reguläre macOS-App-Pfad ist startfähig; die drei Korrekturbereiche verhalten sich wie erwartet.
+
+## Bekannte offene Punkte
+
+- Keine fachlichen offenen Punkte aus dieser Abnahme.
+- Der bestehende Draft-PR #1 bleibt der einzige PR und muss weiterhin manuell geprüft bzw. freigegeben werden.
+
+## Aktueller Git-Status
 
 ```text
  M docs/NEXT_TASK.md
  M scripts/run-macos-bundle.sh
 ?? docs/codex_journal/2026-07-11_23-44_desktop-abnahme-macos.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Keine fachlichen offenen Punkte aus dieser Abnahme.
-- Der bestehende Draft-PR #1 bleibt der einzige PR und muss weiterhin manuell geprüft bzw. freigegeben werden.
-
-## Empfohlener nächster Schritt
-
-Draft-PR #1 fachlich prüfen und manuell über den bestehenden Review-Prozess weiterführen.
-
-1. Änderungen und Abnahmedokumentation in Draft-PR #1 prüfen.
-2. Falls fachlich freigegeben, den PR manuell auf den gewünschten Reviewstatus setzen.
