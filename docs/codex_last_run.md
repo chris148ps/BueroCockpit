@@ -18,7 +18,7 @@ Der Projektworkflow besitzt jetzt einen getrennten Dokumentations- und Git-Verö
 - scripts/update-codex-documentation.sh
 - scripts/publish-codex-work.sh
 - docs/codex_run_template.md
-- docs/codex_journal/<timestamp>_git-workflow.md
+- docs/codex_journal/2026-07-11_13-37_git-workflow.md
 - docs/codex_last_run.md
 - docs/NEXT_TASK.md
 
