@@ -40,16 +40,13 @@ Die drei begrenzten Codekorrekturen sind umgesetzt. Produktive Kategorien, Auftr
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+42af902852eecec17888789ae8ff17ba5706fae8
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
