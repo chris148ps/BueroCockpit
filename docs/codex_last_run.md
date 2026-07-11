@@ -39,16 +39,13 @@ Die verbliebenen klaren Desktop-Rahmenausreißer sind auf zentrale Windows-11-Re
 ``` 
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+65814f960e2b32d6eb50a63558224c161e6dcc7d
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
