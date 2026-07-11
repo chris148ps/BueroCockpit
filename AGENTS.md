@@ -138,7 +138,7 @@ den separaten Git-Helfer veröffentlicht werden:
   --include scripts/publish-codex-work.sh
 ```
 
-Der Helfer erzeugt den Branch `codex/work-YYYY-MM-DD-kurzer-name`, commitet
+Der Helfer verwendet dauerhaft den Branch `codex/work`, commitet
 nur die ausdrücklich mit `--include` angegebenen Pfade und pusht ausschließlich
 diesen Branch. Vorhandene nicht ausgewählte Änderungen bleiben erhalten. Ein
 bereits vorgemerkter Index wird aus Sicherheitsgründen abgelehnt.
@@ -147,6 +147,13 @@ bereits vorgemerkter Index wird aus Sicherheitsgründen abgelehnt.
 `Branch`, `Commit` und `Push erfolgreich`. Der Helper dokumentiert den ersten
 Arbeitscommit und legt danach einen separaten Metadatencommit an.
 
+Nach dem Push prüft der Helfer den offenen Draft-PR von `codex/work` nach
+`main`. Falls noch keiner existiert, wird genau ein Draft-PR mit dem Titel
+`Codex-Arbeitsstand BüroCockpit` angelegt; andernfalls wird derselbe PR
+aktualisiert. Ein bestehender nicht-draftiger PR wird nicht automatisch
+verändert.
+
 Der Helper darf niemals nach `main` pushen oder mergen und führt niemals Tags,
-Releases oder Versionsänderungen aus. Mit `--dry-run` kann der Branch-, Commit-
-und Push-Plan ohne Zustandsänderung geprüft werden.
+Releases oder Versionsänderungen aus. Mit `--dry-run` kann der Branch-, Commit-,
+Push- und PR-Plan ohne Zustandsänderung geprüft werden. Der Draft-PR darf nur
+manuell auf „Ready for review“ gesetzt oder gemergt werden.
