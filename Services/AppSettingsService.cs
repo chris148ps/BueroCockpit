@@ -17,6 +17,10 @@ public sealed class AppSettings
     // Lokal/geraetespezifisch: reine UI-Darstellung.
     public string AppearanceMode { get; set; } = "Dark Mode";
 
+    // Lokal/geraetespezifisch: zeigt den optionalen Schreibtisch in der Navigation an.
+    // Der Initialwert hält den Schreibtisch für bestehende Installationen sichtbar.
+    public bool ShowDesktop { get; set; } = true;
+
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;

@@ -1,0 +1,47 @@
+# Projektstatus BüroCockpit
+
+## Aktueller Entwicklungsstand
+
+BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer
+lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der aktuelle
+Desktop-Stand enthält eine hierarchische Kategorie-Navigation, konsolidierte
+Dark-/Light-Designressourcen, lokale Schreibtisch-Notizen und einen
+zeitgesteuerten Autospeicher. Die iPad-App nutzt eine eigenständige native
+iPadOS-Navigation und Toolbar.
+
+## Architektur
+
+- Desktop: Avalonia UI, führendes System, lokale SQLite-/Dateidaten.
+- iPad: SwiftUI Snapshot Reader und mobiler Erfassungsclient.
+- Synchronisation: lokaler Netzwerk-Sync ist vorbereitet, aber kein echter
+  produktiver Datentransfer aktiv.
+- Veröffentlichung: größere Codex-Arbeiten werden über `codex/work` und einen
+  Draft-Pull-Request nach `main` sichtbar gemacht; Merge bleibt manuell.
+
+## Erledigte Hauptfunktionen
+
+- Kategoriebaum mit Unterkategorien und aggregierten Auftragszahlen.
+- Kategorieauswahl ohne nicht auswählbare Hauptkategorien.
+- Dashboard-Navigation mit passender Kategorieauswahl.
+- Auftragsbezogene Schreibtisch-Notizzettel mit Abwahl/Löschung.
+- Kompakter Techniker-Entfernen-Button und entfernte Statusauswahl im Detail.
+- Robusteres Leeren von Datumsfeldern und vorhandener Autospeicher-Timer.
+- Semantische Desktop-Ressourcen für Dark-/Light-Modus.
+- Native iPadOS-Toolbar und systemeigene Suche.
+- Lokales macOS-Bundle-Hilfsskript.
+
+## Bekannte offene Punkte
+
+- Der echte lokale Netzwerk-Sync und produktive Datenübertragung sind weiterhin
+  nicht aktiviert.
+- Der GitHub-Draft-PR wird automatisch aktualisiert, aber niemals gemergt.
+- Nicht ausgewählte lokale Arbeitsbaumänderungen müssen vor einem Workflow-Lauf
+  mit `--include` bewusst aus dem Commit ausgeschlossen werden.
+
+## Wichtige Entscheidungen
+
+- `main` bleibt unverändert und erhält keine automatischen Pushes.
+- `codex/work` ist der dauerhafte Arbeitsbranch für veröffentlichte Codex-
+  Arbeitsstände.
+- Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses
+  Workflows.

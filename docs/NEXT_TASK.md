@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Den festen codex/work-Draft-PR beim nächsten fachlichen Auftrag mit den tatsächlichen Änderungsdateien aktualisieren.
+Den bestehenden Draft-PR #1 nach dem Push prüfen und den nächsten fachlichen Codex-Auftrag wieder über codex/work aktualisieren.
 
 ## Geplante Schritte
 
-1. Fachliche Änderungen und Tests abschließen.
-2. Dokumentationsrunner mit der ausgefüllten Vorlage ausführen.
-3. publish-codex-work.sh mit den fachlich zugehörigen --include-Pfaden ausführen und den bestehenden Draft-PR prüfen.
+1. PR #1 und den veröffentlichten Commitstand prüfen.
+2. Beim nächsten Auftrag nur fachlich zugehörige --include-Pfade verwenden.
+3. Nach Bedarf PROJEKTSTATUS.md erneut fachlich aktualisieren.
 
 ## Vermutlich betroffene Dateien
 

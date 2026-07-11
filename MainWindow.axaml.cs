@@ -382,6 +382,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool HasAutoSaveStatus => !string.IsNullOrWhiteSpace(AutoSaveStatus);
 
+    public bool IsSelectedTaskOnDesk
+    {
+        get => SelectedTask is not null && FindAutomaticTaskDeskNote(SelectedTask.Id) is not null;
+        set
+        {
+            if (SelectedTask is null || value == IsSelectedTaskOnDesk)
+            {
+                return;
+            }
+
+            if (value)
+            {
+                AddAutomaticTaskDeskNote(SelectedTask);
+            }
+            else if (FindAutomaticTaskDeskNote(SelectedTask.Id) is { } note)
+            {
+                DeleteDeskItem(note);
+            }
+
+            OnPropertyChanged(nameof(IsSelectedTaskOnDesk));
+        }
+    }
+
     public Avalonia.Media.ITransform DeskZoomTransform => new ScaleTransform(DeskZoom, DeskZoom);
 
     public double DeskSurfaceWidth
@@ -486,6 +509,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedTask));
             OnPropertyChanged(nameof(HasSelectedTask));
             OnPropertyChanged(nameof(HasNormalSelectedTask));
+            OnPropertyChanged(nameof(IsSelectedTaskOnDesk));
             OnPropertyChanged(nameof(SelectedMobileInboxEntry));
             OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
             SelectedMobileInboxPreviewItem = null;
@@ -659,8 +683,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                                    IsSelectableTaskCategory(SelectedCategory);
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
     public bool IsCategoryRootDropTarget => _isCategoryRootDropTarget;
-    public string CategoryRootDropBackground => _isCategoryRootDropTarget ? "#1D4ED80D" : "Transparent";
-    public string CategoryRootDropBorderBrush => _isCategoryRootDropTarget ? "#1D4ED8" : "Transparent";
+    public IBrush CategoryRootDropBackground => _isCategoryRootDropTarget
+        ? ResourceBrush("AccentSoftBrush")
+        : Brushes.Transparent;
+    public IBrush CategoryRootDropBorderBrush => _isCategoryRootDropTarget
+        ? ResourceBrush("AccentBrush")
+        : Brushes.Transparent;
     public MobileInboxEntry? SelectedMobileInboxEntry =>
         SelectedTask is null ? null : GetMobileInboxEntry(SelectedTask);
     public bool HasMobileInboxPhotoPreviews => MobileInboxPhotoPreviews.Count > 0;
@@ -831,6 +859,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         get => _appearanceMode;
         set => SetAppearanceMode(value, persist: true);
+    }
+
+    public bool ShowDesktopSetting
+    {
+        get => _appSettings.ShowDesktop;
+        set
+        {
+            if (_appSettings.ShowDesktop == value)
+            {
+                return;
+            }
+
+            _appSettings.ShowDesktop = value;
+            _settingsService.Save(_appSettings);
+
+            if (!value && IsDeskSelected)
+            {
+                SelectedCategory = Categories.FirstOrDefault(category => category.Id == OverviewCategoryId);
+            }
+
+            var categoryToPreserve = SelectedCategory;
+            var wasSuppressingCategorySelectionChanged = _suppressCategorySelectionChanged;
+            _suppressCategorySelectionChanged = true;
+            try
+            {
+                RefreshCategoryDependentViews();
+                if (categoryToPreserve is not null)
+                {
+                    SelectedCategory = categoryToPreserve;
+                    if (CategoryList is not null)
+                    {
+                        CategoryList.SelectedItem = categoryToPreserve;
+                    }
+                }
+            }
+            finally
+            {
+                _suppressCategorySelectionChanged = wasSuppressingCategorySelectionChanged;
+            }
+
+            ApplySelectedCategoryContent();
+            OnPropertyChanged(nameof(ShowDesktopSetting));
+        }
     }
 
     public AttachmentItem? SelectedAttachment
@@ -1739,33 +1810,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return lockResult.Message;
     }
 
-    private static void ApplyTaskCardVisual(Border border, bool isHovered)
+    internal static IBrush ResourceBrush(string key)
     {
-        if (border.DataContext is TaskItem task && task.IsSelected)
-        {
-            border.BorderBrush = new SolidColorBrush(Color.Parse("#000000"));
-            border.BorderThickness = new Thickness(1);
-            return;
-        }
-
-        border.BorderBrush = new SolidColorBrush(Color.Parse(isHovered ? "#000000" : "#00000000"));
-        border.BorderThickness = new Thickness(1);
-    }
-
-    private void TaskCard_OnPointerEntered(object? sender, PointerEventArgs e)
-    {
-        if (sender is Border border)
-        {
-            ApplyTaskCardVisual(border, true);
-        }
-    }
-
-    private void TaskCard_OnPointerExited(object? sender, PointerEventArgs e)
-    {
-        if (sender is Border border)
-        {
-            ApplyTaskCardVisual(border, false);
-        }
+        return Application.Current?.Resources[key] as IBrush ?? Brushes.Transparent;
     }
 
     private void CleanupNavigationCategories()
@@ -1870,12 +1917,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             MinHeight = 420,
             CanResize = true,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new DockPanel
                 {
                     LastChildFill = true,
@@ -1892,14 +1941,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                     Text = "BüroCockpit konnte die Datenbank nicht öffnen.",
                                     FontSize = 18,
                                     FontWeight = FontWeight.Bold,
-                                    Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                    Foreground = ResourceBrush("TextPrimaryBrush"),
                                     TextWrapping = TextWrapping.Wrap
                                 },
                                 new TextBlock
                                 {
                                     Text = "Der Datenordner muss lokal verfügbar und beschreibbar sein. Es wurde keine Reparatur, Kopie oder Migration ausgeführt.",
                                     FontSize = 13,
-                                    Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                                    Foreground = ResourceBrush("TextSecondaryBrush"),
                                     TextWrapping = TextWrapping.Wrap
                                 }
                             }
@@ -1928,7 +1977,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                 Text = diagnosticMessage,
                                 FontFamily = FontFamily.Parse("Menlo, Consolas, monospace"),
                                 FontSize = 12,
-                                Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                Foreground = ResourceBrush("TextPrimaryBrush"),
                                 TextWrapping = TextWrapping.Wrap
                             }
                         }
@@ -1943,19 +1992,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static Border CreateStartupDatabaseDialogAction(string text)
     {
-        var normalBackground = new SolidColorBrush(Color.Parse("#2563EB"));
-        var hoverBackground = new SolidColorBrush(Color.Parse("#1D4ED8"));
+        var normalBackground = ResourceBrush("AccentBrush");
+        var hoverBackground = ResourceBrush("AccentHoverBrush");
         var border = new Border
         {
             Background = normalBackground,
-            BorderBrush = new SolidColorBrush(Color.Parse("#1D4ED8")),
+            BorderBrush = ResourceBrush("AccentBrush"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(18, 8),
             Child = new TextBlock
             {
                 Text = text,
-                Foreground = Brushes.White,
+                Foreground = ResourceBrush("TextOnAccentBrush"),
                 FontSize = 13,
                 FontWeight = FontWeight.SemiBold
             }
@@ -2693,8 +2742,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SelectedCategory = !string.IsNullOrWhiteSpace(selectedCategoryId)
                 ? Categories.FirstOrDefault(c => string.Equals(c.Id, selectedCategoryId, StringComparison.OrdinalIgnoreCase))
                 : null;
-            SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
-                ?? Categories.FirstOrDefault(c => c.Id == OverviewCategoryId)
+            if (SelectedCategory?.Id == DeskCategoryId && !ShowDesktopSetting)
+            {
+                SelectedCategory = null;
+            }
+
+            SelectedCategory ??= ShowDesktopSetting
+                ? Categories.FirstOrDefault(c => c.Id == DeskCategoryId)
+                : null;
+            SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == OverviewCategoryId)
                 ?? Categories.FirstOrDefault();
             ApplySelectedCategoryContent();
 
@@ -3712,7 +3768,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             else
             {
-                category.TaskCount = AllTasks.Count(task => !task.IsDeleted && TaskBelongsToSelectedCategory(task, category));
+                category.TaskCount = AllTasks.Count(task =>
+                    !task.IsDeleted &&
+                    (category.HasChildren
+                        ? TaskBelongsToCategoryOrDescendant(task, category)
+                        : TaskBelongsToSelectedCategory(task, category)));
             }
         }
 
@@ -4335,6 +4395,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateDeskSurfaceBounds();
     }
 
+    private DeskItem? FindAutomaticTaskDeskNote(string taskId)
+    {
+        return DeskItems.FirstOrDefault(item =>
+            item.IsNoteCard &&
+            string.Equals(item.LinkedTaskId, taskId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void AddAutomaticTaskDeskNote(TaskItem task)
+    {
+        if (FindAutomaticTaskDeskNote(task.Id) is not null)
+        {
+            return;
+        }
+
+        var now = DateTime.Now;
+        var offset = DeskItems.Count * 28;
+        var deskItem = new DeskItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Type = DeskItemTypeNote,
+            DisplayName = string.IsNullOrWhiteSpace(task.CustomerName) ? "Auftrag" : task.CustomerName.Trim(),
+            Text = string.IsNullOrWhiteSpace(task.Title) ? "Auftrag" : task.Title.Trim(),
+            LinkedTaskId = task.Id,
+            X = 40 + (offset % 320),
+            Y = 40 + (offset % 220),
+            Width = DeskNoteDefaultWidth,
+            Height = DeskNoteDefaultHeight,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        MarkDeskItemDirty(deskItem);
+        SubscribeDeskItem(deskItem);
+        DeskItems.Add(deskItem);
+        UpdateDeskSurfaceBounds();
+    }
+
     private void DeleteDeskItem_OnClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { DataContext: DeskItem deskItem })
@@ -4818,12 +4915,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -4834,14 +4933,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = "Datensicherung vor der Aktion konnte nicht erstellt werden.",
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
                             Text = $"Vor dem Schritt „{actionDescription}“ ist die automatische Sicherung fehlgeschlagen. Ohne Sicherung fortfahren?",
                             FontSize = 13,
-                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -4884,11 +4983,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         static Border CreateDialogAction(string text, bool isDanger)
         {
-            var normalBackground = isDanger ? "#DC2626" : "#F3F4F6";
-            var hoverBackground = isDanger ? "#B91C1C" : "#DBEAFE";
-            var normalBorder = isDanger ? "#B91C1C" : "#D1D5DB";
-            var hoverBorder = isDanger ? "#991B1B" : "#93C5FD";
-            IBrush foreground = isDanger ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+            var normalBackground = ResourceBrush(isDanger ? "DangerBrush" : "SurfaceElevatedBrush");
+            var hoverBackground = ResourceBrush(isDanger ? "ButtonDangerHoverBackgroundBrush" : "HoverBackgroundBrush");
+            var normalBorder = ResourceBrush(isDanger ? "DangerBrush" : "BorderBrushDark");
+            var hoverBorder = ResourceBrush(isDanger ? "ButtonDangerHoverBorderBrush" : "BorderBrushStrong");
+            var foreground = ResourceBrush(isDanger ? "ButtonDangerHoverForegroundBrush" : "TextPrimaryBrush");
 
             var label = new TextBlock
             {
@@ -4903,8 +5002,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 MinWidth = isDanger ? 145 : 105,
                 Height = 34,
-                Background = new SolidColorBrush(Color.Parse(normalBackground)),
-                BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+                Background = normalBackground,
+                BorderBrush = normalBorder,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12, 6),
@@ -4913,15 +5012,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             action.PointerEntered += (_, _) =>
             {
-                action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
-                action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+                action.Background = hoverBackground;
+                action.BorderBrush = hoverBorder;
                 label.Foreground = foreground;
             };
 
             action.PointerExited += (_, _) =>
             {
-                action.Background = new SolidColorBrush(Color.Parse(normalBackground));
-                action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+                action.Background = normalBackground;
+                action.BorderBrush = normalBorder;
                 label.Foreground = foreground;
             };
 
@@ -4943,12 +5042,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -4959,14 +5060,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = "Auftrag in den Papierkorb verschieben?",
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
                             Text = $"„{title}“ wird aus den normalen Listen entfernt und in den Papierkorb verschoben. Anhänge bleiben erhalten.",
                             FontSize = 13,
-                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -5009,11 +5110,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         static Border CreateDialogAction(string text, bool isDanger)
         {
-            var normalBackground = isDanger ? "#DC2626" : "#F3F4F6";
-            var hoverBackground = isDanger ? "#B91C1C" : "#DBEAFE";
-            var normalBorder = isDanger ? "#B91C1C" : "#D1D5DB";
-            var hoverBorder = isDanger ? "#991B1B" : "#93C5FD";
-            IBrush foreground = isDanger ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+            var normalBackground = ResourceBrush(isDanger ? "DangerBrush" : "SurfaceElevatedBrush");
+            var hoverBackground = ResourceBrush(isDanger ? "ButtonDangerHoverBackgroundBrush" : "HoverBackgroundBrush");
+            var normalBorder = ResourceBrush(isDanger ? "DangerBrush" : "BorderBrushDark");
+            var hoverBorder = ResourceBrush(isDanger ? "ButtonDangerHoverBorderBrush" : "BorderBrushStrong");
+            var foreground = ResourceBrush(isDanger ? "ButtonDangerHoverForegroundBrush" : "TextPrimaryBrush");
 
             var label = new TextBlock
             {
@@ -5028,8 +5129,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 MinWidth = isDanger ? 145 : 105,
                 Height = 34,
-                Background = new SolidColorBrush(Color.Parse(normalBackground)),
-                BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+                Background = normalBackground,
+                BorderBrush = normalBorder,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12, 6),
@@ -5038,15 +5139,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             action.PointerEntered += (_, _) =>
             {
-                action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
-                action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+                action.Background = hoverBackground;
+                action.BorderBrush = hoverBorder;
                 label.Foreground = foreground;
             };
 
             action.PointerExited += (_, _) =>
             {
-                action.Background = new SolidColorBrush(Color.Parse(normalBackground));
-                action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+                action.Background = normalBackground;
+                action.BorderBrush = normalBorder;
                 label.Foreground = foreground;
             };
 
@@ -5063,12 +5164,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -5079,7 +5182,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = "Papierkorb endgültig leeren?",
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
@@ -5088,7 +5191,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                 ? "1 gelöschte Aufgabe wird endgültig entfernt. Anhänge bleiben als Dateien erhalten."
                                 : $"{deletedCount} gelöschte Aufgaben werden endgültig entfernt. Anhänge bleiben als Dateien erhalten.",
                             FontSize = 13,
-                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -5131,11 +5234,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         static Border CreateDialogAction(string text, bool isDanger)
         {
-            var normalBackground = isDanger ? "#DC2626" : "#F3F4F6";
-            var hoverBackground = isDanger ? "#B91C1C" : "#DBEAFE";
-            var normalBorder = isDanger ? "#B91C1C" : "#D1D5DB";
-            var hoverBorder = isDanger ? "#991B1B" : "#93C5FD";
-            IBrush foreground = isDanger ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+            var normalBackground = ResourceBrush(isDanger ? "DangerBrush" : "SurfaceElevatedBrush");
+            var hoverBackground = ResourceBrush(isDanger ? "ButtonDangerHoverBackgroundBrush" : "HoverBackgroundBrush");
+            var normalBorder = ResourceBrush(isDanger ? "DangerBrush" : "BorderBrushDark");
+            var hoverBorder = ResourceBrush(isDanger ? "ButtonDangerHoverBorderBrush" : "BorderBrushStrong");
+            var foreground = ResourceBrush(isDanger ? "ButtonDangerHoverForegroundBrush" : "TextPrimaryBrush");
 
             var label = new TextBlock
             {
@@ -5150,8 +5253,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 MinWidth = isDanger ? 145 : 105,
                 Height = 34,
-                Background = new SolidColorBrush(Color.Parse(normalBackground)),
-                BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+                Background = normalBackground,
+                BorderBrush = normalBorder,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12, 6),
@@ -5160,15 +5263,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             action.PointerEntered += (_, _) =>
             {
-                action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
-                action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+                action.Background = hoverBackground;
+                action.BorderBrush = hoverBorder;
                 label.Foreground = foreground;
             };
 
             action.PointerExited += (_, _) =>
             {
-                action.Background = new SolidColorBrush(Color.Parse(normalBackground));
-                action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+                action.Background = normalBackground;
+                action.BorderBrush = normalBorder;
                 label.Foreground = foreground;
             };
 
@@ -6418,7 +6521,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             content.Children.Add(new TextBlock
             {
                 Text = "Keine archivierten Aufträge vorhanden.",
-                Foreground = new SolidColorBrush(Color.Parse("#6B7280")),
+                Foreground = ResourceBrush("TextTertiaryBrush"),
                 TextWrapping = TextWrapping.Wrap
             });
         }
@@ -6431,11 +6534,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             MaxHeight = 560,
             CanResize = true,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                Padding = new Thickness(16),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new DockPanel
                 {
                     LastChildFill = true,
@@ -6446,7 +6552,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = "Archiv",
                             FontSize = 20,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             Margin = new Thickness(0, 0, 0, 12)
                         },
                         new ScrollViewer
@@ -6523,7 +6629,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var row = new Border
         {
-            BorderBrush = new SolidColorBrush(Color.Parse("#E5E7EB")),
+            Background = ResourceBrush("CardBackgroundBrush"),
+            BorderBrush = ResourceBrush("BorderBrushDark"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10),
@@ -6544,14 +6651,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                 Text = FormatArchiveTaskTitle(task),
                                 FontSize = 14,
                                 FontWeight = FontWeight.SemiBold,
-                                Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                                Foreground = ResourceBrush("TextPrimaryBrush"),
                                 TextWrapping = TextWrapping.Wrap
                             },
                             new TextBlock
                             {
                                 Text = details.Count == 0 ? "Keine weiteren Angaben." : string.Join(" · ", details),
                                 FontSize = 12,
-                                Foreground = new SolidColorBrush(Color.Parse("#4B5563")),
+                                Foreground = ResourceBrush("TextSecondaryBrush"),
                                 TextWrapping = TextWrapping.Wrap
                             }
                         }
@@ -6975,6 +7082,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void DateTextBox_OnKeyDown(object? sender, KeyEventArgs e)
     {
+        if ((e.Key == Key.Back || e.Key == Key.Delete) &&
+            sender is TextBox textBox &&
+            !string.Equals(textBox.Tag as string, "DueTime", StringComparison.Ordinal))
+        {
+            textBox.Text = string.Empty;
+            textBox.CaretIndex = 0;
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Enter)
         {
             return;
@@ -8878,7 +8995,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         new TextBlock
                         {
                             Text = backup.FileName,
-                            Foreground = new SolidColorBrush(Color.Parse("#6B7280")),
+                            Foreground = ResourceBrush("TextTertiaryBrush"),
                             FontSize = 12,
                             TextWrapping = TextWrapping.Wrap
                         },
@@ -9555,6 +9672,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        ExpandCategoryAncestors(category);
+        RebuildCategoryTreeViews();
+
         _selectionNavigationDepth++;
         _isUpdatingSelection = true;
         _suppressTaskListSelectionChanged = true;
@@ -9631,6 +9751,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return matchingCategories.FirstOrDefault();
+    }
+
+    private void ExpandCategoryAncestors(CategoryItem category)
+    {
+        var current = category;
+        while (!string.IsNullOrWhiteSpace(current.ParentId))
+        {
+            var parent = Categories.FirstOrDefault(item =>
+                string.Equals(item.Id, current.ParentId, StringComparison.OrdinalIgnoreCase));
+            if (parent is null)
+            {
+                break;
+            }
+
+            parent.IsExpanded = true;
+            current = parent;
+        }
     }
 
     private void SelectCategoryAndTask(CategoryItem category, TaskItem task)
@@ -10342,10 +10479,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         EnsureTaskCategoryState(SelectedTask);
         foreach (var category in TaskCategories)
         {
+            if (!IsSelectableTaskCategory(category))
+            {
+                continue;
+            }
+
             TaskCategorySelections.Add(new TaskCategorySelection(
                 category,
                 TaskBelongsToCategory(SelectedTask, category.Id),
-                IsSelectableTaskCategory(category)));
+                isSelectable: true));
         }
     }
 
@@ -10396,7 +10538,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SidebarCategories.Clear();
-        foreach (var category in Categories.Where(category => category.Id == OverviewCategoryId || category.Id == DeskCategoryId))
+        foreach (var category in Categories.Where(category =>
+                     category.Id == OverviewCategoryId ||
+                     (category.Id == DeskCategoryId && ShowDesktopSetting)))
         {
             PrepareCategoryDisplay(category, 0, category.Name, hasChildren: false);
             SidebarCategories.Add(category);
@@ -10484,7 +10628,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ?? Categories.FirstOrDefault(category =>
                 IsSelectableTaskCategory(category) &&
                 string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(IsSelectableTaskCategory)
+            ?? Categories.FirstOrDefault(category =>
+                ShowDesktopSetting &&
+                category.Id == DeskCategoryId)
+            ?? Categories.FirstOrDefault(category =>
+                IsSelectableTaskCategory(category) &&
+                category.Id != DeskCategoryId)
             ?? Categories.FirstOrDefault();
     }
 
@@ -11460,12 +11609,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -11476,14 +11627,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = "Übernommene mobile Eingänge älter als 30 Tage endgültig löschen?",
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
                             Text = "Es werden nur Ordner unter mobile-processed gelöscht. mobile-inbox bleibt unverändert.",
                             FontSize = 13,
-                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -11551,12 +11702,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -11567,7 +11720,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = "Diesen mobilen Eingang als Auftrag in BüroCockpit übernehmen?",
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -11617,12 +11770,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#F9FAFB")),
+            Background = ResourceBrush("WindowBackgroundBrush"),
             Content = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14),
+                Background = ResourceBrush("SurfaceElevatedBrush"),
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(18),
                 Child = new StackPanel
                 {
                     Spacing = 8,
@@ -11633,14 +11788,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                             Text = title,
                             FontSize = 18,
                             FontWeight = FontWeight.Bold,
-                            Foreground = new SolidColorBrush(Color.Parse("#111827")),
+                            Foreground = ResourceBrush("TextPrimaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
                             Text = message,
                             FontSize = 13,
-                            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
                             TextWrapping = TextWrapping.Wrap
                         },
                         new StackPanel
@@ -11668,11 +11823,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static Border CreateMobileInboxDialogAction(string text, bool isPrimary)
     {
-        var normalBackground = isPrimary ? "#2563EB" : "#F3F4F6";
-        var hoverBackground = isPrimary ? "#1D4ED8" : "#DBEAFE";
-        var normalBorder = isPrimary ? "#1D4ED8" : "#D1D5DB";
-        var hoverBorder = isPrimary ? "#1E40AF" : "#93C5FD";
-        IBrush foreground = isPrimary ? Brushes.White : new SolidColorBrush(Color.Parse("#111827"));
+        var normalBackground = ResourceBrush(isPrimary ? "AccentBrush" : "SurfaceElevatedBrush");
+        var hoverBackground = ResourceBrush(isPrimary ? "AccentHoverBrush" : "HoverBackgroundBrush");
+        var normalBorder = ResourceBrush(isPrimary ? "AccentBrush" : "BorderBrushDark");
+        var hoverBorder = ResourceBrush(isPrimary ? "AccentHoverBrush" : "BorderBrushStrong");
+        var foreground = ResourceBrush(isPrimary ? "TextOnAccentBrush" : "TextPrimaryBrush");
 
         var label = new TextBlock
         {
@@ -11687,8 +11842,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             MinWidth = isPrimary ? 130 : 105,
             Height = 34,
-            Background = new SolidColorBrush(Color.Parse(normalBackground)),
-            BorderBrush = new SolidColorBrush(Color.Parse(normalBorder)),
+            Background = normalBackground,
+            BorderBrush = normalBorder,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12, 6),
@@ -11697,14 +11852,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         action.PointerEntered += (_, _) =>
         {
-            action.Background = new SolidColorBrush(Color.Parse(hoverBackground));
-            action.BorderBrush = new SolidColorBrush(Color.Parse(hoverBorder));
+            action.Background = hoverBackground;
+            action.BorderBrush = hoverBorder;
         };
 
         action.PointerExited += (_, _) =>
         {
-            action.Background = new SolidColorBrush(Color.Parse(normalBackground));
-            action.BorderBrush = new SolidColorBrush(Color.Parse(normalBorder));
+            action.Background = normalBackground;
+            action.BorderBrush = normalBorder;
         };
 
         return action;
@@ -12449,7 +12604,7 @@ public sealed class TaskCategorySelection
     }
 
     public CategoryItem Category { get; }
-    public string Name => string.IsNullOrWhiteSpace(Category.SelectionName) ? Category.Name : Category.SelectionName;
+    public string Name => Category.Name;
     public bool IsSelected { get; set; }
     public bool IsSelectable { get; }
 }
@@ -12546,25 +12701,25 @@ public sealed class DuplicateTaskDialog : Window
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Padding = new Thickness(12, 8),
             IsCancel = choice == DuplicateTaskChoice.Cancel,
-            Background = new SolidColorBrush(Color.Parse("#F8FAFC")),
-            Foreground = new SolidColorBrush(Color.Parse("#111827")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#CBD5E1")),
+            Background = MainWindow.ResourceBrush("SurfaceElevatedBrush"),
+            Foreground = MainWindow.ResourceBrush("TextPrimaryBrush"),
+            BorderBrush = MainWindow.ResourceBrush("BorderBrushDark"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8)
         };
 
         button.PointerEntered += (_, _) =>
         {
-            button.Background = new SolidColorBrush(Color.Parse("#DBEAFE"));
-            button.Foreground = new SolidColorBrush(Color.Parse("#111827"));
-            button.BorderBrush = new SolidColorBrush(Color.Parse("#93C5FD"));
+            button.Background = MainWindow.ResourceBrush("HoverBackgroundBrush");
+            button.Foreground = MainWindow.ResourceBrush("TextPrimaryBrush");
+            button.BorderBrush = MainWindow.ResourceBrush("BorderBrushStrong");
         };
 
         button.PointerExited += (_, _) =>
         {
-            button.Background = new SolidColorBrush(Color.Parse("#F8FAFC"));
-            button.Foreground = new SolidColorBrush(Color.Parse("#111827"));
-            button.BorderBrush = new SolidColorBrush(Color.Parse("#CBD5E1"));
+            button.Background = MainWindow.ResourceBrush("SurfaceElevatedBrush");
+            button.Foreground = MainWindow.ResourceBrush("TextPrimaryBrush");
+            button.BorderBrush = MainWindow.ResourceBrush("BorderBrushDark");
         };
 
         button.Click += (_, _) => Close(choice);

@@ -1,16 +1,12 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Lokale fachliche Desktop-, iPad- und macOS-Änderungen vollständig auf codex/work veröffentlichen
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-11 20:33 +0200
+Den tatsächlichen lokalen Entwicklungsstand prüfen, dokumentieren und alle fachlich zugehörigen Änderungen im bestehenden Draft-PR #1 sichtbar machen.
 
-## Letzter Auftrag
+## Umsetzung
 
-Lokale fachliche Desktop-, iPad- und macOS-Änderungen vollständig auf codex/work veröffentlichen
-
-## Zusammenfassung
-
-Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird vollständig im bestehenden Draft-PR #1 auf codex/work veröffentlicht.
+Desktop-Kategorien, aggregierte Zähler, Detailformular, Schreibtisch-Notizzettel, Autospeicher- und Designänderungen sowie die iPad-Navigation und das macOS-Bundle wurden geprüft. Die bestehende Dokumentation wurde aktualisiert; PROJEKTSTATUS.md wurde wegen des geänderten fachlichen Entwicklungsstands ergänzt. Alle zu diesem Auftrag gehörenden Dateien werden anschließend explizit mit --include auf codex/work veröffentlicht.
 
 ## Geänderte Dateien
 
@@ -38,7 +34,17 @@ Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird volls
 - `dotnet run` als realer Desktop-Starttest erfolgreich gestartet und kontrolliert beendet.
 - Keine neuen offensichtlichen Debugreste oder ungenutzten Projektdateien festgestellt.
 
-## Git-Status
+## Ergebnis
+
+Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird vollständig im bestehenden Draft-PR #1 auf codex/work veröffentlicht.
+
+## Bekannte offene Punkte
+
+- Der echte lokale Netzwerk-Sync bleibt deaktiviert.
+- Nicht ausgewählte lokale Änderungen außerhalb der fachlich geprüften Pfade bleiben bewusst uncommitted.
+- Die Semantik bestehender Diagnose-Logs wurde nicht verändert.
+
+## Aktueller Git-Status
 
 ```text
  M App.axaml
@@ -53,30 +59,4 @@ Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird volls
 ?? docs/codex_journal/2026-07-11_20-33_fachliche-aenderungen.md
 ?? macOS/
 ?? scripts/run-macos-bundle.sh
-``` 
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Der echte lokale Netzwerk-Sync bleibt deaktiviert.
-- Nicht ausgewählte lokale Änderungen außerhalb der fachlich geprüften Pfade bleiben bewusst uncommitted.
-- Die Semantik bestehender Diagnose-Logs wurde nicht verändert.
-
-## Empfohlener nächster Schritt
-
-Den bestehenden Draft-PR #1 nach dem Push prüfen und den nächsten fachlichen Codex-Auftrag wieder über codex/work aktualisieren.
-
-1. PR #1 und den veröffentlichten Commitstand prüfen.
-2. Beim nächsten Auftrag nur fachlich zugehörige --include-Pfade verwenden.
-3. Nach Bedarf PROJEKTSTATUS.md erneut fachlich aktualisieren.
+```
