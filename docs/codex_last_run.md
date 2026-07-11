@@ -40,16 +40,13 @@ Die sichtbare Desktop-Abnahme ist erfolgreich. Der reguläre macOS-App-Pfad ist 
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+7d2f97a2106eaa9e84405ff526c4c8f09278520a
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
