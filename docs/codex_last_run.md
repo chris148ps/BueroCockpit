@@ -45,16 +45,13 @@ Die Startseite Übersicht ist eine schlichte zentrale Tagesarbeitsübersicht mit
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+d14ff96b6b6766264d0c685d7a4e6af3e6774091
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
