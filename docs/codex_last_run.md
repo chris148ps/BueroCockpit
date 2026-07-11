@@ -40,16 +40,13 @@ Technikerprofile sind nun vollständig gleichberechtigt. Bestehende Profil- und 
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+f743e63ef7a9faee08d0481d5fc13a9a763ba275
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
