@@ -10,7 +10,7 @@ Windows-11-Dark-Umstellung der Desktop-Oberfläche konsolidieren
 
 ## Zusammenfassung
 
-Die verbliebenen klaren Desktop-Rahmenausreißer sind auf zentrale Windows-11-Ressourcen zurückgeführt; der bestehende Draft-PR wird mit der visuellen Nachbesserung aktualisiert.
+Die verbliebenen klaren Desktop-Rahmenausreißer sind auf zentrale Windows-11-Ressourcen zurückgeführt; der bestehende Draft-PR #1 wurde mit der visuellen Nachbesserung aktualisiert.
 
 ## Geänderte Dateien
 
@@ -28,14 +28,12 @@ Die verbliebenen klaren Desktop-Rahmenausreißer sind auf zentrale Windows-11-Re
 - `dotnet build` erfolgreich; nur vorhandene NuGet-Netzwerkwarnungen.
 - `dotnet run` als realer Desktop-Starttest erfolgreich gestartet und kontrolliert beendet.
 - Keine Datenmodell-, Persistenz-, Netzwerk-, Installer- oder Releaseänderungen.
+- Commit 65814f9 auf codex/work erstellt, gepusht und Draft-PR #1 aktualisiert.
 
 ## Git-Status
 
 ```text
- M MainWindow.axaml
- M docs/NEXT_TASK.md
- M docs/PROJEKTSTATUS.md
-?? docs/codex_journal/2026-07-11_20-54_dark-konsolidierung.md
+Arbeitsbaum sauber nach dem Push von codex/work.
 ``` 
 
 ## Branch
