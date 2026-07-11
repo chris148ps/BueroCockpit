@@ -50,16 +50,13 @@ Der Workflow kann den festen Branch codex/work veröffentlichen und genau einen 
 ``` 
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+5d2f96f3f9c3021eb3a85a11962e99035e501778
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
