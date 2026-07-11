@@ -56,16 +56,13 @@ Der fachliche lokale Entwicklungsstand ist geprüft, dokumentiert und wird volls
 ``` 
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+c3edf5996529bcb22511b09c968c02ffe3f487c5
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
