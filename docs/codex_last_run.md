@@ -17,7 +17,7 @@ Der Workflow kann den festen Branch codex/work veröffentlichen und genau einen 
 - AGENTS.md
 - scripts/publish-codex-work.sh
 - scripts/update-codex-documentation.sh
-- docs/codex_journal/<timestamp>_draft-pr-workflow.md
+- docs/codex_journal/2026-07-11_13-45_draft-pr-workflow.md
 - docs/codex_last_run.md
 - docs/NEXT_TASK.md
 
@@ -29,23 +29,20 @@ Der Workflow kann den festen Branch codex/work veröffentlichen und genau einen 
 - bash -n für beide Skripte erfolgreich.
 - Git-Helfer-Dry-Run erfolgreich; kein Branch, Commit, Push oder PR erzeugt.
 - Offene Draft-PR-Suche für codex/work nach main erfolgreich; vor dem Lauf kein PR vorhanden.
-- Echter Commit-, Push- und Draft-PR-Lauf folgt.
+- Echter Commit-, Push- und Draft-PR-Lauf erfolgreich: Branch codex/work, Arbeitscommit 5d2f96f, Metadatencommit ef38235, Draft-PR #1 erstellt und zu origin gepusht.
 
 ## Git-Status
 
 ```text
- M AGENTS.md
  M App.axaml
  M App.axaml.cs
  M MainWindow.axaml
  M MainWindow.axaml.cs
  M Services/AppSettingsService.cs
  M docs/DESIGN_RICHTLINIEN.md
- M docs/NEXT_TASK.md
  M iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader/SnapshotRootView.swift
  M scripts/publish-codex-work.sh
-?? docs/codex_journal/2026-07-11_13-45_draft-pr-workflow.md
-?? macOS/
+ ?? macOS/
 ?? scripts/run-macos-bundle.sh
 ``` 
 

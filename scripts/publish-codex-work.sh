@@ -201,7 +201,7 @@ LAST_COMMIT="$(git log -1 --oneline)"
 cat > "$PR_BODY_FILE" <<EOF
 ## Aktuelles Ziel
 
-Arbeitsstand des größeren Codex-Auftrags nachvollziehbar auf `codex/work` bereitstellen.
+Arbeitsstand des größeren Codex-Auftrags nachvollziehbar auf \`codex/work\` bereitstellen.
 
 ## Letzter Codex-Lauf
 
@@ -221,11 +221,11 @@ $CHANGED_AREAS
 
 ## Ausgeführte Tests und Testergebnis
 
-Die im letzten Lauf dokumentierten Tests wurden ausgeführt; siehe oben in `docs/codex_last_run.md`.
+Die im letzten Lauf dokumentierten Tests wurden ausgeführt; siehe oben in \`docs/codex_last_run.md\`.
 
 ## Risiken und offene Punkte
 
-Siehe `docs/codex_last_run.md` und `docs/NEXT_TASK.md`. Nicht ausgewählte lokale Änderungen bleiben außerhalb dieses Branch-Commits.
+Siehe \`docs/codex_last_run.md\` und \`docs/NEXT_TASK.md\`. Nicht ausgewählte lokale Änderungen bleiben außerhalb dieses Branch-Commits.
 
 ## Nächste empfohlene Aufgabe
 
