@@ -6,7 +6,7 @@ BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer
 lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der aktuelle
 Desktop-Stand enthält eine hierarchische Kategorie-Navigation, konsolidierte
 Dark-/Light-Designressourcen, lokale Schreibtisch-Notizen, zeitgesteuerten
-Autospeicher und eine profilbasierte Technikerverwaltung in den Einstellungen.
+Autospeicher und eine profilbasierte Technikerverwaltung ohne Sonderrolle.
 Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 
 ## Architektur
@@ -26,15 +26,11 @@ Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 - Kategorieauswahl ohne nicht auswählbare Hauptkategorien.
 - Dashboard-Navigation mit passender Kategorieauswahl.
 - Auftragsbezogene Schreibtisch-Notizzettel mit Abwahl/Löschung.
-- Profilbasierte Technikerverwaltung mit Name, Kürzel, E-Mail, Telefon,
-  Standard-Schutz und kompatibler Namensliste für Aufträge.
+- Gleichberechtigte Technikerprofile mit Name, Kürzel, E-Mail und Telefon.
 - Horizontale Desktop-Einstellungstabs und Windows-11-Dark-Technikeransicht.
 - Robusteres Leeren von Datumsfeldern und vorhandener Autospeicher-Timer.
 - Semantische Desktop-Ressourcen für Dark-/Light-Modus.
-- Konsolidierte Windows-11-Dark-Zustände für Karten, Kategorien, Eingaben,
-  Fokus, Auswahl und Dialog-/Preview-Rahmen.
 - Native iPadOS-Toolbar und systemeigene Suche.
-- Lokales macOS-Bundle-Hilfsskript.
 
 ## Bekannte offene Punkte
 
@@ -50,6 +46,6 @@ Die iPad-App nutzt eine eigenständige native iPadOS-Navigation und Toolbar.
 - `codex/work` ist der dauerhafte Arbeitsbranch für veröffentlichte Codex-
   Arbeitsstände.
 - Alte `technicianNames` bleiben beim Lesen und Schreiben kompatibel; neue
-  Profilfelder liegen additiv in `technicians`.
+  Profilfelder liegen additiv in `technicians`, ohne Standard-Sonderrolle.
 - Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses
   Workflows.

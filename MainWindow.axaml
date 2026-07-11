@@ -1502,9 +1502,8 @@
                       <Border Padding="18,13" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="0,1,0,0">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                           <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="15" />
-                          <TextBlock Grid.Column="1" Text="Standard" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsVisible="{Binding IsStandard}" />
                           <Button Grid.Column="1" Classes="TechnicianDelete" Content="×" ToolTip.Tip="Techniker löschen"
-                                  AutomationProperties.Name="Techniker löschen" IsVisible="{Binding CanDelete}" Click="RemoveTechnician_OnClick" />
+                                  AutomationProperties.Name="Techniker löschen" Click="RemoveTechnician_OnClick" />
                         </Grid>
                       </Border>
                     </DataTemplate>

@@ -27,11 +27,6 @@ public sealed class TechnicianProfile
     [JsonPropertyName("phone")]
     public string Phone { get; set; } = string.Empty;
 
-    [JsonPropertyName("isStandard")]
-    public bool IsStandard { get; set; }
-
-    [JsonIgnore]
-    public bool CanDelete => !IsStandard;
 }
 
 public sealed class LiveSettingsService
@@ -56,7 +51,7 @@ public sealed class LiveSettingsService
             if (localNames.Count > 0)
             {
                 settings.Technicians = localNames
-                    .Select((name, index) => new TechnicianProfile { Name = name, IsStandard = index == 0 })
+                    .Select(name => new TechnicianProfile { Name = name })
                     .ToList();
                 NormalizeTechnicians(settings);
                 Save(syncRootDirectory, settings);
@@ -153,8 +148,7 @@ public sealed class LiveSettingsService
                 Name = profile.Name.Trim(),
                 Abbreviation = profile.Abbreviation?.Trim() ?? string.Empty,
                 Email = profile.Email?.Trim() ?? string.Empty,
-                Phone = profile.Phone?.Trim() ?? string.Empty,
-                IsStandard = profile.IsStandard
+                Phone = profile.Phone?.Trim() ?? string.Empty
             })
             .GroupBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
@@ -164,13 +158,8 @@ public sealed class LiveSettingsService
         if (profiles.Count == 0)
         {
             profiles = NormalizeTechnicianNames(settings.TechnicianNames)
-                .Select((name, index) => new TechnicianProfile { Name = name, IsStandard = index == 0 })
+                .Select(name => new TechnicianProfile { Name = name })
                 .ToList();
-        }
-
-        if (profiles.Count > 0 && !profiles.Any(profile => profile.IsStandard))
-        {
-            profiles[0].IsStandard = true;
         }
 
         settings.Technicians = profiles;

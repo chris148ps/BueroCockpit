@@ -2,15 +2,15 @@
 
 ## Datum/Uhrzeit
 
-2026-07-11 21:23 +0200
+2026-07-11 21:29 +0200
 
 ## Letzter Auftrag
 
-Desktop-Einstellungen und Technikerverwaltung an Windows-11-Dark-Referenz angleichen
+Standard-Techniker vollständig entfernen
 
 ## Zusammenfassung
 
-Die Desktop-Einstellungen und die Technikerverwaltung folgen der Referenzansicht. Bestehende Namenslisten bleiben kompatibel, neue Profildaten werden im vorhandenen zentralen Live-Settings-Format gespeichert.
+Technikerprofile sind nun vollständig gleichberechtigt. Bestehende Profil- und Namensdaten bleiben kompatibel.
 
 ## Geänderte Dateien
 
@@ -21,15 +21,12 @@ Die Desktop-Einstellungen und die Technikerverwaltung folgen der Referenzansicht
 - docs/codex_last_run.md
 - docs/NEXT_TASK.md
 - docs/codex_journal/
-- scripts/update-codex-documentation.sh
 
 ## Tests
 
 - git diff --check erfolgreich.
-- dotnet build erfolgreich mit 0 Fehlern.
-- scripts/run-macos-bundle.sh Debug erfolgreich.
-- Reale Start- und Sichtprüfung: Einstellungen, alle sieben Tabs, Technikerliste, Techniker-Auswahl, Formular und Lösch-X geprüft.
-- Keine vorhandenen Techniker gelöscht oder Profildaten verändert; der Standard-Techniker war ohne Löschaktion sichtbar.
+- dotnet build erfolgreich.
+- Reale Start- und Sichtprüfung der Technikerliste erfolgreich; jede sichtbare Zeile enthält ein Lösch-X ohne Standardtext.
 
 ## Git-Status
 
@@ -39,29 +36,30 @@ Die Desktop-Einstellungen und die Technikerverwaltung folgen der Referenzansicht
  M Services/LiveSettingsService.cs
  M docs/NEXT_TASK.md
  M docs/PROJEKTSTATUS.md
- M docs/codex_last_run.md
- M scripts/update-codex-documentation.sh
-?? docs/codex_journal/2026-07-11_21-23_techniker-einstellungen.md
+?? docs/codex_journal/2026-07-11_21-29_standard-techniker-entfernt.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-e06938fe49dc9786e9669ee5d3f178bd02d3daaa
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Ein umfassender Funktionslauf für Speichern und Löschen mit produktiven Technikerdaten wurde bewusst nicht ausgeführt, damit keine vorhandenen lokalen Daten verändert oder gelöscht werden.
+- Produktive Technikerprofile wurden nicht verändert oder gelöscht.
 - Der echte lokale Netzwerk-Sync bleibt unverändert vorbereitet und deaktiviert.
 
 ## Empfohlener nächster Schritt
 
-Die neue Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Speichern, Umbenennen und Löschen prüfen.
+Die Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Anlegen, Speichern, Umbenennen und Löschen prüfen.
 
 1. Isolierten, nichtproduktiven Settings-Datensatz vorbereiten.
 2. Profil anlegen, bearbeiten, speichern und erneut laden.
-3. Löschschutz des Standard-Profils und Löschen eines Nichtstandard-Profils prüfen.
+3. Löschen eines beliebigen Profils prüfen.

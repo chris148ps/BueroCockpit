@@ -12434,8 +12434,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             TechnicianOptions.Add(profile.Name);
         }
 
-        SelectedTechnicianProfile = TechnicianProfiles.FirstOrDefault(profile => profile.IsStandard)
-            ?? TechnicianProfiles.FirstOrDefault();
+        SelectedTechnicianProfile = TechnicianProfiles.FirstOrDefault();
     }
 
     private void SaveTechnicianOptions()
@@ -12494,7 +12493,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RemoveTechnician_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: TechnicianProfile profile } && !profile.IsStandard)
+        if (sender is Button { DataContext: TechnicianProfile profile })
         {
             TechnicianProfiles.Remove(profile);
             if (ReferenceEquals(SelectedTechnicianProfile, profile))

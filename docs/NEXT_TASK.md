@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Die neue Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Speichern, Umbenennen und Löschen prüfen.
+Die Technikerprofilverwaltung mit einem nichtproduktiven Beispieldatensatz gezielt auf Anlegen, Speichern, Umbenennen und Löschen prüfen.
 
 ## Geplante Schritte
 
 1. Isolierten, nichtproduktiven Settings-Datensatz vorbereiten.
 2. Profil anlegen, bearbeiten, speichern und erneut laden.
-3. Löschschutz des Standard-Profils und Löschen eines Nichtstandard-Profils prüfen.
+3. Löschen eines beliebigen Profils prüfen.
 
 ## Vermutlich betroffene Dateien
 
