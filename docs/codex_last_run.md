@@ -46,16 +46,13 @@ Die drei kompakten Tabellen unterstützen jetzt zuverlässige Kopfklick-Sortieru
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+01645215bb595beb49a0eb9c75d6390019b5a192
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
