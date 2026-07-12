@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Die drei Tabellen auf eine gemeinsame dynamische Spaltenprojektion mit echter Reihenfolge- und Sichtbarkeitsverwaltung umstellen.
+Drag-and-drop-Reihenfolge und vollständige visuelle Abnahme der drei dynamischen Tabellen prüfen und abschließen.
 
 ## Geplante Schritte
 
-1. Gemeinsame Spaltendefinitionen für Vorgänge und Termine einführen.
-2. Header-Kontextmenü, Drag-and-drop und Zeilenprojektion an diese Definition binden.
-3. Alle Layoutwerte getrennt speichern und nach Neustart visuell prüfen.
+1. Kopfspalten per Pointer verschieben und Reihenfolge unmittelbar projizieren.
+2. Layout nach Neustart in Aufträge, Angebote und Termine prüfen.
+3. Übersicht, Splitter, Status, Kategorien und leere Monteurzuordnung sichtbar abnehmen.
 
 ## Vermutlich betroffene Dateien
 

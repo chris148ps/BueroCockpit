@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace BueroCockpit.Models;
 
 public sealed class TaskItem : ObservableObject
@@ -54,6 +56,7 @@ public sealed class TaskItem : ObservableObject
     public string Description { get => _description; set => SetProperty(ref _description, value); }
     public string CategoryId { get => _categoryId; set => SetProperty(ref _categoryId, value); }
     public List<string> CategoryIds { get; set; } = new();
+    public ObservableCollection<TableCellItem> TableCells { get; } = new();
     public string Status
     {
         get => _status;

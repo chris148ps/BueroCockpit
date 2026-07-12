@@ -2,34 +2,34 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit Übersicht, grober Systemnavigation, kompakten Vorgangslisten, Detailinspektor und Terminprojektion. Vorgangs- und Terminlisten verwenden lokale, ansichtsspezifische Tabellenlayoutdaten.
+BüroCockpit enthält Übersicht, grobe Systemnavigation, kompakte dynamische Vorgangstabellen, rechten Detailinspektor und eine chronologische Terminprojektion.
 
 ## Architektur
 
 - Desktop: Avalonia UI, lokale SQLite-/Dateidaten.
-- Status: additive WorkflowType-/WorkflowStep-Felder mit defensiver Bestandsableitung.
-- Navigation: Systemnavigation getrennt von bestehenden Benutzerkategorien.
-- Tabellen: separate Orders-, Offers- und Appointments-Layouts mit Breiten, Reihenfolge-, Sichtbarkeits- und Sortiermetadaten.
-- Splitter: Liste/Detail und Kopfspalten verwenden sichtbare GridSplitter-Handles; Layoutwerte bleiben lokal.
+- Status: additive WorkflowType-/WorkflowStep-Felder; gespeicherte Schritte bleiben führend.
+- Tabellen: drei getrennte lokale TableLayoutSettings mit Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung.
+- Projektion: TableCellItem verbindet Kopfdefinition und Datenzeile; Kunde ist als Pflichtspalte geschützt.
+- Monteure: leerer Auswahlwert speichert eine leere Zuordnung.
 
 ## Erledigte Hauptfunktionen
 
-- kompakte Spalten Status, Kunde, Ort, Termin, Techniker
-- ansichtsspezifische gespeicherte Spaltenbreiten
-- Kopf-Splitter mit Zeilenbindung
+- dynamische Spaltenreihenfolge und Sichtbarkeit werden tatsächlich projiziert
+- Titel und weitere reale Spalten im Kopf-Kontextmenü verfügbar
+- Kopf-Splitter und Zeilenbreiten verbunden
+- getrennte Layoutpersistenz für Aufträge, Angebote und Termine
 - horizontales und vertikales Scrollen
-- Terminfilter und chronologische deduplizierte Terminprojektion
-- Status „Angebot gesendet“ und leere Monteurzuordnung
+- Status-, Termin- und Monteurkorrekturen
 
 ## Bekannte offene Punkte
 
-- echte Drag-and-drop-Reihenfolge der Spalten fehlt noch
-- vollständig dynamisches Spaltenkontextmenü mit je Ansicht eigener Sichtbarkeit fehlt noch
-- visuelle Neustart- und Splitterabnahme wartet auf eine entsperrte macOS-Sitzung
+- direkte Drag-and-drop-Pointergeste für die Spaltenreihenfolge fehlt noch
+- visuelle Neustart- und Mausabnahme wartet auf eine entsperrte macOS-Sitzung
+- Netzwerk-Sync bleibt deaktiviert
 
 ## Wichtige Entscheidungen
 
-- technische IDs bleiben intern
-- gespeicherter WorkflowStep ist die gemeinsame sichtbare Statusquelle
-- bestehende Kategorien, IDs und Zuordnungen werden nicht migriert oder gelöscht
-- UI-Layoutwerte werden lokal und getrennt nach Ansicht gespeichert
+- StatusStep ist die zentrale sichtbare Statusquelle.
+- Technische IDs bleiben intern.
+- Bestehende Kategorien und Zuordnungen werden nicht destruktiv migriert.
+- Layoutwerte bleiben lokal und ansichtsspezifisch.

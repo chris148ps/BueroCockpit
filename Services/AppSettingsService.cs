@@ -77,7 +77,12 @@ public sealed class TableLayoutSettings
         var columnWidths = columnList
             .Select((column, index) => new { column, width = index < widths.Length ? widths[index] : 140d })
             .ToDictionary(item => item.column, item => item.width, StringComparer.OrdinalIgnoreCase);
-        return new TableLayoutSettings { ColumnOrder = columnList, ColumnWidths = columnWidths };
+        return new TableLayoutSettings
+        {
+            ColumnOrder = columnList,
+            ColumnWidths = columnWidths,
+            HiddenColumns = columnList.Contains("Titel", StringComparer.OrdinalIgnoreCase) ? ["Titel"] : []
+        };
     }
 }
 

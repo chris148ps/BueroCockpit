@@ -2204,34 +2204,9 @@
                  SelectionChanged="TaskList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <StackPanel>
-                <Border Classes="TaskCard"
+              <Border Classes="TaskCard"
                       Margin="0,0,0,3"
-                      Padding="8,7"
-                      IsVisible="{Binding $parent[Window].DataContext.IsAppointmentsNavigationSelected}">
-                <Grid ColumnSpacing="8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.AppointmentDateColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.AppointmentTimeColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.AppointmentStatusColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.AppointmentCustomerColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.AppointmentLocationColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.AppointmentTechnicianColumnWidth}" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding DueDateDateText}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="{Binding DueDateTimeText}" VerticalAlignment="Center" />
-                  <Border Grid.Column="2" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource CornerRadiusSmall}" Padding="6,2" HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding WorkflowStatusText}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
-                  </Border>
-                  <TextBlock Grid.Column="3" Text="{Binding CustomerName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding CustomerName}" />
-                  <TextBlock Grid.Column="4" Text="{Binding CustomerAddress}" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding CustomerAddress}" />
-                  <TextBlock Grid.Column="5" Text="{Binding TechnicianDisplayText}" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                </Grid>
-                </Border>
-                <Border Classes="TaskCard"
-                      Margin="0,0,0,3"
-                      Padding="8,7"
-                      IsVisible="{Binding $parent[Window].DataContext.IsNotAppointmentsNavigationSelected}">
+                      Padding="8,7">
                 <Border.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Wiedervorlage bestätigen"
@@ -2239,27 +2214,36 @@
                               Click="ConfirmFollowUp_OnClick" />
                   </ContextMenu>
                 </Border.ContextMenu>
-                <Grid ColumnSpacing="8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.TaskStatusColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.TaskCustomerColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.TaskLocationColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.TaskDateColumnWidth}" />
-                    <ColumnDefinition Width="{Binding $parent[Window].DataContext.TaskTechnicianColumnWidth}" />
-                  </Grid.ColumnDefinitions>
-                  <Border Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource CornerRadiusSmall}" Padding="6,2" HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding WorkflowStatusText}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
-                  </Border>
-                  <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CustomerName}" />
-                    <TextBlock Text="{Binding Title}" IsVisible="{Binding $parent[Window].DataContext.ShowTaskTitleColumn}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
-                  </StackPanel>
-                  <TextBlock Grid.Column="2" Text="{Binding CustomerAddress}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Grid.Column="3" Text="{Binding DueDateText}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="4" Text="{Binding TechnicianDisplayText}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TechnicianDisplayText}" />
-                </Grid>
-                </Border>
-              </StackPanel>
+                <ItemsControl ItemsSource="{Binding TableCells}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Width="{Binding Width}" Padding="0,2" ClipToBounds="True">
+                        <Grid>
+                          <Border IsVisible="{Binding IsStatus}"
+                                  Background="{DynamicResource AccentSoftBrush}"
+                                  BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="{DynamicResource CornerRadiusSmall}"
+                                  Padding="6,2"
+                                  HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
+                          </Border>
+                          <TextBlock IsVisible="{Binding IsNotStatus}"
+                                     Text="{Binding Text}"
+                                     TextTrimming="CharacterEllipsis"
+                                     ToolTip.Tip="{Binding ToolTipText}"
+                                     VerticalAlignment="Center" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Border>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>

@@ -1050,17 +1050,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool ShowTaskTitleColumn
     {
-        get => _appSettings.ShowTaskTitleColumn;
+        get => !GetActiveTableLayout().HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase);
         set
         {
-            if (_appSettings.ShowTaskTitleColumn == value)
+            var layout = GetActiveTableLayout();
+            var isVisible = !layout.HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase);
+            if (isVisible == value)
             {
                 return;
+            }
+
+            if (value)
+            {
+                layout.HiddenColumns.RemoveAll(column => string.Equals(column, "Titel", StringComparison.OrdinalIgnoreCase));
+            }
+            else if (!layout.HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase))
+            {
+                layout.HiddenColumns.Add("Titel");
             }
 
             _appSettings.ShowTaskTitleColumn = value;
             _settingsService.Save(_appSettings);
             OnPropertyChanged(nameof(ShowTaskTitleColumn));
+            RefreshTableProjection();
         }
     }
 
@@ -1084,7 +1096,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _appSettings.OrdersTableLayout = resetLayout;
         }
 
-        ShowTaskTitleColumn = true;
         ApplyTableLayoutForCurrentView();
         _settingsService.Save(_appSettings);
     }
@@ -1092,6 +1103,170 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ToggleTaskTitleColumn_OnClick(object? sender, RoutedEventArgs e)
     {
         ShowTaskTitleColumn = !ShowTaskTitleColumn;
+    }
+
+    private static readonly string[] StandardTableColumns = ["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"];
+    private static readonly string[] AppointmentTableColumns = ["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"];
+
+    private IReadOnlyList<string> GetVisibleTableColumns()
+    {
+        var layout = GetActiveTableLayout();
+        var available = IsAppointmentsNavigationSelected ? AppointmentTableColumns : StandardTableColumns;
+        var order = new List<string>();
+        foreach (var key in layout.ColumnOrder)
+        {
+            var normalized = available.FirstOrDefault(column => string.Equals(column, key, StringComparison.OrdinalIgnoreCase));
+            if (normalized is not null && !order.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+            {
+                order.Add(normalized);
+            }
+        }
+
+        foreach (var key in available)
+        {
+            if (!order.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                order.Add(key);
+            }
+        }
+
+        layout.ColumnOrder = order;
+        return order
+            .Where(key => string.Equals(key, "Kunde", StringComparison.OrdinalIgnoreCase) ||
+                          !layout.HiddenColumns.Contains(key, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private static string GetTableHeader(string key) => key;
+
+    private string GetTableCellText(TaskItem task, string key) => key switch
+    {
+        "Status" => task.WorkflowStatusText,
+        "Kunde" => task.CustomerName,
+        "Ort" => task.CustomerAddress,
+        "Termin" => task.DueDateCompactText,
+        "Techniker" => task.TechnicianDisplayText,
+        "Datum" => task.DueDateDateText,
+        "Uhrzeit" => task.DueDateTimeText,
+        "Titel" => task.Title,
+        _ => string.Empty
+    };
+
+    private double GetTableCellWidth(string key)
+    {
+        var fallback = key switch
+        {
+            "Status" => 112,
+            "Kunde" => 240,
+            "Ort" => 220,
+            "Termin" => 120,
+            "Techniker" => 150,
+            "Datum" => 96,
+            "Uhrzeit" => 78,
+            _ => 140
+        };
+        var layout = GetActiveTableLayout();
+        return layout.ColumnWidths.TryGetValue(key, out var width) ? Math.Clamp(width, 70, 520) : fallback;
+    }
+
+    private void RefreshTableProjection()
+    {
+        if (TaskTableHeaderGrid is null || AppointmentTableHeaderGrid is null)
+        {
+            return;
+        }
+
+        var columns = GetVisibleTableColumns();
+        BuildTableHeader(TaskTableHeaderGrid, columns);
+        BuildTableHeader(AppointmentTableHeaderGrid, columns);
+        foreach (var task in AllTasks)
+        {
+            UpdateTaskTableCells(task, columns);
+        }
+    }
+
+    private void UpdateTaskTableCells(TaskItem task, IReadOnlyList<string>? columns = null)
+    {
+        var visibleColumns = columns ?? GetVisibleTableColumns();
+        task.TableCells.Clear();
+        foreach (var key in visibleColumns)
+        {
+            task.TableCells.Add(new TableCellItem(
+                key,
+                GetTableCellText(task, key),
+                GetTableCellWidth(key),
+                string.Equals(key, "Status", StringComparison.OrdinalIgnoreCase)));
+        }
+    }
+
+    private void BuildTableHeader(Grid header, IReadOnlyList<string> columns)
+    {
+        header.Children.Clear();
+        header.ColumnDefinitions.Clear();
+        header.Tag = columns.ToList();
+        for (var index = 0; index < columns.Count; index++)
+        {
+            var key = columns[index];
+            header.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(GetTableCellWidth(key), GridUnitType.Pixel)));
+            var text = new TextBlock { Text = GetTableHeader(key), Classes = { "TaskTableHeader" } };
+            Grid.SetColumn(text, index);
+            header.Children.Add(text);
+            if (index < columns.Count - 1)
+            {
+                var splitter = new GridSplitter
+                {
+                    Width = 6,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    ResizeDirection = GridResizeDirection.Columns,
+                    ResizeBehavior = GridResizeBehavior.PreviousAndNext,
+                    Background = ResourceBrush("BorderBrushDark")
+                };
+                Grid.SetColumn(splitter, index);
+                header.Children.Add(splitter);
+            }
+        }
+
+        var menu = new ContextMenu();
+        foreach (var key in (IsAppointmentsNavigationSelected ? AppointmentTableColumns : StandardTableColumns))
+        {
+            var item = new MenuItem
+            {
+                Header = $"Spalte: {key}",
+                Tag = key,
+                IsEnabled = !string.Equals(key, "Kunde", StringComparison.OrdinalIgnoreCase)
+            };
+            item.Click += ToggleTableColumn_OnClick;
+            menu.Items.Add(item);
+        }
+        menu.Items.Add(new Separator());
+        menu.Items.Add(new MenuItem { Header = "Standard wiederherstellen", Command = null });
+        if (menu.Items[^1] is MenuItem reset)
+        {
+            reset.Click += ResetTaskTableColumns_OnClick;
+        }
+        header.ContextMenu = menu;
+    }
+
+    private void ToggleTableColumn_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string key } || string.Equals(key, "Kunde", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var layout = GetActiveTableLayout();
+        var hidden = layout.HiddenColumns.FirstOrDefault(column => string.Equals(column, key, StringComparison.OrdinalIgnoreCase));
+        if (hidden is null)
+        {
+            layout.HiddenColumns.Add(key);
+        }
+        else
+        {
+            layout.HiddenColumns.Remove(hidden);
+        }
+
+        _settingsService.Save(_appSettings);
+        RefreshTableProjection();
     }
 
     private GridLength PixelColumnWidth(string columnName, double fallback)
@@ -1109,10 +1284,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var layout = GetActiveTableLayout();
-        var columns = IsAppointmentsNavigationSelected
-            ? new[] { "Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker" }
-            : new[] { "Status", "Kunde", "Ort", "Termin", "Techniker" };
-        for (var index = 0; index < columns.Length && index < header.ColumnDefinitions.Count; index++)
+        var columns = header.Tag is List<string> configuredColumns
+            ? configuredColumns
+            : (IsAppointmentsNavigationSelected
+                ? AppointmentTableColumns.Take(6).ToList()
+                : StandardTableColumns.Take(5).ToList());
+        for (var index = 0; index < columns.Count && index < header.ColumnDefinitions.Count; index++)
         {
             var width = header.ColumnDefinitions[index].ActualWidth;
             if (width >= 70)
@@ -2996,6 +3173,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 SubscribeTaskItem(task);
                 AllTasks.Add(task);
             }
+            RefreshTableProjection();
             LoadMobileInboxEntries();
 
             LoadDeskItems();
@@ -3090,6 +3268,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var task in tasks)
             {
                 UpdateTaskCategoryPresentation(task);
+                UpdateTaskTableCells(task);
                 VisibleTasks.Add(task);
             }
 
