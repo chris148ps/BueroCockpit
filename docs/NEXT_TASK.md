@@ -2,11 +2,11 @@
 
 ## Ziel
 
-Keine; die Tabellenbreitenbindung ist abgeschlossen.
+Keine; die direkte Splitterkopplung ist abgeschlossen.
 
 ## Geplante Schritte
 
-1. Bei der nächsten UI-Abnahme die Breiten in Aufträgen, Angeboten und Terminen kurz gegenprüfen.
+1. Bei der nächsten Abnahme die Splitterbreite noch einmal in Aufträge, Angebote und Termine kurz prüfen.
 
 ## Vermutlich betroffene Dateien
 

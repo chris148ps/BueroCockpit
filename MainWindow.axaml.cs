@@ -1231,6 +1231,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ResizeBehavior = GridResizeBehavior.PreviousAndNext,
                     Background = ResourceBrush("BorderBrushDark")
                 };
+                splitter.PointerReleased += TableColumnSplitter_OnPointerReleased;
                 Grid.SetColumn(splitter, index);
                 header.Children.Add(splitter);
             }
@@ -1343,6 +1344,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshTableProjection();
     }
 
+    private void TableColumnSplitter_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is not GridSplitter splitter ||
+            splitter.GetVisualParent() is not Grid header)
+        {
+            return;
+        }
+
+        SaveTableColumnWidths(header);
+    }
+
     private GridLength PixelColumnWidth(string columnName, double fallback)
     {
         var layout = GetActiveTableLayout();
@@ -1357,6 +1369,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        SaveTableColumnWidths(header);
+    }
+
+    private void SaveTableColumnWidths(Grid header)
+    {
         var layout = GetActiveTableLayout();
         var columns = header.Tag is List<string> configuredColumns
             ? configuredColumns

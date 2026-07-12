@@ -2,15 +2,15 @@
 
 ## Datum/Uhrzeit
 
-2026-07-12 14:21 +0200
+2026-07-12 14:26 +0200
 
 ## Letzter Auftrag
 
-Tabellenbreiten von Kopf und Datenzeilen synchronisieren
+Kopf-Splitter direkt mit Tabellenzeilen koppeln
 
 ## Zusammenfassung
 
-Spaltenbreiten wirken jetzt unmittelbar auf Tabellenkopf und Datenzeilen. Die lokale Layoutspeicherung bleibt erhalten.
+Die tatsächlichen Tabellenzellen folgen jetzt zuverlässig der Breitenänderung des Kopf-Splitters.
 
 ## Geänderte Dateien
 
@@ -22,32 +22,35 @@ Spaltenbreiten wirken jetzt unmittelbar auf Tabellenkopf und Datenzeilen. Die lo
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
 - Realer Desktopstart: erfolgreich.
-- Auftragsliste geöffnet und einen Kopf-Splitter sichtbar verschoben.
-- Sichtprüfung: die Spaltengrenze und der Inhalt der Datenzeilen bewegen sich gemeinsam; keine abgeschnittene oder überlappende Zeile sichtbar.
+- Auftragsliste geöffnet und den sichtbaren Splitter zwischen Kunde und Ort gezogen.
+- Sichtprüfung: Kopfgrenze und Datenzeilengrenze bewegen sich gemeinsam; die Datenzeilen übernehmen die neue Breite unmittelbar.
 
 ## Git-Status
 
 ```text
  M MainWindow.axaml.cs
  M docs/NEXT_TASK.md
-?? docs/codex_journal/2026-07-12_14-21_tabellenbreiten-zeilen-synchronisieren.md
+?? docs/codex_journal/2026-07-12_14-26_tabellenkopf-splitter-direkt-koppeln.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-c51030408a9c675922347d09e6adc06548ab14ba
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Keine weiteren offenen Punkte zu diesem Fehler.
+- Keine offenen Punkte zu diesem Fehler.
 
 ## Empfohlener nächster Schritt
 
-Keine; die Tabellenbreitenbindung ist abgeschlossen.
+Keine; die direkte Splitterkopplung ist abgeschlossen.
 
-1. Bei der nächsten UI-Abnahme die Breiten in Aufträgen, Angeboten und Terminen kurz gegenprüfen.
+1. Bei der nächsten Abnahme die Splitterbreite noch einmal in Aufträge, Angebote und Termine kurz prüfen.
