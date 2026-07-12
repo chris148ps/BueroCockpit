@@ -197,6 +197,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private PointerPressedEventArgs? _categoryDragStartEvent;
     private Point _categoryDragStartPoint;
     private bool _isDraggingCategory;
+    private string? _draggedTableColumnKey;
+    private Point _tableColumnDragStart;
     private CategoryItem? _categoryDropTarget;
     private bool _isCategoryRootDropTarget;
     private bool _deskInitialViewApplied;
@@ -1208,9 +1210,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var key = columns[index];
             header.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(GetTableCellWidth(key), GridUnitType.Pixel)));
-            var text = new TextBlock { Text = GetTableHeader(key), Classes = { "TaskTableHeader" } };
-            Grid.SetColumn(text, index);
-            header.Children.Add(text);
+            var headerCell = new Border
+            {
+                Tag = key,
+                Background = Brushes.Transparent,
+                Padding = new Thickness(2, 0)
+            };
+            headerCell.Child = new TextBlock { Text = GetTableHeader(key), Classes = { "TaskTableHeader" } };
+            headerCell.PointerPressed += TableColumnHeader_OnPointerPressed;
+            headerCell.PointerReleased += TableColumnHeader_OnPointerReleased;
+            Grid.SetColumn(headerCell, index);
+            header.Children.Add(headerCell);
             if (index < columns.Count - 1)
             {
                 var splitter = new GridSplitter
@@ -1245,6 +1255,70 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             reset.Click += ResetTaskTableColumns_OnClick;
         }
         header.ContextMenu = menu;
+    }
+
+    private void TableColumnHeader_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Border { Tag: string key } ||
+            !e.GetCurrentPoint((Control)sender).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _draggedTableColumnKey = key;
+        _tableColumnDragStart = e.GetPosition(this);
+        e.Pointer.Capture((IInputElement)sender);
+    }
+
+    private void TableColumnHeader_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_draggedTableColumnKey is null || sender is not Border)
+        {
+            return;
+        }
+
+        e.Pointer.Capture(null);
+        var draggedKey = _draggedTableColumnKey;
+        _draggedTableColumnKey = null;
+        var header = ((Visual)sender).GetVisualParent() as Grid;
+        if (header is null || Math.Abs(e.GetPosition(this).X - _tableColumnDragStart.X) < 8)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(header).X;
+        var columns = header.Tag as List<string> ?? [];
+        var targetIndex = -1;
+        var offset = 0d;
+        for (var index = 0; index < columns.Count && index < header.ColumnDefinitions.Count; index++)
+        {
+            var width = header.ColumnDefinitions[index].ActualWidth;
+            if (position >= offset && position <= offset + width)
+            {
+                targetIndex = index;
+                break;
+            }
+
+            offset += width;
+        }
+
+        if (targetIndex < 0 || string.Equals(columns[targetIndex], draggedKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var layout = GetActiveTableLayout();
+        var visibleOrder = columns.ToList();
+        visibleOrder.RemoveAll(key => string.Equals(key, draggedKey, StringComparison.OrdinalIgnoreCase));
+        targetIndex = Math.Clamp(targetIndex, 0, visibleOrder.Count);
+        visibleOrder.Insert(targetIndex, draggedKey);
+
+        var hiddenOrder = layout.ColumnOrder
+            .Where(key => !visibleOrder.Contains(key, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        layout.ColumnOrder = visibleOrder.Concat(hiddenOrder).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _settingsService.Save(_appSettings);
+        RefreshTableProjection();
     }
 
     private void ToggleTableColumn_OnClick(object? sender, RoutedEventArgs e)

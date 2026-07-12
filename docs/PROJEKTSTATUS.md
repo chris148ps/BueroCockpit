@@ -2,34 +2,31 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit enthält Übersicht, grobe Systemnavigation, kompakte dynamische Vorgangstabellen, rechten Detailinspektor und eine chronologische Terminprojektion.
+BüroCockpit enthält kompakte dynamische Vorgangstabellen für Aufträge und Angebote sowie eine chronologische Terminansicht. Kopf und Zeilen verwenden dieselbe lokale Ansichtskonfiguration.
 
 ## Architektur
 
-- Desktop: Avalonia UI, lokale SQLite-/Dateidaten.
-- Status: additive WorkflowType-/WorkflowStep-Felder; gespeicherte Schritte bleiben führend.
-- Tabellen: drei getrennte lokale TableLayoutSettings mit Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung.
-- Projektion: TableCellItem verbindet Kopfdefinition und Datenzeile; Kunde ist als Pflichtspalte geschützt.
-- Monteure: leerer Auswahlwert speichert eine leere Zuordnung.
+- Drei getrennte `TableLayoutSettings` speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung.
+- `TableCellItem` projiziert jede sichtbare Spalte für Kopf-/Zeilenkonsistenz.
+- Headerzellen können per Pointer-Geste umgeordnet werden.
+- WorkflowStep bleibt zentrale Statusquelle; Kategorien bleiben kompatibel.
 
 ## Erledigte Hauptfunktionen
 
-- dynamische Spaltenreihenfolge und Sichtbarkeit werden tatsächlich projiziert
-- Titel und weitere reale Spalten im Kopf-Kontextmenü verfügbar
-- Kopf-Splitter und Zeilenbreiten verbunden
-- getrennte Layoutpersistenz für Aufträge, Angebote und Termine
-- horizontales und vertikales Scrollen
-- Status-, Termin- und Monteurkorrekturen
+- kompakte Standardspalten und zusätzliche Titelspalte
+- Sichtbarkeit über Kopf-Kontextmenü
+- Breitenänderung über Kopf-Splitter
+- Drag-and-drop-Reihenfolge der sichtbaren Spalten
+- lokale Wiederherstellung je Ansicht
+- Terminfilter und leere Monteurzuordnung
 
 ## Bekannte offene Punkte
 
-- direkte Drag-and-drop-Pointergeste für die Spaltenreihenfolge fehlt noch
-- visuelle Neustart- und Mausabnahme wartet auf eine entsperrte macOS-Sitzung
-- Netzwerk-Sync bleibt deaktiviert
+- sichtbare Endabnahme und Neustartprüfung warten auf eine entsperrte macOS-Sitzung.
+- produktive mutierende Status-/Monteurtests wurden nicht ausgeführt.
 
 ## Wichtige Entscheidungen
 
-- StatusStep ist die zentrale sichtbare Statusquelle.
+- Kunde bleibt immer sichtbar.
 - Technische IDs bleiben intern.
-- Bestehende Kategorien und Zuordnungen werden nicht destruktiv migriert.
-- Layoutwerte bleiben lokal und ansichtsspezifisch.
+- Layoutwerte werden ausschließlich lokal gespeichert.

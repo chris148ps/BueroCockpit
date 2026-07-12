@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Drag-and-drop-Reihenfolge und vollständige visuelle Abnahme der drei dynamischen Tabellen prüfen und abschließen.
+Nach Entsperren des Macs die drei Tabellenansichten und gespeicherten Layouts sichtbar abnehmen.
 
 ## Geplante Schritte
 
-1. Kopfspalten per Pointer verschieben und Reihenfolge unmittelbar projizieren.
-2. Layout nach Neustart in Aufträge, Angebote und Termine prüfen.
-3. Übersicht, Splitter, Status, Kategorien und leere Monteurzuordnung sichtbar abnehmen.
+1. Aufträge, Angebote und Termine öffnen.
+2. Breite, Reihenfolge, Sichtbarkeit und horizontales Scrollen prüfen.
+3. App neu starten und Layoutwiederherstellung kontrollieren.
 
 ## Vermutlich betroffene Dateien
 
