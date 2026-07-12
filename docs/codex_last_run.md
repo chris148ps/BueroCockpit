@@ -34,16 +34,13 @@ Die Breite einer Kopfspalte verändert jetzt zuverlässig die zugehörigen Daten
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+acc2def077871f3b0db90f2458a5e71f89826bd7
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
