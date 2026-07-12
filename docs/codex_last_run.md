@@ -2,73 +2,70 @@
 
 ## Datum/Uhrzeit
 
-2026-07-12 12:32 +0200
+2026-07-12 12:50 +0200
 
 ## Letzter Auftrag
 
-Kompakte Vorgangsansicht mit verschiebbarem Detailbereich und zentralem Status
+Vorgangsstatus, Terminansicht und Monteurzuordnung vervollständigen
 
 ## Zusammenfassung
 
-Die kompakte Auftragsliste und der rechte Inspektor entsprechen der Referenzstruktur. Die Detailbreite ist lokal vorbereitet, Statuswerte sind workflowbasiert und Bestandsdaten werden ohne aggressive Migration geladen.
+Status- und Terminprojektion sowie die neutrale Monteurzuordnung sind kompatibel ergänzt. Die Anwendung bleibt kompilierbar und der bestehende Datenbestand wird nicht destruktiv migriert.
 
 ## Geänderte Dateien
 
-- `/Users/christian/AppProjekte/BueroCockpit/Data/BueroRepository.cs`
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml`
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
 - `/Users/christian/AppProjekte/BueroCockpit/Models/TaskItem.cs`
-- `/Users/christian/AppProjekte/BueroCockpit/Models/WorkflowStepItem.cs`
 - `/Users/christian/AppProjekte/BueroCockpit/Services/AppSettingsService.cs`
-- `/Users/christian/AppProjekte/BueroCockpit/docs/CODEX_PROJEKTREGELN.md`
 - `/Users/christian/AppProjekte/BueroCockpit/docs/DESIGN_RICHTLINIEN.md`
 
 ## Tests
 
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `git diff --check`: erfolgreich.
-- Realer macOS-Bundle-Start über `./scripts/run-macos-bundle.sh Debug`: erfolgreich; frische App-Instanz sichtbar gestartet.
-- Sichtprüfung Übersicht: Übersicht bleibt Startansicht.
-- Sichtprüfung Hauptnavigation: grobe Bereiche sind sichtbar und Benutzer-Unterkategorien werden nicht als tägliche Hauptnavigation angezeigt.
-- Sichtprüfung Auftragsliste: Status, Kunde, Ort, Termin und Techniker sind sichtbar; keine technische Auftragsnummer in der Liste.
-- Sichtprüfung Detailbereich: Kundenname ist primärer Detailkopf; Ablauf und Statusauswahl sind sichtbar.
-- Sichtprüfung Splitter: sichtbarer Handle zwischen Liste und Detailbereich; beide Richtungen per Maus angesteuert; Mindestbreiten sind im Layout definiert.
-- Statusänderung und Neustart nicht auf einem bestehenden Produktivauftrag ausgeführt, um keine Bestandsdaten zu verändern; Speicherpfad und identische Bindungsquelle sind statisch geprüft.
+- macOS-Bundle-Erzeugung über `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
+- Sichtprüfung vor der aktuellen Mac-Sperre: Übersicht startet ohne Splitter; Hauptnavigation und kompakte Auftragsliste mit Status, Kunde, Ort, Termin und Techniker sichtbar; Detailkopf zeigt Kundenname; Splitter sichtbar.
+- Sichtprüfung Terminansicht: Zeitraum Alle sichtbar, reale Termine chronologisch und ohne doppelte Task-IDs sichtbar; Spalten Datum, Uhrzeit, Status, Kunde, Ort, Techniker sichtbar; fehlender Monteur zeigt —.
+- Sichtprüfung Filtermenü: Alle, Vergangen, Heute und Zukünftig werden angeboten.
+- Mutierende Status- und Monteur-Neustartprobe auf bestehenden Produktivdaten nicht ausgeführt, um Bestandsdaten unverändert zu lassen.
+- Weitere Computer-Use-Aktionen wurden durch die automatische macOS-Sperre verhindert.
 
 ## Git-Status
 
 ```text
- M Data/BueroRepository.cs
  M MainWindow.axaml
  M MainWindow.axaml.cs
  M Models/TaskItem.cs
  M Services/AppSettingsService.cs
- M docs/CODEX_PROJEKTREGELN.md
  M docs/DESIGN_RICHTLINIEN.md
  M docs/NEXT_TASK.md
  M docs/PROJEKTSTATUS.md
-?? Models/WorkflowStepItem.cs
-?? docs/codex_journal/2026-07-12_12-32_kompakte-vorgaenge.md
+?? docs/codex_journal/2026-07-12_12-50_vorgaenge-termine-status.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-94918ad518693be451f4ddedfb2a46b6bfa69745
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Eine mutierende Statusprobe mit anschließendem Neustart wurde aus Sicherheitsgründen nicht auf einem bestehenden Produktivauftrag ausgeführt.
-- Die bestehende Desktop-Computer-Use-Umgebung erlaubt die sichtbare Prüfung, aber die exakte gespeicherte Pixelbreite ist nur über den lokalen Einstellungsweg verifizierbar.
+- Vollständige per-Maus-Spaltenbreitenänderung, frei speicherbare Spaltenreihenfolge und getrennte Breitenmodelle für Aufträge, Angebote und Termine sind noch nicht vollständig umgesetzt.
+- Die mutierende End-to-End-Prüfung von Status- und Monteurspeicherung nach Neustart steht wegen der Sicherheitsgrenze für Produktivdaten aus.
+- Die visuelle Abnahme kleiner und großer Fenster war wegen der gesperrten macOS-Sitzung nicht erneut möglich.
 
 ## Empfohlener nächster Schritt
 
-Terminansicht als eigene chronologische Vorgangsliste mit den vier Zeitfiltern fertigstellen.
+Konfigurierbare Spaltenlayouts für Aufträge, Angebote und Termine vollständig als lokale UI-Einstellung umsetzen.
 
-1. Reale Auftrags- und Angebotstermine dedupliziert chronologisch projizieren.
-2. Filter Alle, Vergangen, Heute und Zukünftig ergänzen.
-3. Klicknavigation zum Originalvorgang und kompakte Leerzustände prüfen.
+1. Spaltendefinitionen mit Breite, Reihenfolge und Sichtbarkeit zentral modellieren.
+2. Kopfzeilen-Splitter und Kontextmenüs an die drei Ansichten binden.
+3. Layouts getrennt lokal speichern und nach Neustart wiederherstellen.

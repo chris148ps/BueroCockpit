@@ -24,6 +24,9 @@ public sealed class AppSettings
     // Lokal/geraetespezifisch: Breite des rechten Vorgangsinspektors in Pixeln.
     public double TaskDetailPaneWidth { get; set; } = 380;
 
+    // Lokal/geraetespezifisch: optionale Zusatzinformation in der kompakten Vorgangsliste.
+    public bool ShowTaskTitleColumn { get; set; } = true;
+
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;

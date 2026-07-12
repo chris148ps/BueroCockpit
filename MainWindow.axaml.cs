@@ -114,6 +114,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
     private string _selectedSortField = SortFieldCreatedAt;
+    private string _selectedAppointmentFilter = "Alle";
     private bool _isSortDescending = true;
     private string _dueDateText = string.Empty;
     private string _dueTimeText = string.Empty;
@@ -369,9 +370,56 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         : "Sortierung umkehren (aktuell aufsteigend)";
 
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
-    public string[] WorkflowStatusOptions { get; } = ["Ansicht", "Angebot", "Auftrag", "Material", "Termin", "Erledigt"];
+    public string[] WorkflowStatusOptions { get; } = ["Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt"];
+    public string[] AppointmentFilterOptions { get; } = ["Alle", "Vergangen", "Heute", "Zukünftig"];
+    public string SelectedAppointmentFilter
+    {
+        get => _selectedAppointmentFilter;
+        set
+        {
+            var normalized = AppointmentFilterOptions.Contains(value, StringComparer.OrdinalIgnoreCase) ? value : "Alle";
+            if (string.Equals(_selectedAppointmentFilter, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _selectedAppointmentFilter = normalized;
+            OnPropertyChanged(nameof(SelectedAppointmentFilter));
+            if (IsAppointmentsNavigationSelected)
+            {
+                RefreshVisibleTasks();
+            }
+        }
+    }
     public ObservableCollection<string> TechnicianOptions { get; } = new();
     public ObservableCollection<TechnicianProfile> TechnicianProfiles { get; } = new();
+    public string SelectedTechnicianOption
+    {
+        get => SelectedTask is null || string.IsNullOrWhiteSpace(SelectedTask.Technician)
+            ? "Kein Monteur"
+            : SelectedTask.Technician;
+        set
+        {
+            if (SelectedTask is null || string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            var technician = string.Equals(value, "Kein Monteur", StringComparison.OrdinalIgnoreCase)
+                ? string.Empty
+                : value.Trim();
+            if (string.Equals(SelectedTask.Technician, technician, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
+            SelectedTask.Technician = technician;
+            SaveTaskAndQueueIpadSnapshot(SelectedTask);
+            OnPropertyChanged(nameof(SelectedTechnicianOption));
+            RefreshVisibleTasks();
+        }
+    }
     private TechnicianProfile? _selectedTechnicianProfile;
     private string _technicianNameInput = string.Empty;
     private string _technicianAbbreviationInput = string.Empty;
@@ -527,6 +575,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsOffersNavigationSelected));
             OnPropertyChanged(nameof(IsMaterialsNavigationSelected));
             OnPropertyChanged(nameof(IsAppointmentsNavigationSelected));
+            OnPropertyChanged(nameof(IsNotAppointmentsNavigationSelected));
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             OnPropertyChanged(nameof(CanCreateTaskInSelectedCategory));
             OnPropertyChanged(nameof(HasNoVisibleMobileInboxEntries));
@@ -569,6 +618,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsSelectedTaskOnDesk));
             OnPropertyChanged(nameof(SelectedMobileInboxEntry));
             OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
+            OnPropertyChanged(nameof(SelectedTechnicianOption));
             SelectedMobileInboxPreviewItem = null;
             LoadTaskDetails();
             RefreshWorkflowSteps();
@@ -738,6 +788,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsOffersNavigationSelected => SelectedCategory?.Id == OffersNavigationId;
     public bool IsMaterialsNavigationSelected => SelectedCategory?.Id == MaterialsNavigationId;
     public bool IsAppointmentsNavigationSelected => SelectedCategory?.Id == AppointmentsNavigationId;
+    public bool IsNotAppointmentsNavigationSelected => !IsAppointmentsNavigationSelected;
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible &&
                                                    !IsTrashSelected &&
@@ -981,6 +1032,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ApplySelectedCategoryContent();
             OnPropertyChanged(nameof(ShowDesktopSetting));
         }
+    }
+
+    public bool ShowTaskTitleColumn
+    {
+        get => _appSettings.ShowTaskTitleColumn;
+        set
+        {
+            if (_appSettings.ShowTaskTitleColumn == value)
+            {
+                return;
+            }
+
+            _appSettings.ShowTaskTitleColumn = value;
+            _settingsService.Save(_appSettings);
+            OnPropertyChanged(nameof(ShowTaskTitleColumn));
+        }
+    }
+
+    private void ResetTaskTableColumns_OnClick(object? sender, RoutedEventArgs e)
+    {
+        ShowTaskTitleColumn = true;
+    }
+
+    private void ToggleTaskTitleColumn_OnClick(object? sender, RoutedEventArgs e)
+    {
+        ShowTaskTitleColumn = !ShowTaskTitleColumn;
     }
 
     public AttachmentItem? SelectedAttachment
@@ -2926,8 +3003,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         : IsMaterialsNavigationSelected
                         ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && string.Equals(t.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase)))
                         : IsAppointmentsNavigationSelected
-                        ? AllTasks.Where(t => !t.IsDeleted && t.DueDate.HasValue)
-                            .OrderBy(t => t.DueDate)
+                        ? GetAppointmentTasks()
                         : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToSelectedCategory(t, selected)));
             }
             else
@@ -2947,6 +3023,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? (VisibleTasks.Count == 1 ? "1 mobiler Eingang" : $"{VisibleTasks.Count} mobile Eingänge")
                     : IsTrashSelected
                     ? (VisibleTasks.Count == 1 ? "1 gelöschte Aufgabe" : $"{VisibleTasks.Count} gelöschte Aufgaben")
+                    : IsAppointmentsNavigationSelected
+                    ? (VisibleTasks.Count == 1 ? "1 Termin" : $"{VisibleTasks.Count} Termine")
                     : (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
                 : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
             if (IsTrashSelected && VisibleTasks.Count == 0 && string.IsNullOrWhiteSpace(SearchText))
@@ -2971,6 +3049,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _suppressTaskListSelectionChanged = false;
             _isRefreshingVisibleTasks = false;
         }
+    }
+
+    private IEnumerable<TaskItem> GetAppointmentTasks()
+    {
+        var now = DateTime.Now;
+        var today = DateTime.Today;
+        return AllTasks
+            .Where(task => !task.IsDeleted && task.DueDate.HasValue)
+            .Where(task => _selectedAppointmentFilter switch
+            {
+                "Vergangen" => task.DueDate!.Value < now,
+                "Heute" => task.DueDate!.Value.Date == today,
+                "Zukünftig" => task.DueDate!.Value.Date > today,
+                _ => true
+            })
+            .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(task => task.DueDate);
     }
 
     private void RefreshGlobalSearchResults()
@@ -4450,6 +4546,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CustomerName = "Neuer Kunde",
             Title = "Neue Aufgabe",
             Status = "Offen",
+            WorkflowType = DirectWorkflowType,
+            WorkflowStep = "Auftrag",
             Priority = "Normal",
             SortPosition = _repository.GetTopTaskSortPosition(category.Id),
             CreatedAt = now,
@@ -7066,6 +7164,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Description = source.Description,
             CategoryId = source.CategoryId,
             Status = source.Status,
+            WorkflowType = source.WorkflowType,
+            WorkflowStep = source.WorkflowStep,
             Priority = source.Priority,
             DueDate = source.DueDate,
             FollowUpDate = source.FollowUpDate,
@@ -11041,7 +11141,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var categoryText = string.Join(" ", categoryNames);
         if (string.IsNullOrWhiteSpace(task.WorkflowType))
         {
-            task.WorkflowType = categoryText.Contains("angebot", StringComparison.OrdinalIgnoreCase) || task.SentAt.HasValue
+            task.WorkflowType = categoryText.Contains("angebot", StringComparison.OrdinalIgnoreCase) ||
+                categoryText.Contains("gesendet", StringComparison.OrdinalIgnoreCase) ||
+                categoryText.Contains("erstellen", StringComparison.OrdinalIgnoreCase) ||
+                task.SentAt.HasValue
                 ? OfferWorkflowType
                 : DirectWorkflowType;
         }
@@ -11051,16 +11154,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var hasSentLegacyCategory = categoryNames.Any(name =>
+            name.Contains("gesendet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name.Trim(), "gesendet", StringComparison.OrdinalIgnoreCase));
+        var hasOfferDraftCategory = categoryNames.Any(name =>
+            name.Contains("erstellen", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name.Trim(), "angebot", StringComparison.OrdinalIgnoreCase));
+
         task.WorkflowStep = task.IsDeleted || string.Equals(task.Status, "Erledigt", StringComparison.OrdinalIgnoreCase)
             ? "Erledigt"
             : task.DueDate.HasValue || string.Equals(task.Status, "Terminiert", StringComparison.OrdinalIgnoreCase)
             ? "Termin"
             : task.MaterialOrderedAt.HasValue || string.Equals(task.Status, "Material offen", StringComparison.OrdinalIgnoreCase)
             ? "Material"
-            : IsOfferWorkflow(task) && task.SentAt.HasValue
-            ? "Angebot"
-            : IsOfferWorkflow(task)
+            : IsOfferWorkflow(task) && (hasSentLegacyCategory || task.SentAt.HasValue)
+            ? "Angebot gesendet"
+            : IsOfferWorkflow(task) && hasOfferDraftCategory
             ? "Ansicht"
+            : IsOfferWorkflow(task)
+            ? "Angebot"
             : "Auftrag";
     }
 
@@ -11076,7 +11188,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var steps = IsOfferWorkflow(SelectedTask)
-            ? new[] { "Ansicht", "Angebot", "Auftrag", "Material", "Termin", "Erledigt" }
+            ? new[] { "Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt" }
             : new[] { "Auftrag", "Material", "Termin", "Erledigt" };
         var activeIndex = Array.FindIndex(steps, step => string.Equals(step, SelectedTask.WorkflowStep, StringComparison.OrdinalIgnoreCase));
         if (activeIndex < 0)
@@ -11488,6 +11600,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Environment.NewLine + Environment.NewLine,
                 descriptionParts.Where(part => !string.IsNullOrWhiteSpace(part))),
             Status = "Offen",
+            WorkflowType = DirectWorkflowType,
+            WorkflowStep = "Auftrag",
             Priority = "Normal",
             CreatedAt = entry.CreatedAt == default ? now : entry.CreatedAt,
             UpdatedAt = now
@@ -12675,6 +12789,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void LoadTechnicianOptions()
     {
         TechnicianOptions.Clear();
+        TechnicianOptions.Add("Kein Monteur");
         TechnicianProfiles.Clear();
 
         var settings = _liveSettingsService.Load(ResolveLiveSettingsSyncRootDirectory(), _appSettings.TechnicianNames);

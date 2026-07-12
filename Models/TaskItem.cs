@@ -141,9 +141,11 @@ public sealed class TaskItem : ObservableObject
             if (SetProperty(ref _technician, value))
             {
                 OnPropertyChanged(nameof(HasTechnician));
+                OnPropertyChanged(nameof(TechnicianDisplayText));
             }
         }
     }
+    public string TechnicianDisplayText => string.IsNullOrWhiteSpace(Technician) ? "—" : Technician;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }
@@ -183,6 +185,10 @@ public sealed class TaskItem : ObservableObject
         : DueDate.Value.TimeOfDay == TimeSpan.Zero
             ? DueDate.Value.ToString("dd.MM.yyyy")
             : DueDate.Value.ToString("dd.MM.yyyy HH:mm");
+    public string DueDateDateText => DueDate?.ToString("dd.MM.yyyy") ?? "—";
+    public string DueDateTimeText => DueDate.HasValue && DueDate.Value.TimeOfDay != TimeSpan.Zero
+        ? DueDate.Value.ToString("HH:mm")
+        : "—";
     public string DueDateOverviewText => DueDate is null
         ? "-"
         : DueDate.Value.TimeOfDay == TimeSpan.Zero

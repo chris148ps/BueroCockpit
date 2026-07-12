@@ -178,6 +178,15 @@ unverändert.
   zentrale Statusquelle und zeigen exakt dieselbe aktuelle Statusbezeichnung.
   Status darf nicht für die Darstellung in eine abweichende Unterkategorie oder
   Ersatzbezeichnung umgerechnet werden.
+- Der Angebotsablauf verwendet die sichtbaren Schritte Ansicht, Angebot,
+  Angebot gesendet, Auftrag, Material, Termin und Erledigt. Der Direktauftrag
+  verwendet Auftrag, Material, Termin und Erledigt.
+- Die Standardspalten der Terminansicht sind Datum, Uhrzeit, Status, Kunde, Ort
+  und Techniker. Termine werden chronologisch und dedupliziert dargestellt;
+  fehlende Monteurzuordnungen erscheinen neutral als „—“.
+- Tabellenkopf-Kontextmenüs dürfen optionale reale Zusatzfelder wie Titel
+  ein- und ausblenden und müssen eine Rückkehr zu den Standardspalten anbieten.
+  Änderungen an Spaltenkonfigurationen bleiben lokale UI-Einstellungen.
 
 ### Dialoge, Kontextmenüs und Tooltips
 

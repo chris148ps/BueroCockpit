@@ -2,35 +2,35 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der Desktop enthält eine ruhige Tagesübersicht, eine getrennte Systemnavigation mit groben Arbeitsbereichen, eine kompakte Vorgangstabelle und einen rechten Detailinspektor. Der Detailbereich ist über einen sichtbaren Splitter veränderbar.
+BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer lesenden SwiftUI-iPad-App. Der Desktop enthält eine ruhige Übersicht, grobe Systemnavigation, kompakte Vorgangslisten, einen rechten Detailinspektor und eine chronologische Terminprojektion mit Zeitfiltern.
 
 ## Architektur
 
 - Desktop: Avalonia UI, führendes System, lokale SQLite-/Dateidaten.
-- Vorgänge: Auftrags- und Angebotsabläufe werden über additive WorkflowType-/WorkflowStep-Felder gespeichert. Fehlende Felder werden aus Bestandsdaten defensiv abgeleitet.
-- Navigation: Die tägliche Hauptnavigation zeigt Systembereiche; vorhandene Benutzerkategorien bleiben für Zuordnungen und Verwaltung erhalten.
-- Auftragsansicht: Kompakte Liste mit Status, Kunde, Ort, Termin und Techniker sowie rechter Detailinspektor.
-- Synchronisation: lokaler Netzwerk-Sync ist vorbereitet, aber kein echter produktiver Datentransfer aktiv.
-- Veröffentlichung: größere Codex-Arbeiten werden über codex/work und den bestehenden Draft-PR nach main sichtbar gemacht; Merge bleibt manuell.
+- Status: additive WorkflowType-/WorkflowStep-Felder; alte Datensätze werden defensiv aus Status und Unterkategorien abgeleitet.
+- Navigation: Systembereiche sind von bestehenden Benutzerkategorien getrennt; Kategorienauswahl und Verwaltung greifen auf die vorhandene Benutzerkategorienquelle zu.
+- Termine: reale Aufgaben mit gültigem DueDate werden dedupliziert, chronologisch und filterbar projiziert.
+- Monteure: „Kein Monteur“ ist ein UI-Sentinel und speichert eine leere Zuordnung; Profile bleiben unverändert.
+- Synchronisation: vorbereitet, aber kein echter produktiver Datentransfer aktiv.
 
 ## Erledigte Hauptfunktionen
 
-- Übersicht mit realen Tagesinformationen und ruhigen Leerzuständen.
-- Kompakte grobe Hauptnavigation.
-- Kompakte Auftragsliste ohne sichtbare technische Auftragsnummer als Primärbezeichnung.
-- Sichtbarer verschiebbarer Splitter zwischen Liste und Detailbereich mit lokaler Breitenpersistenz.
-- Gemeinsame sichtbare Workflow-Statusquelle für Stepper, Auswahl und Listen-Badge.
-- Rückwärtskompatible Bestandsableitung ohne Löschung oder Neu-Zuordnung vorhandener Kategorien und Aufträge.
+- Angebotsworkflow mit „Angebot gesendet“.
+- Direktauftragsworkflow mit Auftrag, Material, Termin und Erledigt.
+- Kompakte Listen mit Kundenname als Primärbezeichnung.
+- Terminansicht mit Alle, Vergangen, Heute und Zukünftig.
+- Neutrale Darstellung fehlender Monteurzuordnung.
+- Sichtbarer verschiebbarer Detail-Splitter und lokale Detailbreitenpersistenz.
 
 ## Bekannte offene Punkte
 
-- Die eigenständige chronologische Terminansicht mit den Filtern Alle, Vergangen, Heute und Zukünftig steht als nächste Aufgabe aus.
-- Eine mutierende Statusprobe auf einem bestehenden Produktivauftrag wurde nicht durchgeführt, um Bestandsdaten unverändert zu lassen.
-- Der echte lokale Netzwerk-Sync und produktive Datenübertragung sind weiterhin nicht aktiviert.
+- Vollständige per-Maus-Spaltenbreitenänderung, frei speicherbare Reihenfolge und getrennte Layoutpersistenz für Aufträge, Angebote und Termine fehlen noch.
+- Mutierende End-to-End-Neustarttests auf Produktivdaten wurden aus Sicherheitsgründen nicht ausgeführt.
+- Echter lokaler Netzwerk-Sync bleibt deaktiviert.
 
 ## Wichtige Entscheidungen
 
-- Kundenname und WorkflowStep sind die primären sichtbaren Vorgangsinformationen.
-- Technische IDs bleiben intern erhalten und werden nicht als sichtbare Nummernspalte in der Vorgangsliste verwendet.
-- Die Breite des Detailbereichs ist lokale Geräteeinstellung und wird nicht synchronisiert.
-- Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses Workflows.
+- WorkflowStep ist die gemeinsame sichtbare Statusquelle.
+- Alte Kategorien bleiben erhalten und werden nicht automatisch verschoben oder gelöscht.
+- Technische IDs bleiben intern und werden nicht als sichtbare Primärnummer verwendet.
+- UI-Layoutwerte werden ausschließlich lokal gespeichert.

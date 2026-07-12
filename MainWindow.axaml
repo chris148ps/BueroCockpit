@@ -1923,6 +1923,12 @@
           <StackPanel>
             <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding TaskListCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0" IsVisible="{Binding IsAppointmentsNavigationSelected}">
+              <TextBlock Text="Zeitraum" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <ComboBox ItemsSource="{Binding AppointmentFilterOptions}"
+                        SelectedItem="{Binding SelectedAppointmentFilter, Mode=TwoWay}"
+                        Width="140" />
+            </StackPanel>
             <TextBox Text="{Binding SearchText}"
                      AutomationProperties.Name="Aufgaben durchsuchen"
                      AutomationProperties.AutomationId="TaskSearchBox"
@@ -2137,12 +2143,32 @@
           </StackPanel>
         </Border>
 
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="112,*,*,108,120" ColumnSpacing="8" Margin="8,0,8,4">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="112,*,*,108,120" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsNotAppointmentsNavigationSelected}">
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Titel ein-/ausblenden" Click="ToggleTaskTitleColumn_OnClick" />
+              <MenuItem Header="Standard wiederherstellen" Click="ResetTaskTableColumns_OnClick" />
+            </ContextMenu>
+          </Grid.ContextMenu>
           <TextBlock Text="Status" Classes="TaskTableHeader" />
           <TextBlock Grid.Column="1" Text="Kunde" Classes="TaskTableHeader" />
           <TextBlock Grid.Column="2" Text="Ort" Classes="TaskTableHeader" />
           <TextBlock Grid.Column="3" Text="Termin" Classes="TaskTableHeader" />
           <TextBlock Grid.Column="4" Text="Techniker" Classes="TaskTableHeader" />
+        </Grid>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="90,70,112,*,*,120" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsAppointmentsNavigationSelected}">
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Titel ein-/ausblenden" Click="ToggleTaskTitleColumn_OnClick" />
+              <MenuItem Header="Standard wiederherstellen" Click="ResetTaskTableColumns_OnClick" />
+            </ContextMenu>
+          </Grid.ContextMenu>
+          <TextBlock Text="Datum" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="1" Text="Uhrzeit" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="2" Text="Status" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="3" Text="Kunde" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="4" Text="Ort" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="5" Text="Techniker" Classes="TaskTableHeader" />
         </Grid>
         <ListBox x:Name="TaskList"
                  AutomationProperties.Name="Vorgangstabelle"
@@ -2152,9 +2178,26 @@
                  SelectionChanged="TaskList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Border Classes="TaskCard"
+              <StackPanel>
+                <Border Classes="TaskCard"
                       Margin="0,0,0,3"
-                      Padding="8,7">
+                      Padding="8,7"
+                      IsVisible="{Binding $parent[Window].DataContext.IsAppointmentsNavigationSelected}">
+                <Grid ColumnDefinitions="90,70,112,*,*,120" ColumnSpacing="8">
+                  <TextBlock Text="{Binding DueDateDateText}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding DueDateTimeText}" VerticalAlignment="Center" />
+                  <Border Grid.Column="2" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource CornerRadiusSmall}" Padding="6,2" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding WorkflowStatusText}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
+                  </Border>
+                  <TextBlock Grid.Column="3" Text="{Binding CustomerName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding CustomerName}" />
+                  <TextBlock Grid.Column="4" Text="{Binding CustomerAddress}" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding CustomerAddress}" />
+                  <TextBlock Grid.Column="5" Text="{Binding TechnicianDisplayText}" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                </Grid>
+                </Border>
+                <Border Classes="TaskCard"
+                      Margin="0,0,0,3"
+                      Padding="8,7"
+                      IsVisible="{Binding $parent[Window].DataContext.IsNotAppointmentsNavigationSelected}">
                 <Border.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Wiedervorlage bestätigen"
@@ -2167,14 +2210,15 @@
                     <TextBlock Text="{Binding WorkflowStatusText}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
                   </Border>
                   <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CustomerName}" />
+                    <TextBlock Text="{Binding Title}" IsVisible="{Binding $parent[Window].DataContext.ShowTaskTitleColumn}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
                   </StackPanel>
                   <TextBlock Grid.Column="2" Text="{Binding CustomerAddress}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                   <TextBlock Grid.Column="3" Text="{Binding DueDateText}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="4" Text="{Binding Technician}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="4" Text="{Binding TechnicianDisplayText}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TechnicianDisplayText}" />
                 </Grid>
-              </Border>
+                </Border>
+              </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
@@ -2646,7 +2690,7 @@
               <ComboBox Grid.Row="1"
                         Grid.Column="0"
                         ItemsSource="{Binding TechnicianOptions}"
-                        SelectedItem="{Binding SelectedTask.Technician, Mode=TwoWay}"
+                        SelectedItem="{Binding SelectedTechnicianOption, Mode=TwoWay}"
                         HorizontalAlignment="Stretch"
                         GotFocus="TaskDetailEditor_OnGotFocus"
                         SelectionChanged="TechnicianCombo_OnSelectionChanged" />
