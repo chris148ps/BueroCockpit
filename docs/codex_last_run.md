@@ -40,16 +40,13 @@ Spaltenbreiten sind jetzt als lokale, ansichtsspezifische Werte modelliert und �
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+392c3754c23df3a4cced6c7f3acde569fdef63d5
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
