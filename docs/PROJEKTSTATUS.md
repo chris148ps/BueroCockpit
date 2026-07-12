@@ -2,35 +2,36 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer lesenden SwiftUI-iPad-App. Der Desktop enthält eine ruhige Übersicht, grobe Systemnavigation, kompakte Vorgangslisten, einen rechten Detailinspektor und eine chronologische Terminprojektion mit Zeitfiltern.
+BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer lesenden SwiftUI-iPad-App. Der Desktop enthält Übersicht, grobe Hauptnavigation, kompakte Vorgangstabellen, einen rechten Detailinspektor und eine chronologische Terminansicht mit Filtern.
 
 ## Architektur
 
 - Desktop: Avalonia UI, führendes System, lokale SQLite-/Dateidaten.
-- Status: additive WorkflowType-/WorkflowStep-Felder; alte Datensätze werden defensiv aus Status und Unterkategorien abgeleitet.
-- Navigation: Systembereiche sind von bestehenden Benutzerkategorien getrennt; Kategorienauswahl und Verwaltung greifen auf die vorhandene Benutzerkategorienquelle zu.
-- Termine: reale Aufgaben mit gültigem DueDate werden dedupliziert, chronologisch und filterbar projiziert.
-- Monteure: „Kein Monteur“ ist ein UI-Sentinel und speichert eine leere Zuordnung; Profile bleiben unverändert.
-- Synchronisation: vorbereitet, aber kein echter produktiver Datentransfer aktiv.
+- Status: additive WorkflowType-/WorkflowStep-Felder. Gespeicherte Werte sind führend; fehlende Bestandswerte werden defensiv aus Status und alten Kategorien abgeleitet.
+- Navigation/Kategorien: Systemnavigation und bestehende Benutzerkategorien bleiben getrennt; Kategorie-IDs und Zuordnungen werden nicht verschoben.
+- Termine: gültige DueDate-Werte werden nach Filter dedupliziert und chronologisch dargestellt.
+- Monteure: leere UI-Auswahl speichert eine leere Technikerzuordnung und verändert keine Profile.
+- Layout: Splitter- und Tabellenlayoutwerte liegen in lokalen AppSettings.
 
 ## Erledigte Hauptfunktionen
 
-- Angebotsworkflow mit „Angebot gesendet“.
-- Direktauftragsworkflow mit Auftrag, Material, Termin und Erledigt.
-- Kompakte Listen mit Kundenname als Primärbezeichnung.
-- Terminansicht mit Alle, Vergangen, Heute und Zukünftig.
-- Neutrale Darstellung fehlender Monteurzuordnung.
-- Sichtbarer verschiebbarer Detail-Splitter und lokale Detailbreitenpersistenz.
+- Angebotsstatus „Angebot gesendet“ und Direktauftragsablauf.
+- Kompakte Listen mit Status, Kunde, Ort, Termin und Techniker.
+- Terminfilter Alle, Vergangen, Heute und Zukünftig.
+- Leere Monteurzuordnung ohne Sentineltext in der Anzeige.
+- Übersicht ohne reservierten Splitterbereich.
+- Horizontales und vertikales Scrollen der Vorgangsliste.
 
 ## Bekannte offene Punkte
 
-- Vollständige per-Maus-Spaltenbreitenänderung, frei speicherbare Reihenfolge und getrennte Layoutpersistenz für Aufträge, Angebote und Termine fehlen noch.
-- Mutierende End-to-End-Neustarttests auf Produktivdaten wurden aus Sicherheitsgründen nicht ausgeführt.
-- Echter lokaler Netzwerk-Sync bleibt deaktiviert.
+- Vollständig interaktive Spaltenbreiten und Spaltenreihenfolge fehlen noch.
+- Getrennte Layoutdaten sind vorbereitet, aber noch nicht vollständig auf jede Tabellenzeile angewandt.
+- Sichtbarer Neustarttest für mutierende Status-/Monteuränderungen und letzte Mac-Abnahme stehen wegen gesperrter Sitzung aus.
+- Netzwerk-Sync bleibt deaktiviert.
 
 ## Wichtige Entscheidungen
 
-- WorkflowStep ist die gemeinsame sichtbare Statusquelle.
-- Alte Kategorien bleiben erhalten und werden nicht automatisch verschoben oder gelöscht.
-- Technische IDs bleiben intern und werden nicht als sichtbare Primärnummer verwendet.
-- UI-Layoutwerte werden ausschließlich lokal gespeichert.
+- WorkflowStep ist die zentrale sichtbare Statusquelle.
+- Leere Monteurzuordnung bleibt vollständig leer.
+- Alte Kategorien bleiben kompatibel erhalten und werden nicht destruktiv migriert.
+- Tabellenlayout wird ausschließlich lokal und getrennt nach Ansicht gespeichert.

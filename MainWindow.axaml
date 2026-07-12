@@ -2175,6 +2175,8 @@
                  AutomationProperties.AutomationId="TaskList"
                  ItemsSource="{Binding VisibleTasks}"
                  SelectedItem="{Binding SelectedTask}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                  SelectionChanged="TaskList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
@@ -2235,6 +2237,7 @@
                   ShowsPreview="False"
                   Background="{DynamicResource BorderBrushDark}"
                   PointerReleased="RootLayoutGrid_OnPointerReleased"
+                  IsVisible="{Binding IsTaskAreaVisible}"
                   ToolTip.Tip="Detailbereich verschieben" />
 
     <Border Grid.Column="3" MinWidth="280"

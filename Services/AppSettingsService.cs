@@ -27,6 +27,11 @@ public sealed class AppSettings
     // Lokal/geraetespezifisch: optionale Zusatzinformation in der kompakten Vorgangsliste.
     public bool ShowTaskTitleColumn { get; set; } = true;
 
+    // Lokal/geraetespezifisch: getrennte Tabellenkonfigurationen für die drei Arbeitsansichten.
+    public TableLayoutSettings OrdersTableLayout { get; set; } = TableLayoutSettings.CreateOrdersDefault();
+    public TableLayoutSettings OffersTableLayout { get; set; } = TableLayoutSettings.CreateOffersDefault();
+    public TableLayoutSettings AppointmentsTableLayout { get; set; } = TableLayoutSettings.CreateAppointmentsDefault();
+
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;
@@ -52,6 +57,25 @@ public sealed class AppSettings
     // Legacy/Fallback: Techniker/Monteure werden zentral in Sync/live/settings.json gespeichert.
     // Dieser lokale Wert wird nur noch zum einmaligen Befuellen leerer Live-Settings gelesen.
     public List<string> TechnicianNames { get; set; } = [];
+}
+
+public sealed class TableLayoutSettings
+{
+    public List<string> ColumnOrder { get; set; } = [];
+    public Dictionary<string, double> ColumnWidths { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<string> HiddenColumns { get; set; } = [];
+    public string SortField { get; set; } = "Erstellt am";
+    public bool SortDescending { get; set; } = true;
+
+    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"]);
+    public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"]);
+    public static TableLayoutSettings CreateAppointmentsDefault() => Create(["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"]);
+
+    private static TableLayoutSettings Create(IEnumerable<string> columns) => new()
+    {
+        ColumnOrder = columns.ToList(),
+        ColumnWidths = columns.ToDictionary(column => column, _ => 120d, StringComparer.OrdinalIgnoreCase)
+    };
 }
 
 public sealed class LocalNetworkSyncPairedDevice

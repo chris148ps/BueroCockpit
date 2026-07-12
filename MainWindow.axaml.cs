@@ -359,6 +359,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             _selectedSortField = normalized;
+            GetActiveTableLayout().SortField = normalized;
+            _settingsService.Save(_appSettings);
             OnPropertyChanged(nameof(SelectedSortField));
             RefreshVisibleTasks();
         }
@@ -396,16 +398,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string SelectedTechnicianOption
     {
         get => SelectedTask is null || string.IsNullOrWhiteSpace(SelectedTask.Technician)
-            ? "Kein Monteur"
+            ? string.Empty
             : SelectedTask.Technician;
         set
         {
-            if (SelectedTask is null || string.IsNullOrWhiteSpace(value))
+            if (SelectedTask is null)
             {
                 return;
             }
 
-            var technician = string.Equals(value, "Kein Monteur", StringComparison.OrdinalIgnoreCase)
+            var technician = string.IsNullOrWhiteSpace(value)
                 ? string.Empty
                 : value.Trim();
             if (string.Equals(SelectedTask.Technician, technician, StringComparison.Ordinal))
@@ -576,6 +578,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsMaterialsNavigationSelected));
             OnPropertyChanged(nameof(IsAppointmentsNavigationSelected));
             OnPropertyChanged(nameof(IsNotAppointmentsNavigationSelected));
+            ApplyTableLayoutForCurrentView();
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             OnPropertyChanged(nameof(CanCreateTaskInSelectedCategory));
             OnPropertyChanged(nameof(HasNoVisibleMobileInboxEntries));
@@ -4870,9 +4873,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ReverseSortDirection_OnClick(object? sender, RoutedEventArgs e)
     {
         _isSortDescending = !_isSortDescending;
+        GetActiveTableLayout().SortDescending = _isSortDescending;
+        _settingsService.Save(_appSettings);
         OnPropertyChanged(nameof(SortDirectionGlyph));
         OnPropertyChanged(nameof(SortDirectionTooltip));
         RefreshVisibleTasks();
+    }
+
+    private TableLayoutSettings GetActiveTableLayout()
+    {
+        if (IsAppointmentsNavigationSelected)
+        {
+            return _appSettings.AppointmentsTableLayout ??= TableLayoutSettings.CreateAppointmentsDefault();
+        }
+
+        if (IsOffersNavigationSelected)
+        {
+            return _appSettings.OffersTableLayout ??= TableLayoutSettings.CreateOffersDefault();
+        }
+
+        return _appSettings.OrdersTableLayout ??= TableLayoutSettings.CreateOrdersDefault();
+    }
+
+    private void ApplyTableLayoutForCurrentView()
+    {
+        var layout = GetActiveTableLayout();
+        var normalizedSortField = NormalizeSortField(layout.SortField);
+        if (!string.Equals(_selectedSortField, normalizedSortField, StringComparison.Ordinal))
+        {
+            _selectedSortField = normalizedSortField;
+            OnPropertyChanged(nameof(SelectedSortField));
+        }
+
+        if (_isSortDescending != layout.SortDescending)
+        {
+            _isSortDescending = layout.SortDescending;
+            OnPropertyChanged(nameof(SortDirectionGlyph));
+            OnPropertyChanged(nameof(SortDirectionTooltip));
+        }
     }
 
     private static int GetNameSortGroup(TaskItem task)
@@ -12789,7 +12827,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void LoadTechnicianOptions()
     {
         TechnicianOptions.Clear();
-        TechnicianOptions.Add("Kein Monteur");
+        TechnicianOptions.Add(string.Empty);
         TechnicianProfiles.Clear();
 
         var settings = _liveSettingsService.Load(ResolveLiveSettingsSyncRootDirectory(), _appSettings.TechnicianNames);

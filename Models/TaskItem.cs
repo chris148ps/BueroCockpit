@@ -145,7 +145,7 @@ public sealed class TaskItem : ObservableObject
             }
         }
     }
-    public string TechnicianDisplayText => string.IsNullOrWhiteSpace(Technician) ? "—" : Technician;
+    public string TechnicianDisplayText => Technician;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
     public DateTime? CompletedAt { get => _completedAt; set => SetProperty(ref _completedAt, value); }

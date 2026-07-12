@@ -2,15 +2,15 @@
 
 ## Datum/Uhrzeit
 
-2026-07-12 12:50 +0200
+2026-07-12 13:49 +0200
 
 ## Letzter Auftrag
 
-Vorgangsstatus, Terminansicht und Monteurzuordnung vervollständigen
+Status-, Termin- und Monteurkorrekturen für die kompakte Vorgangsansicht
 
 ## Zusammenfassung
 
-Status- und Terminprojektion sowie die neutrale Monteurzuordnung sind kompatibel ergänzt. Die Anwendung bleibt kompilierbar und der bestehende Datenbestand wird nicht destruktiv migriert.
+Statusfolge, Terminfilter, deduplizierte Sortierung, leere Monteurzuordnung, Splitterverhalten und lokale Layoutdaten sind kompatibel erweitert. Keine destruktive Migration oder Änderung bestehender Kategorien und Zuordnungen wurde vorgenommen.
 
 ## Geänderte Dateien
 
@@ -24,12 +24,10 @@ Status- und Terminprojektion sowie die neutrale Monteurzuordnung sind kompatibel
 
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `git diff --check`: erfolgreich.
-- macOS-Bundle-Erzeugung über `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
-- Sichtprüfung vor der aktuellen Mac-Sperre: Übersicht startet ohne Splitter; Hauptnavigation und kompakte Auftragsliste mit Status, Kunde, Ort, Termin und Techniker sichtbar; Detailkopf zeigt Kundenname; Splitter sichtbar.
-- Sichtprüfung Terminansicht: Zeitraum Alle sichtbar, reale Termine chronologisch und ohne doppelte Task-IDs sichtbar; Spalten Datum, Uhrzeit, Status, Kunde, Ort, Techniker sichtbar; fehlender Monteur zeigt —.
-- Sichtprüfung Filtermenü: Alle, Vergangen, Heute und Zukünftig werden angeboten.
-- Mutierende Status- und Monteur-Neustartprobe auf bestehenden Produktivdaten nicht ausgeführt, um Bestandsdaten unverändert zu lassen.
-- Weitere Computer-Use-Aktionen wurden durch die automatische macOS-Sperre verhindert.
+- macOS-Bundle-Erzeugung und Startpfad über `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
+- Frühere sichtbare Abnahme bestätigt: grobe Navigation, kompakte Auftragsliste, Kundenname, sichtbarer Splitter und Terminfilter.
+- Statische Prüfung: leere Monteurzuordnung bleibt leer; WorkflowStep ist gemeinsame sichtbare Statusquelle; gespeicherte WorkflowStep-Werte werden nicht erneut aus Kategorien überschrieben.
+- Sichtbare Computer-Use-Folgeprüfung durch automatische Mac-Sperre verhindert.
 
 ## Git-Status
 
@@ -41,28 +39,32 @@ Status- und Terminprojektion sowie die neutrale Monteurzuordnung sind kompatibel
  M docs/DESIGN_RICHTLINIEN.md
  M docs/NEXT_TASK.md
  M docs/PROJEKTSTATUS.md
-?? docs/codex_journal/2026-07-12_12-50_vorgaenge-termine-status.md
+?? docs/codex_journal/2026-07-12_13-49_status-termine-leer-monteur.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-abec61550bcd63aa07ba768e83718731d404742d
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Vollständige per-Maus-Spaltenbreitenänderung, frei speicherbare Spaltenreihenfolge und getrennte Breitenmodelle für Aufträge, Angebote und Termine sind noch nicht vollständig umgesetzt.
-- Die mutierende End-to-End-Prüfung von Status- und Monteurspeicherung nach Neustart steht wegen der Sicherheitsgrenze für Produktivdaten aus.
-- Die visuelle Abnahme kleiner und großer Fenster war wegen der gesperrten macOS-Sitzung nicht erneut möglich.
+- Echte per-Maus-Spaltenbreiten-Handles und per Drag-and-drop verschiebbare Spaltenreihenfolge sind noch nicht vollständig umgesetzt.
+- Spaltenlayouts werden strukturell getrennt gespeichert; die vollständige visuelle Anwendung von Breiten, Reihenfolge und Sichtbarkeit auf jede einzelne Tabellenzeile steht noch aus.
+- Mutierende End-to-End-Neustarttests für Status und Monteur wurden nicht auf Produktivdaten ausgeführt.
+- Sichtprüfung nach der letzten Änderung war wegen der gesperrten macOS-Sitzung nicht möglich.
 
 ## Empfohlener nächster Schritt
 
-Konfigurierbare Spaltenlayouts für Aufträge, Angebote und Termine vollständig als lokale UI-Einstellung umsetzen.
+Die drei Tabellenansichten mit echten Spaltenhandles, Drag-and-drop-Reihenfolge und vollständig angewandter Layoutpersistenz fertigstellen.
 
-1. Spaltendefinitionen mit Breite, Reihenfolge und Sichtbarkeit zentral modellieren.
-2. Kopfzeilen-Splitter und Kontextmenüs an die drei Ansichten binden.
-3. Layouts getrennt lokal speichern und nach Neustart wiederherstellen.
+1. Gemeinsame Spaltendefinitionen für Auftrag, Angebot und Termin anlegen.
+2. Breitenhandles, Drag-and-drop-Reihenfolge und Kontextmenüaktionen an dieselbe Definition binden.
+3. Layout nach Neustart visuell in allen drei Ansichten prüfen.

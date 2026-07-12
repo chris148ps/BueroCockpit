@@ -183,7 +183,7 @@ unverändert.
   verwendet Auftrag, Material, Termin und Erledigt.
 - Die Standardspalten der Terminansicht sind Datum, Uhrzeit, Status, Kunde, Ort
   und Techniker. Termine werden chronologisch und dedupliziert dargestellt;
-  fehlende Monteurzuordnungen erscheinen neutral als „—“.
+  fehlende Monteurzuordnungen bleiben vollständig leer.
 - Tabellenkopf-Kontextmenüs dürfen optionale reale Zusatzfelder wie Titel
   ein- und ausblenden und müssen eine Rückkehr zu den Standardspalten anbieten.
   Änderungen an Spaltenkonfigurationen bleiben lokale UI-Einstellungen.
