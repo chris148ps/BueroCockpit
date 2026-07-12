@@ -1384,6 +1384,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
         OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
         OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
+        // Die Zeilen verwenden eine eigene kompakte Zellprojektion. Nach dem
+        // Verschieben eines Kopf-Splitters müssen deren Breiten sofort aus
+        // denselben gespeicherten Layoutwerten neu aufgebaut werden.
+        RefreshTableProjection();
     }
 
     public AttachmentItem? SelectedAttachment
