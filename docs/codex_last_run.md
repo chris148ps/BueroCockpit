@@ -41,16 +41,13 @@ Die offenen sichtbaren Layout- und Navigationsabnahmen sind erfolgreich. Die Imp
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+7c97da1670279152e5d8a1169d6a88841c5e2f60
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
