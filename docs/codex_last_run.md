@@ -2,15 +2,15 @@
 
 ## Datum/Uhrzeit
 
-2026-07-12 14:26 +0200
+2026-07-12 14:33 +0200
 
 ## Letzter Auftrag
 
-Kopf-Splitter direkt mit Tabellenzeilen koppeln
+Behandelte Kopf-Splitter-Ereignisse zuverlässig übernehmen
 
 ## Zusammenfassung
 
-Die tatsächlichen Tabellenzellen folgen jetzt zuverlässig der Breitenänderung des Kopf-Splitters.
+Die Breite einer Kopfspalte verändert jetzt zuverlässig die zugehörigen Datenzellen in der Tabelle.
 
 ## Geänderte Dateien
 
@@ -21,26 +21,29 @@ Die tatsächlichen Tabellenzellen folgen jetzt zuverlässig der Breitenänderung
 - `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
-- Realer Desktopstart: erfolgreich.
-- Auftragsliste geöffnet und den sichtbaren Splitter zwischen Kunde und Ort gezogen.
-- Sichtprüfung: Kopfgrenze und Datenzeilengrenze bewegen sich gemeinsam; die Datenzeilen übernehmen die neue Breite unmittelbar.
+- Desktopprozess vollständig geschlossen und das neue Bundle gestartet.
+- In Aufträge den sichtbaren Splitter zwischen Kunde und Ort gezogen.
+- Sichtprüfung: Kunde beginnt nach dem Ziehen im Kopf und in allen Datenzeilen an derselben neuen Position.
 
 ## Git-Status
 
 ```text
  M MainWindow.axaml.cs
  M docs/NEXT_TASK.md
-?? docs/codex_journal/2026-07-12_14-26_tabellenkopf-splitter-direkt-koppeln.md
+?? docs/codex_journal/2026-07-12_14-33_tabellenbreite-splitter-ereignis.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-f9162108adbc012ada537327bdf4166272f54e27
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
@@ -48,6 +51,6 @@ Ja
 
 ## Empfohlener nächster Schritt
 
-Keine; die direkte Splitterkopplung ist abgeschlossen.
+Keine; die Breitenkopplung der kompakten Tabellen ist abgeschlossen.
 
-1. Bei der nächsten Abnahme die Splitterbreite noch einmal in Aufträge, Angebote und Termine kurz prüfen.
+1. Bei der nächsten umfassenden UI-Abnahme die Breiten in Aufträgen, Angeboten und Terminen kurz mitprüfen.

@@ -2,11 +2,11 @@
 
 ## Ziel
 
-Keine; die direkte Splitterkopplung ist abgeschlossen.
+Keine; die Breitenkopplung der kompakten Tabellen ist abgeschlossen.
 
 ## Geplante Schritte
 
-1. Bei der nächsten Abnahme die Splitterbreite noch einmal in Aufträge, Angebote und Termine kurz prüfen.
+1. Bei der nächsten umfassenden UI-Abnahme die Breiten in Aufträgen, Angeboten und Terminen kurz mitprüfen.
 
 ## Vermutlich betroffene Dateien
 

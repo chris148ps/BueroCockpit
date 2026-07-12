@@ -1231,7 +1231,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ResizeBehavior = GridResizeBehavior.PreviousAndNext,
                     Background = ResourceBrush("BorderBrushDark")
                 };
-                splitter.PointerReleased += TableColumnSplitter_OnPointerReleased;
+                splitter.AddHandler(
+                    InputElement.PointerReleasedEvent,
+                    TableColumnSplitter_OnPointerReleased,
+                    RoutingStrategies.Bubble,
+                    handledEventsToo: true);
                 Grid.SetColumn(splitter, index);
                 header.Children.Add(splitter);
             }
@@ -1352,7 +1356,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SaveTableColumnWidths(header);
+        QueueTableColumnWidthsSave(header);
     }
 
     private GridLength PixelColumnWidth(string columnName, double fallback)
@@ -1369,7 +1373,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SaveTableColumnWidths(header);
+        QueueTableColumnWidthsSave(header);
+    }
+
+    private void QueueTableColumnWidthsSave(Grid header)
+    {
+        // GridSplitter aktualisiert die tatsächlichen Gridbreiten erst nach
+        // dem aktuellen Pointer-Ereignis. Erst danach dürfen die Werte für
+        // die unabhängig gerenderten Tabellenzeilen übernommen werden.
+        Dispatcher.UIThread.Post(
+            () => SaveTableColumnWidths(header),
+            DispatcherPriority.Background);
     }
 
     private void SaveTableColumnWidths(Grid header)
