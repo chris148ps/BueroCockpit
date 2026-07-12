@@ -2,19 +2,19 @@
 
 ## Ziel
 
-Nach Entsperren des Macs die drei Tabellenansichten und gespeicherten Layouts sichtbar abnehmen.
+Isolierten, nicht-produktiven UI-Testdatenbestand für mutierende Status- und Techniker-Speichertests bereitstellen.
 
 ## Geplante Schritte
 
-1. Aufträge, Angebote und Termine öffnen.
-2. Breite, Reihenfolge, Sichtbarkeit und horizontales Scrollen prüfen.
-3. App neu starten und Layoutwiederherstellung kontrollieren.
+1. Einen temporären lokalen Datenordner ausschließlich für den Abnahmetest verwenden.
+2. Direkten Auftrag und Angebotsvorgang anlegen oder vorhandene Testdaten verwenden.
+3. Status und Techniker ändern, speichern, neu starten und die identische Listenanzeige prüfen.
 
 ## Vermutlich betroffene Dateien
 
-- `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml`
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
 - `/Users/christian/AppProjekte/BueroCockpit/Services/AppSettingsService.cs`
+- `/Users/christian/AppProjekte/BueroCockpit/Data/AppPaths.cs`
 
 ## Bereiche, die nicht verändert werden dürfen
 

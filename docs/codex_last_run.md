@@ -2,55 +2,65 @@
 
 ## Datum/Uhrzeit
 
-2026-07-12 14:09 +0200
+2026-07-12 14:17 +0200
 
 ## Letzter Auftrag
 
-Spaltenreihenfolge per Drag-and-drop ergänzen
+Reale Desktop-Abnahme der kompakten Vorgangsansichten
 
 ## Zusammenfassung
 
-Spaltenreihenfolge kann jetzt über die Header-Pointer-Geste geändert und im jeweiligen lokalen Ansichtslayout gespeichert werden.
+Die offenen sichtbaren Layout- und Navigationsabnahmen sind erfolgreich. Die Implementierung erfüllt die geprüften Anforderungen für kompakte Tabellen, verschiebbaren Detailbereich, Startansicht, Statusfolgen und Terminübersicht. Produktive Status- und Stammdaten blieben unverändert.
 
 ## Geänderte Dateien
 
-- `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
+- Keine Produktiv- oder Quellcodedatei in diesem Abnahmelauf.
+- Dokumentationsdateien werden durch den vorgeschriebenen Runner aktualisiert.
 
 ## Tests
 
-- `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `git diff --check`: erfolgreich.
-- macOS-Bundle-Build und Startpfad über `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
-- Statische Prüfung: Pointer-Capture, sichtbare Spaltenreihenfolge, Persistenz und anschließende Projektion sind verbunden.
-- Sichtbare Mausabnahme war wegen der gesperrten macOS-Sitzung nicht möglich.
+- `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
+- `./scripts/run-macos-bundle.sh Debug`: erfolgreich.
+- Echter Desktopstart und vollständiger Neustart: erfolgreich; Start in Übersicht.
+- Aufträge: kompakte Tabelle, Kundenname als sichtbare Primärbezeichnung, Detailinspektor und Splitter sichtbar.
+- Splitter: nach links verschoben; Liste wurde breiter und Detailbereich schmaler, ohne Überlappung.
+- Detailbreite: nach Neustart wiederhergestellt.
+- Angebote: Angebotsablauf im Stepper sichtbar.
+- Termine: Filter Alle sichtbar; 9 reale Termine chronologisch von 17.06.2026 bis 19.10.2026, keine Duplikate erkennbar.
+- Tabellenspalte: Kunde per Drag-and-drop verschoben; neue Reihenfolge wurde unmittelbar angezeigt.
+- Kategorienverwaltung: kein leerer Eintrag; Systemnavigation nicht als Verwaltungseintrag dargestellt.
+- Große Fenstergröße: Oberfläche blieb erreichbar.
+- Statusänderung, Speichern bestehender Aufträge, Technikeränderung und Kategorieanlage/-umbenennung wurden aus Sicherheitsgründen nicht mutiert getestet, damit keine Produktivdaten verändert werden.
 
 ## Git-Status
 
 ```text
- M MainWindow.axaml.cs
  M docs/NEXT_TASK.md
- M docs/PROJEKTSTATUS.md
-?? docs/codex_journal/2026-07-12_14-09_spalten-drag.md
+?? docs/codex_journal/2026-07-12_14-17_desktop-abnahme-kompakte-vorgaenge.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-becae67566fb22fa762f4550054f2c24bc031b2d
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Visuelle Endabnahme inklusive Neustartwiederherstellung wartet auf eine entsperrte macOS-Sitzung.
-- Mutierende Status-/Monteur-Neustarttests bleiben aus Sicherheitsgründen außerhalb produktiver Daten.
+- Ein mutierender End-to-End-Test für Status speichern und Techniker-Leerwert steht weiterhin aus, weil dafür ein isolierter Testdatenbestand erforderlich wäre.
+- Die drei Tabellenlayouts sollten bei einer späteren manuellen Abnahme zusätzlich in mehreren kleinen Fensterbreiten geprüft werden.
 
 ## Empfohlener nächster Schritt
 
-Nach Entsperren des Macs die drei Tabellenansichten und gespeicherten Layouts sichtbar abnehmen.
+Isolierten, nicht-produktiven UI-Testdatenbestand für mutierende Status- und Techniker-Speichertests bereitstellen.
 
-1. Aufträge, Angebote und Termine öffnen.
-2. Breite, Reihenfolge, Sichtbarkeit und horizontales Scrollen prüfen.
-3. App neu starten und Layoutwiederherstellung kontrollieren.
+1. Einen temporären lokalen Datenordner ausschließlich für den Abnahmetest verwenden.
+2. Direkten Auftrag und Angebotsvorgang anlegen oder vorhandene Testdaten verwenden.
+3. Status und Techniker ändern, speichern, neu starten und die identische Listenanzeige prüfen.
