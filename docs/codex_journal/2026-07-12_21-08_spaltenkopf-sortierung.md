@@ -1,16 +1,12 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Kopfclick-Sortierung für die kompakten Tabellen
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-12 21:08 +0200
+Aufträge, Angebote und Termine per Klick auf die jeweilige Spalte typgerecht, stabil und getrennt persistiert sortieren können, ohne Verschieben oder Resize zu beeinträchtigen.
 
-## Letzter Auftrag
+## Umsetzung
 
-Kopfclick-Sortierung für die kompakten Tabellen
-
-## Zusammenfassung
-
-Die drei kompakten Tabellen unterstützen jetzt zuverlässige Kopfklick-Sortierung. Sortieren, Verschieben und Resize sind getrennte Bedienhandlungen; Sortierwerte bleiben je Ansicht persistent.
+Die Tabellenköpfe zeigen für die aktive Sortierspalte einen dezenten Auf-/Abwärtspfeil. Ein kurzer Klick sortiert aufsteigend; ein weiterer Klick auf dieselbe Spalte dreht die Richtung um. Ein Klick auf eine andere Spalte beginnt aufsteigend. Die Sortierung verwendet fachliche Statusrangfolgen, case-insensitive Textvergleiche, chronologische Datum-/Uhrzeitwerte, leere Werte am Ende und stabile ID-Tiebreaker. Sortierfeld und Richtung werden in den drei bestehenden TableLayoutSettings getrennt gespeichert. Die vorhandene Bewegungsprüfung verhindert, dass ein Spalten-Drag oder Resize zusätzlich sortiert. Die Designrichtlinien wurden um diese dauerhaften Tabellenregeln ergänzt.
 
 ## Geänderte Dateien
 
@@ -34,7 +30,15 @@ Die drei kompakten Tabellen unterstützen jetzt zuverlässige Kopfklick-Sortieru
 - Leere Werte werden durch die Sortierlogik einheitlich zuletzt behandelt.
 - Produktive Aufträge, Kategorien, Statuswerte und sonstige Fachdaten wurden nicht verändert.
 
-## Git-Status
+## Ergebnis
+
+Die drei kompakten Tabellen unterstützen jetzt zuverlässige Kopfklick-Sortierung. Sortieren, Verschieben und Resize sind getrennte Bedienhandlungen; Sortierwerte bleiben je Ansicht persistent.
+
+## Bekannte offene Punkte
+
+- Produktive mutierende Status-/Monteurtests wurden weiterhin nicht ausgeführt; sie gehören nicht zu diesem Layout- und Sortierauftrag.
+
+## Aktueller Git-Status
 
 ```text
  M MainWindow.axaml.cs
@@ -44,26 +48,3 @@ Die drei kompakten Tabellen unterstützen jetzt zuverlässige Kopfklick-Sortieru
  M docs/PROJEKTSTATUS.md
 ?? docs/codex_journal/2026-07-12_21-08_spaltenkopf-sortierung.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Produktive mutierende Status-/Monteurtests wurden weiterhin nicht ausgeführt; sie gehören nicht zu diesem Layout- und Sortierauftrag.
-
-## Empfohlener nächster Schritt
-
-Keine weitere Sortier- oder Tabellenänderung; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
-
-1. Temporären lokalen Testdatenordner bereitstellen.
-2. Status- und Technikeränderungen ohne Produktivdaten testen.

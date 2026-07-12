@@ -2,26 +2,27 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit enthält kompakte dynamische Vorgangstabellen für Aufträge und Angebote sowie eine chronologische Terminansicht. Kopf und Zeilen verwenden dieselbe lokale Ansichtskonfiguration. Spaltenverschieben und Spaltenbreitenänderung sind über getrennte Bedienbereiche möglich.
+BüroCockpit enthält kompakte dynamische Vorgangstabellen für Aufträge und Angebote sowie eine chronologische Terminansicht. Kopf und Zeilen verwenden dieselbe lokale Ansichtskonfiguration. Spaltenverschieben, Spaltenbreitenänderung und typgerechte Kopfklick-Sortierung sind getrennt bedienbar.
 
 ## Architektur
 
-- Drei getrennte `TableLayoutSettings` speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung.
-- `TableCellItem` projiziert jede sichtbare Spalte für Kopf-/Zeilenkonsistenz.
-- Jeder sichtbaren Kopfspalte ist ein eigener Resize-Griff mit Live-Breitenübernahme und Mindestbreite zugeordnet.
-- Normale Kopfbereiche verschieben Spalten; der rechte Randbereich startet ausschließlich Resize.
-- Ein gemeinsamer horizontaler ScrollViewer hält Kopf und Zeilen synchron.
+- Drei getrennte TableLayoutSettings speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung.
+- TableCellItem projiziert jede sichtbare Spalte für Kopf-/Zeilenkonsistenz.
+- Kopfklicks werden nach der Bewegungsprüfung als Sortierklick behandelt; Drag und Resize bleiben davon getrennt.
+- Sortierung verwendet eigene fachliche Sortierfelder für Status, Text, Datum und Uhrzeit.
 - WorkflowStep bleibt zentrale Statusquelle; Kategorien bleiben kompatibel.
 
 ## Erledigte Hauptfunktionen
 
 - kompakte Standardspalten und zusätzliche Titelspalte
-- sichtbare Titelumschaltung über die kompakte Toolbar-Aktion
-- getrennte Resize-Griffe mit horizontalem Größenänderungs-Cursor
-- Live-Anpassung der Kopf- und Datenzellbreiten
-- Drag-and-drop-Reihenfolge der sichtbaren Spalten ohne Breitenänderung
+- getrennte Resize-Griffe mit Live-Breitenübernahme
+- Drag-and-drop-Reihenfolge der sichtbaren Spalten ohne Sortiernebenwirkung
+- Kopfklick-Sortierung mit Auf-/Abwärtspfeil
+- fachliche Statusreihenfolge für direkte Aufträge und Angebotsvorgänge
+- alphabetische Textsortierung ohne Groß-/Kleinschreibung
+- chronologische Termin-/Datums-/Uhrzeitsortierung mit leeren Werten am Ende
 - lokale Wiederherstellung je Ansicht nach Neustart
-- Terminfilter, horizontales Scrollen und leere Monteurzuordnung
+- horizontales Scrollen von Kopf und Zeilen
 
 ## Bekannte offene Punkte
 
@@ -31,4 +32,4 @@ BüroCockpit enthält kompakte dynamische Vorgangstabellen für Aufträge und An
 
 - Kunde bleibt immer sichtbar.
 - Technische IDs bleiben intern.
-- Layoutwerte werden ausschließlich lokal gespeichert.
+- Layout- und Sortierwerte werden ausschließlich lokal gespeichert.

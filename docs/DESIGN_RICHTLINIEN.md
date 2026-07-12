@@ -190,6 +190,15 @@ unverändert.
 - Spaltenbreiten werden über dezente Kopf-Splitter verändert und müssen in den
   Datenzeilen unmittelbar mitgeführt werden. Die Layoutwerte werden getrennt
   für Aufträge, Angebote und Termine gespeichert.
+- Ein kurzer Klick auf einen normalen Spaltentitel sortiert die aktuelle
+  Tabellenansicht; ein erneuter Klick wechselt die Richtung. Die aktive
+  Sortierspalte zeigt einen dezenten Pfeil. Ein Kopf-Drag ab der definierten
+  Bewegungsgrenze verschiebt die Spalte, der rechte Resize-Griff verändert
+  ausschließlich die Breite und löst keine Sortierung aus.
+- Sortierungen verwenden den fachlichen Datentyp, stellen leere Werte
+  einheitlich ans Ende und bleiben stabil. Status folgt der jeweiligen
+  Workflowreihenfolge; Text, Datum und Uhrzeit werden nicht alphabetisch
+  beziehungsweise nicht als formatierten Anzeigetext verglichen.
 
 ### Dialoge, Kontextmenüs und Tooltips
 

@@ -2,7 +2,7 @@
 
 ## Ziel
 
-Keine weitere Layoutkorrektur; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
+Keine weitere Sortier- oder Tabellenänderung; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
 
 ## Geplante Schritte
 
@@ -11,9 +11,9 @@ Keine weitere Layoutkorrektur; als nächstes kann ein isolierter Testdatenbestan
 
 ## Vermutlich betroffene Dateien
 
-- `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
-- `/Users/christian/AppProjekte/BueroCockpit/Data/AppPaths.cs`
+- /Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs
+- /Users/christian/AppProjekte/BueroCockpit/Data/AppPaths.cs
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktivdaten, Kategorien, Aufträge, IDs, Netzwerk-Sync, iPad-App, Installer, Releaseprozess, Versionen, Tags und `main`.
+- Produktivdaten, Kategorien, Aufträge, IDs, Netzwerk-Sync, iPad-App, Installer, Releaseprozess, Versionen, Tags und main.

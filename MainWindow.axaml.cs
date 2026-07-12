@@ -60,6 +60,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     };
     private const string SortFieldDate = "Datum";
     private const string SortFieldName = "Name";
+    private const string SortFieldStatus = "Status";
+    private const string SortFieldCustomer = "Kunde";
+    private const string SortFieldLocation = "Ort";
+    private const string SortFieldTechnician = "Techniker";
+    private const string SortFieldTitle = "Titel";
+    private const string SortFieldTime = "Uhrzeit";
+    private const string SortFieldCategory = "Kategorie";
     private const string SortFieldManual = "Manuell";
     private const string SortFieldCreatedAt = "Erstellt am";
     private const string SortFieldFollowUp = "Wiedervorlage";
@@ -345,8 +352,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string[] SortFieldOptions { get; } =
     [
+        SortFieldStatus,
+        SortFieldCustomer,
+        SortFieldLocation,
+        SortFieldTechnician,
+        SortFieldTitle,
         SortFieldDate,
+        SortFieldTime,
         SortFieldName,
+        SortFieldCategory,
         SortFieldCreatedAt,
         SortFieldFollowUp,
         SortFieldSentAt,
@@ -369,6 +383,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             GetActiveTableLayout().SortField = normalized;
             _settingsService.Save(_appSettings);
             OnPropertyChanged(nameof(SelectedSortField));
+            RefreshTableProjection();
             RefreshVisibleTasks();
         }
     }
@@ -1144,7 +1159,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .ToList();
     }
 
-    private static string GetTableHeader(string key) => key;
+    private string GetTableHeader(string key)
+    {
+        var columnSortField = GetSortFieldForTableColumn(key);
+        if (!string.Equals(NormalizeSortField(SelectedSortField), columnSortField, StringComparison.OrdinalIgnoreCase))
+        {
+            return key;
+        }
+
+        return $"{key} {(_isSortDescending ? "↓" : "↑")}";
+    }
 
     private string GetTableCellText(TaskItem task, string key) => key switch
     {
@@ -1328,8 +1352,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var draggedKey = _draggedTableColumnKey;
         _draggedTableColumnKey = null;
         var header = ((Visual)sender).GetVisualParent() as Grid;
-        if (header is null || Math.Abs(e.GetPosition(this).X - _tableColumnDragStart.X) < 8)
+        var movement = Math.Abs(e.GetPosition(this).X - _tableColumnDragStart.X);
+        if (header is null)
         {
+            return;
+        }
+
+        if (movement < 8)
+        {
+            SortByTableColumn(draggedKey);
+            e.Handled = true;
             return;
         }
 
@@ -1366,6 +1398,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         layout.ColumnOrder = visibleOrder.Concat(hiddenOrder).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         _settingsService.Save(_appSettings);
         RefreshTableProjection();
+        e.Handled = true;
+    }
+
+    private string GetSortFieldForTableColumn(string key) => key switch
+    {
+        "Status" => SortFieldStatus,
+        "Kunde" => SortFieldCustomer,
+        "Ort" => SortFieldLocation,
+        "Techniker" => SortFieldTechnician,
+        "Titel" => SortFieldTitle,
+        "Datum" or "Termin" => SortFieldDate,
+        "Uhrzeit" => SortFieldTime,
+        "Kategorie" => SortFieldCategory,
+        _ => SortFieldCreatedAt
+    };
+
+    private void SortByTableColumn(string key)
+    {
+        var sortField = GetSortFieldForTableColumn(key);
+        var layout = GetActiveTableLayout();
+        if (string.Equals(NormalizeSortField(layout.SortField), sortField, StringComparison.OrdinalIgnoreCase))
+        {
+            _isSortDescending = !_isSortDescending;
+        }
+        else
+        {
+            _selectedSortField = sortField;
+            _isSortDescending = false;
+            OnPropertyChanged(nameof(SelectedSortField));
+        }
+
+        layout.SortField = sortField;
+        layout.SortDescending = _isSortDescending;
+        _settingsService.Save(_appSettings);
+        OnPropertyChanged(nameof(SortDirectionGlyph));
+        OnPropertyChanged(nameof(SortDirectionTooltip));
+        RefreshTableProjection();
+        RefreshVisibleTasks();
     }
 
     private void ToggleTableColumn_OnClick(object? sender, RoutedEventArgs e)
@@ -3572,7 +3642,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         var now = DateTime.Now;
         var today = DateTime.Today;
-        return AllTasks
+        var filteredTasks = AllTasks
             .Where(task => !task.IsDeleted && task.DueDate.HasValue)
             .Where(task => _selectedAppointmentFilter switch
             {
@@ -3582,8 +3652,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _ => true
             })
             .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .OrderBy(task => task.DueDate);
+            .Select(group => group.First());
+        return SortTasksForCategory(filteredTasks);
     }
 
     private void RefreshGlobalSearchResults()
@@ -5391,6 +5461,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settingsService.Save(_appSettings);
         OnPropertyChanged(nameof(SortDirectionGlyph));
         OnPropertyChanged(nameof(SortDirectionTooltip));
+        RefreshTableProjection();
         RefreshVisibleTasks();
     }
 
@@ -5437,6 +5508,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
         OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
         OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
+        RefreshTableProjection();
     }
 
     private static int GetNameSortGroup(TaskItem task)
@@ -5470,6 +5542,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private static int GetWorkflowStatusRank(TaskItem task)
+    {
+        var status = task.WorkflowStatusText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return -1;
+        }
+
+        var sequence = IsOfferWorkflow(task)
+            ? new[] { "Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt" }
+            : new[] { "Auftrag", "Material", "Termin", "Erledigt" };
+        var rank = Array.FindIndex(sequence, value => string.Equals(value, status, StringComparison.OrdinalIgnoreCase));
+        return rank >= 0 ? rank : -1;
+    }
+
+    private static IEnumerable<TaskItem> SortTextTasks(
+        IEnumerable<TaskItem> tasks,
+        Func<TaskItem, string?> selector,
+        bool descending)
+    {
+        var materialized = tasks
+            .Select(task => new
+            {
+                Task = task,
+                Value = selector(task)?.Trim() ?? string.Empty
+            })
+            .ToList();
+
+        return (descending
+                ? materialized
+                    .OrderBy(item => string.IsNullOrWhiteSpace(item.Value) ? 1 : 0)
+                    .ThenByDescending(item => item.Value, StringComparer.CurrentCultureIgnoreCase)
+                : materialized
+                    .OrderBy(item => string.IsNullOrWhiteSpace(item.Value) ? 1 : 0)
+                    .ThenBy(item => item.Value, StringComparer.CurrentCultureIgnoreCase))
+            .ThenBy(item => item.Task.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Task);
+    }
+
+    private static IEnumerable<TaskItem> SortDateTasks(
+        IEnumerable<TaskItem> tasks,
+        Func<TaskItem, DateTime?> selector,
+        bool descending)
+    {
+        var materialized = tasks.ToList();
+        return (descending
+                ? materialized
+                    .OrderBy(task => selector(task).HasValue ? 0 : 1)
+                    .ThenByDescending(task => selector(task) ?? DateTime.MinValue)
+                : materialized
+                    .OrderBy(task => selector(task).HasValue ? 0 : 1)
+                    .ThenBy(task => selector(task) ?? DateTime.MaxValue))
+            .ThenBy(task => task.Id, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<TaskItem> SortStatusTasks(
+        IEnumerable<TaskItem> tasks,
+        bool descending)
+    {
+        var materialized = tasks
+            .Select(task => new { Task = task, Rank = GetWorkflowStatusRank(task) })
+            .ToList();
+
+        return (descending
+                ? materialized
+                    .OrderBy(item => item.Rank < 0 ? 1 : 0)
+                    .ThenByDescending(item => item.Rank)
+                : materialized
+                    .OrderBy(item => item.Rank < 0 ? 1 : 0)
+                    .ThenBy(item => item.Rank))
+            .ThenBy(item => item.Task.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Task);
+    }
+
     private static string NormalizeCategorySortMode(string? sortMode)
     {
         return string.IsNullOrWhiteSpace(sortMode)
@@ -5486,6 +5632,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return sortField?.Trim() switch
         {
+            SortFieldStatus => SortFieldStatus,
+            SortFieldCustomer => SortFieldCustomer,
+            SortFieldLocation => SortFieldLocation,
+            SortFieldTechnician => SortFieldTechnician,
+            SortFieldTitle => SortFieldTitle,
+            SortFieldTime => SortFieldTime,
+            SortFieldCategory => SortFieldCategory,
             SortFieldDate => SortFieldDate,
             SortFieldName => SortFieldName,
             SortFieldManual => SortFieldManual,
@@ -5505,6 +5658,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         return field switch
         {
+            SortFieldStatus => SortStatusTasks(tasks, _isSortDescending),
+            SortFieldCustomer => SortTextTasks(tasks, task => task.CustomerName, _isSortDescending),
+            SortFieldLocation => SortTextTasks(tasks, task => task.CustomerAddress, _isSortDescending),
+            SortFieldTechnician => SortTextTasks(tasks, task => task.Technician, _isSortDescending),
+            SortFieldTitle => SortTextTasks(tasks, task => task.Title, _isSortDescending),
+            SortFieldCategory => SortTextTasks(
+                tasks,
+                task => GetTaskCategoryNameList(task).FirstOrDefault(),
+                _isSortDescending),
+            SortFieldTime => SortDateTasks(
+                tasks,
+                task => task.DueDate.HasValue && task.DueDate.Value.TimeOfDay != TimeSpan.Zero
+                    ? task.DueDate
+                    : null,
+                _isSortDescending),
             SortFieldName => _isSortDescending
                 ? tasks
                     .OrderBy(GetNameSortGroup)
