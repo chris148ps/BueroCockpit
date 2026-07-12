@@ -43,16 +43,13 @@ Statusfolge, Terminfilter, deduplizierte Sortierung, leere Monteurzuordnung, Spl
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+dcc94d0655bbef07e7321f477b54cfa11fa23816
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
