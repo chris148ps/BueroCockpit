@@ -34,16 +34,13 @@ Spaltenbreiten wirken jetzt unmittelbar auf Tabellenkopf und Datenzeilen. Die lo
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+c51030408a9c675922347d09e6adc06548ab14ba
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
