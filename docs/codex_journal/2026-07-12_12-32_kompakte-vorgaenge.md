@@ -1,16 +1,12 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Kompakte Vorgangsansicht mit verschiebbarem Detailbereich und zentralem Status
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-12 12:32 +0200
+Die laufende Auftrags-, Angebots- und Terminansicht an die kompakte Referenz anpassen, den rechten Detailbereich verschiebbar machen und Statusdarstellung sowie Kundenbezeichnung vereinheitlichen.
 
-## Letzter Auftrag
+## Umsetzung
 
-Kompakte Vorgangsansicht mit verschiebbarem Detailbereich und zentralem Status
-
-## Zusammenfassung
-
-Die kompakte Auftragsliste und der rechte Inspektor entsprechen der Referenzstruktur. Die Detailbreite ist lokal vorbereitet, Statuswerte sind workflowbasiert und Bestandsdaten werden ohne aggressive Migration geladen.
+Die Hauptnavigation zeigt die groben Bereiche Übersicht, Aufträge, Angebote, Material, Termine, Firma, Netzbetreiber und Einstellungen. Die Auftragsliste verwendet kompakte Standardspalten Status, Kunde, Ort, Termin und Techniker; technische IDs bleiben intern und werden nicht mehr in der Liste angezeigt. Zwischen Liste und Detailbereich liegt ein sichtbarer GridSplitter mit Mindestbreiten. Die rechte Pane-Breite wird lokal in den bestehenden App-Einstellungen gespeichert und beim Start wiederhergestellt. WorkflowType und WorkflowStep wurden additiv und rückwärtskompatibel in der lokalen Tasks-Persistenz ergänzt. Alte Datensätze erhalten beim Laden eine defensive Ablaufableitung. Stepper, Statusauswahl und Listen-Badge verwenden WorkflowStep als gemeinsame sichtbare Statusquelle.
 
 ## Geänderte Dateien
 
@@ -35,7 +31,16 @@ Die kompakte Auftragsliste und der rechte Inspektor entsprechen der Referenzstru
 - Sichtprüfung Splitter: sichtbarer Handle zwischen Liste und Detailbereich; beide Richtungen per Maus angesteuert; Mindestbreiten sind im Layout definiert.
 - Statusänderung und Neustart nicht auf einem bestehenden Produktivauftrag ausgeführt, um keine Bestandsdaten zu verändern; Speicherpfad und identische Bindungsquelle sind statisch geprüft.
 
-## Git-Status
+## Ergebnis
+
+Die kompakte Auftragsliste und der rechte Inspektor entsprechen der Referenzstruktur. Die Detailbreite ist lokal vorbereitet, Statuswerte sind workflowbasiert und Bestandsdaten werden ohne aggressive Migration geladen.
+
+## Bekannte offene Punkte
+
+- Eine mutierende Statusprobe mit anschließendem Neustart wurde aus Sicherheitsgründen nicht auf einem bestehenden Produktivauftrag ausgeführt.
+- Die bestehende Desktop-Computer-Use-Umgebung erlaubt die sichtbare Prüfung, aber die exakte gespeicherte Pixelbreite ist nur über den lokalen Einstellungsweg verifizierbar.
+
+## Aktueller Git-Status
 
 ```text
  M Data/BueroRepository.cs
@@ -50,28 +55,3 @@ Die kompakte Auftragsliste und der rechte Inspektor entsprechen der Referenzstru
 ?? Models/WorkflowStepItem.cs
 ?? docs/codex_journal/2026-07-12_12-32_kompakte-vorgaenge.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Eine mutierende Statusprobe mit anschließendem Neustart wurde aus Sicherheitsgründen nicht auf einem bestehenden Produktivauftrag ausgeführt.
-- Die bestehende Desktop-Computer-Use-Umgebung erlaubt die sichtbare Prüfung, aber die exakte gespeicherte Pixelbreite ist nur über den lokalen Einstellungsweg verifizierbar.
-
-## Empfohlener nächster Schritt
-
-Terminansicht als eigene chronologische Vorgangsliste mit den vier Zeitfiltern fertigstellen.
-
-1. Reale Auftrags- und Angebotstermine dedupliziert chronologisch projizieren.
-2. Filter Alle, Vergangen, Heute und Zukünftig ergänzen.
-3. Klicknavigation zum Originalvorgang und kompakte Leerzustände prüfen.

@@ -2,63 +2,35 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer
-lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der aktuelle
-Desktop-Stand enthält eine hierarchische Kategorie-Navigation mit klarer
-Trennung zwischen Systemnavigation und Benutzerkategorien, eine ruhige
-Tagesübersicht mit realen Termin-, Wiedervorlagen-, Mobile-Eingangs- und
-Synchronisationsinformationen, konsolidierte Dark-/Light-Designressourcen,
-lokale Schreibtisch-Notizen, zeitgesteuerten Autospeicher und eine
-profilbasierte Technikerverwaltung ohne Sonderrolle.
+BüroCockpit ist eine lokale Avalonia/.NET-Desktopanwendung mit einer lesenden SwiftUI-iPad-App für Snapshots und mobile Erfassung. Der Desktop enthält eine ruhige Tagesübersicht, eine getrennte Systemnavigation mit groben Arbeitsbereichen, eine kompakte Vorgangstabelle und einen rechten Detailinspektor. Der Detailbereich ist über einen sichtbaren Splitter veränderbar.
 
 ## Architektur
 
 - Desktop: Avalonia UI, führendes System, lokale SQLite-/Dateidaten.
-- Übersicht: read-only berechnete Dashboard-Projektion aus vorhandenen
-  Aufgaben-, Mobile-Inbox- und lokalen Gerätestatusdaten; keine neuen Daten
-  oder Persistenzfelder.
-- Navigation: Systemseiten sind über reservierte IDs/Namen und `__`-IDs
-  geschützt; Benutzerkategorien werden für Verwaltung und Auftragsauswahl
-  separat aufgebaut.
-- iPad: SwiftUI Snapshot Reader und mobiler Erfassungsclient.
-- Synchronisation: lokaler Netzwerk-Sync ist vorbereitet, aber kein echter
-  produktiver Datentransfer aktiv.
-- Veröffentlichung: größere Codex-Arbeiten werden über `codex/work` und einen
-  Draft-Pull-Request nach `main` sichtbar gemacht; Merge bleibt manuell.
+- Vorgänge: Auftrags- und Angebotsabläufe werden über additive WorkflowType-/WorkflowStep-Felder gespeichert. Fehlende Felder werden aus Bestandsdaten defensiv abgeleitet.
+- Navigation: Die tägliche Hauptnavigation zeigt Systembereiche; vorhandene Benutzerkategorien bleiben für Zuordnungen und Verwaltung erhalten.
+- Auftragsansicht: Kompakte Liste mit Status, Kunde, Ort, Termin und Techniker sowie rechter Detailinspektor.
+- Synchronisation: lokaler Netzwerk-Sync ist vorbereitet, aber kein echter produktiver Datentransfer aktiv.
+- Veröffentlichung: größere Codex-Arbeiten werden über codex/work und den bestehenden Draft-PR nach main sichtbar gemacht; Merge bleibt manuell.
 
 ## Erledigte Hauptfunktionen
 
-- Ruhige zentrale Übersicht mit Heute-Datum, Terminen für Heute/Diese Woche/Nächste Woche,
-  heutigen Wiedervorlagen, neuen Mobile-Eingängen und read-only Sync-Status.
-- Freundliche Leerzustände ohne Fantasiedaten; Wiedervorlagen werden nur bei
-  realen Treffern rot hervorgehoben.
-- Kategoriebaum mit Unterkategorien und aggregierten Auftragszahlen.
-- Systemnavigation und Benutzerkategorien sind in den UI-Quellmengen getrennt;
-  Systemseiten erscheinen nicht in Kategorienverwaltung oder Auftragsauswahl.
-- Moderne Auftragsdetailansicht mit großen Karten, semantischen Flächen,
-  einheitlichen Eingabefeldern, Gruppen und Aktionsbereich.
-- Auftragsbezogene Schreibtisch-Notizzettel mit Abwahl/Löschung.
-- Gleichberechtigte Technikerprofile mit Name, Kürzel, E-Mail und Telefon.
-- Horizontale Desktop-Einstellungstabs und Windows-11-Dark-Technikeransicht.
-- Desktop startet stets in der Übersicht; Backup liegt unter Daten & Pfade und
-  die Kategorienverwaltung zeigt keine technischen Sonderbereiche.
-- Semantische Desktop-Ressourcen für Dark-/Light-Modus.
-- Native iPadOS-Toolbar und systemeigene Suche.
+- Übersicht mit realen Tagesinformationen und ruhigen Leerzuständen.
+- Kompakte grobe Hauptnavigation.
+- Kompakte Auftragsliste ohne sichtbare technische Auftragsnummer als Primärbezeichnung.
+- Sichtbarer verschiebbarer Splitter zwischen Liste und Detailbereich mit lokaler Breitenpersistenz.
+- Gemeinsame sichtbare Workflow-Statusquelle für Stepper, Auswahl und Listen-Badge.
+- Rückwärtskompatible Bestandsableitung ohne Löschung oder Neu-Zuordnung vorhandener Kategorien und Aufträge.
 
 ## Bekannte offene Punkte
 
-- Der echte lokale Netzwerk-Sync und produktive Datenübertragung sind weiterhin
-  nicht aktiviert.
-- Ohne vorhandene Mobile-Inbox-Einträge zeigt die Übersicht den Leerzustand;
-  ohne erfolgreiche Synchronisation wird kein Zeitpunkt erfunden.
-- Der GitHub-Draft-PR wird automatisch aktualisiert, aber niemals gemergt.
+- Die eigenständige chronologische Terminansicht mit den Filtern Alle, Vergangen, Heute und Zukünftig steht als nächste Aufgabe aus.
+- Eine mutierende Statusprobe auf einem bestehenden Produktivauftrag wurde nicht durchgeführt, um Bestandsdaten unverändert zu lassen.
+- Der echte lokale Netzwerk-Sync und produktive Datenübertragung sind weiterhin nicht aktiviert.
 
 ## Wichtige Entscheidungen
 
-- Die Übersicht bleibt bewusst auf die vier angeforderten Tagesbereiche
-  beschränkt und zeigt keine zusätzlichen Auftragsstatistiken.
-- `main` bleibt unverändert und erhält keine automatischen Pushes.
-- `codex/work` ist der dauerhafte Arbeitsbranch für veröffentlichte Codex-
-  Arbeitsstände.
-- Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses
-  Workflows.
+- Kundenname und WorkflowStep sind die primären sichtbaren Vorgangsinformationen.
+- Technische IDs bleiben intern erhalten und werden nicht als sichtbare Nummernspalte in der Vorgangsliste verwendet.
+- Die Breite des Detailbereichs ist lokale Geräteeinstellung und wird nicht synchronisiert.
+- Produktivdaten, Tags, Releases und Versionsnummern bleiben außerhalb dieses Workflows.

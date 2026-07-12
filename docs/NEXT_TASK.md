@@ -2,18 +2,20 @@
 
 ## Ziel
 
-Die Dashboard-Änderungen im bestehenden Draft-PR #1 fachlich prüfen und manuell zur Review freigeben.
+Terminansicht als eigene chronologische Vorgangsliste mit den vier Zeitfiltern fertigstellen.
 
 ## Geplante Schritte
 
-1. Diff und sichtbare Abnahme im Draft-PR #1 prüfen.
-2. Nach fachlicher Freigabe den bestehenden PR manuell weiterführen.
+1. Reale Auftrags- und Angebotstermine dedupliziert chronologisch projizieren.
+2. Filter Alle, Vergangen, Heute und Zukünftig ergänzen.
+3. Klicknavigation zum Originalvorgang und kompakte Leerzustände prüfen.
 
 ## Vermutlich betroffene Dateien
 
-- Keine weitere Codeänderung vorgesehen.
-- Draft-PR #1 und die erzeugte Laufdokumentation.
+- `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml`
+- `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
+- `/Users/christian/AppProjekte/BueroCockpit/Models/TaskItem.cs`
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktivdaten, Datenmodell, Persistenz, Kategorien, Aufträge, Netzwerk-Sync, Installer, Releaseprozess, Versionen, Tags und `main`.
+- Produktivdaten, bestehende Kategorien und Auftragszuordnungen, Netzwerk-Sync, iPad-App, Installer, Releaseprozess, Versionen, Tags und `main`.

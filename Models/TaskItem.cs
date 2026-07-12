@@ -10,6 +10,8 @@ public sealed class TaskItem : ObservableObject
     private string _description = string.Empty;
     private string _categoryId = string.Empty;
     private string _status = "Offen";
+    private string _workflowType = string.Empty;
+    private string _workflowStep = string.Empty;
     private string _priority = "Normal";
     private DateTime? _dueDate;
     private DateTime? _followUpDate;
@@ -33,6 +35,7 @@ public sealed class TaskItem : ObservableObject
     private string _mobileInboxStatusBadgeForeground = "#6E6255";
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string DisplayNumber => $"V-{Id[..Math.Min(8, Id.Length)].ToUpperInvariant()}";
     public string Title { get => _title; set => SetProperty(ref _title, value); }
     public string CustomerName { get => _customerName; set => SetProperty(ref _customerName, value); }
     public string CustomerEmail { get => _customerEmail; set => SetProperty(ref _customerEmail, value); }
@@ -51,7 +54,30 @@ public sealed class TaskItem : ObservableObject
     public string Description { get => _description; set => SetProperty(ref _description, value); }
     public string CategoryId { get => _categoryId; set => SetProperty(ref _categoryId, value); }
     public List<string> CategoryIds { get; set; } = new();
-    public string Status { get => _status; set => SetProperty(ref _status, value); }
+    public string Status
+    {
+        get => _status;
+        set
+        {
+            if (SetProperty(ref _status, value))
+            {
+                OnPropertyChanged(nameof(WorkflowStatusText));
+            }
+        }
+    }
+    public string WorkflowType { get => _workflowType; set => SetProperty(ref _workflowType, value); }
+    public string WorkflowStep
+    {
+        get => _workflowStep;
+        set
+        {
+            if (SetProperty(ref _workflowStep, value))
+            {
+                OnPropertyChanged(nameof(WorkflowStatusText));
+            }
+        }
+    }
+    public string WorkflowStatusText => string.IsNullOrWhiteSpace(WorkflowStep) ? Status : WorkflowStep;
     public string Priority { get => _priority; set => SetProperty(ref _priority, value); }
     public DateTime? DueDate
     {
@@ -219,6 +245,8 @@ public sealed class TaskItem : ObservableObject
             CategoryId = CategoryId,
             CategoryIds = new List<string>(CategoryIds),
             Status = Status,
+            WorkflowType = WorkflowType,
+            WorkflowStep = WorkflowStep,
             Priority = Priority,
             DueDate = DueDate,
             FollowUpDate = FollowUpDate,

@@ -21,6 +21,9 @@ public sealed class AppSettings
     // Der Initialwert hält den Schreibtisch für bestehende Installationen sichtbar.
     public bool ShowDesktop { get; set; } = true;
 
+    // Lokal/geraetespezifisch: Breite des rechten Vorgangsinspektors in Pixeln.
+    public double TaskDetailPaneWidth { get; set; } = 380;
+
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;

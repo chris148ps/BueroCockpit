@@ -163,6 +163,22 @@ unverändert.
 - Leere Zustände bleiben kompakt: klare Aussage plus optionaler Sekundärtext in
   einer normalen Karte. Keine übergroßen Illustrationen oder Leerflächen.
 
+### Kompakte Vorgangsansicht
+
+- Zwischen der mittleren Vorgangsliste und dem rechten Detailbereich liegt ein
+  sichtbarer, per Maus verschiebbarer Splitter. Beide Bereiche behalten eine
+  sinnvolle Mindestbreite; bei kleinen Fenstern darf die Liste dichter werden,
+  aber Inhalte dürfen nicht überlappen oder abgeschnitten werden.
+- Der Kundenname ist die primäre sichtbare Bezeichnung eines Vorgangs. Eine
+  technische ID oder neu erzeugte Auftragsnummer darf nicht als primäre
+  Listenbezeichnung hervorgehoben werden.
+- Die kompakten Standardspalten der Auftragsliste sind: Status, Kunde, Ort,
+  Termin und Techniker. Zusätzliche Spalten brauchen eine fachliche Begründung.
+- Stepper, Detailansicht, Listen-Badge und Terminansicht verwenden dieselbe
+  zentrale Statusquelle und zeigen exakt dieselbe aktuelle Statusbezeichnung.
+  Status darf nicht für die Darstellung in eine abweichende Unterkategorie oder
+  Ersatzbezeichnung umgerechnet werden.
+
 ### Dialoge, Kontextmenüs und Tooltips
 
 - Dialogfenster verwenden `WindowBackgroundBrush`; ihr Inhalt verwendet
