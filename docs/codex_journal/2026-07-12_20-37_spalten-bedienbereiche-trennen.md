@@ -1,16 +1,12 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Spaltenverschieben und Spaltenbreitenänderung in den kompakten Tabellen trennen
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-12 20:37 +0200
+Die Bedienkonflikte zwischen Spaltenverschieben und Spaltenbreitenänderung dauerhaft beseitigen und alle drei Tabellenansichten sichtbar abnehmen.
 
-## Letzter Auftrag
+## Umsetzung
 
-Spaltenverschieben und Spaltenbreitenänderung in den kompakten Tabellen trennen
-
-## Zusammenfassung
-
-Spaltenverschieben und Spaltenbreitenänderung sind in Aufträgen, Angeboten und Terminen getrennt bedienbar. Breitenänderungen wirken live auf Kopf und Datenzellen, bleiben je Ansicht getrennt gespeichert und werden nach Neustart wiederhergestellt.
+Die bisherigen GridSplitter-Ereignisse wurden durch eigene, 12 px breite Resize-Griffe an jeder sichtbaren Spalte ersetzt. Der normale Kopfbereich verschiebt eine Spalte; der rechte Randbereich startet ausschließlich die Breitenänderung. Die Breite wird während der Pointer-Bewegung live in der Kopf-Griddefinition und in allen `TableCellItem`-Zeilen aktualisiert. Mindestbreiten gelten je Spaltentyp, auch für die letzte sichtbare Spalte und die zusätzliche Titelspalte. Die Breite wird nach dem Loslassen getrennt je Ansicht gespeichert. Kopf und Zeilen liegen in einem gemeinsamen horizontalen ScrollViewer. Für die sichtbare Abnahme wurde zusätzlich eine kompakte Toolbar-Aktion zum Ein-/Ausblenden der Titelspalte ergänzt.
 
 ## Geänderte Dateien
 
@@ -31,7 +27,15 @@ Spaltenverschieben und Spaltenbreitenänderung sind in Aufträgen, Angeboten und
 - Kopf- und Datenzeilen: sichtbare Spaltengrenzen blieben nach den Änderungen gemeinsam ausgerichtet.
 - Produktive Aufträge, Kategorien, Statuswerte und sonstige Fachdaten wurden nicht verändert.
 
-## Git-Status
+## Ergebnis
+
+Spaltenverschieben und Spaltenbreitenänderung sind in Aufträgen, Angeboten und Terminen getrennt bedienbar. Breitenänderungen wirken live auf Kopf und Datenzellen, bleiben je Ansicht getrennt gespeichert und werden nach Neustart wiederhergestellt.
+
+## Bekannte offene Punkte
+
+- Produktive mutierende Status-/Monteurtests wurden weiterhin nicht ausgeführt; sie gehören nicht zu diesem Layoutauftrag.
+
+## Aktueller Git-Status
 
 ```text
  M MainWindow.axaml
@@ -40,26 +44,3 @@ Spaltenverschieben und Spaltenbreitenänderung sind in Aufträgen, Angeboten und
  M docs/PROJEKTSTATUS.md
 ?? docs/codex_journal/2026-07-12_20-37_spalten-bedienbereiche-trennen.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Produktive mutierende Status-/Monteurtests wurden weiterhin nicht ausgeführt; sie gehören nicht zu diesem Layoutauftrag.
-
-## Empfohlener nächster Schritt
-
-Keine weitere Layoutkorrektur; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
-
-1. Temporären lokalen Testdatenordner bereitstellen.
-2. Status- und Technikeränderungen ohne Produktivdaten testen.

@@ -1919,7 +1919,7 @@
 
     <Border Grid.Column="1" MinWidth="240" Padding="20" Background="{DynamicResource ContentBackgroundBrush}" IsVisible="{Binding IsTaskAreaVisible}">
       <DockPanel LastChildFill="True">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,14">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding TaskListCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
@@ -2043,6 +2043,13 @@
                   VerticalAlignment="Top"
                   Margin="0,0,8,0" />
           <Button Grid.Column="2"
+                  Classes="Tertiary"
+                  Content="Titel"
+                  ToolTip.Tip="Titelspalte ein- oder ausblenden"
+                  Click="ToggleTaskTitleColumn_OnClick"
+                  VerticalAlignment="Top"
+                  Margin="0,0,8,0" />
+          <Button Grid.Column="3"
                   Classes="Primary"
                   Content="Neue Aufgabe"
                   IsVisible="{Binding CanCreateTaskInSelectedCategory}"
@@ -2143,7 +2150,11 @@
           </StackPanel>
         </Border>
 
-        <Grid x:Name="TaskTableHeaderGrid" DockPanel.Dock="Top" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsNotAppointmentsNavigationSelected}" PointerReleased="TaskTableHeader_OnPointerReleased">
+        <ScrollViewer x:Name="TaskTableHorizontalScrollViewer"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled">
+          <DockPanel LastChildFill="True">
+        <Grid x:Name="TaskTableHeaderGrid" DockPanel.Dock="Top" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsNotAppointmentsNavigationSelected}">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding TaskStatusColumnWidth}" />
             <ColumnDefinition Width="{Binding TaskCustomerColumnWidth}" />
@@ -2167,7 +2178,7 @@
           <GridSplitter Grid.Column="2" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
           <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
         </Grid>
-        <Grid x:Name="AppointmentTableHeaderGrid" DockPanel.Dock="Top" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsAppointmentsNavigationSelected}" PointerReleased="TaskTableHeader_OnPointerReleased">
+        <Grid x:Name="AppointmentTableHeaderGrid" DockPanel.Dock="Top" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsAppointmentsNavigationSelected}">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding AppointmentDateColumnWidth}" />
             <ColumnDefinition Width="{Binding AppointmentTimeColumnWidth}" />
@@ -2199,7 +2210,7 @@
                  AutomationProperties.AutomationId="TaskList"
                  ItemsSource="{Binding VisibleTasks}"
                  SelectedItem="{Binding SelectedTask}"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                  SelectionChanged="TaskList_OnSelectionChanged">
           <ListBox.ItemTemplate>
@@ -2247,6 +2258,8 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+          </DockPanel>
+        </ScrollViewer>
       </DockPanel>
     </Border>
 

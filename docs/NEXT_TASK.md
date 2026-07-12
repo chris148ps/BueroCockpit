@@ -2,15 +2,17 @@
 
 ## Ziel
 
-Keine; die Breitenkopplung der kompakten Tabellen ist abgeschlossen.
+Keine weitere Layoutkorrektur; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
 
 ## Geplante Schritte
 
-1. Bei der nächsten umfassenden UI-Abnahme die Breiten in Aufträgen, Angeboten und Terminen kurz mitprüfen.
+1. Temporären lokalen Testdatenordner bereitstellen.
+2. Status- und Technikeränderungen ohne Produktivdaten testen.
 
 ## Vermutlich betroffene Dateien
 
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
+- `/Users/christian/AppProjekte/BueroCockpit/Data/AppPaths.cs`
 
 ## Bereiche, die nicht verändert werden dürfen
 

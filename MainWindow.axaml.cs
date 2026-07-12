@@ -199,6 +199,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isDraggingCategory;
     private string? _draggedTableColumnKey;
     private Point _tableColumnDragStart;
+    private Grid? _resizingTableHeader;
+    private IPointer? _resizingTablePointer;
+    private int _resizingTableColumnIndex = -1;
+    private double _tableResizeStartX;
+    private double _tableResizeStartWidth;
     private CategoryItem? _categoryDropTarget;
     private bool _isCategoryRootDropTarget;
     private bool _deskInitialViewApplied;
@@ -1205,6 +1210,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         header.Children.Clear();
         header.ColumnDefinitions.Clear();
+        header.ColumnSpacing = 0;
         header.Tag = columns.ToList();
         for (var index = 0; index < columns.Count; index++)
         {
@@ -1218,27 +1224,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             };
             headerCell.Child = new TextBlock { Text = GetTableHeader(key), Classes = { "TaskTableHeader" } };
             headerCell.PointerPressed += TableColumnHeader_OnPointerPressed;
+            headerCell.PointerMoved += TableColumnHeader_OnPointerMoved;
             headerCell.PointerReleased += TableColumnHeader_OnPointerReleased;
             Grid.SetColumn(headerCell, index);
             header.Children.Add(headerCell);
-            if (index < columns.Count - 1)
+            var resizeHandle = new Border
             {
-                var splitter = new GridSplitter
-                {
-                    Width = 6,
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    ResizeDirection = GridResizeDirection.Columns,
-                    ResizeBehavior = GridResizeBehavior.PreviousAndNext,
-                    Background = ResourceBrush("BorderBrushDark")
-                };
-                splitter.AddHandler(
-                    InputElement.PointerReleasedEvent,
-                    TableColumnSplitter_OnPointerReleased,
-                    RoutingStrategies.Bubble,
-                    handledEventsToo: true);
-                Grid.SetColumn(splitter, index);
-                header.Children.Add(splitter);
-            }
+                Tag = index,
+                Width = 12,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Background = Brushes.Transparent,
+                BorderBrush = ResourceBrush("BorderBrushDark"),
+                BorderThickness = new Thickness(1, 0, 0, 0),
+                Cursor = new Cursor(StandardCursorType.SizeWestEast)
+            };
+            resizeHandle.ZIndex = 10;
+            ToolTip.SetTip(resizeHandle, "Spaltenbreite ändern");
+            resizeHandle.PointerPressed += TableColumnResizeHandle_OnPointerPressed;
+            resizeHandle.PointerMoved += TableColumnResizeHandle_OnPointerMoved;
+            resizeHandle.PointerReleased += TableColumnResizeHandle_OnPointerReleased;
+            resizeHandle.PointerCaptureLost += TableColumnResizeHandle_OnPointerCaptureLost;
+            Grid.SetColumn(resizeHandle, index);
+            header.Children.Add(resizeHandle);
         }
 
         var menu = new ContextMenu();
@@ -1264,9 +1271,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void TableColumnHeader_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Border { Tag: string key } ||
+        if (sender is not Border { Tag: string key } headerCell ||
             !e.GetCurrentPoint((Control)sender).Properties.IsLeftButtonPressed)
         {
+            return;
+        }
+
+        if (headerCell.GetVisualParent() is Grid header &&
+            header.Tag is List<string> columns &&
+            columns.FindIndex(column => string.Equals(column, key, StringComparison.OrdinalIgnoreCase)) is var columnIndex &&
+            columnIndex >= 0 &&
+            columnIndex < header.ColumnDefinitions.Count &&
+            e.GetPosition(header).X >=
+                header.ColumnDefinitions
+                    .Take(columnIndex + 1)
+                    .Sum(column => column.ActualWidth) - 16 &&
+            e.GetPosition(header).X <=
+                header.ColumnDefinitions
+                    .Take(columnIndex + 1)
+                    .Sum(column => column.ActualWidth) + 4)
+        {
+            BeginTableColumnResize(headerCell, header, columnIndex, e);
+            e.Handled = true;
             return;
         }
 
@@ -1275,8 +1301,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         e.Pointer.Capture((IInputElement)sender);
     }
 
+    private void TableColumnHeader_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_resizingTableHeader is not null && e.Pointer == _resizingTablePointer)
+        {
+            UpdateTableColumnResize(e);
+            e.Handled = true;
+        }
+    }
+
     private void TableColumnHeader_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_resizingTableHeader is not null && e.Pointer == _resizingTablePointer)
+        {
+            FinishTableColumnResize();
+            e.Handled = true;
+            return;
+        }
+
         if (_draggedTableColumnKey is null || sender is not Border)
         {
             return;
@@ -1348,42 +1390,154 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshTableProjection();
     }
 
-    private void TableColumnSplitter_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void TableColumnResizeHandle_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not GridSplitter splitter ||
-            splitter.GetVisualParent() is not Grid header)
+        if (sender is not Border { Tag: int columnIndex } handle ||
+            handle.GetVisualParent() is not Grid header ||
+            !e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed ||
+            columnIndex < 0 ||
+            columnIndex >= header.ColumnDefinitions.Count)
         {
             return;
         }
 
-        QueueTableColumnWidthsSave(header);
+        BeginTableColumnResize(handle, header, columnIndex, e);
+        e.Handled = true;
+    }
+
+    private void TableColumnResizeHandle_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_resizingTableHeader is not null && e.Pointer == _resizingTablePointer)
+        {
+            UpdateTableColumnResize(e);
+            e.Handled = true;
+        }
+    }
+
+    private void TableColumnResizeHandle_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_resizingTableHeader is null ||
+            _resizingTablePointer is null ||
+            e.Pointer != _resizingTablePointer)
+        {
+            return;
+        }
+
+        FinishTableColumnResize();
+        e.Handled = true;
+    }
+
+    private void TableColumnResizeHandle_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_resizingTableHeader is not null)
+        {
+            FinishTableColumnResize();
+        }
+    }
+
+    private void BeginTableColumnResize(
+        Control captureControl,
+        Grid header,
+        int columnIndex,
+        PointerPressedEventArgs e)
+    {
+        _resizingTableHeader = header;
+        _resizingTablePointer = e.Pointer;
+        _resizingTableColumnIndex = columnIndex;
+        _tableResizeStartX = e.GetPosition(header).X;
+        _tableResizeStartWidth = header.ColumnDefinitions[columnIndex].ActualWidth;
+        e.Pointer.Capture(captureControl);
+    }
+
+    private void UpdateTableColumnResize(PointerEventArgs e)
+    {
+        if (_resizingTableHeader is null ||
+            _resizingTablePointer is null ||
+            e.Pointer != _resizingTablePointer ||
+            _resizingTableColumnIndex < 0 ||
+            _resizingTableHeader.Tag is not List<string> columns ||
+            _resizingTableColumnIndex >= columns.Count)
+        {
+            return;
+        }
+
+        var key = columns[_resizingTableColumnIndex];
+        var width = Math.Clamp(
+            _tableResizeStartWidth + e.GetPosition(_resizingTableHeader).X - _tableResizeStartX,
+            GetMinimumTableColumnWidth(key),
+            520);
+        _resizingTableHeader.ColumnDefinitions[_resizingTableColumnIndex].Width =
+            new GridLength(width, GridUnitType.Pixel);
+        UpdateLiveTableCellWidths(_resizingTableHeader);
+    }
+
+    private void FinishTableColumnResize()
+    {
+        var header = _resizingTableHeader;
+        if (header is null)
+        {
+            return;
+        }
+
+        var pointer = _resizingTablePointer;
+        _resizingTableHeader = null;
+        _resizingTablePointer = null;
+        _resizingTableColumnIndex = -1;
+        _tableResizeStartX = 0;
+        _tableResizeStartWidth = 0;
+        SaveTableColumnWidths(header);
+        pointer?.Capture(null);
+    }
+
+    private double GetMinimumTableColumnWidth(string key) => key switch
+    {
+        "Status" => 92,
+        "Kunde" => 140,
+        "Ort" => 120,
+        "Termin" => 100,
+        "Techniker" => 110,
+        "Datum" => 88,
+        "Uhrzeit" => 72,
+        "Titel" => 120,
+        _ => 90
+    };
+
+    private void UpdateLiveTableCellWidths(Grid header)
+    {
+        if (header.Tag is not List<string> columns)
+        {
+            return;
+        }
+
+        var widths = columns
+            .Select((key, index) => new
+            {
+                Key = key,
+                Width = index < header.ColumnDefinitions.Count
+                    ? header.ColumnDefinitions[index].ActualWidth
+                    : GetTableCellWidth(key)
+            })
+            .ToDictionary(item => item.Key, item => item.Width, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var task in AllTasks)
+        {
+            task.TableCells.Clear();
+            foreach (var key in columns)
+            {
+                task.TableCells.Add(new TableCellItem(
+                    key,
+                    GetTableCellText(task, key),
+                    widths[key],
+                    string.Equals(key, "Status", StringComparison.OrdinalIgnoreCase)));
+            }
+        }
     }
 
     private GridLength PixelColumnWidth(string columnName, double fallback)
     {
         var layout = GetActiveTableLayout();
         var width = layout.ColumnWidths.TryGetValue(columnName, out var stored) ? stored : fallback;
-        return new GridLength(Math.Clamp(width, 70, 520), GridUnitType.Pixel);
-    }
-
-    private void TaskTableHeader_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (sender is not Grid header)
-        {
-            return;
-        }
-
-        QueueTableColumnWidthsSave(header);
-    }
-
-    private void QueueTableColumnWidthsSave(Grid header)
-    {
-        // GridSplitter aktualisiert die tatsächlichen Gridbreiten erst nach
-        // dem aktuellen Pointer-Ereignis. Erst danach dürfen die Werte für
-        // die unabhängig gerenderten Tabellenzeilen übernommen werden.
-        Dispatcher.UIThread.Post(
-            () => SaveTableColumnWidths(header),
-            DispatcherPriority.Background);
+        return new GridLength(Math.Clamp(width, GetMinimumTableColumnWidth(columnName), 520), GridUnitType.Pixel);
     }
 
     private void SaveTableColumnWidths(Grid header)
