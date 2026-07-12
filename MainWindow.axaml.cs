@@ -792,6 +792,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsMaterialsNavigationSelected => SelectedCategory?.Id == MaterialsNavigationId;
     public bool IsAppointmentsNavigationSelected => SelectedCategory?.Id == AppointmentsNavigationId;
     public bool IsNotAppointmentsNavigationSelected => !IsAppointmentsNavigationSelected;
+    public GridLength TaskStatusColumnWidth => PixelColumnWidth("Status", 112);
+    public GridLength TaskCustomerColumnWidth => PixelColumnWidth("Kunde", 240);
+    public GridLength TaskLocationColumnWidth => PixelColumnWidth("Ort", 220);
+    public GridLength TaskDateColumnWidth => PixelColumnWidth("Termin", 120);
+    public GridLength TaskTechnicianColumnWidth => PixelColumnWidth("Techniker", 150);
+    public GridLength AppointmentDateColumnWidth => PixelColumnWidth("Datum", 96);
+    public GridLength AppointmentTimeColumnWidth => PixelColumnWidth("Uhrzeit", 78);
+    public GridLength AppointmentStatusColumnWidth => PixelColumnWidth("Status", 112);
+    public GridLength AppointmentCustomerColumnWidth => PixelColumnWidth("Kunde", 240);
+    public GridLength AppointmentLocationColumnWidth => PixelColumnWidth("Ort", 220);
+    public GridLength AppointmentTechnicianColumnWidth => PixelColumnWidth("Techniker", 150);
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible &&
                                                    !IsTrashSelected &&
@@ -1055,12 +1066,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ResetTaskTableColumns_OnClick(object? sender, RoutedEventArgs e)
     {
+        var resetLayout = IsAppointmentsNavigationSelected
+            ? TableLayoutSettings.CreateAppointmentsDefault()
+            : IsOffersNavigationSelected
+            ? TableLayoutSettings.CreateOffersDefault()
+            : TableLayoutSettings.CreateOrdersDefault();
+        if (IsAppointmentsNavigationSelected)
+        {
+            _appSettings.AppointmentsTableLayout = resetLayout;
+        }
+        else if (IsOffersNavigationSelected)
+        {
+            _appSettings.OffersTableLayout = resetLayout;
+        }
+        else
+        {
+            _appSettings.OrdersTableLayout = resetLayout;
+        }
+
         ShowTaskTitleColumn = true;
+        ApplyTableLayoutForCurrentView();
+        _settingsService.Save(_appSettings);
     }
 
     private void ToggleTaskTitleColumn_OnClick(object? sender, RoutedEventArgs e)
     {
         ShowTaskTitleColumn = !ShowTaskTitleColumn;
+    }
+
+    private GridLength PixelColumnWidth(string columnName, double fallback)
+    {
+        var layout = GetActiveTableLayout();
+        var width = layout.ColumnWidths.TryGetValue(columnName, out var stored) ? stored : fallback;
+        return new GridLength(Math.Clamp(width, 70, 520), GridUnitType.Pixel);
+    }
+
+    private void TaskTableHeader_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is not Grid header)
+        {
+            return;
+        }
+
+        var layout = GetActiveTableLayout();
+        var columns = IsAppointmentsNavigationSelected
+            ? new[] { "Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker" }
+            : new[] { "Status", "Kunde", "Ort", "Termin", "Techniker" };
+        for (var index = 0; index < columns.Length && index < header.ColumnDefinitions.Count; index++)
+        {
+            var width = header.ColumnDefinitions[index].ActualWidth;
+            if (width >= 70)
+            {
+                layout.ColumnWidths[columns[index]] = Math.Clamp(width, 70, 520);
+            }
+        }
+
+        _settingsService.Save(_appSettings);
+        OnPropertyChanged(nameof(TaskStatusColumnWidth));
+        OnPropertyChanged(nameof(TaskCustomerColumnWidth));
+        OnPropertyChanged(nameof(TaskLocationColumnWidth));
+        OnPropertyChanged(nameof(TaskDateColumnWidth));
+        OnPropertyChanged(nameof(TaskTechnicianColumnWidth));
+        OnPropertyChanged(nameof(AppointmentDateColumnWidth));
+        OnPropertyChanged(nameof(AppointmentTimeColumnWidth));
+        OnPropertyChanged(nameof(AppointmentStatusColumnWidth));
+        OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
+        OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
+        OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
     }
 
     public AttachmentItem? SelectedAttachment
@@ -4911,6 +4983,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SortDirectionGlyph));
             OnPropertyChanged(nameof(SortDirectionTooltip));
         }
+
+        OnPropertyChanged(nameof(TaskStatusColumnWidth));
+        OnPropertyChanged(nameof(TaskCustomerColumnWidth));
+        OnPropertyChanged(nameof(TaskLocationColumnWidth));
+        OnPropertyChanged(nameof(TaskDateColumnWidth));
+        OnPropertyChanged(nameof(TaskTechnicianColumnWidth));
+        OnPropertyChanged(nameof(AppointmentDateColumnWidth));
+        OnPropertyChanged(nameof(AppointmentTimeColumnWidth));
+        OnPropertyChanged(nameof(AppointmentStatusColumnWidth));
+        OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
+        OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
+        OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
     }
 
     private static int GetNameSortGroup(TaskItem task)

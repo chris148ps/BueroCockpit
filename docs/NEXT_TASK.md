@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Die drei Tabellenansichten mit echten Spaltenhandles, Drag-and-drop-Reihenfolge und vollständig angewandter Layoutpersistenz fertigstellen.
+Die drei Tabellen auf eine gemeinsame dynamische Spaltenprojektion mit echter Reihenfolge- und Sichtbarkeitsverwaltung umstellen.
 
 ## Geplante Schritte
 
-1. Gemeinsame Spaltendefinitionen für Auftrag, Angebot und Termin anlegen.
-2. Breitenhandles, Drag-and-drop-Reihenfolge und Kontextmenüaktionen an dieselbe Definition binden.
-3. Layout nach Neustart visuell in allen drei Ansichten prüfen.
+1. Gemeinsame Spaltendefinitionen für Vorgänge und Termine einführen.
+2. Header-Kontextmenü, Drag-and-drop und Zeilenprojektion an diese Definition binden.
+3. Alle Layoutwerte getrennt speichern und nach Neustart visuell prüfen.
 
 ## Vermutlich betroffene Dateien
 

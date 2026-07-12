@@ -67,15 +67,18 @@ public sealed class TableLayoutSettings
     public string SortField { get; set; } = "Erstellt am";
     public bool SortDescending { get; set; } = true;
 
-    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"]);
-    public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"]);
-    public static TableLayoutSettings CreateAppointmentsDefault() => Create(["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"]);
+    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 220, 120, 150);
+    public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 220, 120, 150);
+    public static TableLayoutSettings CreateAppointmentsDefault() => Create(["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"], 96, 78, 112, 240, 220, 150);
 
-    private static TableLayoutSettings Create(IEnumerable<string> columns) => new()
+    private static TableLayoutSettings Create(IEnumerable<string> columns, params double[] widths)
     {
-        ColumnOrder = columns.ToList(),
-        ColumnWidths = columns.ToDictionary(column => column, _ => 120d, StringComparer.OrdinalIgnoreCase)
-    };
+        var columnList = columns.ToList();
+        var columnWidths = columnList
+            .Select((column, index) => new { column, width = index < widths.Length ? widths[index] : 140d })
+            .ToDictionary(item => item.column, item => item.width, StringComparer.OrdinalIgnoreCase);
+        return new TableLayoutSettings { ColumnOrder = columnList, ColumnWidths = columnWidths };
+    }
 }
 
 public sealed class LocalNetworkSyncPairedDevice

@@ -187,6 +187,9 @@ unverändert.
 - Tabellenkopf-Kontextmenüs dürfen optionale reale Zusatzfelder wie Titel
   ein- und ausblenden und müssen eine Rückkehr zu den Standardspalten anbieten.
   Änderungen an Spaltenkonfigurationen bleiben lokale UI-Einstellungen.
+- Spaltenbreiten werden über dezente Kopf-Splitter verändert und müssen in den
+  Datenzeilen unmittelbar mitgeführt werden. Die Layoutwerte werden getrennt
+  für Aufträge, Angebote und Termine gespeichert.
 
 ### Dialoge, Kontextmenüs und Tooltips
 
