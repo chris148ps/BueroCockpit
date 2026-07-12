@@ -34,16 +34,13 @@ Spaltenreihenfolge kann jetzt über die Header-Pointer-Geste geändert und im je
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+becae67566fb22fa762f4550054f2c24bc031b2d
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
