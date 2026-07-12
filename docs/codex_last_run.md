@@ -52,16 +52,13 @@ Die kompakte Auftragsliste und der rechte Inspektor entsprechen der Referenzstru
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+94918ad518693be451f4ddedfb2a46b6bfa69745
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
