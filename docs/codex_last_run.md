@@ -34,16 +34,13 @@ Die tatsächlichen Tabellenzellen folgen jetzt zuverlässig der Breitenänderung
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+f9162108adbc012ada537327bdf4166272f54e27
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
