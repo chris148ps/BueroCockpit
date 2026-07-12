@@ -42,16 +42,13 @@ Spaltenreihenfolge und Sichtbarkeit werden nun tatsächlich aus dem lokalen Layo
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+1e251b12c1c25c3d893c0131e00a69b2e81dfcb0
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
