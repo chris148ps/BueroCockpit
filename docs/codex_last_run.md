@@ -42,16 +42,13 @@ Spaltenverschieben und Spaltenbreitenänderung sind in Aufträgen, Angeboten und
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+2750e85e252dcb75a3efc411cdc31495f22d1db4
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
