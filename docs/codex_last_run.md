@@ -45,16 +45,13 @@ Status- und Terminprojektion sowie die neutrale Monteurzuordnung sind kompatibel
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+abec61550bcd63aa07ba768e83718731d404742d
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
