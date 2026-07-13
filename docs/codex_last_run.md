@@ -41,16 +41,13 @@ Die zuvor offene visuelle Abnahme der Sidebar-Auswahl ist erfolgreich. Zwei repr
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+9cb3d1ce69a69ce31bdb3c031fac3245943ac950
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
