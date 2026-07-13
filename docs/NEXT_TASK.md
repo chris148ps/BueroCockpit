@@ -2,18 +2,19 @@
 
 ## Ziel
 
-Die korrigierte Sidebar-Auswahl einmal manuell mit gewährtem macOS-Hilfszugriff sichtbar abnehmen.
+Die zentralen Desktop-Ansichten einmal im kompatiblen Light Mode visuell abnehmen und anschließend wieder auf Dark Mode zurückstellen.
 
 ## Geplante Schritte
 
-1. Übersicht, Systembereiche, Firma, Netzbetreiber und Unterkategorien anklicken und die blaue Auswahl prüfen.
-2. Kategorien auf- und zuklappen und die unveränderte Auswahl prüfen.
-3. Einstellungen öffnen und anschließend zu einer Benutzerkategorie zurückwechseln.
+1. Light Mode lokal aktivieren und Übersicht, Auftragsansicht, Schreibtisch und Einstellungen sichtbar prüfen.
+2. Fokus, Auswahl, Statusfarben und Notizzettel-Kontrast vergleichen.
+3. Dark Mode wiederherstellen und nur bei einem reproduzierbaren Befund minimal korrigieren.
 
 ## Vermutlich betroffene Dateien
 
-- Keine Änderung erwartet; bei einem Befund `MainWindow.axaml` und `MainWindow.axaml.cs`.
+- `App.axaml.cs`
+- `MainWindow.axaml`
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktivdatenbank, Kategorien, IDs, ParentId, Reihenfolge, Auftragszuordnungen, Release, Tags, Versionen sowie Netzwerk- und Synclogik.
+- Produktivdaten, Kategorien, Aufgaben, Anhänge, Backups, Netzwerk- und Synclogik, Release, Tags und Versionen.

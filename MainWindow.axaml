@@ -1277,7 +1277,7 @@
                                   </Grid>
                                   <TextBlock Grid.Column="1"
                                              Text="Ziehen"
-                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                             Foreground="{DynamicResource DeskInkBrush}"
                                              FontSize="12" />
                                 </Grid>
                               </Border>
@@ -1315,6 +1315,8 @@
                                       Padding="12,0,12,10">
                                 <CheckBox Content="Wichtig"
                                           IsChecked="{Binding IsImportant, Mode=TwoWay}"
+                                          Foreground="{DynamicResource DeskInkBrush}"
+                                          BorderBrush="{DynamicResource DeskInkBrush}"
                                           HorizontalAlignment="Left" />
                               </Border>
                             </Grid>
@@ -1334,7 +1336,7 @@
                               <TextBlock Text="↘"
                                          FontSize="10"
                                          FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         Foreground="{DynamicResource DeskInkBrush}"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"
                                          IsHitTestVisible="False" />

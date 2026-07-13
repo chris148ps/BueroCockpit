@@ -147,7 +147,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
     private string _mobileInboxCleanupStatus = string.Empty;
-    private string _backupStatus = "Noch kein Backup erstellt.";
+    private string _backupStatus = string.Empty;
     private string _storageLocationStatus = "Speicherort nicht geändert.";
     private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
     private string _deskStatus = string.Empty;
@@ -10075,6 +10075,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasBackupEntries));
         OnPropertyChanged(nameof(HasNoBackupEntries));
+
+        if (string.IsNullOrWhiteSpace(BackupStatus))
+        {
+            BackupStatus = BackupEntries.Count switch
+            {
+                0 => "Noch kein Backup erstellt.",
+                1 => "1 Backup verfügbar.",
+                _ => $"{BackupEntries.Count} Backups verfügbar."
+            };
+        }
     }
 
     private static BackupListItem CreateBackupListItem(FileInfo fileInfo)
