@@ -2,11 +2,11 @@
 
 ## Datum/Uhrzeit
 
-2026-07-13 23:45 +0200
+2026-07-13 23:47 +0200
 
 ## Letzter Auftrag
 
-Navigation und persistierte Bearbeitung der Systembereiche und Benutzerkategorien.
+Navigation, persistierte Bearbeitung der Systembereiche und sichere Kategorie-Löschung.
 
 ## Zusammenfassung
 
@@ -21,26 +21,28 @@ Bereiche und Benutzerkategorien sind in der Sidebar getrennt sichtbar. Die siebe
 
 - `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
+- Löschlogik quellgeprüft: direkte Zuordnungen werden in `Offene Aufträge` beziehungsweise den vorhandenen Legacy-Namen `Offene Aufgaben` verschoben; Mehrfachzuordnungen bleiben erhalten.
 - `./scripts/run-macos-bundle.sh Debug`: erfolgreich; Bundle gebaut und mit `open` gestartet.
 - Eine Sichtprüfung mit dem produktiven aktuellen Datenbestand war nicht möglich, weil der konfigurierte OneDrive-Datenpfad nicht verfügbar war.
 
 ## Git-Status
 
 ```text
- M MainWindow.axaml
  M MainWindow.axaml.cs
- M docs/NEXT_TASK.md
-?? docs/codex_journal/2026-07-13_23-45_navigation-systemkategorien.md
+?? docs/codex_journal/2026-07-13_23-47_navigation-kategorie-loeschung.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-a77db0b9c27d36836ce8745c2dde0cd10b887411
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 

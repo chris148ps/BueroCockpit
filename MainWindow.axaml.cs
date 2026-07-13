@@ -7814,6 +7814,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var openOrdersCategory = FindOpenOrdersCategory(category.Id);
+        if (openOrdersCategory is null && assignedTaskCount > 0)
+        {
+            CategoryMessage = "Kategorie kann nicht gelöscht werden: „Offene Aufträge“ wurde nicht gefunden.";
+            return;
+        }
+
+        if (openOrdersCategory is not null)
+        {
+            MoveDirectTasksToCategory(category.Id, openOrdersCategory.Id);
+        }
+
         category.IsVisible = false;
         SaveCategoryAndQueueIpadSnapshot(category, "Kategorie entfernt");
         Categories.Remove(category);
@@ -7827,6 +7839,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie entfernt.";
+    }
+
+    private CategoryItem? FindOpenOrdersCategory(string excludedCategoryId)
+    {
+        return Categories.FirstOrDefault(category =>
+                   !string.Equals(category.Id, excludedCategoryId, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
+               ?? Categories.FirstOrDefault(category =>
+                   !string.Equals(category.Id, excludedCategoryId, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void MoveDirectTasksToCategory(string sourceCategoryId, string targetCategoryId)
+    {
+        foreach (var task in AllTasks.Where(task => TaskBelongsToCategory(task, sourceCategoryId)).ToList())
+        {
+            CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+            EnsureTaskCategoryState(task);
+            task.CategoryIds.RemoveAll(id => string.Equals(id, sourceCategoryId, StringComparison.OrdinalIgnoreCase));
+            if (!task.CategoryIds.Contains(targetCategoryId, StringComparer.OrdinalIgnoreCase))
+            {
+                task.CategoryIds.Insert(0, targetCategoryId);
+            }
+
+            if (string.Equals(task.CategoryId, sourceCategoryId, StringComparison.OrdinalIgnoreCase) ||
+                !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
+            {
+                task.CategoryId = targetCategoryId;
+            }
+
+            EnsureTaskCategoryState(task);
+            task.UpdatedAt = DateTime.Now;
+            SaveTaskAndQueueIpadSnapshot(task);
+            UpdateTaskCategoryPresentation(task);
+        }
     }
 
     private async Task<bool> ShowCategoryDeleteConfirmationDialogAsync(CategoryItem category, int assignedTaskCount)
@@ -7868,7 +7915,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     },
                     new TextBlock
                     {
-                        Text = "Die Kategorie wird nur ausgeblendet. Aufträge und ihre Zuordnungen bleiben erhalten.",
+                        Text = "Die Kategorie wird nur ausgeblendet. Direkt zugeordnete Aufträge werden in „Offene Aufträge“ verschoben; weitere Zuordnungen bleiben erhalten.",
                         TextWrapping = TextWrapping.Wrap
                     },
                     new StackPanel
