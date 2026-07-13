@@ -48,8 +48,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string OffersNavigationId = "__offers";
     private const string MaterialsNavigationId = "__materials";
     private const string AppointmentsNavigationId = "__appointments";
-    private const string CompanyNavigationId = "__company";
-    private const string GridOperatorNavigationId = "__grid_operators";
+    private static readonly string[] EditableSystemNavigationIds =
+    {
+        OverviewCategoryId,
+        OrdersNavigationId,
+        OffersNavigationId,
+        MaterialsNavigationId,
+        AppointmentsNavigationId,
+        DeskCategoryId,
+        SettingsCategoryId
+    };
     private const string OfferWorkflowType = "Angebotsvorgang";
     private const string DirectWorkflowType = "Direktauftrag";
     private static readonly HashSet<string> WorkflowAndLegacyCategoryNames = new(StringComparer.OrdinalIgnoreCase)
@@ -278,6 +286,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public ObservableCollection<CategoryItem> Categories { get; } = new();
     public ObservableCollection<CategoryItem> SidebarCategories { get; } = new();
+    public ObservableCollection<CategoryItem> SidebarSystemCategories { get; } = new();
+    public ObservableCollection<CategoryItem> SidebarUserCategories { get; } = new();
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
     public ObservableCollection<CategoryItem> SystemNavigationCategories { get; } = new();
     public ObservableCollection<CategoryItem> UserCategories { get; } = new();
@@ -1066,10 +1076,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (categoryToPreserve is not null)
                 {
                     SelectedCategory = categoryToPreserve;
-                    if (CategoryList is not null)
-                    {
-                        CategoryList.SelectedItem = categoryToPreserve;
-                    }
+                    SelectCategoryInSidebar(categoryToPreserve);
                 }
             }
             finally
@@ -2267,7 +2274,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void MarkCategoryDirty(CategoryItem? category, string? reason = null)
     {
-        if (category is null || IsSpecialCategory(category))
+        if (category is null || !CanEditCategory(category))
         {
             return;
         }
@@ -2640,10 +2647,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SelectedCategory = startupCategory;
 
-        if (CategoryList is not null)
-        {
-            CategoryList.SelectedItem = startupCategory;
-        }
+        SelectCategoryInSidebar(startupCategory);
 
         ApplySelectedCategoryContent();
         RefreshVisibleTasks();
@@ -3490,11 +3494,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             Categories.Clear();
-            Categories.Add(CreateOverviewCategory());
-            Categories.Add(CreateDeskCategory());
-            foreach (var category in _repository.GetCategories())
+            var persistedCategories = _repository.GetCategories().ToList();
+            foreach (var category in CreateSystemNavigationCategories(persistedCategories))
             {
-                if (IsSpecialCategory(category) ||
+                SubscribeCategoryItem(category);
+                Categories.Add(category);
+            }
+            foreach (var category in persistedCategories)
+            {
+                if (IsSystemNavigationCategory(category) ||
+                    IsLegacyMobileApprovalCategory(category.Name) ||
+                    IsWorkflowOrLegacyCategory(category) ||
                     string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
                     (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
                      !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
@@ -3507,7 +3517,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Categories.Add(category);
             }
             Categories.Add(CreateTrashCategory());
-            Categories.Add(CreateSettingsCategory());
             RebuildCategoryTreeViews();
             RefreshTaskCategories();
 
@@ -6928,7 +6937,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RenameCategory_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
+        if (SelectedCategory is null || !CanEditCategory(SelectedCategory))
         {
             CategoryMessage = "Diese Kategorie kann nicht umbenannt werden.";
             return;
@@ -6974,14 +6983,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void MoveSelectedCategory(int direction)
     {
-        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
+        if (SelectedCategory is null || !CanEditCategory(SelectedCategory))
         {
             CategoryMessage = "Diese Kategorie kann nicht verschoben werden.";
             return;
         }
 
         var movableCategories = Categories
-            .Where(IsUserCategory)
+            .Where(CanEditCategory)
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -7019,7 +7028,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ReorderVisibleCategories(string selectedCategoryId)
     {
         var orderedCategories = Categories
-            .Where(IsUserCategory)
+            .Where(CanEditCategory)
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -7330,7 +7339,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool CanDragCategory(CategoryItem category)
     {
         return !string.IsNullOrWhiteSpace(category.Id) &&
-               !IsSpecialCategory(category) &&
+               CanEditCategory(category) &&
                !IsArchiveCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name);
     }
@@ -7339,8 +7348,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (!CanDragCategory(dragged) ||
             !CanDragCategory(target) ||
-            IsSpecialCategory(dragged) ||
-            IsSpecialCategory(target) ||
             IsArchiveCategory(dragged) ||
             IsArchiveCategory(target) ||
             IsLegacyMobileApprovalCategory(dragged.Name) ||
@@ -7356,7 +7363,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool CanMoveCategoryToRoot(CategoryItem category)
     {
         return CanDragCategory(category) &&
-               !IsSpecialCategory(category) &&
+               CanEditCategory(category) &&
                !IsArchiveCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
                !string.IsNullOrWhiteSpace(category.ParentId);
@@ -7499,7 +7506,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void PersistCategoryTreeChange(IEnumerable<CategoryItem> categories, string message)
     {
         var changed = categories
-            .Where(category => !IsSpecialCategory(category))
+            .Where(CanEditCategory)
             .GroupBy(category => category.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
@@ -7517,13 +7524,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void HideCategory_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedCategory is null || IsSpecialCategory(SelectedCategory))
+        if (SelectedCategory is null || !CanEditCategory(SelectedCategory))
         {
             CategoryMessage = "Diese Kategorie kann nicht entfernt werden.";
             return;
         }
 
-        RemoveCategory(SelectedCategory);
+        _ = RemoveCategoryAsync(SelectedCategory);
     }
 
     private async void OpenArchiveCategory_OnClick(object? sender, RoutedEventArgs e)
@@ -7793,17 +7800,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : value.Value.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("de-DE"));
     }
 
-    private void RemoveCategory(CategoryItem category)
+    private async Task RemoveCategoryAsync(CategoryItem category)
     {
-        if (IsSpecialCategory(category))
+        if (!CanEditCategory(category))
         {
             CategoryMessage = "Diese Kategorie kann nicht entfernt werden.";
             return;
         }
 
-        if (AllTasks.Any(task => !task.IsDeleted && TaskBelongsToCategory(task, category.Id)))
+        var assignedTaskCount = AllTasks.Count(task => TaskBelongsToCategory(task, category.Id));
+        if (assignedTaskCount > 0 && !await ShowCategoryDeleteConfirmationDialogAsync(category, assignedTaskCount))
         {
-            CategoryMessage = "Kategorie enthält noch Aufgaben und wurde nicht entfernt.";
             return;
         }
 
@@ -7820,6 +7827,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie entfernt.";
+    }
+
+    private async Task<bool> ShowCategoryDeleteConfirmationDialogAsync(CategoryItem category, int assignedTaskCount)
+    {
+        var dialog = new Window
+        {
+            Title = "Kategorie löschen",
+            Width = 460,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = ResourceBrush("WindowBackgroundBrush")
+        };
+
+        var result = false;
+        var cancelButton = new Button { Content = "Abbrechen" };
+        var deleteButton = new Button { Content = "Kategorie ausblenden" };
+        cancelButton.Click += (_, _) => dialog.Close();
+        deleteButton.Click += (_, _) => { result = true; dialog.Close(); };
+
+        dialog.Content = new Border
+        {
+            Background = ResourceBrush("SurfaceElevatedBrush"),
+            BorderBrush = ResourceBrush("BorderBrushDark"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(18),
+            Child = new StackPanel
+            {
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = $"„{category.SelectionName}“ enthält {assignedTaskCount} zugeordnete { (assignedTaskCount == 1 ? "Auftrag" : "Aufträge") }.",
+                        FontSize = 17,
+                        FontWeight = FontWeight.Bold,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = "Die Kategorie wird nur ausgeblendet. Aufträge und ihre Zuordnungen bleiben erhalten.",
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 10,
+                        Children = { cancelButton, deleteButton }
+                    }
+                }
+            }
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
     }
 
     private void RefreshCategoryDependentViews()
@@ -7888,7 +7952,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 SelectedCategory = selectedCategory;
                 if (CategoryList is not null)
                 {
-                    CategoryList.SelectedItem = selectedCategory;
+                    SelectCategoryInSidebar(selectedCategory);
                 }
             }
         }
@@ -8169,7 +8233,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (IsSpecialCategory(category))
+        if (!CanEditCategory(category))
         {
             return;
         }
@@ -8189,14 +8253,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RenameCategory(category, NormalizeCategoryName(newName));
     }
 
-    private void CategoryRemoveFromSettings_OnClick(object? sender, RoutedEventArgs e)
+    private async void CategoryRemoveFromSettings_OnClick(object? sender, RoutedEventArgs e)
     {
         if (GetCategoryFromSender(sender) is not { } category)
         {
             return;
         }
 
-        RemoveCategory(category);
+        await RemoveCategoryAsync(category);
     }
 
     private static CategoryItem? GetCategoryFromSender(object? sender)
@@ -8287,13 +8351,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return await result.Task;
     }
 
-    private void CategoryDeleteFromMenu_OnClick(object? sender, RoutedEventArgs e)
+    private async void CategoryDeleteFromMenu_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (GetCategoryFromSender(sender) is { } category && !IsSpecialCategory(category))
+        if (GetCategoryFromSender(sender) is { } category && CanEditCategory(category))
         {
             SelectedCategory = category;
             CategoryEditorName = category.Name;
-            RemoveCategory(category);
+            await RemoveCategoryAsync(category);
         }
     }
 
@@ -10728,7 +10792,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             SelectedCategory = category;
-            CategoryList.SelectedItem = category;
+            SelectCategoryInSidebar(category);
             RefreshVisibleTasks();
             SelectedTask = VisibleTasks.FirstOrDefault(item => item.Id == task.Id);
             TaskList.SelectedItem = SelectedTask;
@@ -10821,10 +10885,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             SelectedCategory = category;
-            if (CategoryList is not null)
-            {
-                CategoryList.SelectedItem = category;
-            }
+            SelectCategoryInSidebar(category);
 
             SelectedTaskCategory = category;
             RefreshVisibleTasks();
@@ -11517,7 +11578,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CategoryManagementCategories.Clear();
-        foreach (var category in UserCategories)
+        foreach (var category in Categories.Where(CanEditCategory))
         {
             CategoryManagementCategories.Add(category);
         }
@@ -11595,21 +11656,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SidebarCategories.Clear();
+        SidebarSystemCategories.Clear();
+        SidebarUserCategories.Clear();
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OverviewCategoryId));
-        AddSidebarNavigationItem(CreateNavigationCategory(OrdersNavigationId, "Aufträge", 1));
-        AddSidebarNavigationItem(CreateNavigationCategory(OffersNavigationId, "Angebote", 2));
-        AddSidebarNavigationItem(CreateNavigationCategory(MaterialsNavigationId, "Material", 3));
-        AddSidebarNavigationItem(CreateNavigationCategory(AppointmentsNavigationId, "Termine", 4));
-        AddSidebarNavigationItem(CreateNavigationCategory(CompanyNavigationId, "Firma", 5));
-        AddSidebarNavigationItem(CreateNavigationCategory(GridOperatorNavigationId, "Netzbetreiber", 6));
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OrdersNavigationId));
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OffersNavigationId));
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == MaterialsNavigationId));
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AppointmentsNavigationId));
         if (ShowDesktopSetting)
-        {
             AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == DeskCategoryId));
-        }
 
         foreach (var category in visibleSidebarCategories)
         {
-            SidebarCategories.Add(category);
+            AddSidebarUserCategory(category);
         }
 
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == SettingsCategoryId));
@@ -11617,13 +11676,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void AddSidebarNavigationItem(CategoryItem? category)
     {
-        if (category is null)
+        if (category is null || !category.IsVisible)
         {
             return;
         }
 
         PrepareCategoryDisplay(category, 0, category.Name, hasChildren: false);
         SidebarCategories.Add(category);
+        SidebarSystemCategories.Add(category);
+    }
+
+    private void AddSidebarUserCategory(CategoryItem category)
+    {
+        SidebarCategories.Add(category);
+        SidebarUserCategories.Add(category);
+    }
+
+    private void SelectCategoryInSidebar(CategoryItem category)
+    {
+        if (CategoryList is not null && SidebarSystemCategories.Contains(category))
+        {
+            CategoryList.SelectedItem = category;
+        }
+
+        if (UserCategoryList is not null && SidebarUserCategories.Contains(category))
+        {
+            UserCategoryList.SelectedItem = category;
+        }
     }
 
     private static CategoryItem CreateNavigationCategory(string id, string name, int sortOrder) => new()
@@ -11634,6 +11713,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Color = "#E6F0FF",
         IsVisible = true
     };
+
+    private static IEnumerable<CategoryItem> CreateSystemNavigationCategories(IReadOnlyCollection<CategoryItem> persistedCategories)
+    {
+        var defaults = new[]
+        {
+            CreateNavigationCategory(OverviewCategoryId, OverviewCategoryName, int.MinValue),
+            CreateNavigationCategory(OrdersNavigationId, "Aufträge", int.MinValue + 1),
+            CreateNavigationCategory(OffersNavigationId, "Angebote", int.MinValue + 2),
+            CreateNavigationCategory(MaterialsNavigationId, "Material", int.MinValue + 3),
+            CreateNavigationCategory(AppointmentsNavigationId, "Termine", int.MinValue + 4),
+            CreateDeskCategory(),
+            CreateSettingsCategory()
+        };
+
+        foreach (var category in defaults)
+        {
+            var persisted = persistedCategories.FirstOrDefault(item =>
+                string.Equals(item.Id, category.Id, StringComparison.OrdinalIgnoreCase));
+            if (persisted is not null)
+            {
+                category.Name = persisted.Name;
+                category.ParentId = persisted.ParentId;
+                category.SortOrder = persisted.SortOrder;
+                category.Color = persisted.Color;
+                category.IsVisible = persisted.IsVisible;
+            }
+
+            yield return category;
+        }
+    }
 
     private static void PrepareCategoryDisplay(CategoryItem category, int level, string selectionName, bool hasChildren)
     {
@@ -11740,10 +11849,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SelectedCategory = startupCategory;
 
-        if (CategoryList is not null)
-        {
-            CategoryList.SelectedItem = startupCategory;
-        }
+        SelectCategoryInSidebar(startupCategory);
 
         ApplySelectedCategoryContent();
         RefreshVisibleTasks();
@@ -12001,6 +12107,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return IsSystemNavigationCategory(category) ||
                IsLegacyMobileApprovalCategory(category.Name);
+    }
+
+    private static bool CanEditCategory(CategoryItem category)
+    {
+        return (!IsSystemNavigationCategory(category) ||
+                EditableSystemNavigationIds.Contains(category.Id, StringComparer.OrdinalIgnoreCase)) &&
+               !IsLegacyMobileApprovalCategory(category.Name) &&
+               !IsArchiveCategory(category);
     }
 
     private static bool IsSystemNavigationCategory(CategoryItem category)

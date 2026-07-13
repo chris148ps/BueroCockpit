@@ -2,12 +2,13 @@
 
 ## Ziel
 
-Die korrigierte Kategorienanzeige nach Wiederverfügbarkeit des OneDrive-Datenordners einmal mit dem aktuellen produktiven Datenbestand abnehmen.
+Die neue Navigation mit dem aktuellen Datenbestand manuell abnehmen.
 
 ## Geplante Schritte
 
-1. Desktop mit dem konfigurierten Datenordner starten und die Sidebar sowie das Auftragsdetail öffnen.
-2. Eine echte Unterkategorie prüfen, zuordnen, speichern und nach Neustart erneut kontrollieren.
+1. Desktop mit dem konfigurierten Datenordner starten.
+2. Bereiche, Benutzerkategorien, Hierarchie und Auftragsauswahl vergleichen.
+3. Eine isolierte Unterkategorie verschachteln, zuordnen, speichern und nach Neustart prüfen.
 
 ## Vermutlich betroffene Dateien
 
@@ -15,4 +16,4 @@ Die korrigierte Kategorienanzeige nach Wiederverfügbarkeit des OneDrive-Datenor
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktive Kategorien, IDs, ParentId, Reihenfolge, bestehende Auftragszuordnungen, Datenbankdateien, Releases, Tags, Versionen sowie Netzwerk- und Synclogik.
+- Produktive Datenbank, Kategorien, IDs, ParentId, Reihenfolge, bestehende Auftragszuordnungen, Releases, Tags, Versionen sowie Netzwerk- und Synclogik.

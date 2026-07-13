@@ -2,32 +2,27 @@
 
 ## Datum/Uhrzeit
 
-2026-07-13 21:18 +0200
+2026-07-13 23:45 +0200
 
 ## Letzter Auftrag
 
-Auftragsdetail: Kategorienamen, Hierarchie und Legacyfilter korrigieren.
+Navigation und persistierte Bearbeitung der Systembereiche und Benutzerkategorien.
 
 ## Zusammenfassung
 
-Die Auftragsdetailauswahl verwendet jetzt den enthaltenen Kategorie-Wrapper und kann vollständige Hierarchiepfade anzeigen. Legacy-Workflowkategorien werden nicht mehr als Checkbox, Chip oder linke Benutzerkategorie dargestellt. Persistenz und bestehende Zuordnungen bleiben unangetastet.
+Bereiche und Benutzerkategorien sind in der Sidebar getrennt sichtbar. Die sieben Bereiche werden anhand reservierter IDs persistenzfähig geladen und können über die vorhandene Kategorienverwaltung bearbeitet werden. Löschungen bleiben datenbewusst und reversibel auf UI-Ebene.
 
 ## Geänderte Dateien
 
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml`
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
-- `/Users/christian/AppProjekte/BueroCockpit/docs/codex_journal/2026-07-13_21-17_category-detail-filter.md`
-- `/Users/christian/AppProjekte/BueroCockpit/docs/codex_last_run.md`
-- `/Users/christian/AppProjekte/BueroCockpit/docs/NEXT_TASK.md`
 
 ## Tests
 
-- `git pull --ff-only origin main`: erfolgreich, bereits aktuell.
-- `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `git diff --check`: erfolgreich.
-- Reale Bundle-Prüfung `./scripts/run-macos-bundle.sh Debug`: erfolgreich; die Desktop-App wurde geöffnet.
-- Quellprüfung: Checkbox bindet an `Category.SelectionName`; Sidebar, Auswahl und Chips verwenden `IsUserCategory`; `bestellt`, `erstellen`, `gesendet`, `terminieren`, alte `Termine` und `Erinnerung` sind in der gemeinsamen Legacy-Fallbackliste.
-- Die produktive Datenbank im aktuell konfigurierten OneDrive-Pfad war während dieses Laufs nicht verfügbar. Eine konkrete Sichtprüfung mit aktuellem produktivem Datenbestand und ein Speichern-/Neustarttest konnten deshalb nicht ehrlich bestätigt werden.
+- `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
+- `./scripts/run-macos-bundle.sh Debug`: erfolgreich; Bundle gebaut und mit `open` gestartet.
+- Eine Sichtprüfung mit dem produktiven aktuellen Datenbestand war nicht möglich, weil der konfigurierte OneDrive-Datenpfad nicht verfügbar war.
 
 ## Git-Status
 
@@ -35,25 +30,29 @@ Die Auftragsdetailauswahl verwendet jetzt den enthaltenen Kategorie-Wrapper und 
  M MainWindow.axaml
  M MainWindow.axaml.cs
  M docs/NEXT_TASK.md
-?? docs/codex_journal/2026-07-13_21-18_category-detail-filter.md
+?? docs/codex_journal/2026-07-13_23-45_navigation-systemkategorien.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-a71ca7c5e77374281622c6057e140d317c01e0f9
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Nach Verfügbarkeit des konfigurierten Datenordners muss eine kurze manuelle Abnahme mit realen Kategorien erfolgen: `Firma / Retouren`, keine leeren Checkboxen, kein `bestellt`, kein doppeltes `Termine`, keine alte `Erinnerung`, Speichern und Neustart.
+- Die manuelle Sichtprüfung mit dem produktiven OneDrive-Datenbestand sowie Speichern und Neustart mit einem echten Testauftrag müssen nach Verfügbarkeit des Datenordners erfolgen.
 
 ## Empfohlener nächster Schritt
 
-Die korrigierte Kategorienanzeige nach Wiederverfügbarkeit des OneDrive-Datenordners einmal mit dem aktuellen produktiven Datenbestand abnehmen.
+Die neue Navigation mit dem aktuellen Datenbestand manuell abnehmen.
 
-1. Desktop mit dem konfigurierten Datenordner starten und die Sidebar sowie das Auftragsdetail öffnen.
-2. Eine echte Unterkategorie prüfen, zuordnen, speichern und nach Neustart erneut kontrollieren.
+1. Desktop mit dem konfigurierten Datenordner starten.
+2. Bereiche, Benutzerkategorien, Hierarchie und Auftragsauswahl vergleichen.
+3. Eine isolierte Unterkategorie verschachteln, zuordnen, speichern und nach Neustart prüfen.
