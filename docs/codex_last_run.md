@@ -39,16 +39,13 @@ Die Auftragsdetailauswahl verwendet jetzt den enthaltenen Kategorie-Wrapper und 
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+a71ca7c5e77374281622c6057e140d317c01e0f9
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
