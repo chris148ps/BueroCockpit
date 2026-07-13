@@ -33,16 +33,13 @@ Die Sidebar ist eindeutig vertikal aufgebaut. Systembereiche stehen vollständig
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+9f7d1438137a3fda96ae9eecacc9f2bf502bbd62
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
