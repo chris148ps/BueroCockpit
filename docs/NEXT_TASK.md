@@ -2,13 +2,13 @@
 
 ## Ziel
 
-Die Sidebar mit dem aktuellen produktiven Datenbestand visuell abnehmen.
+Die gemeinsame Sidebar mit dem aktuellen Datenbestand visuell abnehmen.
 
 ## Geplante Schritte
 
 1. Bundle mit aktuellem Datenordner öffnen.
-2. Viele Benutzerkategorien und lange Namen prüfen.
-3. System- und Benutzeraktionen sowie vertikales Scrollen prüfen.
+2. Lange Benutzerkategorien und viele Einträge prüfen.
+3. Scrollbereich, fixierte Einstellungen und Bearbeitungsaktionen prüfen.
 
 ## Vermutlich betroffene Dateien
 
@@ -16,4 +16,4 @@ Die Sidebar mit dem aktuellen produktiven Datenbestand visuell abnehmen.
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- `MainWindow.axaml.cs`, Datenbank, Kategorien, IDs, ParentId, Reihenfolge, Auftragszuordnungen, Produktivdaten, Releases, Tags und Versionen.
+- Produktive Daten, Kategorien, IDs, ParentId, Reihenfolge, Auftragszuordnungen, Releases, Tags und Versionen.

@@ -48,16 +48,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string OffersNavigationId = "__offers";
     private const string MaterialsNavigationId = "__materials";
     private const string AppointmentsNavigationId = "__appointments";
-    private static readonly string[] EditableSystemNavigationIds =
-    {
-        OverviewCategoryId,
-        OrdersNavigationId,
-        OffersNavigationId,
-        MaterialsNavigationId,
-        AppointmentsNavigationId,
-        DeskCategoryId,
-        SettingsCategoryId
-    };
     private const string OfferWorkflowType = "Angebotsvorgang";
     private const string DirectWorkflowType = "Direktauftrag";
     private static readonly HashSet<string> WorkflowAndLegacyCategoryNames = new(StringComparer.OrdinalIgnoreCase)
@@ -288,6 +278,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<CategoryItem> SidebarCategories { get; } = new();
     public ObservableCollection<CategoryItem> SidebarSystemCategories { get; } = new();
     public ObservableCollection<CategoryItem> SidebarUserCategories { get; } = new();
+    public ObservableCollection<CategoryItem> SidebarSettingsCategories { get; } = new();
     public ObservableCollection<CategoryItem> TaskCategories { get; } = new();
     public ObservableCollection<CategoryItem> SystemNavigationCategories { get; } = new();
     public ObservableCollection<CategoryItem> UserCategories { get; } = new();
@@ -11705,6 +11696,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SidebarCategories.Clear();
         SidebarSystemCategories.Clear();
         SidebarUserCategories.Clear();
+        SidebarSettingsCategories.Clear();
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OverviewCategoryId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OrdersNavigationId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OffersNavigationId));
@@ -11730,7 +11722,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         PrepareCategoryDisplay(category, 0, category.Name, hasChildren: false);
         SidebarCategories.Add(category);
-        SidebarSystemCategories.Add(category);
+        if (string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase))
+        {
+            SidebarSettingsCategories.Add(category);
+        }
+        else
+        {
+            SidebarSystemCategories.Add(category);
+        }
     }
 
     private void AddSidebarUserCategory(CategoryItem category)
@@ -11749,6 +11748,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (UserCategoryList is not null && SidebarUserCategories.Contains(category))
         {
             UserCategoryList.SelectedItem = category;
+        }
+
+        if (SettingsCategoryList is not null && SidebarSettingsCategories.Contains(category))
+        {
+            SettingsCategoryList.SelectedItem = category;
         }
     }
 
@@ -12158,8 +12162,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool CanEditCategory(CategoryItem category)
     {
-        return (!IsSystemNavigationCategory(category) ||
-                EditableSystemNavigationIds.Contains(category.Id, StringComparer.OrdinalIgnoreCase)) &&
+        return !IsSystemNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
                !IsArchiveCategory(category);
     }
