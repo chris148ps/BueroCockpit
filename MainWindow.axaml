@@ -556,8 +556,8 @@
             BorderThickness="0,0,1,0"
             Padding="18"
             AutomationProperties.LandmarkType="Navigation">
-      <DockPanel LastChildFill="True">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,20" Margin="0,0,0,18">
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,20" Margin="0,0,0,18">
           <StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="BüroCockpit" FontSize="24" FontWeight="SemiBold" />
@@ -597,14 +597,10 @@
           </Grid>
         </Grid>
 
-        <Grid DockPanel.Dock="Top"
+        <Grid Grid.Row="1"
               ColumnDefinitions="*"
               Margin="0,0,0,8"
-              Background="{Binding CategoryRootDropBackground}"
-              DragDrop.AllowDrop="True"
-              DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
-              DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
-              DragDrop.Drop="CategoryRootDropZone_OnDrop">
+              Background="{DynamicResource SidebarBackgroundBrush}">
           <Border BorderBrush="{Binding CategoryRootDropBorderBrush}"
                   BorderThickness="0,0,0,2"
                   Padding="0,0,0,4">
@@ -614,24 +610,18 @@
                          FontWeight="SemiBold"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1"
-                         Text="als Hauptkategorie"
-                         FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         IsVisible="{Binding IsCategoryRootDropTarget}"
-                         VerticalAlignment="Center" />
             </Grid>
           </Border>
         </Grid>
 
         <ListBox x:Name="CategoryList"
+                 Grid.Row="2"
                  HorizontalAlignment="Stretch"
                  AutomationProperties.Name="Bereiche"
                  AutomationProperties.AutomationId="SystemNavigationList"
-                 DragDrop.AllowDrop="True"
-                 DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
-                 DragDrop.Drop="CategoryRootDropZone_OnDrop"
                  ItemsSource="{Binding SidebarSystemCategories}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                  SelectedItem="{Binding SelectedCategory}"
                  SelectionChanged="CategoryList_OnSelectionChanged">
           <ListBox.ItemTemplate>
@@ -643,41 +633,18 @@
                       Background="{DynamicResource SurfaceBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
-                      DragDrop.AllowDrop="True"
-                      DragDrop.DragOver="CategorySettingsItem_OnDragOver"
-                      DragDrop.DragLeave="CategoryDropZone_OnDragLeave"
-                      DragDrop.Drop="CategorySettingsItem_OnDrop"
-                      PointerPressed="CategorySettingsItem_OnPointerPressed"
-                      PointerMoved="CategorySettingsItem_OnPointerMoved"
-                      DoubleTapped="CategoryItemFrame_OnDoubleTapped">
-                <Border.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="Umbenennen" Click="CategoryRenameFromMenu_OnClick" />
-                    <MenuItem Header="Löschen" Click="CategoryDeleteFromMenu_OnClick" />
-                  </ContextMenu>
-                </Border.ContextMenu>
-                <Grid MinWidth="200">
-                  <Border Classes="CategoryDropLine"
-                          Margin="{Binding DropLineMargin}"
-                          VerticalAlignment="Top"
-                          IsVisible="{Binding IsDropBefore}" />
-                  <Border Classes="CategoryDropLine"
-                          Margin="{Binding DropLineMargin}"
-                          VerticalAlignment="Bottom"
-                          IsVisible="{Binding IsDropAfter}" />
-                  <Border Classes="CategoryDropInside"
-                          IsVisible="{Binding IsDropInside}" />
+                      >
+                <Grid MinWidth="0">
                   <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                     <Border Width="{Binding SidebarIndent}" />
                     <TextBlock Grid.Column="1"
                                Classes="CategoryExpandGlyph"
                                Text="{Binding ExpandGlyph}"
-                               Cursor="Hand"
-                               PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
+                               />
                     <TextBlock Grid.Column="2"
                                Text="{Binding DisplayName}"
                                FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap"
                                VerticalAlignment="Center" />
                     <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="7,2">
                       <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -689,7 +656,7 @@
           </ListBox.ItemTemplate>
         </ListBox>
 
-        <Grid DockPanel.Dock="Top"
+        <Grid Grid.Row="3"
               ColumnDefinitions="*"
               Margin="0,10,0,8"
               Background="{Binding CategoryRootDropBackground}"
@@ -714,9 +681,12 @@
         </Grid>
 
         <ListBox x:Name="UserCategoryList"
+                 Grid.Row="4"
                  HorizontalAlignment="Stretch"
                  AutomationProperties.Name="Kategorien"
                  ItemsSource="{Binding SidebarUserCategories}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                  SelectedItem="{Binding SelectedCategory}"
                  SelectionChanged="CategoryList_OnSelectionChanged"
                  DragDrop.AllowDrop="True"
@@ -747,7 +717,7 @@
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                   <Border Width="{Binding SidebarIndent}" />
                   <TextBlock Grid.Column="1" Classes="CategoryExpandGlyph" Text="{Binding ExpandGlyph}" PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
-                  <TextBlock Grid.Column="2" Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="2" Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                   <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="7,2">
                     <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
@@ -756,7 +726,7 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-      </DockPanel>
+      </Grid>
     </Border>
 
     <Border Grid.Column="1"

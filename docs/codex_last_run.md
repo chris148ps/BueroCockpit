@@ -2,53 +2,56 @@
 
 ## Datum/Uhrzeit
 
-2026-07-13 23:47 +0200
+2026-07-14 00:40 +0200
 
 ## Letzter Auftrag
 
-Navigation, persistierte Bearbeitung der Systembereiche und sichere Kategorie-Löschung.
+Sidebar vertikal strukturieren und Systembereiche schützen.
 
 ## Zusammenfassung
 
-Bereiche und Benutzerkategorien sind in der Sidebar getrennt sichtbar. Die sieben Bereiche werden anhand reservierter IDs persistenzfähig geladen und können über die vorhandene Kategorienverwaltung bearbeitet werden. Löschungen bleiben datenbewusst und reversibel auf UI-Ebene.
+Die Sidebar ist eindeutig vertikal aufgebaut. Systembereiche stehen vollständig oben, Benutzerkategorien darunter und nutzen den restlichen Platz mit vertikalem Scrollen. Bearbeitungsfunktionen bleiben ausschließlich bei Benutzerkategorien.
 
 ## Geänderte Dateien
 
 - `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml`
-- `/Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs`
 
 ## Tests
 
+- `git pull --ff-only origin main`: erfolgreich, bereits aktuell.
 - `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
-- Löschlogik quellgeprüft: direkte Zuordnungen werden in `Offene Aufträge` beziehungsweise den vorhandenen Legacy-Namen `Offene Aufgaben` verschoben; Mehrfachzuordnungen bleiben erhalten.
 - `./scripts/run-macos-bundle.sh Debug`: erfolgreich; Bundle gebaut und mit `open` gestartet.
-- Eine Sichtprüfung mit dem produktiven aktuellen Datenbestand war nicht möglich, weil der konfigurierte OneDrive-Datenpfad nicht verfügbar war.
+- Keine Datenbank-, Kategorie- oder Auftragszuordnungsänderungen vorgenommen.
 
 ## Git-Status
 
 ```text
- M MainWindow.axaml.cs
-?? docs/codex_journal/2026-07-13_23-47_navigation-kategorie-loeschung.md
+ M MainWindow.axaml
+ M docs/NEXT_TASK.md
+?? docs/codex_journal/2026-07-14_00-40_sidebar-vertikal-systembereiche.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-888f0e9e7dac6ce4b7ea5b37069c05359abe3229
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Die manuelle Sichtprüfung mit dem produktiven OneDrive-Datenbestand sowie Speichern und Neustart mit einem echten Testauftrag müssen nach Verfügbarkeit des Datenordners erfolgen.
+- Eine pixelgenaue Sichtprüfung mit dem produktiven Datenbestand war in dieser Umgebung nicht möglich; der reale Bundle-Start wurde erfolgreich ausgeführt.
 
 ## Empfohlener nächster Schritt
 
-Die neue Navigation mit dem aktuellen Datenbestand manuell abnehmen.
+Die Sidebar mit dem aktuellen produktiven Datenbestand visuell abnehmen.
 
-1. Desktop mit dem konfigurierten Datenordner starten.
-2. Bereiche, Benutzerkategorien, Hierarchie und Auftragsauswahl vergleichen.
-3. Eine isolierte Unterkategorie verschachteln, zuordnen, speichern und nach Neustart prüfen.
+1. Bundle mit aktuellem Datenordner öffnen.
+2. Viele Benutzerkategorien und lange Namen prüfen.
+3. System- und Benutzeraktionen sowie vertikales Scrollen prüfen.
