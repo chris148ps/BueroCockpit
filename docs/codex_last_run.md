@@ -33,16 +33,13 @@ Bereiche und Benutzerkategorien sind in der Sidebar getrennt sichtbar. Die siebe
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+888f0e9e7dac6ce4b7ea5b37069c05359abe3229
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
