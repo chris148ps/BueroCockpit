@@ -39,16 +39,13 @@ Navigation, Kategorienverwaltung und Auftragsauswahl verwenden nun dieselbe gefi
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+550bf5906e0fb2234532f57039591684b135ad16
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
