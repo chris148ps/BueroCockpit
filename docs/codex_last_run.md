@@ -39,16 +39,13 @@ Systembereiche, echte Benutzerkategorien, Unterkategorien und Einstellungen beha
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+81a0e0f17fec76439cc17a292eae5fade8ea8c94
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
