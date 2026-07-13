@@ -2793,7 +2793,7 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <CheckBox Content="{Binding SelectionName}"
+                  <CheckBox Content="{Binding Category.SelectionName}"
                             IsChecked="{Binding IsSelected}"
                             Margin="0,0,16,8"
                             Click="TaskCategoryCheckBox_OnChanged" />

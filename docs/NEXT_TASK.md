@@ -2,17 +2,17 @@
 
 ## Ziel
 
-Die Kategorie- und Schreibtischabläufe in der normalen Desktop-Benutzerumgebung kurz manuell gegen reale Arbeitsdaten abnehmen.
+Die korrigierte Kategorienanzeige nach Wiederverfügbarkeit des OneDrive-Datenordners einmal mit dem aktuellen produktiven Datenbestand abnehmen.
 
 ## Geplante Schritte
 
-1. Schreibtisch ein- und ausschalten, neu starten und die Rückkehr zur Übersicht beim Ausblenden prüfen.
-2. Eine vorhandene Benutzerkategorie verschachteln und die Darstellung in Navigation, Einstellungen und Auftragsdetail vergleichen.
+1. Desktop mit dem konfigurierten Datenordner starten und die Sidebar sowie das Auftragsdetail öffnen.
+2. Eine echte Unterkategorie prüfen, zuordnen, speichern und nach Neustart erneut kontrollieren.
 
 ## Vermutlich betroffene Dateien
 
-- Keine Änderung erwartet; bei Befund `MainWindow.axaml` und `MainWindow.axaml.cs`.
+- Keine Änderung erwartet; bei einem Befund `MainWindow.axaml` und `MainWindow.axaml.cs`.
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktivdaten, Kategorien-IDs, ParentId, bestehende Auftragszuordnungen, Releases, Tags, Versionen sowie Netzwerk- und Synclogik.
+- Produktive Kategorien, IDs, ParentId, Reihenfolge, bestehende Auftragszuordnungen, Datenbankdateien, Releases, Tags, Versionen sowie Netzwerk- und Synclogik.

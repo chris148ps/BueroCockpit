@@ -58,8 +58,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         "Angebot",
         "Material",
         "Termin",
-        "Firma",
-        "Netzbetreiber",
         "Wartet auf Kunde",
         "erstellen",
         "gesendet",
@@ -68,10 +66,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         "terminieren",
         "terminiert",
         "zum terminieren gegeben",
-        "Retouren",
-        "Lager",
-        "SH-Netz",
-        "Marktstammdatenregister"
+        "Termine",
+        "Erinnerung",
+        "Erinnerungen"
     };
     private const string SortFieldDate = "Datum";
     private const string SortFieldName = "Name";
@@ -11428,7 +11425,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var ids = GetTaskCategoryIds(task);
 
         return ids
-            .Select(id => Categories.FirstOrDefault(category => string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase))?.Name)
+            .Select(id => Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase) &&
+                IsUserCategory(category)))
+            .Select(category => category?.SelectionName)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .Cast<string>()
@@ -11445,9 +11445,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private string GetTaskCategoryNames(TaskItem task)
     {
-        var categoryIds = GetTaskCategoryIds(task);
-        var names = categoryIds
-            .Select(id => Categories.FirstOrDefault(category => string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase))?.Name)
+        var names = GetTaskCategoryIds(task)
+            .Select(id => Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase) &&
+                IsUserCategory(category))?.SelectionName)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .ToList();
