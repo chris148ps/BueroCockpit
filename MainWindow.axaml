@@ -400,7 +400,7 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem">
       <Setter Property="Padding" Value="0" />
       <Setter Property="Margin" Value="0,2,8,2" />
       <Setter Property="Background" Value="Transparent" />
@@ -419,25 +419,25 @@
         </ControlTemplate>
       </Setter>
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:selected">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:selected">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:pointerover">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:pointerover">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
       <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:selected Border.CategoryItemFrame">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:selected Border.CategoryItemFrame">
       <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
       <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
@@ -623,13 +623,13 @@
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="0">
         <ListBox x:Name="CategoryList"
+                 Classes="SidebarCategoryList"
                  HorizontalAlignment="Stretch"
                  AutomationProperties.Name="Systembereiche"
                  AutomationProperties.AutomationId="SystemNavigationList"
                  ItemsSource="{Binding SidebarSystemCategories}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                 SelectedItem="{Binding SelectedCategory}"
                  SelectionChanged="CategoryList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
@@ -664,12 +664,12 @@
         </ListBox>
 
         <ListBox x:Name="UserCategoryList"
+                 Classes="SidebarCategoryList"
                  HorizontalAlignment="Stretch"
                  AutomationProperties.Name="Kategorien"
                  ItemsSource="{Binding SidebarUserCategories}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                 SelectedItem="{Binding SelectedCategory}"
                  SelectionChanged="CategoryList_OnSelectionChanged"
                  DragDrop.AllowDrop="True"
                  DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
@@ -717,11 +717,11 @@
                 BorderBrush="{DynamicResource BorderBrushDark}"
                 BorderThickness="0,1,0,0">
           <ListBox x:Name="SettingsCategoryList"
+                   Classes="SidebarCategoryList"
                    AutomationProperties.Name="Einstellungen"
                    ItemsSource="{Binding SidebarSettingsCategories}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                   SelectedItem="{Binding SelectedCategory}"
                    SelectionChanged="CategoryList_OnSelectionChanged">
             <ListBox.ItemTemplate>
               <DataTemplate>

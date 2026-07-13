@@ -580,7 +580,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => _selectedCategory;
         set
         {
-            if (_selectedCategory == value || (_selectedCategory is not null && value is not null && _selectedCategory.Id == value.Id))
+            if (ReferenceEquals(_selectedCategory, value))
             {
                 return;
             }
@@ -3005,6 +3005,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (addedCount > 0)
         {
             SelectedCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId) ?? SelectedCategory;
+            if (SelectedCategory is not null)
+            {
+                SelectCategoryInSidebar(SelectedCategory);
+            }
             ApplySelectedCategoryContent();
         }
 
@@ -3536,6 +3540,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 : null;
             SelectedCategory ??= Categories.FirstOrDefault(c => c.Id == OverviewCategoryId)
                 ?? Categories.FirstOrDefault();
+            if (SelectedCategory is not null)
+            {
+                SelectCategoryInSidebar(SelectedCategory);
+            }
             ApplySelectedCategoryContent();
 
             if (!string.IsNullOrWhiteSpace(selectedTaskId) &&
@@ -6585,6 +6593,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         AttachmentEditStatus = $"Anhang auf den Schreibtisch gelegt: {item.FileName}.";
         SelectedCategory = Categories.FirstOrDefault(category => category.Id == DeskCategoryId) ?? SelectedCategory;
+        if (SelectedCategory is not null)
+        {
+            SelectCategoryInSidebar(SelectedCategory);
+        }
         ApplySelectedCategoryContent();
     }
 
@@ -7044,6 +7056,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ?? Categories.FirstOrDefault();
 
         SelectedCategory = selectedCategory;
+        if (SelectedCategory is not null)
+        {
+            SelectCategoryInSidebar(SelectedCategory);
+        }
 
         ApplySelectedCategoryContent();
         UpdateCategoryCounts();
@@ -7825,6 +7841,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             string.Equals(SelectedCategory.Id, category.Id, StringComparison.OrdinalIgnoreCase))
         {
             SelectedCategory = GetDefaultStartupCategory() ?? Categories.FirstOrDefault();
+            if (SelectedCategory is not null)
+            {
+                SelectCategoryInSidebar(SelectedCategory);
+            }
             ApplySelectedCategoryContent();
         }
 
@@ -10759,6 +10779,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (sender is not ListBox { SelectedItem: CategoryItem selectedCategory })
+        {
+            return;
+        }
+
+        var category = Categories.FirstOrDefault(item =>
+                           string.Equals(item.Id, selectedCategory.Id, StringComparison.OrdinalIgnoreCase))
+                       ?? selectedCategory;
+
+        var wasSuppressingCategorySelectionChanged = _suppressCategorySelectionChanged;
+        _suppressCategorySelectionChanged = true;
+        try
+        {
+            SelectedCategory = category;
+            SetSidebarListSelections(category.Id);
+        }
+        finally
+        {
+            _suppressCategorySelectionChanged = wasSuppressingCategorySelectionChanged;
+        }
+
         ApplySelectedCategoryContent();
     }
 
@@ -11711,6 +11752,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == SettingsCategoryId));
+
+        if (SelectedCategory is not null && SidebarCategories.Any(category =>
+                string.Equals(category.Id, SelectedCategory.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            SelectCategoryInSidebar(SelectedCategory);
+        }
     }
 
     private void AddSidebarNavigationItem(CategoryItem? category)
@@ -11740,20 +11787,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SelectCategoryInSidebar(CategoryItem category)
     {
-        if (CategoryList is not null && SidebarSystemCategories.Contains(category))
+        var wasSuppressingCategorySelectionChanged = _suppressCategorySelectionChanged;
+        _suppressCategorySelectionChanged = true;
+        try
         {
-            CategoryList.SelectedItem = category;
+            SetSidebarListSelections(category.Id);
         }
+        finally
+        {
+            _suppressCategorySelectionChanged = wasSuppressingCategorySelectionChanged;
+        }
+    }
 
-        if (UserCategoryList is not null && SidebarUserCategories.Contains(category))
-        {
-            UserCategoryList.SelectedItem = category;
-        }
-
-        if (SettingsCategoryList is not null && SidebarSettingsCategories.Contains(category))
-        {
-            SettingsCategoryList.SelectedItem = category;
-        }
+    private void SetSidebarListSelections(string categoryId)
+    {
+        CategoryList.SelectedItem = SidebarSystemCategories.FirstOrDefault(category =>
+            string.Equals(category.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+        UserCategoryList.SelectedItem = SidebarUserCategories.FirstOrDefault(category =>
+            string.Equals(category.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+        SettingsCategoryList.SelectedItem = SidebarSettingsCategories.FirstOrDefault(category =>
+            string.Equals(category.Id, categoryId, StringComparison.OrdinalIgnoreCase));
     }
 
     private static CategoryItem CreateNavigationCategory(string id, string name, int sortOrder) => new()

@@ -2,18 +2,18 @@
 
 ## Ziel
 
-Die gemeinsame Sidebar mit dem aktuellen Datenbestand visuell abnehmen.
+Die korrigierte Sidebar-Auswahl einmal manuell mit gewährtem macOS-Hilfszugriff sichtbar abnehmen.
 
 ## Geplante Schritte
 
-1. Bundle mit aktuellem Datenordner öffnen.
-2. Lange Benutzerkategorien und viele Einträge prüfen.
-3. Scrollbereich, fixierte Einstellungen und Bearbeitungsaktionen prüfen.
+1. Übersicht, Systembereiche, Firma, Netzbetreiber und Unterkategorien anklicken und die blaue Auswahl prüfen.
+2. Kategorien auf- und zuklappen und die unveränderte Auswahl prüfen.
+3. Einstellungen öffnen und anschließend zu einer Benutzerkategorie zurückwechseln.
 
 ## Vermutlich betroffene Dateien
 
-- Keine Änderung erwartet; bei einem visuellen Befund `MainWindow.axaml`.
+- Keine Änderung erwartet; bei einem Befund `MainWindow.axaml` und `MainWindow.axaml.cs`.
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktive Daten, Kategorien, IDs, ParentId, Reihenfolge, Auftragszuordnungen, Releases, Tags und Versionen.
+- Produktivdatenbank, Kategorien, IDs, ParentId, Reihenfolge, Auftragszuordnungen, Release, Tags, Versionen sowie Netzwerk- und Synclogik.
