@@ -35,16 +35,13 @@ Die Sidebar zeigt nur noch `Kategorien`, alle Navigations- und Benutzerkategorie
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+7f1675aecc17dd592550dfcb267ce60810756ef5
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
