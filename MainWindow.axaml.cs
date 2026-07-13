@@ -52,11 +52,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string GridOperatorNavigationId = "__grid_operators";
     private const string OfferWorkflowType = "Angebotsvorgang";
     private const string DirectWorkflowType = "Direktauftrag";
-    private static readonly HashSet<string> RootEndCategoryNames = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> WorkflowAndLegacyCategoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        DeskCategoryName,
         "Offene Aufgaben",
-        "Wartet auf Kunde"
+        "Angebot",
+        "Material",
+        "Termin",
+        "Firma",
+        "Netzbetreiber",
+        "Wartet auf Kunde",
+        "erstellen",
+        "gesendet",
+        "bestellen",
+        "bestellt",
+        "terminieren",
+        "terminiert",
+        "zum terminieren gegeben",
+        "Retouren",
+        "Lager",
+        "SH-Netz",
+        "Marktstammdatenregister"
     };
     private const string SortFieldDate = "Datum";
     private const string SortFieldName = "Name";
@@ -4637,6 +4652,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         ? TaskBelongsToCategoryOrDescendant(task, category)
                         : TaskBelongsToSelectedCategory(task, category)));
             }
+        }
+
+        foreach (var category in SidebarCategories)
+        {
+            category.TaskCount = category.Id switch
+            {
+                OrdersNavigationId => AllTasks.Count(task => !task.IsDeleted && !IsOfferWorkflow(task)),
+                OffersNavigationId => AllTasks.Count(task => !task.IsDeleted && IsOfferWorkflow(task)),
+                MaterialsNavigationId => AllTasks.Count(task =>
+                    !task.IsDeleted && string.Equals(task.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase)),
+                AppointmentsNavigationId => GetAppointmentTasks().Count(),
+                _ => category.TaskCount
+            };
         }
 
         OnPropertyChanged(nameof(HasTrashItems));
@@ -11522,7 +11550,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RebuildCategoryTreeViews()
     {
         var normalCategories = Categories
-            .Where(category => !IsSpecialCategory(category) && !IsLegacyMobileApprovalCategory(category.Name))
+            .Where(IsUserCategory)
             .ToList();
         var byParent = normalCategories
             .GroupBy(category => category.ParentId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
@@ -11573,6 +11601,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddSidebarNavigationItem(CreateNavigationCategory(AppointmentsNavigationId, "Termine", 4));
         AddSidebarNavigationItem(CreateNavigationCategory(CompanyNavigationId, "Firma", 5));
         AddSidebarNavigationItem(CreateNavigationCategory(GridOperatorNavigationId, "Netzbetreiber", 6));
+        if (ShowDesktopSetting)
+        {
+            AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == DeskCategoryId));
+        }
+
+        foreach (var category in visibleSidebarCategories)
+        {
+            SidebarCategories.Add(category);
+        }
+
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == SettingsCategoryId));
     }
 
@@ -11994,7 +12032,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         return !string.IsNullOrWhiteSpace(category.Name) &&
                !IsSystemNavigationCategory(category) &&
-               !IsLegacyMobileApprovalCategory(category.Name);
+               !IsLegacyMobileApprovalCategory(category.Name) &&
+               !IsWorkflowOrLegacyCategory(category);
+    }
+
+    private static bool IsWorkflowOrLegacyCategory(CategoryItem category)
+    {
+        return WorkflowAndLegacyCategoryNames.Contains(category.Name.Trim());
     }
 
     private bool IsTaskCategoryChoiceVisible(CategoryItem category)
@@ -12005,17 +12049,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool IsSelectableTaskCategory(CategoryItem category)
     {
-        if (!IsTaskCategoryChoiceVisible(category) || HasChildCategories(category))
-        {
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(category.ParentId))
-        {
-            return RootEndCategoryNames.Contains(category.Name.Trim());
-        }
-
-        return true;
+        return IsTaskCategoryChoiceVisible(category) && !HasChildCategories(category);
     }
 
     private bool HasChildCategories(CategoryItem category)

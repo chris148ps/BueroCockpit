@@ -2,18 +2,17 @@
 
 ## Ziel
 
-Keine weitere Sortier- oder Tabellenänderung; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
+Die Kategorie- und Schreibtischabläufe in der normalen Desktop-Benutzerumgebung kurz manuell gegen reale Arbeitsdaten abnehmen.
 
 ## Geplante Schritte
 
-1. Temporären lokalen Testdatenordner bereitstellen.
-2. Status- und Technikeränderungen ohne Produktivdaten testen.
+1. Schreibtisch ein- und ausschalten, neu starten und die Rückkehr zur Übersicht beim Ausblenden prüfen.
+2. Eine vorhandene Benutzerkategorie verschachteln und die Darstellung in Navigation, Einstellungen und Auftragsdetail vergleichen.
 
 ## Vermutlich betroffene Dateien
 
-- /Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs
-- /Users/christian/AppProjekte/BueroCockpit/Data/AppPaths.cs
+- Keine Änderung erwartet; bei Befund `MainWindow.axaml` und `MainWindow.axaml.cs`.
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktivdaten, Kategorien, Aufträge, IDs, Netzwerk-Sync, iPad-App, Installer, Releaseprozess, Versionen, Tags und main.
+- Produktivdaten, Kategorien-IDs, ParentId, bestehende Auftragszuordnungen, Releases, Tags, Versionen sowie Netzwerk- und Synclogik.

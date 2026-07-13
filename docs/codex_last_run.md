@@ -2,65 +2,61 @@
 
 ## Datum/Uhrzeit
 
-2026-07-12 21:08 +0200
+2026-07-13 21:04 +0200
 
 ## Letzter Auftrag
 
-Kopfclick-Sortierung für die kompakten Tabellen
+Navigation, Schreibtisch und Benutzerkategorien konsolidieren.
 
 ## Zusammenfassung
 
-Die drei kompakten Tabellen unterstützen jetzt zuverlässige Kopfklick-Sortierung. Sortieren, Verschieben und Resize sind getrennte Bedienhandlungen; Sortierwerte bleiben je Ansicht persistent.
+Navigation, Kategorienverwaltung und Auftragsauswahl verwenden nun dieselbe gefilterte Benutzerkategoriequelle. IDs, ParentId, Reihenfolge und bestehende Auftragszuordnungen werden weder migriert noch gelöscht. Der Schreibtisch bleibt als vorhandene lokale Einstellung erhalten und wird beim Umschalten sofort in der Sidebar berücksichtigt.
 
 ## Geänderte Dateien
 
-- /Users/christian/AppProjekte/BueroCockpit/MainWindow.axaml.cs
-- /Users/christian/AppProjekte/BueroCockpit/Services/AppSettingsService.cs
-- /Users/christian/AppProjekte/BueroCockpit/docs/DESIGN_RICHTLINIEN.md
-- /Users/christian/AppProjekte/BueroCockpit/docs/PROJEKTSTATUS.md
-- Dokumentationsdateien werden durch den vorgeschriebenen Runner aktualisiert.
+- `MainWindow.axaml`
+- `MainWindow.axaml.cs`
+- `docs/codex_journal/<Zeitstempel>_navigation-desk-categories.md`
+- `docs/codex_last_run.md`
+- `docs/NEXT_TASK.md`
 
 ## Tests
 
-- git diff --check: erfolgreich.
-- dotnet build: erfolgreich, 0 Warnungen, 0 Fehler.
-- ./scripts/run-macos-bundle.sh Debug: erfolgreich.
-- Realer Desktopstart des aktuellen Bundles: erfolgreich; Start in Übersicht.
-- Aufträge: Status, Kunde, Titel, Termin, Ort und Techniker jeweils angeklickt; Auf-/Abwärtspfeile geprüft; Status in fachlicher Reihenfolge geprüft; Drag ohne Sortiernebenwirkung; Resize ohne Sortiernebenwirkung; erneuter normaler Sortierklick geprüft.
-- Angebote: Status, Kunde, Titel, Termin, Ort und Techniker jeweils angeklickt; Angebotsstatusfolge mit Ansicht vor Angebot und Angebot gesendet geprüft.
-- Termine: Status, Kunde, Ort, Techniker, Datum und Uhrzeit über beide horizontalen Ansichten angeklickt; chronologische Datums-/Uhrzeitsortierung geprüft; horizontales Scrollen geprüft.
-- Titelspalte: in Aufträgen und Angeboten sortiert.
-- Neustart: aktive Sortierspalte, Richtungspfeil, Spaltenreihenfolge und getrennte Ansichten geprüft.
-- Leere Werte werden durch die Sortierlogik einheitlich zuletzt behandelt.
-- Produktive Aufträge, Kategorien, Statuswerte und sonstige Fachdaten wurden nicht verändert.
+- `dotnet build` erfolgreich, 0 Warnungen, 0 Fehler.
+- Isolierter Repository-Test in einem temporären Datenordner: Kategorie erstellen, Unterkategorie mit ParentId und SortOrder speichern, Testauftrag der Unterkategorie plus Hauptkategorie zuordnen und nach erneutem Repository-Start unverändert laden: erfolgreich.
+- Quellprüfung der Sidebar-/Auftragsfilter, der Diagnose-Sichtbarkeit und des lokalen Schreibtisch-Settings: erfolgreich.
+- `./scripts/run-macos-bundle.sh Debug` erfolgreich; `/Users/christian/AppProjekte/BueroCockpit/bin/Debug/BueroCockpit.app` wurde real geöffnet.
+- `git diff --check` erfolgreich.
+- Ein isolierter automatischer Neustartstest der lokalen Einstellung ist unter macOS nicht vollständig ausführbar, weil der App-Support-Pfad im Sandboxprozess auf den echten Benutzerpfad aufgelöst wird und dort nicht geschrieben werden darf.
 
 ## Git-Status
 
 ```text
+ M MainWindow.axaml
  M MainWindow.axaml.cs
- M Services/AppSettingsService.cs
- M docs/DESIGN_RICHTLINIEN.md
  M docs/NEXT_TASK.md
- M docs/PROJEKTSTATUS.md
-?? docs/codex_journal/2026-07-12_21-08_spaltenkopf-sortierung.md
+?? docs/codex_journal/2026-07-13_21-04_navigation-desk-categories.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-01645215bb595beb49a0eb9c75d6390019b5a192
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Produktive mutierende Status-/Monteurtests wurden weiterhin nicht ausgeführt; sie gehören nicht zu diesem Layout- und Sortierauftrag.
+- Die Klickprüfung für Schreibtisch ein/aus über einen vollständigen echten App-Neustart muss außerhalb der Sandbox einmal in der normalen Benutzerumgebung erfolgen; der Build, der Desktopstart und der lokale Speicherpfad im Code sind geprüft.
 
 ## Empfohlener nächster Schritt
 
-Keine weitere Sortier- oder Tabellenänderung; als nächstes kann ein isolierter Testdatenbestand für mutierende Workflow-Speichertests vorbereitet werden.
+Die Kategorie- und Schreibtischabläufe in der normalen Desktop-Benutzerumgebung kurz manuell gegen reale Arbeitsdaten abnehmen.
 
-1. Temporären lokalen Testdatenordner bereitstellen.
-2. Status- und Technikeränderungen ohne Produktivdaten testen.
+1. Schreibtisch ein- und ausschalten, neu starten und die Rückkehr zur Übersicht beim Ausblenden prüfen.
+2. Eine vorhandene Benutzerkategorie verschachteln und die Darstellung in Navigation, Einstellungen und Auftragsdetail vergleichen.
