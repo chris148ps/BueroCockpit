@@ -50,16 +50,13 @@ Die bekannten Auftrags-, Kategorien- und Buttonfehler sowie zusätzlich gefunden
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+90bb2eedc313b54f1f92ac0c36fcf98408d0dc3b
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
