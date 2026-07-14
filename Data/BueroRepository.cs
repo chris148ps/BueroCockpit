@@ -1371,19 +1371,10 @@ public sealed class BueroRepository
             task.CategoryIds.Insert(0, task.CategoryId);
         }
 
-        if (task.CategoryIds.Count == 0 && validCategoryIds is not null)
-        {
-            var fallbackCategoryId = validCategoryIds.FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
-            if (!string.IsNullOrWhiteSpace(fallbackCategoryId))
-            {
-                task.CategoryIds.Add(fallbackCategoryId);
-            }
-        }
-
         if (task.CategoryIds.Count == 0)
         {
             task.CategoryId = string.Empty;
-            return false;
+            return true;
         }
 
         if (string.IsNullOrWhiteSpace(task.CategoryId) ||

@@ -19,8 +19,10 @@ Zusätzlich je nach Thema:
 
 - Kleine Terminal-, Git-, Such-, Build-, Release- und Patchaufgaben direkt im Terminal erledigen.
 - Codex nur für größere zusammenhängende Code-, UI-, Datenmodell-, Netzwerk- oder Architekturarbeiten verwenden.
-- Standard für Codex: GPT-5.6 Sol, Reasoning medium.
-- Ein größeres Modell nur bei klar begründeter komplexer Architektur-, Refactoring- oder Analyseaufgabe verwenden.
+- Das Codex-Modell abhängig vom Aufgabentyp wählen.
+- Für kleine und mittlere Aufgaben ein effizientes Modell verwenden.
+- Für komplexe Architektur-, Refactoring- oder schwierige Fehlersuchaufgaben ein leistungsfähigeres Modell verwenden.
+- Eine deutliche Abweichung vom üblichen Modellstandard kurz begründen.
 
 ## Grundprüfung
 

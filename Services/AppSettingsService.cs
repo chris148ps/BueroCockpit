@@ -67,8 +67,8 @@ public sealed class TableLayoutSettings
     public string SortField { get; set; } = "Erstellt am";
     public bool SortDescending { get; set; } = true;
 
-    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 220, 120, 150);
-    public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 220, 120, 150);
+    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 180, 220, 120, 150);
+    public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 180, 220, 120, 150);
     public static TableLayoutSettings CreateAppointmentsDefault()
     {
         var settings = Create(["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"], 96, 78, 112, 240, 220, 150);
