@@ -29,4 +29,11 @@ chmod +x "$bundle_dir/Contents/MacOS/BueroCockpit"
 codesign --force --deep --sign - "$bundle_dir"
 
 echo "$bundle_dir"
-open "$bundle_dir"
+open_args=()
+if [[ -n "${BUEROCOCKPIT_DATA_DIRECTORY:-}" ]]; then
+  open_args+=(--env "BUEROCOCKPIT_DATA_DIRECTORY=$BUEROCOCKPIT_DATA_DIRECTORY")
+fi
+if [[ -n "${BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY:-}" ]]; then
+  open_args+=(--env "BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY=$BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY")
+fi
+open "${open_args[@]}" "$bundle_dir"

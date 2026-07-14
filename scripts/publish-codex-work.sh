@@ -209,7 +209,7 @@ $(cat "$LAST_RUN")
 
 ## Verwendetes Modell
 
-GPT-5.6 Luna, Reasoning medium.
+Das Codex-Modell wird abhängig vom Aufgabentyp gewählt: Für kleine und mittlere Aufgaben ein effizientes Modell, für komplexe Architektur-, Refactoring- oder schwierige Fehlersuchaufgaben ein leistungsfähigeres Modell. Eine deutliche Abweichung vom üblichen Modellstandard wird kurz begründet.
 
 ## Letzter Commit
 

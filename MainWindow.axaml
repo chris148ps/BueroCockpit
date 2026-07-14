@@ -2276,7 +2276,9 @@
             <DataTemplate>
               <Border Classes="TaskCard"
                       Margin="0,0,0,3"
-                      Padding="8,7">
+                      Padding="8,7"
+                      PointerPressed="TaskCard_OnPointerPressed"
+                      PointerMoved="TaskCard_OnPointerMoved">
                 <Border.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Wiedervorlage bestätigen"
@@ -2700,7 +2702,7 @@
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <StackPanel Spacing="4">
                   <TextBlock Text="Status" Classes="TaskDetailFieldLabel" />
-                  <ComboBox ItemsSource="{Binding WorkflowStatusOptions}"
+                  <ComboBox ItemsSource="{Binding SelectedWorkflowStatusOptions}"
                             SelectedItem="{Binding SelectedTask.WorkflowStep, Mode=TwoWay}"
                             SelectionChanged="StatusCombo_OnSelectionChanged" />
                 </StackPanel>

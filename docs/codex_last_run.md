@@ -2,72 +2,82 @@
 
 ## Datum/Uhrzeit
 
-2026-07-14 04:35 +0200
+2026-07-14 20:31 +0200
 
 ## Letzter Auftrag
 
-Vollständiger funktionaler Desktop-Test mit isoliertem Datenbestand
+Angebotsvorgänge, Direktaufträge und Fachkategorien dauerhaft entkoppeln
 
 ## Zusammenfassung
 
-Die bekannten Auftrags-, Kategorien- und Buttonfehler sowie zusätzlich gefundene Persistenz- und Layoutfehler bei Löschen, Archiv-Rückholung und Material sind korrigiert und real gegen den isolierten Datenbestand nachgetestet. Build, Windows-RID-Build, macOS-Bundle-Start und Neustartpersistenz sind erfolgreich. Die produktive Hauptdatenbank und ihr Datenordner blieben bytegenau unverändert.
+Angebotsvorgänge bleiben unabhängig vom Bearbeitungsstand unter Angebote, Direktaufträge unter Aufträge. Fachkategorien sind davon getrennt, vollständig auswählbar und per Drag & Drop änderbar, ohne Typ oder Bearbeitungsstand zu verändern. Altbestände bleiben additiv kompatibel und produktive Daten wurden nicht für Tests verwendet.
 
 ## Geänderte Dateien
 
-- `Data/AppPaths.cs`
-- `Data/BueroRepository.cs`
+- `AGENTS.md`
 - `MainWindow.axaml`
 - `MainWindow.axaml.cs`
+- `Services/AppSettingsService.cs`
+- `docs/CODEX_PROJEKTREGELN.md`
+- `docs/UEBERGABE_CODEX_APP_2026-07-04.md`
 - `docs/PROJEKTSTATUS.md`
-- `docs/codex_journal/`
 - `docs/codex_last_run.md`
 - `docs/NEXT_TASK.md`
+- neuer Eintrag unter `docs/codex_journal/`
+- `scripts/publish-codex-work.sh`
+- `scripts/run-macos-bundle.sh`
 
 ## Tests
 
-- Reale Bedienung auf macOS: Start, Navigation, Auswahl, Auf-/Zuklappen, Zähler, Fenstergrößen, Darstellung, Schreibtisch-Schalter, Direktauftrag, Angebotsworkflow, Bearbeiten, Speichern, Neustart, Duplizieren, Löschen, Papierkorb, Wiederherstellen, Archivieren/Rückholen, Kategorien, Suche, globale Suche, Sortierung, Spaltenreihenfolge/-breite/-sichtbarkeit, Termine, Material, Anhänge, Vorschau, externes Öffnen, Entfernen, Rückgängig, Schreibtischnotiz, Techniker, Backup/Restore, Diagnose und lokaler Sync-Testdienst.
-- Materialfehler jeweils nach Build real erneut geprüft: Eingabe/Menge gespeichert, Neustartpersistenz, sichtbares und tatsächliches Entfernen aus SQLite.
-- Lokaler Testdienst real auf Port 53941 gestartet; `/health`, `/pairing/status` und `/local-sync/status` lieferten HTTP 200; danach kein Listener mehr vorhanden.
-- Backup im temporären Datenordner erstellt und real wiederhergestellt.
-- `git diff --check`: erfolgreich.
-- `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
-- `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
-- `./scripts/run-macos-bundle.sh Debug`: erfolgreich; signiertes Bundle real mit temporären Umgebungsvariablen gestartet.
-- Zweiter Bedienrundgang und Neustartpersistenz: erfolgreich für Aufträge, Angebote, Termine, Kategorien, Tabellenlayout und Materiallöschung.
-- Produktive SQLite-Datenbank: identischer SHA-256 vor/nach Test und `pragma integrity_check` = `ok`.
-- Produktiver Hauptdatenordner: identisches Manifest aus 426 Dateien vor/nach Test.
+- Ausgangs-`dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
+- Isolierter Repository-Integrationstest im temporären Datenordner: Angebotsfolge Angebot gesendet, Auftrag, Material, Termin und Erledigt sowie Direktauftragsfolge Material, Termin und Erledigt behielten jeweils Typ und Fachkategorie; Neustartpersistenz erfolgreich.
+- Isolierter Altbestandstest mit einer Datenbank ohne `WorkflowType`/`WorkflowStep`: additive Spaltenmigration, Kategorienzuordnung und `PRAGMA integrity_check = ok` erfolgreich; der alte Datensatz wurde nicht still umsortiert.
+- Isolierter Fallbacktest: Sendedatum wurde eindeutig als Angebotsvorgang/Angebot gesendet erkannt; uneindeutiger Altbestand stabil als Direktauftrag/Auftrag.
+- Isolierter Avalonia-Zustandstest: Navigation `Übersicht, Alle Vorgänge, Angebote, Aufträge, Material, Termine`, typreine Filter, 13 zulässige Endkategorien, Neuanlage beider Typen, sämtliche Statusfolgen, lokale Suche und DnD-Zielmethode erfolgreich.
+- DnD-Persistenztest: Fachkategorie geändert, `WorkflowType` und `WorkflowStep` unverändert gespeichert.
+- `./scripts/run-macos-bundle.sh Debug`: Bundle gebaut, signiert und mit expliziten temporären Daten-/Konfigurationspfaden gestartet; Prozessstart und SQLite-Neustartpersistenz erfolgreich.
+- Die macOS-Sitzung war gesperrt. Echte Mausbedienung des Drag & Drop und sichtbarer Übersichtsklick konnten deshalb nicht durchgeführt werden und werden nicht als real bedient ausgewiesen.
+- `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler. Keine reale Bedienung unter Windows.
+- `bash -n scripts/run-macos-bundle.sh scripts/publish-codex-work.sh`: erfolgreich.
+- Suche in `AGENTS.md`, `docs` und `scripts`: keine festen Codex-Modellnamen und kein fester Modellparameter mehr.
 
 ## Git-Status
 
 ```text
- M Data/AppPaths.cs
- M Data/BueroRepository.cs
+ M AGENTS.md
  M MainWindow.axaml
  M MainWindow.axaml.cs
+ M Services/AppSettingsService.cs
+ M docs/CODEX_PROJEKTREGELN.md
  M docs/NEXT_TASK.md
  M docs/PROJEKTSTATUS.md
-?? docs/codex_journal/2026-07-14_04-35_desktop-funktionstest.md
+ M docs/UEBERGABE_CODEX_APP_2026-07-04.md
+ M scripts/publish-codex-work.sh
+ M scripts/run-macos-bundle.sh
+?? docs/codex_journal/2026-07-14_20-31_vorgangstyp-kategorien-workflow.md
 ```
 
 ## Branch
-codex/work
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Commit
-90bb2eedc313b54f1f92ac0c36fcf98408d0dc3b
+
+Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
 
 ## Push erfolgreich
-Ja
+
+Nein – der reine Dokumentationslauf führt keinen Push aus.
 
 ## Offene Punkte
 
-- Windows-spezifische Funktionen wurden auf macOS nur per Codepfad und erfolgreichem `win-x64`-Build, nicht real unter Windows bedient.
-- Nativer Finder-Drop einer Datei auf den Schreibtisch, horizontales Trackpad-Scrollen und ein leerer Uhrzeitwert wurden nicht als eigener zweiter Realtest wiederholt; die angrenzenden Datei-, Tabellen- und Datumswege wurden real geprüft.
-- Der ältere zentrale Pfad `BueroCockpit_Daten/Sync/live/settings.json` wurde in der frühen Testphase vor der vollständigen Umleitung einmal gespeichert. Er enthält wieder ausschließlich die ursprünglichen sieben Techniker; ohne Vorab-Hash ist dort jedoch kein bytegenauer Vergleich möglich. Hauptdatenbank und produktiver Hauptdatenordner sind nachweislich unverändert.
+- Echter Maus-Drag und sichtbarer Übersichtsklick konnten wegen der gesperrten macOS-Sitzung nicht real bedient werden; der isolierte Zustands- und Persistenzpfad war erfolgreich.
+- Windows-spezifische Bedienwege wurden gebaut, aber nicht real auf Windows getestet.
 
 ## Empfohlener nächster Schritt
 
-Den Desktop-Funktionstest auf einem Windows-Testsystem mit derselben isolierten Datenkopie für die verbleibenden plattformspezifischen Bedienwege abschließen.
+Die neue Vorgangstyp-, Kategorien- und Drag-&-Drop-Bedienung auf einer entsperrten macOS-Sitzung mit einem isolierten Testprofil sichtbar abnehmen.
 
-1. Isolierte Daten- und lokale Konfigurationspfade auf dem Windows-Testsystem setzen.
-2. Explorer-Dateidrop, externes Öffnen, horizontales Scrollen und Windows-Fensterverhalten real prüfen.
-3. Nur reproduzierbare Windows-spezifische Fehler minimal korrigieren und beide Plattform-Builds erneut ausführen.
+1. App mit `BUEROCOCKPIT_DATA_DIRECTORY` und `BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY` auf temporäre Ordner starten.
+2. Angebots- und Direktauftragsfolgen sichtbar anklicken, Übersichtseinträge öffnen und Vorgänge per Maus zwischen zulässigen Fachkategorien ziehen.
+3. Nach Neustart Typ, Bearbeitungsstand, Kategorie, Filter, Zähler und Suchergebnis sichtbar sowie per SQLite prüfen.

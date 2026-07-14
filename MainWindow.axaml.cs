@@ -44,32 +44,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string CompanyOneDriveWindowsFolderName = "OneDrive - Elektro Schweim";
     private const string SettingsCategoryId = "__settings";
     private const string SettingsCategoryName = "Einstellungen";
+    private const string AllTasksNavigationId = "__all_tasks";
     private const string OrdersNavigationId = "__orders";
     private const string OffersNavigationId = "__offers";
     private const string MaterialsNavigationId = "__materials";
     private const string AppointmentsNavigationId = "__appointments";
     private const string OfferWorkflowType = "Angebotsvorgang";
     private const string DirectWorkflowType = "Direktauftrag";
-    private static readonly HashSet<string> WorkflowAndLegacyCategoryNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Übersicht",
-        "Dashboard",
-        "Offene Aufgaben",
-        "Angebot",
-        "Material",
-        "Termin",
-        "Wartet auf Kunde",
-        "erstellen",
-        "gesendet",
-        "bestellen",
-        "bestellt",
-        "terminieren",
-        "terminiert",
-        "zum terminieren gegeben",
-        "Termine",
-        "Erinnerung",
-        "Erinnerungen"
-    };
+    private static readonly string[] OfferWorkflowSteps = ["Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt"];
+    private static readonly string[] DirectWorkflowSteps = ["Auftrag", "Material", "Termin", "Erledigt"];
     private const string SortFieldDate = "Datum";
     private const string SortFieldName = "Name";
     private const string SortFieldStatus = "Status";
@@ -89,8 +72,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string DeskItemTypePdf = "Pdf";
     private const string DeskItemTypeImage = "Image";
     private const string CategoryDragTextPrefix = "buerocockpit-category:";
+    private const string TaskDragTextPrefix = "buerocockpit-task:";
     private static readonly DataFormat<string> CategoryDragDataFormat =
         DataFormat.CreateInProcessFormat<string>("buerocockpit-category-id");
+    private static readonly DataFormat<string> TaskDragDataFormat =
+        DataFormat.CreateInProcessFormat<string>("buerocockpit-task-id");
     private static readonly HashSet<string> DeskImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
@@ -216,6 +202,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private PointerPressedEventArgs? _categoryDragStartEvent;
     private Point _categoryDragStartPoint;
     private bool _isDraggingCategory;
+    private TaskItem? _taskDragCandidate;
+    private PointerPressedEventArgs? _taskDragStartEvent;
+    private Point _taskDragStartPoint;
+    private bool _isDraggingTask;
     private string? _draggedTableColumnKey;
     private Point _tableColumnDragStart;
     private Grid? _resizingTableHeader;
@@ -409,7 +399,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         : "Sortierung umkehren (aktuell aufsteigend)";
 
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
-    public string[] WorkflowStatusOptions { get; } = ["Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt"];
+    public IReadOnlyList<string> SelectedWorkflowStatusOptions =>
+        SelectedTask is not null && IsOfferWorkflow(SelectedTask)
+            ? OfferWorkflowSteps
+            : DirectWorkflowSteps;
     public string[] AppointmentFilterOptions { get; } = ["Alle", "Vergangen", "Heute", "Zukünftig"];
     public string SelectedAppointmentFilter
     {
@@ -610,6 +603,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsMobileInboxSelected));
             OnPropertyChanged(nameof(IsNotTrashSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
+            OnPropertyChanged(nameof(IsAllTasksNavigationSelected));
             OnPropertyChanged(nameof(IsOrdersNavigationSelected));
             OnPropertyChanged(nameof(IsOffersNavigationSelected));
             OnPropertyChanged(nameof(IsMaterialsNavigationSelected));
@@ -659,6 +653,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedMobileInboxEntry));
             OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
             OnPropertyChanged(nameof(SelectedTechnicianOption));
+            OnPropertyChanged(nameof(SelectedWorkflowStatusOptions));
             SelectedMobileInboxPreviewItem = null;
             LoadTaskDetails();
             RefreshWorkflowSteps();
@@ -824,6 +819,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsMobileInboxSelected => SelectedCategory?.Id == MobileInboxCategoryId;
     public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
+    public bool IsAllTasksNavigationSelected => SelectedCategory?.Id == AllTasksNavigationId;
     public bool IsOrdersNavigationSelected => SelectedCategory?.Id == OrdersNavigationId;
     public bool IsOffersNavigationSelected => SelectedCategory?.Id == OffersNavigationId;
     public bool IsMaterialsNavigationSelected => SelectedCategory?.Id == MaterialsNavigationId;
@@ -845,7 +841,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                                    !IsTrashSelected &&
                                                    !IsMobileInboxSelected &&
                                                    SelectedCategory is not null &&
-                                                   (IsOrdersNavigationSelected ||
+                                                   (IsAllTasksNavigationSelected ||
+                                                    IsOrdersNavigationSelected ||
                                                     IsOffersNavigationSelected ||
                                                     IsSelectableTaskCategory(SelectedCategory));
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
@@ -1141,7 +1138,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowTaskTitleColumn = !ShowTaskTitleColumn;
     }
 
-    private static readonly string[] StandardTableColumns = ["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"];
+    private static readonly string[] StandardTableColumns = ["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"];
     private static readonly string[] AppointmentTableColumns = ["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"];
 
     private IReadOnlyList<string> GetVisibleTableColumns()
@@ -1188,6 +1185,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         "Status" => task.WorkflowStatusText,
         "Kunde" => task.CustomerName,
+        "Kategorie" => GetTaskCategoryNames(task),
         "Ort" => task.CustomerAddress,
         "Termin" => task.DueDateCompactText,
         "Techniker" => task.TechnicianDisplayText,
@@ -1203,6 +1201,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             "Status" => 112,
             "Kunde" => 240,
+            "Kategorie" => 180,
             "Ort" => 220,
             "Termin" => 120,
             "Techniker" => 150,
@@ -1577,6 +1576,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         "Status" => 92,
         "Kunde" => 140,
+        "Kategorie" => 130,
         "Ort" => 120,
         "Termin" => 100,
         "Techniker" => 110,
@@ -2559,6 +2559,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             nameof(TaskItem.Description) or
             nameof(TaskItem.CategoryId) or
             nameof(TaskItem.Status) or
+            nameof(TaskItem.WorkflowType) or
+            nameof(TaskItem.WorkflowStep) or
             nameof(TaskItem.Priority) or
             nameof(TaskItem.DueDate) or
             nameof(TaskItem.FollowUpDate) or
@@ -3504,7 +3506,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 if (IsSystemNavigationCategory(category) ||
                     IsLegacyMobileApprovalCategory(category.Name) ||
-                    IsWorkflowOrLegacyCategory(category) ||
                     string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
                     (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
                      !string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase)))
@@ -3607,6 +3608,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? AllTasks.Where(t => !t.IsDeleted)
                     : IsTrashSelected
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
+                        : IsAllTasksNavigationSelected
+                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted))
                         : IsOrdersNavigationSelected
                         ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && !IsOfferWorkflow(t)))
                         : IsOffersNavigationSelected
@@ -3620,7 +3623,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             else
             {
                 var query = SearchText.Trim();
-                tasks = SortTasksForCategory(GetSearchMatches(query));
+                tasks = SortTasksForCategory(GetSearchMatches(query).Where(TaskMatchesCurrentNavigation));
             }
 
             foreach (var task in tasks)
@@ -3669,16 +3672,59 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var today = DateTime.Today;
         var filteredTasks = AllTasks
             .Where(task => !task.IsDeleted && task.DueDate.HasValue)
-            .Where(task => _selectedAppointmentFilter switch
-            {
-                "Vergangen" => task.DueDate!.Value < now,
-                "Heute" => task.DueDate!.Value.Date == today,
-                "Zukünftig" => task.DueDate!.Value.Date > today,
-                _ => true
-            })
+            .Where(task => MatchesAppointmentFilter(task, now, today))
             .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First());
         return SortTasksForCategory(filteredTasks);
+    }
+
+    private bool MatchesAppointmentFilter(TaskItem task, DateTime? now = null, DateTime? today = null)
+    {
+        if (!task.DueDate.HasValue)
+        {
+            return false;
+        }
+
+        var current = now ?? DateTime.Now;
+        var currentDate = today ?? DateTime.Today;
+        return _selectedAppointmentFilter switch
+        {
+            "Vergangen" => task.DueDate.Value < current,
+            "Heute" => task.DueDate.Value.Date == currentDate,
+            "Zukünftig" => task.DueDate.Value.Date > currentDate,
+            _ => true
+        };
+    }
+
+    private bool TaskMatchesCurrentNavigation(TaskItem task)
+    {
+        if (IsAllTasksNavigationSelected)
+        {
+            return true;
+        }
+
+        if (IsOffersNavigationSelected)
+        {
+            return IsOfferWorkflow(task);
+        }
+
+        if (IsOrdersNavigationSelected)
+        {
+            return !IsOfferWorkflow(task);
+        }
+
+        if (IsMaterialsNavigationSelected)
+        {
+            return string.Equals(task.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (IsAppointmentsNavigationSelected)
+        {
+            return MatchesAppointmentFilter(task);
+        }
+
+        return SelectedCategory is null || IsSpecialCategory(SelectedCategory) ||
+               TaskBelongsToSelectedCategory(task, SelectedCategory);
     }
 
     private void RefreshGlobalSearchResults()
@@ -4669,6 +4715,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             category.TaskCount = category.Id switch
             {
+                AllTasksNavigationId => AllTasks.Count(task => !task.IsDeleted),
                 OrdersNavigationId => AllTasks.Count(task => !task.IsDeleted && !IsOfferWorkflow(task)),
                 OffersNavigationId => AllTasks.Count(task => !task.IsDeleted && IsOfferWorkflow(task)),
                 MaterialsNavigationId => AllTasks.Count(task =>
@@ -5187,7 +5234,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AllTasks.Insert(0, task);
 
         ClearSearchTextWithoutRefresh();
-        if (!createOffer && !IsOrdersNavigationSelected)
+        if (!createOffer && !IsOrdersNavigationSelected && !IsAllTasksNavigationSelected)
         {
             SelectedCategory = category;
         }
@@ -5593,9 +5640,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return -1;
         }
 
-        var sequence = IsOfferWorkflow(task)
-            ? new[] { "Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt" }
-            : new[] { "Auftrag", "Material", "Termin", "Erledigt" };
+        var sequence = IsOfferWorkflow(task) ? OfferWorkflowSteps : DirectWorkflowSteps;
         var rank = Array.FindIndex(sequence, value => string.Equals(value, status, StringComparison.OrdinalIgnoreCase));
         return rank >= 0 ? rank : -1;
     }
@@ -7141,11 +7186,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void TaskCard_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control ||
+            control.DataContext is not TaskItem task ||
+            task.IsDeleted ||
+            task.IsMobileInboxCard ||
+            !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+        {
+            _taskDragCandidate = null;
+            _taskDragStartEvent = null;
+            return;
+        }
+
+        _taskDragCandidate = task;
+        _taskDragStartEvent = e;
+        _taskDragStartPoint = e.GetPosition(this);
+    }
+
+    private async void TaskCard_OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_taskDragCandidate is null || _taskDragStartEvent is null || _isDraggingTask)
+        {
+            return;
+        }
+
+        if (sender is not Control control || !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+        {
+            _taskDragCandidate = null;
+            _taskDragStartEvent = null;
+            return;
+        }
+
+        var point = e.GetPosition(this);
+        if (Math.Abs(point.X - _taskDragStartPoint.X) < 6 &&
+            Math.Abs(point.Y - _taskDragStartPoint.Y) < 6)
+        {
+            return;
+        }
+
+        var task = _taskDragCandidate;
+        var dragData = CreateTaskDragData(task);
+        if (dragData is null)
+        {
+            _taskDragCandidate = null;
+            _taskDragStartEvent = null;
+            return;
+        }
+
+        _isDraggingTask = true;
+        try
+        {
+            await DragDrop.DoDragDropAsync(_taskDragStartEvent, dragData, DragDropEffects.Move);
+        }
+        finally
+        {
+            _isDraggingTask = false;
+            _taskDragCandidate = null;
+            _taskDragStartEvent = null;
+            ClearCategoryDropVisuals();
+        }
+    }
+
     private void CategorySettingsItem_OnDragOver(object? sender, DragEventArgs e)
     {
         ClearCategoryRootDropVisual();
 
-        if (TryGetDraggedCategory(e, out var dragged) &&
+        if (TryGetDraggedTask(e, out _) &&
+            sender is Control { DataContext: CategoryItem taskTarget } &&
+            IsSelectableTaskCategory(taskTarget))
+        {
+            SetCategoryDropVisual(taskTarget, CategoryDropVisualState.Inside);
+            e.DragEffects = DragDropEffects.Move;
+        }
+        else if (TryGetDraggedCategory(e, out var dragged) &&
             sender is Control { DataContext: CategoryItem target } control &&
             CanDropCategoryOnTarget(dragged, target))
         {
@@ -7163,6 +7277,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void CategorySettingsItem_OnDrop(object? sender, DragEventArgs e)
     {
+        if (TryGetDraggedTask(e, out var task))
+        {
+            if (sender is Control { DataContext: CategoryItem taskTarget } &&
+                IsSelectableTaskCategory(taskTarget))
+            {
+                MoveTaskToCategoryFromDrop(task, taskTarget);
+            }
+
+            ClearCategoryDropVisuals();
+            e.Handled = true;
+            return;
+        }
+
         if (!TryGetDraggedCategory(e, out var dragged))
         {
             ClearCategoryDropVisuals();
@@ -7337,6 +7464,77 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var data = new DataTransfer();
         data.Add(item);
         return data.Items.Count > 0 ? data : null;
+    }
+
+    private static DataTransfer? CreateTaskDragData(TaskItem task)
+    {
+        if (task.IsDeleted || task.IsMobileInboxCard || string.IsNullOrWhiteSpace(task.Id))
+        {
+            return null;
+        }
+
+        var taskId = task.Id.Trim();
+        var item = new DataTransferItem();
+        item.Set(TaskDragDataFormat, taskId);
+        item.SetText($"{TaskDragTextPrefix}{taskId}");
+
+        var data = new DataTransfer();
+        data.Add(item);
+        return data.Items.Count > 0 ? data : null;
+    }
+
+    private bool TryGetDraggedTask(DragEventArgs e, out TaskItem task)
+    {
+        task = null!;
+        var taskId = e.DataTransfer.TryGetValue(TaskDragDataFormat);
+        if (string.IsNullOrWhiteSpace(taskId))
+        {
+            var text = e.DataTransfer.TryGetText();
+            if (string.IsNullOrWhiteSpace(text) ||
+                !text.StartsWith(TaskDragTextPrefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            taskId = text[TaskDragTextPrefix.Length..].Trim();
+        }
+
+        task = AllTasks.FirstOrDefault(item =>
+            string.Equals(item.Id, taskId, StringComparison.OrdinalIgnoreCase))!;
+        return task is not null && !task.IsDeleted && !task.IsMobileInboxCard;
+    }
+
+    private void MoveTaskToCategoryFromDrop(TaskItem task, CategoryItem targetCategory)
+    {
+        if (!IsSelectableTaskCategory(targetCategory))
+        {
+            return;
+        }
+
+        if (GetTaskCategoryIds(task).Count == 1 && TaskBelongsToCategory(task, targetCategory.Id))
+        {
+            CategoryMessage = $"Vorgang ist bereits der Kategorie „{targetCategory.SelectionName}“ zugeordnet.";
+            return;
+        }
+
+        var workflowType = task.WorkflowType;
+        var workflowStep = task.WorkflowStep;
+        CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+        MoveTaskToCategory(task, targetCategory.Id);
+        task.WorkflowType = workflowType;
+        task.WorkflowStep = workflowStep;
+        SaveTaskAndQueueIpadSnapshot(task);
+        UpdateTaskCategoryPresentation(task);
+        if (SelectedTask?.Id == task.Id)
+        {
+            SelectedTaskCategory = targetCategory;
+            RefreshTaskCategorySelections();
+        }
+
+        RefreshVisibleTasks();
+        UpdateCategoryCounts();
+        RefreshDashboard();
+        CategoryMessage = $"Vorgang nach „{targetCategory.SelectionName}“ verschoben.";
     }
 
     private static string? TryGetDraggedCategoryId(IDataTransfer dataTransfer)
@@ -8118,6 +8316,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SaveTaskAndQueueIpadSnapshot(SelectedTask);
         RefreshVisibleTasks();
         UpdateCategoryCounts();
+        RefreshDashboard();
     }
 
     private void TechnicianCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -8142,7 +8341,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        NavigateToTask(task, fromGlobalSearch: false);
+        NavigateToTask(
+            task,
+            fromGlobalSearch: false,
+            IsOfferWorkflow(task) ? OffersNavigationId : OrdersNavigationId);
     }
 
     private void ConfirmFollowUp_OnClick(object? sender, RoutedEventArgs e)
@@ -10906,6 +11108,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return Categories.FirstOrDefault(category => category.Id == TrashCategoryId);
         }
 
+        if (!string.IsNullOrWhiteSpace(preferredCategoryId) &&
+            IsValidOrganizationalNavigationForTask(preferredCategoryId, task))
+        {
+            return Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, preferredCategoryId, StringComparison.OrdinalIgnoreCase));
+        }
+
         var matchingCategories = new List<CategoryItem>();
 
         foreach (var categoryId in GetTaskCategoryIds(task))
@@ -10941,6 +11150,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return matchingCategories.FirstOrDefault();
+    }
+
+    private static bool IsValidOrganizationalNavigationForTask(string categoryId, TaskItem task)
+    {
+        return string.Equals(categoryId, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase) ||
+               (string.Equals(categoryId, OffersNavigationId, StringComparison.OrdinalIgnoreCase) && IsOfferWorkflow(task)) ||
+               (string.Equals(categoryId, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) && !IsOfferWorkflow(task));
     }
 
     private void ExpandCategoryAncestors(CategoryItem category)
@@ -11752,8 +11968,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SidebarUserCategories.Clear();
         SidebarSettingsCategories.Clear();
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OverviewCategoryId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OrdersNavigationId));
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AllTasksNavigationId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OffersNavigationId));
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OrdersNavigationId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == MaterialsNavigationId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AppointmentsNavigationId));
         if (ShowDesktopSetting)
@@ -11837,10 +12054,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var defaults = new[]
         {
             CreateNavigationCategory(OverviewCategoryId, OverviewCategoryName, int.MinValue),
-            CreateNavigationCategory(OrdersNavigationId, "Aufträge", int.MinValue + 1),
+            CreateNavigationCategory(AllTasksNavigationId, "Alle Vorgänge", int.MinValue + 1),
             CreateNavigationCategory(OffersNavigationId, "Angebote", int.MinValue + 2),
-            CreateNavigationCategory(MaterialsNavigationId, "Material", int.MinValue + 3),
-            CreateNavigationCategory(AppointmentsNavigationId, "Termine", int.MinValue + 4),
+            CreateNavigationCategory(OrdersNavigationId, "Aufträge", int.MinValue + 3),
+            CreateNavigationCategory(MaterialsNavigationId, "Material", int.MinValue + 4),
+            CreateNavigationCategory(AppointmentsNavigationId, "Termine", int.MinValue + 5),
             CreateDeskCategory(),
             CreateSettingsCategory()
         };
@@ -12187,6 +12405,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void DeriveWorkflowStateFromLegacyData(TaskItem task)
     {
         var categoryNames = GetTaskCategoryNameList(task);
+        DeriveWorkflowStateFromLegacyData(task, categoryNames);
+    }
+
+    private static void DeriveWorkflowStateFromLegacyData(TaskItem task, IReadOnlyList<string> categoryNames)
+    {
         var categoryText = string.Join(" ", categoryNames);
         if (string.IsNullOrWhiteSpace(task.WorkflowType))
         {
@@ -12236,9 +12459,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var steps = IsOfferWorkflow(SelectedTask)
-            ? new[] { "Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt" }
-            : new[] { "Auftrag", "Material", "Termin", "Erledigt" };
+        var steps = IsOfferWorkflow(SelectedTask) ? OfferWorkflowSteps : DirectWorkflowSteps;
         var activeIndex = Array.FindIndex(steps, step => string.Equals(step, SelectedTask.WorkflowStep, StringComparison.OrdinalIgnoreCase));
         if (activeIndex < 0)
         {
@@ -12273,6 +12494,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SaveTaskAndQueueIpadSnapshot(SelectedTask);
         RefreshWorkflowSteps();
         RefreshVisibleTasks();
+        UpdateCategoryCounts();
+        RefreshDashboard();
     }
 
     private static bool IsSpecialCategory(CategoryItem category)
@@ -12305,6 +12528,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                string.Equals(category.Id, TrashCategoryId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, MobileInboxCategoryId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, OffersNavigationId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, MaterialsNavigationId, StringComparison.OrdinalIgnoreCase) ||
@@ -12316,13 +12540,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return !string.IsNullOrWhiteSpace(category.Name) &&
                !IsSystemNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
-               !IsArchiveCategory(category) &&
-               !IsWorkflowOrLegacyCategory(category);
-    }
-
-    private static bool IsWorkflowOrLegacyCategory(CategoryItem category)
-    {
-        return WorkflowAndLegacyCategoryNames.Contains(category.Name.Trim());
+               !IsArchiveCategory(category);
     }
 
     private bool IsTaskCategoryChoiceVisible(CategoryItem category)
@@ -13523,19 +13741,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SelectedTask.CompletedAt = null;
         }
 
-        if (SelectedTask.Status == "Archiv")
-        {
-            var archive = Categories.FirstOrDefault(c => c.Name == "Archiv");
-            if (archive is not null)
-            {
-                SelectedTask.CategoryId = archive.Id;
-                if (!SelectedTask.CategoryIds.Contains(archive.Id, StringComparer.OrdinalIgnoreCase))
-                {
-                    SelectedTask.CategoryIds.Insert(0, archive.Id);
-                }
-                SelectedTaskCategory = archive;
-            }
-        }
     }
 
     private static void TryDeleteFile(string path)

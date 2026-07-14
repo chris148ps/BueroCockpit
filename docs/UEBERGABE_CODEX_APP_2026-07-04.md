@@ -98,14 +98,14 @@ Ziel:
 - kein echter Sync
 - kein echter Pairing-Abschluss
 
-## Codex-Modell
+## Codex-Modell und Start
 
-gpt-5.5
+Das Codex-Modell wird abhängig vom Aufgabentyp gewählt: Für kleine und mittlere Aufgaben genügt ein effizientes Modell; für komplexe Architektur-, Refactoring- oder schwierige Fehlersuchaufgaben ist ein leistungsfähigeres Modell angemessen. Eine deutliche Abweichung vom üblichen Modellstandard wird kurz begründet.
 
-Start im Projekt:
+Allgemeiner Start im Projekt:
 
 cd "$HOME/AppProjekte/BueroCockpit"
-codex -m gpt-5.5
+codex
 
 ## Statushinweis 2026-07-05
 

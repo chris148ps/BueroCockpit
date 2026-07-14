@@ -9,7 +9,7 @@ Diese Datei ist die zentrale Regelquelle fuer Codex- und Agentenarbeit im Projek
 - Moeglichst viel ohne Codex erledigen.
 - Erst Terminalbefehle, gezielte Suche mit `grep`/`sed`, kleine Patch-Skripte oder einzelne ueberschaubare Dateiaenderungen nutzen, wenn das sicher reicht.
 - Codex nur bei groesseren oder zusammenhaengenden Aenderungen, komplexem UI, Architekturarbeit, schwer nachvollziehbaren Fehlern oder mehreren betroffenen Dateien verwenden.
-- Bei Codex-Aufgaben Modell `gpt-5.5` verwenden.
+- Das Codex-Modell abhaengig vom Aufgabentyp waehlen: Fuer kleine und mittlere Aufgaben ein effizientes Modell, fuer komplexe Architektur-, Refactoring- oder schwierige Fehlersuchaufgaben ein leistungsfaehigeres Modell. Eine deutliche Abweichung vom ueblichen Modellstandard kurz begruenden.
 - Vor jeder Codex-Aufgabe `AGENTS.md` und diese Datei lesen.
 - Wenn sich Projektregeln, Codex-Regeln, Sperren, Modellvorgaben, Arbeitsweise oder wiederkehrende Pruefpflichten aendern, muessen `AGENTS.md` und/oder `docs/CODEX_PROJEKTREGELN.md` automatisch mit angepasst werden.
 
@@ -17,7 +17,7 @@ Codex-Startbefehl:
 
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
-codex -m gpt-5.5
+codex
 ```
 
 ## Projektgrundsatz
