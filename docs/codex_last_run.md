@@ -47,16 +47,13 @@ Die Repository-Normalisierung ordnete einem tatsächlich kategorielosen Vorgang 
 - Der fremde lokale Diff in `scripts/run-macos-bundle.sh` bleibt unangetastet und wird nicht veröffentlicht.
 
 ## Branch
-
 codex/work
 
 ## Commit
-
-ausstehend (Ausgangscommit `6df5b2659195`)
+f03761211cc6e343ce0f1dce03a1f2a2c92787a4
 
 ## Push erfolgreich
-
-ausstehend
+Ja
 
 ## Empfohlener nächster Schritt
 
