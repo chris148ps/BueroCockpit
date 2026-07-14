@@ -206,6 +206,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private PointerPressedEventArgs? _taskDragStartEvent;
     private Point _taskDragStartPoint;
     private bool _isDraggingTask;
+    private bool _isDeletingTask;
     private string? _draggedTableColumnKey;
     private Point _tableColumnDragStart;
     private Grid? _resizingTableHeader;
@@ -399,10 +400,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         : "Sortierung umkehren (aktuell aufsteigend)";
 
     public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
-    public IReadOnlyList<string> SelectedWorkflowStatusOptions =>
-        SelectedTask is not null && IsOfferWorkflow(SelectedTask)
-            ? OfferWorkflowSteps
-            : DirectWorkflowSteps;
+    public IReadOnlyList<string> SelectedWorkflowStatusOptions
+    {
+        get
+        {
+            var steps = SelectedTask is not null && IsOfferWorkflow(SelectedTask)
+                ? OfferWorkflowSteps
+                : DirectWorkflowSteps;
+            var current = SelectedTask?.WorkflowStep?.Trim();
+            return !string.IsNullOrWhiteSpace(current) &&
+                   !steps.Contains(current, StringComparer.OrdinalIgnoreCase)
+                ? steps.Append(current).ToArray()
+                : steps;
+        }
+    }
     public string[] AppointmentFilterOptions { get; } = ["Alle", "Vergangen", "Heute", "Zukünftig"];
     public string SelectedAppointmentFilter
     {
@@ -629,53 +640,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
-            var removedPendingPlaceholder = false;
-            if (_selectedTask is not null && value is not null && IsUnsavedPlaceholderTask(_selectedTask))
+            var wasSuppressingStatusSelection = _suppressStatusSelectionChanged;
+            _suppressStatusSelectionChanged = true;
+            try
             {
-                RemovePendingNewTask(_selectedTask);
-                removedPendingPlaceholder = true;
-            }
-            if (_selectedTask is not null)
-            {
-                _selectedTask.IsSelected = false;
-            }
-
-            _selectedTask = value;
-            if (_selectedTask is not null)
-            {
-                _selectedTask.IsSelected = true;
-            }
-
-            OnPropertyChanged(nameof(SelectedTask));
-            OnPropertyChanged(nameof(HasSelectedTask));
-            OnPropertyChanged(nameof(HasNormalSelectedTask));
-            OnPropertyChanged(nameof(IsSelectedTaskOnDesk));
-            OnPropertyChanged(nameof(SelectedMobileInboxEntry));
-            OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
-            OnPropertyChanged(nameof(SelectedTechnicianOption));
-            OnPropertyChanged(nameof(SelectedWorkflowStatusOptions));
-            SelectedMobileInboxPreviewItem = null;
-            LoadTaskDetails();
-            RefreshWorkflowSteps();
-
-            if (_selectedTask is not null)
-            {
-                if (!_hasPendingTaskUndo ||
-                    _taskUndoSnapshot is null ||
-                    string.Equals(_taskUndoSnapshot.Task.Id, _selectedTask.Id, StringComparison.OrdinalIgnoreCase))
+                var removedPendingPlaceholder = false;
+                if (_selectedTask is not null && value is not null && IsUnsavedPlaceholderTask(_selectedTask))
                 {
-                    SetTaskUndoBaseline(_selectedTask);
+                    RemovePendingNewTask(_selectedTask);
+                    removedPendingPlaceholder = true;
+                }
+                if (_selectedTask is not null)
+                {
+                    _selectedTask.IsSelected = false;
+                }
+
+                _selectedTask = value;
+                if (_selectedTask is not null)
+                {
+                    _selectedTask.IsSelected = true;
+                }
+
+                OnPropertyChanged(nameof(SelectedTask));
+                OnPropertyChanged(nameof(HasSelectedTask));
+                OnPropertyChanged(nameof(HasNormalSelectedTask));
+                OnPropertyChanged(nameof(IsSelectedTaskOnDesk));
+                OnPropertyChanged(nameof(SelectedMobileInboxEntry));
+                OnPropertyChanged(nameof(HasSelectedMobileInboxEntry));
+                OnPropertyChanged(nameof(SelectedTechnicianOption));
+                OnPropertyChanged(nameof(SelectedWorkflowStatusOptions));
+                SyncWorkflowStatusComboBox();
+                SelectedMobileInboxPreviewItem = null;
+                LoadTaskDetails();
+                RefreshWorkflowSteps();
+
+                if (_selectedTask is not null)
+                {
+                    if (!_hasPendingTaskUndo ||
+                        _taskUndoSnapshot is null ||
+                        string.Equals(_taskUndoSnapshot.Task.Id, _selectedTask.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        SetTaskUndoBaseline(_selectedTask);
+                    }
+                }
+                else if (!_hasPendingTaskUndo)
+                {
+                    ClearTaskUndoState();
+                }
+
+                if (removedPendingPlaceholder)
+                {
+                    RefreshVisibleTasks();
+                    UpdateCategoryCounts();
                 }
             }
-            else if (!_hasPendingTaskUndo)
+            finally
             {
-                ClearTaskUndoState();
-            }
-
-            if (removedPendingPlaceholder)
-            {
-                RefreshVisibleTasks();
-                UpdateCategoryCounts();
+                _suppressStatusSelectionChanged = wasSuppressingStatusSelection;
             }
         }
     }
@@ -1185,7 +1206,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         "Status" => task.WorkflowStatusText,
         "Kunde" => task.CustomerName,
-        "Kategorie" => GetTaskCategoryNames(task),
+        "Kategorie" => GetTaskCategoryBadgeText(task),
         "Ort" => task.CustomerAddress,
         "Termin" => task.DueDateCompactText,
         "Techniker" => task.TechnicianDisplayText,
@@ -2142,6 +2163,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
+        AddHandler(
+            InputElement.KeyDownEvent,
+            MainWindow_OnPreviewKeyDown,
+            RoutingStrategies.Tunnel,
+            handledEventsToo: true);
         _autoSaveTimer.Tick += AutoSaveTimer_OnTick;
         if (!lockResult.IsAcquired)
         {
@@ -2190,6 +2216,163 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ApplyResponsiveStartupBounds();
         RestoreTaskDetailPaneWidth();
         base.OnOpened(e);
+    }
+
+    private async void MainWindow_OnPreviewKeyDown(object? sender, KeyEventArgs e)
+    {
+        var sidebarList = GetSidebarListFromKeyEvent(e.Source);
+        if (sidebarList is not null && HandleSidebarNavigationKey(sidebarList, e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.Delete ||
+            e.KeyModifiers != KeyModifiers.None ||
+            IsTextEditingKeySource(e.Source) ||
+            SelectedTask is null ||
+            SelectedTask.IsDeleted ||
+            SelectedTask.IsMobileInboxCard)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await MoveSelectedTaskToTrashAsync();
+    }
+
+    private ListBox? GetSidebarListFromKeyEvent(object? source)
+    {
+        var control = source as Control;
+        var list = control as ListBox ?? control?.FindAncestorOfType<ListBox>();
+        return ReferenceEquals(list, CategoryList) ||
+               ReferenceEquals(list, UserCategoryList) ||
+               ReferenceEquals(list, SettingsCategoryList)
+            ? list
+            : null;
+    }
+
+    private static bool IsTextEditingKeySource(object? source)
+    {
+        if (source is TextBox or ComboBox or DatePicker or NumericUpDown)
+        {
+            return true;
+        }
+
+        if (source is not Control control)
+        {
+            return false;
+        }
+
+        return control.FindAncestorOfType<TextBox>() is not null ||
+               control.FindAncestorOfType<ComboBox>() is not null ||
+               control.FindAncestorOfType<DatePicker>() is not null ||
+               control.FindAncestorOfType<NumericUpDown>() is not null;
+    }
+
+    private bool HandleSidebarNavigationKey(ListBox sourceList, Key key)
+    {
+        var current = sourceList.SelectedItem as CategoryItem ?? SelectedCategory;
+        if (current is null)
+        {
+            return false;
+        }
+
+        switch (key)
+        {
+            case Key.Up:
+                return MoveSidebarSelection(current, -1);
+            case Key.Down:
+                return MoveSidebarSelection(current, 1);
+            case Key.Right:
+                if (!current.HasChildren)
+                {
+                    return false;
+                }
+
+                if (!current.IsExpanded)
+                {
+                    ToggleCategoryExpanded(current);
+                    FocusSidebarCategory(current);
+                    return true;
+                }
+
+                var firstChild = SidebarUserCategories.FirstOrDefault(category =>
+                    string.Equals(category.ParentId, current.Id, StringComparison.OrdinalIgnoreCase));
+                return firstChild is not null && ActivateSidebarCategory(firstChild);
+            case Key.Left:
+                if (current.HasChildren && current.IsExpanded)
+                {
+                    ToggleCategoryExpanded(current);
+                    FocusSidebarCategory(current);
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(current.ParentId))
+                {
+                    return false;
+                }
+
+                var parent = SidebarUserCategories.FirstOrDefault(category =>
+                    string.Equals(category.Id, current.ParentId, StringComparison.OrdinalIgnoreCase));
+                return parent is not null && ActivateSidebarCategory(parent);
+            case Key.Enter:
+                return ActivateSidebarCategory(current);
+            default:
+                return false;
+        }
+    }
+
+    private bool MoveSidebarSelection(CategoryItem current, int direction)
+    {
+        var visible = SidebarCategories.ToList();
+        var currentIndex = visible.FindIndex(category =>
+            string.Equals(category.Id, current.Id, StringComparison.OrdinalIgnoreCase));
+        var targetIndex = currentIndex + direction;
+        return currentIndex >= 0 && targetIndex >= 0 && targetIndex < visible.Count &&
+               ActivateSidebarCategory(visible[targetIndex]);
+    }
+
+    private bool ActivateSidebarCategory(CategoryItem category)
+    {
+        var canonical = Categories.FirstOrDefault(item =>
+            string.Equals(item.Id, category.Id, StringComparison.OrdinalIgnoreCase)) ?? category;
+        var wasSuppressing = _suppressCategorySelectionChanged;
+        _suppressCategorySelectionChanged = true;
+        try
+        {
+            SelectedCategory = canonical;
+            SetSidebarListSelections(canonical.Id);
+        }
+        finally
+        {
+            _suppressCategorySelectionChanged = wasSuppressing;
+        }
+
+        ApplySelectedCategoryContent();
+        FocusSidebarCategory(canonical);
+        return true;
+    }
+
+    private void FocusSidebarCategory(CategoryItem category)
+    {
+        var list = SidebarSystemCategories.Contains(category)
+            ? CategoryList
+            : SidebarUserCategories.Contains(category)
+                ? UserCategoryList
+                : SidebarSettingsCategories.Contains(category)
+                    ? SettingsCategoryList
+                    : null;
+        if (list is null)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            list.ScrollIntoView(category);
+            (list.ContainerFromItem(category) as Control)?.Focus();
+        }, DispatcherPriority.Input);
     }
 
     private void RestoreTaskDetailPaneWidth()
@@ -5219,7 +5402,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CategoryId = category.Id,
             CustomerName = "Neuer Kunde",
             Title = "Neue Aufgabe",
-            Status = "Offen",
+            Status = createOffer ? "Angebot" : "Auftrag",
             WorkflowType = createOffer ? OfferWorkflowType : DirectWorkflowType,
             WorkflowStep = createOffer ? "Angebot" : "Auftrag",
             Priority = "Normal",
@@ -5876,29 +6059,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void DeleteTask_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (SelectedTask is null)
+        await MoveSelectedTaskToTrashAsync();
+    }
+
+    private async Task MoveSelectedTaskToTrashAsync()
+    {
+        if (_isDeletingTask ||
+            SelectedTask is null ||
+            SelectedTask.IsDeleted ||
+            SelectedTask.IsMobileInboxCard)
         {
             return;
         }
 
-        var task = SelectedTask;
-        var confirmed = await ShowDeleteTaskConfirmationDialog(task);
-        if (!confirmed)
+        _isDeletingTask = true;
+        try
         {
-            return;
-        }
+            var task = SelectedTask;
+            var confirmed = await ShowDeleteTaskConfirmationDialog(task);
+            if (!confirmed)
+            {
+                return;
+            }
 
-        if (!await EnsureSafetyBackupBeforeRiskyActionAsync("den Auftrag in den Papierkorb zu verschieben"))
+            if (!await EnsureSafetyBackupBeforeRiskyActionAsync("den Auftrag in den Papierkorb zu verschieben"))
+            {
+                return;
+            }
+
+            MoveTaskToTrash(task);
+        }
+        finally
         {
-            return;
+            _isDeletingTask = false;
         }
+    }
 
+    private void MoveTaskToTrash(TaskItem task)
+    {
         CaptureTaskUndoState(task);
-        if (!task.IsDeleted)
-        {
-            task.IsDeleted = true;
-            task.DeletedAt = DateTime.Now;
-        }
+        task.IsDeleted = true;
+        task.DeletedAt = DateTime.Now;
         task.UpdatedAt = DateTime.Now;
         _tasksPendingDuplicateCheck.Remove(task.Id);
         SaveTaskAndQueueIpadSnapshot(task);
@@ -8297,26 +8498,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _isRefreshingVisibleTasks ||
             _suppressStatusSelectionChanged ||
             _selectionNavigationDepth > 0 ||
-            SelectedTask is null)
+            SelectedTask is null ||
+            sender is not ComboBox { SelectedItem: string status })
         {
             return;
         }
 
-        if (sender is not ComboBox { SelectedItem: string status } ||
-            (SelectedTask.WorkflowStep.Equals(status, StringComparison.Ordinal) &&
-             SelectedTask.Status.Equals(status, StringComparison.Ordinal)))
+        ApplySelectedWorkflowStep(status);
+    }
+
+    private void SyncWorkflowStatusComboBox()
+    {
+        if (WorkflowStatusComboBox is null)
         {
             return;
         }
 
-        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
-        SelectedTask.WorkflowStep = status;
-        SelectedTask.Status = status;
-        ApplySelectedTaskStatusRules();
-        SaveTaskAndQueueIpadSnapshot(SelectedTask);
-        RefreshVisibleTasks();
-        UpdateCategoryCounts();
-        RefreshDashboard();
+        var wasSuppressing = _suppressStatusSelectionChanged;
+        _suppressStatusSelectionChanged = true;
+        try
+        {
+            var options = SelectedWorkflowStatusOptions;
+            WorkflowStatusComboBox.ItemsSource = options;
+            var current = SelectedTask?.WorkflowStep;
+            WorkflowStatusComboBox.SelectedItem = options.FirstOrDefault(option =>
+                string.Equals(option, current, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _suppressStatusSelectionChanged = wasSuppressing;
+        }
     }
 
     private void TechnicianCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -11305,6 +11516,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Contains(task.Description, query) ||
             Contains(task.AssignedTo, query) ||
             Contains(task.Technician, query) ||
+            Contains(task.WorkflowStatusText, query) ||
             Contains(task.Status, query) ||
             categoryNames.Any(categoryName => Contains(categoryName, query)))
         {
@@ -11823,6 +12035,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         return names.Count == 0 ? "Keine Kategorie" : string.Join(", ", names);
     }
+
+    private string GetTaskCategoryBadgeText(TaskItem task) =>
+        string.Join(", ", GetTaskCategoryNameList(task));
 
     private void RemovePendingNewTask(TaskItem task)
     {
@@ -12419,6 +12634,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (!string.IsNullOrWhiteSpace(task.WorkflowStep))
         {
+            task.WorkflowStep = NormalizeWorkflowStep(task, task.WorkflowStep);
             return;
         }
 
@@ -12444,6 +12660,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : "Auftrag";
     }
 
+    private static string NormalizeWorkflowStep(TaskItem task, string step)
+    {
+        var trimmed = step.Trim();
+        var sequence = IsOfferWorkflow(task) ? OfferWorkflowSteps : DirectWorkflowSteps;
+        var canonical = sequence.FirstOrDefault(candidate =>
+            string.Equals(candidate, trimmed, StringComparison.OrdinalIgnoreCase));
+        if (canonical is not null)
+        {
+            return canonical;
+        }
+
+        return trimmed.ToLowerInvariant() switch
+        {
+            "offen" => IsOfferWorkflow(task) ? "Angebot" : "Auftrag",
+            "material offen" => "Material",
+            "terminiert" => "Termin",
+            _ => trimmed
+        };
+    }
+
     private static bool IsOfferWorkflow(TaskItem task) =>
         string.Equals(task.WorkflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase);
 
@@ -12459,7 +12695,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var activeIndex = Array.FindIndex(steps, step => string.Equals(step, SelectedTask.WorkflowStep, StringComparison.OrdinalIgnoreCase));
         if (activeIndex < 0)
         {
-            activeIndex = 0;
+            var unknownStep = SelectedTask.WorkflowStep?.Trim();
+            if (!string.IsNullOrWhiteSpace(unknownStep))
+            {
+                WorkflowSteps.Add(new WorkflowStepItem(unknownStep, false, true));
+            }
+
+            foreach (var step in steps)
+            {
+                WorkflowSteps.Add(new WorkflowStepItem(step, false, false));
+            }
+
+            return;
         }
 
         for (var index = 0; index < steps.Length; index++)
@@ -12475,19 +12722,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
-        SelectedTask.WorkflowStep = step;
-        SelectedTask.Status = step;
-        if (string.Equals(step, "Erledigt", StringComparison.OrdinalIgnoreCase))
+        ApplySelectedWorkflowStep(step);
+    }
+
+    private void ApplySelectedWorkflowStep(string step)
+    {
+        if (SelectedTask is null || string.IsNullOrWhiteSpace(step))
         {
-            SelectedTask.CompletedAt ??= DateTime.Now;
-        }
-        else
-        {
-            SelectedTask.CompletedAt = null;
+            return;
         }
 
+        var normalizedStep = NormalizeWorkflowStep(SelectedTask, step);
+        if (string.Equals(SelectedTask.WorkflowStep, normalizedStep, StringComparison.Ordinal) &&
+            string.Equals(SelectedTask.Status, normalizedStep, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
+        SelectedTask.WorkflowStep = normalizedStep;
+        SelectedTask.Status = normalizedStep;
+        ApplySelectedTaskStatusRules();
         SaveTaskAndQueueIpadSnapshot(SelectedTask);
+        OnPropertyChanged(nameof(SelectedWorkflowStatusOptions));
+        SyncWorkflowStatusComboBox();
         RefreshWorkflowSteps();
         RefreshVisibleTasks();
         UpdateCategoryCounts();
@@ -13727,12 +13985,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        EnsureTaskCategoryState(SelectedTask);
-        if (SelectedTask.Status == "Erledigt" && SelectedTask.CompletedAt is null)
+        if (string.Equals(SelectedTask.WorkflowStep, "Erledigt", StringComparison.OrdinalIgnoreCase) &&
+            SelectedTask.CompletedAt is null)
         {
             SelectedTask.CompletedAt = DateTime.Now;
         }
-        else if (SelectedTask.Status != "Erledigt")
+        else if (!string.Equals(SelectedTask.WorkflowStep, "Erledigt", StringComparison.OrdinalIgnoreCase))
         {
             SelectedTask.CompletedAt = null;
         }

@@ -2,21 +2,20 @@
 
 ## Ziel
 
-Die neue Vorgangstyp-, Kategorien- und Drag-&-Drop-Bedienung auf einer entsperrten macOS-Sitzung mit einem isolierten Testprofil sichtbar abnehmen.
+Den vollständigen sichtbaren Desktop-Funktionstest auf einer entsperrten macOS-Sitzung mit einem isolierten Testprofil abschließen.
 
 ## Geplante Schritte
 
-1. App mit `BUEROCOCKPIT_DATA_DIRECTORY` und `BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY` auf temporäre Ordner starten.
-2. Angebots- und Direktauftragsfolgen sichtbar anklicken, Übersichtseinträge öffnen, Vorgänge per Maus zwischen zulässigen fachlichen Endkategorien ziehen und Kategorien über den neuen Drag-Griff umsortieren.
-3. Vollständige Kategorienstruktur sowie den fest über Einstellungen stehenden Papierkorb sichtbar prüfen.
-4. Nach Neustart Typ, Bearbeitungsstand, Kategorie, Kategorienreihenfolge, Filter, Zähler und Suchergebnis sichtbar sowie per SQLite prüfen.
+1. Vor dem Start die fremde lokale Änderung an `scripts/run-macos-bundle.sh` klären oder einen nachweislich isolierten Bundle-Start verwenden, ohne den fremden Diff zu überschreiben.
+2. Angebots- und Direktauftragsstatus, vollständige Kategorieauswahl, Kategorie-Badges, Übersichtsnavigation, echten Vorgangs- und Kategorie-Maus-Drag sowie die Neustartpersistenz sichtbar prüfen.
+3. Sidebar vollständig per Pfeiltasten und Enter bedienen; Entf im normalen Vorgangskontext bestätigen und in Text-, Auswahl-, Datums- und Zahlenfeldern als wirkungslos prüfen.
+4. Den vollständigen Rundgang nach `docs/TESTRICHTLINIEN.md` einschließlich Kontextmenüs, Dialogen, Leerzuständen, Archiv, Papierkorb, Backup, Diagnose und manuellem Testdienst real abschließen.
 
 ## Vermutlich betroffene Dateien
 
-- `MainWindow.axaml`
-- `MainWindow.axaml.cs`
-- nur bei reproduzierbarem Fehler die unmittelbar betroffene Persistenz- oder Testdokumentation
+- keine Codeänderung bei erfolgreicher Abnahme
+- bei einem reproduzierbaren Fehler nur der unmittelbar betroffene Code und die Abschlussdokumentation
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktive Daten, Anhänge, Netzwerk-/Sync-Funktionen, Release, Tags, Versionen und organisatorische Vorgangstypen.
+- Produktive Daten, Anhänge, Cloud-Dateien, iPad-Code, Netzwerk-/Sync-Architektur, Version, Release, Tags und `main`.

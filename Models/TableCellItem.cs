@@ -8,6 +8,7 @@ public sealed class TableCellItem
         Text = text;
         Width = width;
         IsStatus = isStatus;
+        IsCategory = string.Equals(key, "Kategorie", StringComparison.OrdinalIgnoreCase);
     }
 
     public string Key { get; }
@@ -15,5 +16,7 @@ public sealed class TableCellItem
     public string ToolTipText => Text;
     public double Width { get; }
     public bool IsStatus { get; }
-    public bool IsNotStatus => !IsStatus;
+    public bool IsCategory { get; }
+    public bool IsCategoryBadgeVisible => IsCategory && !string.IsNullOrWhiteSpace(Text);
+    public bool IsPlainText => !IsStatus && !IsCategory;
 }

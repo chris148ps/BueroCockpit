@@ -442,6 +442,10 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:focus-visible Border.CategoryItemFrame">
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
     <Style Selector="TextBlock.CategoryExpandGlyph">
       <Setter Property="Width" Value="10" />
       <Setter Property="MinWidth" Value="10" />
@@ -2313,7 +2317,21 @@
                                   HorizontalAlignment="Left">
                             <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
                           </Border>
-                          <TextBlock IsVisible="{Binding IsNotStatus}"
+                          <Border IsVisible="{Binding IsCategoryBadgeVisible}"
+                                  Background="{DynamicResource InputBackgroundBrush}"
+                                  BorderBrush="{DynamicResource BorderBrushDark}"
+                                  BorderThickness="1"
+                                  CornerRadius="{DynamicResource CornerRadiusSmall}"
+                                  Padding="6,2"
+                                  HorizontalAlignment="Left"
+                                  MaxWidth="{Binding Width}">
+                            <TextBlock Text="{Binding Text}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding ToolTipText}" />
+                          </Border>
+                          <TextBlock IsVisible="{Binding IsPlainText}"
                                      Text="{Binding Text}"
                                      TextTrimming="CharacterEllipsis"
                                      ToolTip.Tip="{Binding ToolTipText}"
@@ -2710,8 +2728,8 @@
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <StackPanel Spacing="4">
                   <TextBlock Text="Status" Classes="TaskDetailFieldLabel" />
-                  <ComboBox ItemsSource="{Binding SelectedWorkflowStatusOptions}"
-                            SelectedItem="{Binding SelectedTask.WorkflowStep, Mode=TwoWay}"
+                  <ComboBox x:Name="WorkflowStatusComboBox"
+                            AutomationProperties.Name="Workflowstatus"
                             SelectionChanged="StatusCombo_OnSelectionChanged" />
                 </StackPanel>
                 <TextBlock Grid.Column="1" Text="{Binding SelectedTask.WorkflowType}" Classes="TaskDetailSubtitle" VerticalAlignment="Center" />
