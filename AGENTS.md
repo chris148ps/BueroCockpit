@@ -1,159 +1,86 @@
-# BueroCockpit - Agentenregeln
+# BüroCockpit – Agentenregeln
 
-Die zentralen Projektregeln stehen in `docs/CODEX_PROJEKTREGELN.md`.
+Diese Datei ist der verbindliche Einstieg für Codex und andere Agenten.
 
-Start fuer Codex-Aufgaben:
+## Vor jeder Aufgabe lesen
+
+Immer:
+
+- `docs/CODEX_PROJEKTREGELN.md`
+
+Zusätzlich je nach Thema:
+
+- UI/Design: `docs/DESIGN_RICHTLINIEN.md`
+- iPad, iPhone, Fotos, Netzwerk oder Sync: `docs/LOCAL_NETWORK_SYNC.md`
+- vollständige Funktionsprüfung oder Release: `docs/TESTRICHTLINIEN.md`
+- Release, Version, Tag, GitHub Upload oder Auto-Update: `docs/RELEASE_PROZESS.md`
+
+## Werkzeug- und Modellwahl
+
+- Kleine Terminal-, Git-, Such-, Build-, Release- und Patchaufgaben direkt im Terminal erledigen.
+- Codex nur für größere zusammenhängende Code-, UI-, Datenmodell-, Netzwerk- oder Architekturarbeiten verwenden.
+- Standard für Codex: GPT-5.6 Sol, Reasoning medium.
+- Ein größeres Modell nur bei klar begründeter komplexer Architektur-, Refactoring- oder Analyseaufgabe verwenden.
+
+## Grundprüfung
+
+Vor Änderungen:
 
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
-codex -m gpt-5.5
+git status --short
+git pull origin main
 ```
 
-Vor jeder Aufgabe immer zuerst lesen:
+Nach Änderungen:
 
-- `docs/CODEX_PROJEKTREGELN.md`
-- bei UI- und Design-Aenderungen zusaetzlich `docs/DESIGN_RICHTLINIEN.md`
-- bei iPad-, Sync-, Foto- oder Netzwerk-Themen zusaetzlich `docs/LOCAL_NETWORK_SYNC.md`
+```bash
+git diff --check
+dotnet build
+git status --short
+```
 
-Arbeitsweise:
+Bei iPad-Code zusätzlich `xcodebuild`; bei Windows-Code mindestens `dotnet build -r win-x64`.
 
-- Kleine Terminal-, Such- und Patch-Aufgaben moeglichst ohne Codex erledigen.
-- Codex fuer groessere zusammenhaengende UI-, Datenmodell- oder Architekturarbeiten verwenden.
-- Vor Aenderungen `git status` und `git pull origin main` pruefen.
-- Nach Aenderungen `git diff --check` und `dotnet build` pruefen.
-- Bei iPad-Code zusaetzlich `xcodebuild` pruefen.
+## Sicherheit
 
-Release-Regel:
+- Keine produktiven Daten, Kategorien, IDs, Zuordnungen oder Anhänge löschen oder still verändern.
+- Keine riskante Datenmigration ohne ausdrückliche Freigabe.
+- Keine Echtdaten, Datenbanken, Anhänge, Backups oder `publish`-Ordner committen.
+- Keine Cloud-, iCloud- oder OneDrive-Dateien verändern, außer der Nutzer beauftragt dies ausdrücklich.
+- Keine alten Cloud-, Live-Datei- oder Pairing-Code-Wege wieder aktivieren.
+- Kein Netzwerkdienst, Polling, FileSystemWatcher, Portscan oder UDP-Broadcast ohne ausdrückliche Freigabe.
 
-- Kein Release ohne ausdrueckliche Freigabe.
-- Wenn der Nutzer ausdruecklich `Release erstellen` sagt, bedeutet das immer der komplette Release-Ablauf: Version setzen, Release-Skript ausfuehren, Release-Commit, Tag, `git push origin main`, `git push origin v<version>`, GitHub Release erstellen, Artefakte hochladen und `gh release view` pruefen.
-- Aktueller Release-Befehl: `./scripts/release.sh <version>`.
+## Testpflicht
 
-# Verbindliche Projektdokumentation
+- Relevante Funktionen real bedienen, nicht nur Code lesen.
+- Für vollständige Tests isolierte Testdaten verwenden.
+- Reproduzierbare, sicher begrenzte Fehler sofort beheben und erneut testen.
+- Details stehen in `docs/TESTRICHTLINIEN.md`.
 
-Diese Regeln gelten für jeden größeren Codex-Auftrag und müssen automatisch eingehalten werden.
+## Release-Regel
 
-Nach Abschluss eines größeren Auftrags ist die Projektdokumentation zu aktualisieren.
+- Kein Release, Tag oder Versionswechsel ohne ausdrückliche Freigabe.
+- „Release erstellen“ bedeutet immer den vollständigen GitHub-Release für die Windows-Auto-Update-Funktion.
+- Pflicht sind frische Velopack-Artefakte, Tag, Push, GitHub Release, Upload und `gh release view`.
+- Der optionale Inno-Installer ist nicht Voraussetzung für das Velopack-Auto-Update.
+- Release-Arbeiten direkt im Terminal ausführen.
+- Der vollständige Ablauf steht ausschließlich in `docs/RELEASE_PROZESS.md`.
+
+## Arbeitsbranch für Codex
+
+- Größere Codex-Arbeiten erfolgen auf `codex/work`.
+- Veröffentlichung über `scripts/publish-codex-work.sh`.
+- Der Helfer darf niemals nach `main` pushen, mergen, taggen oder Releases erstellen.
+- Der offene Draft-PR `codex/work` → `main` bleibt der nachvollziehbare Arbeitsstand.
+
+## Projektdokumentation nach größeren Aufträgen
 
 Pflicht:
 
-1. `docs/codex_journal/`
-   - Für jeden größeren abgeschlossenen Auftrag eine neue Journaldatei anlegen.
-   - Dateiname: `YYYY-MM-DD_HH-MM_kurzer-name.md`
+- neuer Eintrag unter `docs/codex_journal/`
+- `docs/codex_last_run.md` aktualisieren
+- `docs/PROJEKTSTATUS.md` bei fachlichen Änderungen aktualisieren
+- `docs/NEXT_TASK.md` auf genau eine nächste Aufgabe setzen
 
-   Inhalt:
-   - Ziel
-   - Umsetzung
-   - geänderte Dateien
-   - Tests
-   - Ergebnis
-   - bekannte offene Punkte
-   - aktueller Git-Status
-
-2. `docs/codex_last_run.md`
-
-   Immer überschreiben.
-
-   Enthält:
-   - Datum/Uhrzeit
-   - letzter Auftrag
-   - Zusammenfassung
-   - geänderte Dateien
-   - Tests
-   - Git-Status
-   - offene Punkte
-   - empfohlener nächster Schritt
-
-3. `docs/PROJEKTSTATUS.md`
-
-   Nur aktualisieren, wenn sich der fachliche Projektstand geändert hat.
-
-   Enthält:
-   - aktueller Entwicklungsstand
-   - Architektur
-   - erledigte Hauptfunktionen
-   - bekannte offene Punkte
-   - wichtige Entscheidungen
-
-4. `docs/NEXT_TASK.md`
-
-   Immer genau eine nächste sinnvolle Aufgabe.
-
-   Enthält:
-   - Ziel
-   - geplante Schritte
-   - vermutlich betroffene Dateien
-   - Bereiche, die nicht verändert werden dürfen
-
-Grundregeln:
-
-- Die Dokumentation muss dem tatsächlichen Projektstand entsprechen.
-- Keine erfundenen Ergebnisse oder Tests dokumentieren.
-- Keine Dokumentation überspringen.
-- Erst wenn die Dokumentation aktualisiert wurde, gilt der Auftrag als abgeschlossen.
-
-## Automatisierter Dokumentationslauf
-
-Für einen abgeschlossenen größeren Auftrag wird die Vorlage
-`docs/codex_run_template.md` kopiert und mit den tatsächlichen Ergebnissen
-gefüllt. Danach aus dem Repository-Stamm ausführen:
-
-```bash
-./scripts/update-codex-documentation.sh \
-  --input /tmp/codex-run.md \
-  --name kurzer-name
-```
-
-Vor dem Schreiben kann der Lauf mit `--dry-run` geprüft werden. Wenn sich der
-fachliche Projektstand geändert hat, wird zusätzlich eine vollständige,
-geprüfte Statusdatei übergeben:
-
-```bash
-./scripts/update-codex-documentation.sh \
-  --input /tmp/codex-run.md \
-  --name kurzer-name \
-  --project-status-file /tmp/PROJEKTSTATUS.md
-```
-
-Der Runner legt Journale kollisionsgeschützt neu an, überschreibt nur die
-vorgeschriebenen Dateien `docs/codex_last_run.md` und `docs/NEXT_TASK.md`,
-aktualisiert `docs/PROJEKTSTATUS.md` nur mit dem ausdrücklichen Parameter und
-führt selbst keine Git-Schreibaktion aus. `docs/NEXT_TASK.md` wird aus genau
-einem Zielblock erzeugt.
-
-## Verbindlicher Arbeitsbranch- und Push-Ablauf
-
-Nach erfolgreicher Dokumentationsaktualisierung darf der Arbeitsstand nur über
-den separaten Git-Helfer veröffentlicht werden:
-
-```bash
-./scripts/publish-codex-work.sh \
-  --name kurzer-name \
-  --description "kurze Beschreibung" \
-  --include AGENTS.md \
-  --include docs/codex_journal \
-  --include docs/codex_last_run.md \
-  --include docs/NEXT_TASK.md \
-  --include scripts/update-codex-documentation.sh \
-  --include scripts/publish-codex-work.sh
-```
-
-Der Helfer verwendet dauerhaft den Branch `codex/work`, commitet
-nur die ausdrücklich mit `--include` angegebenen Pfade und pusht ausschließlich
-diesen Branch. Vorhandene nicht ausgewählte Änderungen bleiben erhalten. Ein
-bereits vorgemerkter Index wird aus Sicherheitsgründen abgelehnt.
-
-`docs/codex_last_run.md` enthält nach dem Git-Lauf zusätzlich die Felder
-`Branch`, `Commit` und `Push erfolgreich`. Der Helper dokumentiert den ersten
-Arbeitscommit und legt danach einen separaten Metadatencommit an.
-
-Nach dem Push prüft der Helfer den offenen Draft-PR von `codex/work` nach
-`main`. Falls noch keiner existiert, wird genau ein Draft-PR mit dem Titel
-`Codex-Arbeitsstand BüroCockpit` angelegt; andernfalls wird derselbe PR
-aktualisiert. Ein bestehender nicht-draftiger PR wird nicht automatisch
-verändert.
-
-Der Helper darf niemals nach `main` pushen oder mergen und führt niemals Tags,
-Releases oder Versionsänderungen aus. Mit `--dry-run` kann der Branch-, Commit-,
-Push- und PR-Plan ohne Zustandsänderung geprüft werden. Der Draft-PR darf nur
-manuell auf „Ready for review“ gesetzt oder gemergt werden.
+Die Dokumentation muss dem tatsächlich geprüften Stand entsprechen. Keine erfundenen Tests oder Ergebnisse.
