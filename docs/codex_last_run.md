@@ -58,16 +58,13 @@ Angebotsvorgänge bleiben unabhängig vom Bearbeitungsstand unter Angebote, Dire
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+2a6b307d4941c1df7d556380832b001f8fbb6ddc
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
