@@ -294,15 +294,44 @@ struct SnapshotRootView: View {
             }
         )
         .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                localNetworkConnectionIndicator
+
+                Button {
+                    presentedSheet = .mobilePhotoDrafts
+                } label: {
+                    Label("Foto-Modus", systemImage: "camera")
+                }
+
+                Button {
+                    presentedSheet = .mobileInspectionNew
+                } label: {
+                    Label("Neue Aufgabe", systemImage: "plus")
+                }
+
+                Button {
+                    refreshCurrentSyncSource()
+                } label: {
+                    if viewModel.isSyncing || viewModel.loadState == .loading {
+                        ProgressView()
+                    } else {
+                        Label("Aktualisieren", systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(viewModel.isSyncing || viewModel.loadState == .loading)
+
+                Button {
+                    presentedSheet = .settings
+                } label: {
+                    Label("Einstellungen", systemImage: "gearshape")
+                }
+            }
+        }
     }
 
     private var contentColumnView: some View {
         VStack(spacing: 0) {
-            mainHeaderView
-            if shouldShowTaskSearch {
-                taskSearchField
-            }
-            Divider()
             taskList
         }
     }
@@ -486,6 +515,7 @@ struct SnapshotRootView: View {
                         .tag(task.id)
                 }
                 .navigationTitle(viewModel.selectedCategoryTitle)
+                .searchable(text: $viewModel.searchText, prompt: "Aufträge suchen")
             }
         case .idle:
             SnapshotEmptyStateView(

@@ -46,29 +46,72 @@ public partial class App : Application
     {
         var isLightMode = string.Equals(mode, LightMode, StringComparison.OrdinalIgnoreCase);
 
-        SetBrush("WindowBackgroundBrush", isLightMode ? "#F5F5F7" : "#1C1C1E");
-        SetBrush("SidebarBackgroundBrush", isLightMode ? "#ECECF0" : "#242426");
-        SetBrush("SidebarPanelBackgroundBrush", isLightMode ? "#F4F4F6" : "#2A2A2C");
-        SetBrush("SurfaceBackgroundBrush", isLightMode ? "#FFFFFF" : "#2C2C2E");
-        SetBrush("SurfaceElevatedBrush", isLightMode ? "#F8F8FA" : "#303033");
-        SetBrush("InputBackgroundBrush", isLightMode ? "#FFFFFF" : "#1F1F21");
-        SetBrush("BorderBrushDark", isLightMode ? "#D1D1D6" : "#3A3A3C");
-        SetBrush("BorderBrushStrong", isLightMode ? "#B8B8BE" : "#48484A");
-        SetBrush("TextPrimaryBrush", isLightMode ? "#1C1C1E" : "#F2F2F7");
-        SetBrush("TextSecondaryBrush", isLightMode ? "#4A4A4F" : "#AEAEB2");
-        SetBrush("TextTertiaryBrush", isLightMode ? "#6E6E73" : "#8E8E93");
-        SetBrush("AccentBrush", "#0A84FF");
-        SetBrush("AccentSoftBrush", isLightMode ? "#E4F0FF" : "#1A2F4A");
-        SetBrush("AccentSoftBorderBrush", isLightMode ? "#B9D7FF" : "#2D5D8F");
-        SetBrush("DangerBrush", isLightMode ? "#D92D20" : "#FF6B6B");
-        SetBrush("ButtonHoverBackgroundBrush", "#0A84FF");
-        SetBrush("ButtonHoverBorderBrush", "#0A84FF");
-        SetBrush("ButtonHoverForegroundBrush", "#FFFFFF");
-        SetBrush("ButtonPrimaryHoverBackgroundBrush", "#1B8FFF");
-        SetBrush("ButtonPrimaryHoverBorderBrush", "#1B8FFF");
-        SetBrush("ButtonDangerHoverBackgroundBrush", isLightMode ? "#D92D20" : "#FF453A");
-        SetBrush("ButtonDangerHoverBorderBrush", isLightMode ? "#D92D20" : "#FF453A");
+        SetBrush("WindowBackgroundBrush", isLightMode ? "#F3F3F3" : "#202020");
+        SetBrush("NavigationBackgroundBrush", isLightMode ? "#EBEBEB" : "#1C1C1C");
+        SetBrush("SidebarBackgroundBrush", isLightMode ? "#EBEBEB" : "#1C1C1C");
+        SetBrush("SidebarPanelBackgroundBrush", isLightMode ? "#F0F0F0" : "#242424");
+        SetBrush("ContentBackgroundBrush", isLightMode ? "#F7F7F7" : "#272727");
+        SetBrush("ContentSecondaryBackgroundBrush", isLightMode ? "#F0F0F0" : "#2B2B2B");
+        SetBrush("SurfaceBackgroundBrush", isLightMode ? "#FFFFFF" : "#2D2D2D");
+        SetBrush("CardBackgroundBrush", isLightMode ? "#FFFFFF" : "#2D2D2D");
+        SetBrush("SurfaceElevatedBrush", isLightMode ? "#FFFFFF" : "#323232");
+        SetBrush("InputBackgroundBrush", isLightMode ? "#FFFFFF" : "#242424");
+        SetBrush("HoverBackgroundBrush", isLightMode ? "#E8E8E8" : "#383838");
+        SetBrush("SelectedBackgroundBrush", isLightMode ? "#DCECF5" : "#243B4A");
+        SetBrush("DisabledBackgroundBrush", isLightMode ? "#E5E5E5" : "#2A2A2A");
+
+        SetBrush("BorderBrush", isLightMode ? "#D6D6D6" : "#404040");
+        SetBrush("BorderBrushDark", isLightMode ? "#D6D6D6" : "#404040");
+        SetBrush("BorderBrushStrong", isLightMode ? "#9F9F9F" : "#5A5A5A");
+        SetBrush("FocusBorderBrush", "#60CDFF");
+
+        SetBrush("TextPrimaryBrush", isLightMode ? "#1A1A1A" : "#F5F5F5");
+        SetBrush("TextSecondaryBrush", isLightMode ? "#4D4D4D" : "#C8C8C8");
+        SetBrush("TextTertiaryBrush", isLightMode ? "#666666" : "#9B9B9B");
+        SetBrush("TextDisabledBrush", isLightMode ? "#929292" : "#707070");
+        SetBrush("TextOnAccentBrush", "#102027");
+        SetBrush("DeskInkBrush", "#1F2937");
+        SetBrush("DeskStrongInkBrush", "#111827");
+        SetBrush("DeskSelectionBrush", "#55D9B35C");
+
+        SetBrush("AccentBrush", "#60CDFF");
+        SetBrush("AccentHoverBrush", "#7BD8FF");
+        SetBrush("AccentPressedBrush", "#4CC2FF");
+        SetBrush("AccentSoftBrush", isLightMode ? "#DCECF5" : "#243B4A");
+        SetBrush("AccentSoftBorderBrush", isLightMode ? "#75B9D6" : "#39738A");
+
+        SetBrush("InformationBrush", "#60CDFF");
+        SetBrush("SuccessBrush", isLightMode ? "#0F7B0F" : "#6CCB5F");
+        SetBrush("WarningBrush", isLightMode ? "#8A5700" : "#FCE100");
+        SetBrush("DangerBrush", isLightMode ? "#C42B1C" : "#FF99A4");
+        SetBrush("PendingBrush", isLightMode ? "#8A5700" : "#F6C344");
+        SetBrush("ConnectedBrush", isLightMode ? "#0F7B0F" : "#6CCB5F");
+        SetBrush("DisconnectedBrush", isLightMode ? "#C42B1C" : "#FF99A4");
+        SetBrush("OverdueBrush", isLightMode ? "#C42B1C" : "#FF99A4");
+        SetBrush("ConfirmedBrush", isLightMode ? "#0F7B0F" : "#6CCB5F");
+        SetBrush("InformationBackgroundBrush", isLightMode ? "#E3F3FA" : "#203843");
+        SetBrush("SuccessBackgroundBrush", isLightMode ? "#E6F4EA" : "#243A27");
+        SetBrush("WarningBackgroundBrush", isLightMode ? "#FFF4CE" : "#3D351D");
+        SetBrush("DangerBackgroundBrush", isLightMode ? "#FDE7E9" : "#44272B");
+
+        SetBrush("ButtonHoverBackgroundBrush", isLightMode ? "#E8E8E8" : "#383838");
+        SetBrush("ButtonHoverBorderBrush", isLightMode ? "#9F9F9F" : "#5A5A5A");
+        SetBrush("ButtonHoverForegroundBrush", isLightMode ? "#1A1A1A" : "#F5F5F5");
+        SetBrush("ButtonPrimaryHoverBackgroundBrush", "#7BD8FF");
+        SetBrush("ButtonPrimaryHoverBorderBrush", "#7BD8FF");
+        SetBrush("ButtonDangerHoverBackgroundBrush", isLightMode ? "#A4262C" : "#C42B1C");
+        SetBrush("ButtonDangerHoverBorderBrush", isLightMode ? "#A4262C" : "#E0525E");
         SetBrush("ButtonDangerHoverForegroundBrush", "#FFFFFF");
+
+        Resources["CornerRadiusSmall"] = new CornerRadius(4);
+        Resources["CornerRadiusMedium"] = new CornerRadius(6);
+        Resources["CornerRadiusLarge"] = new CornerRadius(8);
+        Resources["SpacingSmall"] = new Thickness(4);
+        Resources["SpacingMedium"] = new Thickness(8);
+        Resources["SpacingLarge"] = new Thickness(12);
+        Resources["ControlPadding"] = new Thickness(12, 6);
+        Resources["CardPadding"] = new Thickness(12);
+        Resources["DialogPadding"] = new Thickness(18);
     }
 
     private void SetBrush(string key, string hex)

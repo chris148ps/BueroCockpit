@@ -2,16 +2,18 @@ namespace BueroCockpit.Data;
 
 public static class AppPaths
 {
+    private const string DataDirectoryOverrideVariable = "BUEROCOCKPIT_DATA_DIRECTORY";
+    private const string LocalConfigDirectoryOverrideVariable = "BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY";
     private const string AppFolderName = "BueroCockpit";
     private const string LocalConfigFolderName = "BueroCockpitLocal";
     private const string DeskItemsRelativeDirectory = "DeskItems";
     private const string DeskFilesRelativeDirectory = "DeskItems/Files";
 
-    public static string DefaultAppDataDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        AppFolderName);
+    public static string DefaultAppDataDirectory { get; } = GetDirectoryOverride(DataDirectoryOverrideVariable) ??
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolderName);
 
-    public static string LocalConfigDirectory { get; } = GetLocalConfigDirectory();
+    public static string LocalConfigDirectory { get; } = GetDirectoryOverride(LocalConfigDirectoryOverrideVariable) ??
+        GetLocalConfigDirectory();
 
     public static string AppDataDirectory { get; private set; } = DefaultAppDataDirectory;
     public static string BootstrapSettingsPath => Path.Combine(LocalConfigDirectory, "storage-location.local.json");
@@ -43,6 +45,14 @@ public static class AppPaths
         }
 
         AppDataDirectory = Path.GetFullPath(ExpandHomeDirectory(Environment.ExpandEnvironmentVariables(directory.Trim())));
+    }
+
+    private static string? GetDirectoryOverride(string variableName)
+    {
+        var value = Environment.GetEnvironmentVariable(variableName);
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : Path.GetFullPath(ExpandHomeDirectory(Environment.ExpandEnvironmentVariables(value.Trim())));
     }
 
     public static string GetAttachmentDirectory(string taskId)

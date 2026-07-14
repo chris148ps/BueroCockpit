@@ -15,6 +15,32 @@
   <Window.Resources>
     <converters:ThumbnailImageConverter x:Key="ThumbnailImageConverter" />
     <converters:DeskThumbnailImageConverter x:Key="DeskThumbnailImageConverter" />
+    <DataTemplate x:Key="DashboardTaskTemplate">
+      <Border Classes="InlineCard"
+              Margin="0,0,0,8"
+              PointerPressed="DashboardTask_OnPointerPressed">
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Wiedervorlage bestätigen"
+                      IsVisible="{Binding HasFollowUpDate}"
+                      Click="ConfirmFollowUp_OnClick" />
+          </ContextMenu>
+        </Border.ContextMenu>
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding CustomerName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding DueDateOverviewText, StringFormat='Termin: {0}'}"
+                     IsVisible="{Binding HasDueDate}"
+                     Classes="OverviewCardSubtitle" />
+          <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
+                     IsVisible="{Binding HasFollowUpDate}"
+                     Classes="OverviewCardSubtitle" />
+          <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
+                     IsVisible="{Binding HasTechnician}"
+                     Classes="OverviewCardSubtitle" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
   </Window.Resources>
 
   <Window.Styles>
@@ -28,20 +54,104 @@
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="Margin" Value="0,14,0,8" />
     </Style>
+    <Style Selector="TextBlock.TaskDetailSectionTitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="TextBlock.TaskDetailFieldLabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.TaskDetailSubtitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.TaskDetailCard">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.TaskDetailInset">
+      <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.TaskDetailHeader">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.TaskDetailChip">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style Selector="Border.OverviewCard">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Border.OverviewSubCard">
+      <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.OverviewCardTitle">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.OverviewCardSubtitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.OverviewEmpty">
+      <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+    </Style>
     <Style Selector="TextBox, ComboBox, DatePicker, NumericUpDown">
-      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="MinHeight" Value="34" />
     </Style>
+    <Style Selector="TextBox:pointerover, ComboBox:pointerover, DatePicker:pointerover, NumericUpDown:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+    </Style>
+    <Style Selector="TextBox:focus-within, ComboBox:focus-within, DatePicker:focus-within, NumericUpDown:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="TextBox:disabled, ComboBox:disabled, DatePicker:disabled, NumericUpDown:disabled">
+      <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="Opacity" Value="0.8" />
+    </Style>
     <Style Selector="TextBox.DeskNoteEditor">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="Foreground" Value="#1F2937" />
-      <Setter Property="CaretBrush" Value="#1F2937" />
-      <Setter Property="SelectionBrush" Value="#55D9B35C" />
-      <Setter Property="SelectionForegroundBrush" Value="#1F2937" />
+      <Setter Property="Foreground" Value="{DynamicResource DeskInkBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource DeskInkBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource DeskSelectionBrush}" />
+      <Setter Property="SelectionForegroundBrush" Value="{DynamicResource DeskInkBrush}" />
       <Setter Property="FocusAdorner" Value="{x:Null}" />
       <Setter Property="CornerRadius" Value="0" />
     </Style>
@@ -64,7 +174,7 @@
     <Style Selector="TextBox.DeskNoteEditor:disabled">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="Foreground" Value="#1F2937" />
+      <Setter Property="Foreground" Value="{DynamicResource DeskInkBrush}" />
     </Style>
     <Style Selector="TextBox.DeskNoteEditor /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="Transparent" />
@@ -97,8 +207,8 @@
       <Setter Property="FocusAdorner" Value="{x:Null}" />
     </Style>
     <Style Selector="Button">
-      <Setter Property="CornerRadius" Value="9" />
-      <Setter Property="Padding" Value="13,8" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="{DynamicResource ControlPadding}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -110,23 +220,45 @@
       <Setter Property="Foreground" Value="{DynamicResource ButtonHoverForegroundBrush}" />
     </Style>
     <Style Selector="Button:pressed">
-      <Setter Property="Background" Value="{DynamicResource BorderBrushDark}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+      <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}" />
     </Style>
     <Style Selector="Button:focus-visible">
-      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ButtonHoverBorderBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ButtonHoverForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="Opacity" Value="0.75" />
     </Style>
     <Style Selector="Button.Primary">
       <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}" />
     </Style>
     <Style Selector="Button.Primary:pointerover">
       <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource ButtonPrimaryHoverBorderBrush}" />
-      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.Secondary">
+      <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+    </Style>
+    <Style Selector="Button.Secondary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+    </Style>
+    <Style Selector="Button.Tertiary">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.Icon">
+      <Setter Property="MinWidth" Value="32" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Padding" Value="4" />
     </Style>
     <Style Selector="Button.SettingsSectionHeader">
       <Setter Property="Padding" Value="0" />
@@ -138,6 +270,43 @@
     <Style Selector="Button.SettingsSectionHeader:pointerover">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.SettingsTab">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Button.SettingsTab:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.SettingsTab.Selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.TechnicianDelete">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+      <Setter Property="FontSize" Value="21" />
+    </Style>
+    <Style Selector="Button.TechnicianDelete:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonDangerHoverBackgroundBrush}" />
+    </Style>
+    <Style Selector="Button.TechnicianDelete:focus-visible">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="TextBlock.SettingsSectionToggle">
       <Setter Property="Width" Value="24" />
@@ -169,7 +338,7 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="CornerRadius" Value="15" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
@@ -231,14 +400,7 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
-    <Style Selector="ListBox#TaskList Border.TaskCard">
-      <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="1.5" />
-    </Style>
-    <Style Selector="ListBox#TaskList Border.TaskCard:pointerover">
-      <Setter Property="BorderBrush" Value="#000000" />
-    </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem">
       <Setter Property="Padding" Value="0" />
       <Setter Property="Margin" Value="0,2,8,2" />
       <Setter Property="Background" Value="Transparent" />
@@ -257,28 +419,28 @@
         </ControlTemplate>
       </Setter>
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:selected">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:selected">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:pointerover">
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:pointerover">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
-      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ButtonHoverBorderBrush}" />
-      <Setter Property="BorderThickness" Value="1.5" />
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:pointerover:not(:selected) Border.CategoryItemFrame">
+      <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:selected Border.CategoryItemFrame">
-      <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:selected Border.CategoryItemFrame">
+      <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="ListBox#CategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
-      <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}" />
+    <Style Selector="ListBox.SidebarCategoryList ListBoxItem:selected:pointerover Border.CategoryItemFrame">
+      <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="TextBlock.CategoryExpandGlyph">
       <Setter Property="Width" Value="10" />
@@ -294,25 +456,57 @@
     <Style Selector="Border.CategoryDropLine">
       <Setter Property="Height" Value="2" />
       <Setter Property="CornerRadius" Value="2" />
-      <Setter Property="Background" Value="#1D4ED8" />
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style Selector="Border.CategoryDropInside">
-      <Setter Property="Background" Value="#1D4ED810" />
-      <Setter Property="BorderBrush" Value="#1D4ED8" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
     </Style>
     <Style Selector="Border.Card">
-      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="Padding" Value="14" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="{DynamicResource CardPadding}" />
+    </Style>
+    <Style Selector="TextBlock.TaskTableHeader">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="ListBox#TaskList Border.TaskCard">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    </Style>
+    <Style Selector="ListBox#TaskList ListBoxItem:pointerover:not(:selected) Border.TaskCard">
+      <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox#TaskList ListBoxItem:selected Border.TaskCard">
+      <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox#TaskList ListBoxItem:selected:pointerover Border.TaskCard">
+      <Setter Property="Background" Value="{DynamicResource SelectedBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.InlineCard">
+      <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
     </Style>
     <Style Selector="Border.FollowUpCard.HasFollowUps">
-      <Setter Property="Background" Value="#202124" />
-      <Setter Property="BorderBrush" Value="#D92D20" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Border.FollowUpCount">
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
@@ -321,24 +515,49 @@
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
     </Style>
     <Style Selector="Border.FollowUpCard.HasFollowUps TextBlock.FollowUpCardTitle">
-      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.FollowUpCard.HasFollowUps Border.FollowUpCount">
-      <Setter Property="Background" Value="#3A1F1F" />
+      <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
+    </Style>
+    <Style Selector="Border.FollowUpCard.HasFollowUps Border.InlineCard">
+      <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
     </Style>
     <Style Selector="Border.FollowUpCard.HasFollowUps TextBlock.FollowUpCountText">
-      <Setter Property="Foreground" Value="#FF6B6B" />
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="ContextMenu">
+      <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+    <Style Selector="MenuItem:pointerover">
+      <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+    </Style>
+    <Style Selector="ToolTip">
+      <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusSmall}" />
+      <Setter Property="Padding" Value="8,5" />
     </Style>
   </Window.Styles>
 
-  <Grid ColumnDefinitions="300,430,*">
+  <Grid x:Name="RootLayoutGrid"
+        ColumnDefinitions="280,*,6,380"
+        PointerReleased="RootLayoutGrid_OnPointerReleased">
     <Border Grid.Column="0"
             Background="{DynamicResource SidebarBackgroundBrush}"
             BorderBrush="{DynamicResource BorderBrushDark}"
             BorderThickness="0,0,1,0"
-            Padding="18">
-      <DockPanel LastChildFill="True">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,20" Margin="0,0,0,18">
+            Padding="18"
+            AutomationProperties.LandmarkType="Navigation">
+      <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="*,20" Margin="0,0,0,18">
           <StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="BüroCockpit" FontSize="24" FontWeight="SemiBold" />
@@ -378,7 +597,7 @@
           </Grid>
         </Grid>
 
-        <Grid DockPanel.Dock="Top"
+        <Grid Grid.Row="1"
               ColumnDefinitions="*"
               Margin="0,0,0,8"
               Background="{Binding CategoryRootDropBackground}"
@@ -395,29 +614,71 @@
                          FontWeight="SemiBold"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1"
-                         Text="als Hauptkategorie"
-                         FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         IsVisible="{Binding IsCategoryRootDropTarget}"
-                         VerticalAlignment="Center" />
             </Grid>
           </Border>
         </Grid>
 
+        <ScrollViewer Grid.Row="2"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="0">
         <ListBox x:Name="CategoryList"
+                 Classes="SidebarCategoryList"
                  HorizontalAlignment="Stretch"
-                 DragDrop.AllowDrop="True"
-                 DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
-                 DragDrop.Drop="CategoryRootDropZone_OnDrop"
-                 ItemsSource="{Binding SidebarCategories}"
-                 SelectedItem="{Binding SelectedCategory}"
+                 AutomationProperties.Name="Systembereiche"
+                 AutomationProperties.AutomationId="SystemNavigationList"
+                 ItemsSource="{Binding SidebarSystemCategories}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                  SelectionChanged="CategoryList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
               <Border Classes="CategoryItemFrame"
                       HorizontalAlignment="Stretch"
-                      CornerRadius="9"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
+                      Padding="10,9"
+                      Background="{DynamicResource SurfaceBackgroundBrush}"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
+                      BorderThickness="1"
+                      >
+                <Grid MinWidth="0">
+                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+                    <Border Width="{Binding SidebarIndent}" />
+                    <TextBlock Grid.Column="1"
+                               Classes="CategoryExpandGlyph"
+                               Text="{Binding ExpandGlyph}"
+                               />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding DisplayName}"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center" />
+                    <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="7,2">
+                      <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Border>
+                  </Grid>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <ListBox x:Name="UserCategoryList"
+                 Classes="SidebarCategoryList"
+                 HorizontalAlignment="Stretch"
+                 AutomationProperties.Name="Kategorien"
+                 ItemsSource="{Binding SidebarUserCategories}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                 SelectionChanged="CategoryList_OnSelectionChanged"
+                 DragDrop.AllowDrop="True"
+                 DragDrop.DragOver="CategoryRootDropZone_OnDragOver"
+                 DragDrop.Drop="CategoryRootDropZone_OnDrop">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Border Classes="CategoryItemFrame"
+                      HorizontalAlignment="Stretch"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
                       Padding="10,9"
                       Background="{DynamicResource SurfaceBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
@@ -435,61 +696,209 @@
                     <MenuItem Header="Löschen" Click="CategoryDeleteFromMenu_OnClick" />
                   </ContextMenu>
                 </Border.ContextMenu>
-                <Grid MinWidth="200">
-                  <Border Classes="CategoryDropLine"
-                          Margin="{Binding DropLineMargin}"
-                          VerticalAlignment="Top"
-                          IsVisible="{Binding IsDropBefore}" />
-                  <Border Classes="CategoryDropLine"
-                          Margin="{Binding DropLineMargin}"
-                          VerticalAlignment="Bottom"
-                          IsVisible="{Binding IsDropAfter}" />
-                  <Border Classes="CategoryDropInside"
-                          IsVisible="{Binding IsDropInside}" />
-                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
-                    <Border Width="{Binding SidebarIndent}" />
-                    <TextBlock Grid.Column="1"
-                               Classes="CategoryExpandGlyph"
-                               Text="{Binding ExpandGlyph}"
-                               Cursor="Hand"
-                               PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
-                    <TextBlock Grid.Column="2"
-                               Text="{Binding DisplayName}"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center" />
-                    <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="8" Padding="7,2">
-                      <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    </Border>
-                  </Grid>
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+                  <Border Width="{Binding SidebarIndent}" />
+                  <TextBlock Grid.Column="1" Classes="CategoryExpandGlyph" Text="{Binding ExpandGlyph}" PointerPressed="ToggleCategoryExpanded_OnPointerPressed" />
+                  <TextBlock Grid.Column="2" Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <Border Grid.Column="3" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="7,2">
+                    <TextBlock Text="{Binding TaskCount}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </Border>
                 </Grid>
               </Border>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-      </DockPanel>
+          </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="3"
+                Margin="0,12,0,0"
+                Padding="0,10,0,0"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="0,1,0,0">
+          <ListBox x:Name="SettingsCategoryList"
+                   Classes="SidebarCategoryList"
+                   AutomationProperties.Name="Einstellungen"
+                   ItemsSource="{Binding SidebarSettingsCategories}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                   SelectionChanged="CategoryList_OnSelectionChanged">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Classes="CategoryItemFrame"
+                        HorizontalAlignment="Stretch"
+                        CornerRadius="{DynamicResource CornerRadiusLarge}"
+                        Padding="10,9"
+                        Background="{DynamicResource SurfaceBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrushDark}"
+                        BorderThickness="1">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                    <Border Width="{Binding SidebarIndent}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding DisplayName}"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource InputBackgroundBrush}"
+                            CornerRadius="{DynamicResource CornerRadiusMedium}"
+                            Padding="7,2">
+                      <TextBlock Text="{Binding TaskCount}"
+                                 FontSize="12"
+                                 Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Border>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+      </Grid>
     </Border>
 
     <Border Grid.Column="1"
-            Grid.ColumnSpan="2"
+            Grid.ColumnSpan="3"
             Padding="26"
-            Background="{DynamicResource WindowBackgroundBrush}"
+            Background="{DynamicResource ContentBackgroundBrush}"
             IsVisible="{Binding IsOverviewSelected}">
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="18">
           <StackPanel>
             <TextBlock Text="Übersicht" FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding DashboardDateText}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
+            <TextBlock Text="Heute" Classes="OverviewCardTitle" Margin="0,6,0,0" />
+            <TextBlock Text="{Binding DashboardTodayText}" Classes="OverviewCardSubtitle" Margin="0,2,0,0" />
           </StackPanel>
 
-          <StackPanel Orientation="Horizontal" Spacing="18">
+          <Border Classes="Card OverviewCard">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Termine" Classes="OverviewCardTitle" />
+                  <TextBlock Text="Heute, diese Woche und nächste Woche"
+                             Classes="OverviewCardSubtitle" />
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding DashboardTodaySection.Count, StringFormat='Heute: {0}'}"
+                           Classes="OverviewCardSubtitle"
+                           VerticalAlignment="Center" />
+              </Grid>
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                <Border Classes="OverviewSubCard">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DashboardTodaySection.Title}" Classes="OverviewCardTitle" />
+                      <TextBlock Grid.Column="1" Text="{Binding DashboardTodaySection.Count}" Classes="OverviewCardSubtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding DashboardTodaySection.EmptyText}"
+                               IsVisible="{Binding DashboardTodaySection.HasNoTasks}"
+                               Classes="OverviewEmpty" />
+                    <ItemsControl ItemsSource="{Binding DashboardTodaySection.Tasks}"
+                                  ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="OverviewSubCard">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DashboardThisWeekSection.Title}" Classes="OverviewCardTitle" />
+                      <TextBlock Grid.Column="1" Text="{Binding DashboardThisWeekSection.Count}" Classes="OverviewCardSubtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding DashboardThisWeekSection.EmptyText}"
+                               IsVisible="{Binding DashboardThisWeekSection.HasNoTasks}"
+                               Classes="OverviewEmpty" />
+                    <ItemsControl ItemsSource="{Binding DashboardThisWeekSection.Tasks}"
+                                  ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="OverviewSubCard">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DashboardNextWeekSection.Title}" Classes="OverviewCardTitle" />
+                      <TextBlock Grid.Column="1" Text="{Binding DashboardNextWeekSection.Count}" Classes="OverviewCardSubtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding DashboardNextWeekSection.EmptyText}"
+                               IsVisible="{Binding DashboardNextWeekSection.HasNoTasks}"
+                               Classes="OverviewEmpty" />
+                    <ItemsControl ItemsSource="{Binding DashboardNextWeekSection.Tasks}"
+                                  ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+            <Border Classes="Card OverviewCard FollowUpCard"
+                    Classes.HasFollowUps="{Binding HasFollowUpTasks}">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="OverviewCardTitle FollowUpCardTitle" Text="Wiedervorlagen" />
+                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="8,3">
+                    <TextBlock Classes="FollowUpCountText" Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" />
+                  </Border>
+                </Grid>
+                <TextBlock Text="Keine Wiedervorlagen."
+                           IsVisible="{Binding HasNoFollowUpTasks}"
+                           Classes="OverviewEmpty" />
+                <ItemsControl ItemsSource="{Binding FollowUpTasks}"
+                              ItemTemplate="{StaticResource DashboardTaskTemplate}" />
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Classes="Card OverviewCard">
+              <StackPanel Spacing="10">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Mobile Eingänge" Classes="OverviewCardTitle" />
+                  <TextBlock Text="Neue Aufträge, Fotos und Skizzen"
+                             Classes="OverviewCardSubtitle" />
+                </StackPanel>
+                <TextBlock Text="Keine neuen mobilen Eingänge."
+                           IsVisible="{Binding HasNoNewMobileInboxData}"
+                           Classes="OverviewEmpty" />
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8" IsVisible="{Binding HasNewMobileInboxData}">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Neue Aufträge" />
+                    <TextBlock Grid.Column="1" Text="{Binding NewMobileInboxTaskCount}" Classes="OverviewCardSubtitle" />
+                  </Grid>
+                  <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Neue Fotos" />
+                    <TextBlock Grid.Column="1" Text="{Binding NewMobilePhotoCount}" Classes="OverviewCardSubtitle" />
+                  </Grid>
+                  <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Neue Skizzen" />
+                    <TextBlock Grid.Column="1" Text="{Binding NewMobileSketchCount}" Classes="OverviewCardSubtitle" />
+                  </Grid>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Classes="Card OverviewCard">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Synchronisation" Classes="OverviewCardTitle" />
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
+                  <TextBlock Text="Desktop" Classes="OverviewCardSubtitle" />
+                  <TextBlock Grid.Column="1" Text="{Binding DesktopConnectionStatusText}" />
+                  <TextBlock Grid.Row="1" Text="Netzwerk-Sync" Classes="OverviewCardSubtitle" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding NetworkSyncStatusText}" />
+                </Grid>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Letzte erfolgreiche Synchronisation" Classes="OverviewCardSubtitle" />
+                  <TextBlock Text="{Binding LastSuccessfulSynchronizationText}" Classes="OverviewCardSubtitle" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Verbundenes Gerät" Classes="OverviewCardSubtitle" />
+                  <TextBlock Text="{Binding ConnectedDeviceText}" TextWrapping="Wrap" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="False">
             <Border Classes="Card"
                     Width="365"
                     MinHeight="230">
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{Binding DashboardThisWeekSection.Title}" FontSize="16" FontWeight="SemiBold" />
-                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="9,3">
                     <TextBlock Text="{Binding DashboardThisWeekSection.Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
                 </Grid>
@@ -505,7 +914,7 @@
                       <Border Background="{DynamicResource SurfaceElevatedBrush}"
                               BorderBrush="{DynamicResource BorderBrushDark}"
                               BorderThickness="1"
-                              CornerRadius="10"
+                              CornerRadius="{DynamicResource CornerRadiusLarge}"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
@@ -568,7 +977,7 @@
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{Binding DashboardNextWeekSection.Title}" FontSize="16" FontWeight="SemiBold" />
-                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="10" Padding="9,3">
+                  <Border Grid.Column="1" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="9,3">
                     <TextBlock Text="{Binding DashboardNextWeekSection.Count}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Border>
                 </Grid>
@@ -584,7 +993,7 @@
                       <Border Background="{DynamicResource SurfaceElevatedBrush}"
                               BorderBrush="{DynamicResource BorderBrushDark}"
                               BorderThickness="1"
-                              CornerRadius="10"
+                              CornerRadius="{DynamicResource CornerRadiusLarge}"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
@@ -649,7 +1058,7 @@
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Classes="FollowUpCardTitle" Text="Wiedervorlagen" FontSize="18" FontWeight="SemiBold" />
-                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="10" Padding="9,3">
+                  <Border Classes="FollowUpCount" Grid.Column="1" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="9,3">
                     <TextBlock Classes="FollowUpCountText" Text="{Binding FollowUpTaskCount}" FontWeight="SemiBold" />
                   </Border>
                 </Grid>
@@ -657,10 +1066,10 @@
                 <ItemsControl ItemsSource="{Binding FollowUpTasks}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Background="#2C2C2E"
-                              BorderBrush="#8F3434"
+                      <Border Background="{DynamicResource DangerBackgroundBrush}"
+                              BorderBrush="{DynamicResource DangerBrush}"
                               BorderThickness="1"
-                              CornerRadius="10"
+                              CornerRadius="{DynamicResource CornerRadiusLarge}"
                               Padding="10"
                               Margin="0,0,0,8"
                               PointerPressed="DashboardTask_OnPointerPressed">
@@ -674,10 +1083,10 @@
                         <StackPanel Spacing="5">
                           <TextBlock Text="{Binding CustomerName}"
                                      FontWeight="SemiBold"
-                                     Foreground="#FFFFFF"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                      TextWrapping="Wrap" />
                           <TextBlock Text="{Binding Title}"
-                                     Foreground="#F2F2F7"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                      TextWrapping="Wrap" />
                           <ItemsControl ItemsSource="{Binding CategoryNameChips}"
                                         IsVisible="{Binding ShowCategoryHint}">
@@ -703,16 +1112,16 @@
                           </ItemsControl>
                           <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
-                                       Foreground="#D1D1D6"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" />
                             <TextBlock Grid.Column="1"
                                        Text="{Binding Status}"
-                                       Foreground="#D1D1D6"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" />
                           </Grid>
                           <TextBlock Text="{Binding DueDateCompactText, StringFormat='Termin: {0}'}"
                                      IsVisible="{Binding HasDueDate}"
-                                     Foreground="#D1D1D6"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
                                      FontSize="12" />
                         </StackPanel>
                       </Border>
@@ -727,9 +1136,9 @@
     </Border>
 
     <Border Grid.Column="1"
-            Grid.ColumnSpan="2"
+            Grid.ColumnSpan="3"
             Padding="26"
-            Background="{DynamicResource WindowBackgroundBrush}"
+            Background="{DynamicResource ContentBackgroundBrush}"
             IsVisible="{Binding IsDeskSelected}">
       <DockPanel LastChildFill="True">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
@@ -777,11 +1186,11 @@
           </StackPanel>
         </Grid>
 
-        <Border Background="#FBF6E7"
-                BorderBrush="#E7D8A8"
+        <Border Background="{DynamicResource ContentSecondaryBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
                 BorderThickness="1"
-                CornerRadius="18"
-                Padding="20">
+                CornerRadius="{DynamicResource CornerRadiusLarge}"
+                Padding="{DynamicResource DialogPadding}">
           <ScrollViewer x:Name="DeskScrollViewer"
                         HorizontalScrollBarVisibility="Hidden"
                         VerticalScrollBarVisibility="Hidden">
@@ -820,8 +1229,8 @@
                                 Height="{Binding Height}"
                                 Background="{Binding NoteBackground}"
                                 BorderBrush="{Binding NoteBorderBrush}"
-                                BorderThickness="1.2"
-                                CornerRadius="18"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource CornerRadiusLarge}"
                                 Tag="DeskNoteRoot"
                                 ClipToBounds="True"
                                 IsVisible="{Binding IsNoteCard}">
@@ -840,7 +1249,7 @@
                             <Grid RowDefinitions="Auto,*,Auto">
                               <Border Grid.Row="0"
                                       Background="{Binding NoteHeaderBackground}"
-                                      CornerRadius="18,18,10,10"
+                                      CornerRadius="8,8,6,6"
                                       Padding="12,10"
                                       PointerPressed="DeskNoteHeader_OnPointerPressed"
                                       PointerMoved="DeskNoteHeader_OnPointerMoved"
@@ -851,7 +1260,7 @@
                                   <Grid>
                                     <TextBlock Text="{Binding DisplayName}"
                                                FontWeight="SemiBold"
-                                               Foreground="#111827"
+                                               Foreground="{DynamicResource DeskStrongInkBrush}"
                                                IsVisible="{Binding IsDisplayNameVisible}"
                                                IsHitTestVisible="False" />
                                     <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -860,7 +1269,7 @@
                                              HorizontalAlignment="Stretch"
                                              VerticalAlignment="Center"
                                              Background="{Binding NoteHeaderBackground}"
-                                             Foreground="#1F2937"
+                                             Foreground="{DynamicResource DeskInkBrush}"
                                              FontWeight="SemiBold"
                                              FontSize="14"
                                              LostFocus="DeskItemNameEditor_OnLostFocus"
@@ -868,7 +1277,7 @@
                                   </Grid>
                                   <TextBlock Grid.Column="1"
                                              Text="Ziehen"
-                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                             Foreground="{DynamicResource DeskInkBrush}"
                                              FontSize="12" />
                                 </Grid>
                               </Border>
@@ -877,10 +1286,10 @@
                                        Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                        Classes="DeskNoteEditor"
                                        Background="Transparent"
-                                       Foreground="#1F2937"
-                                       CaretBrush="#1F2937"
-                                       SelectionBrush="#55D9B35C"
-                                       SelectionForegroundBrush="#1F2937"
+                                       Foreground="{DynamicResource DeskInkBrush}"
+                                       CaretBrush="{DynamicResource DeskInkBrush}"
+                                       SelectionBrush="{DynamicResource DeskSelectionBrush}"
+                                       SelectionForegroundBrush="{DynamicResource DeskInkBrush}"
                                        BorderThickness="0"
                                        Padding="12,10"
                                        AcceptsReturn="True"
@@ -906,6 +1315,8 @@
                                       Padding="12,0,12,10">
                                 <CheckBox Content="Wichtig"
                                           IsChecked="{Binding IsImportant, Mode=TwoWay}"
+                                          Foreground="{DynamicResource DeskInkBrush}"
+                                          BorderBrush="{DynamicResource DeskInkBrush}"
                                           HorizontalAlignment="Left" />
                               </Border>
                             </Grid>
@@ -925,7 +1336,7 @@
                               <TextBlock Text="↘"
                                          FontSize="10"
                                          FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         Foreground="{DynamicResource DeskInkBrush}"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"
                                          IsHitTestVisible="False" />
@@ -937,8 +1348,8 @@
                                 Height="{Binding Height}"
                                 Background="{Binding FileCardBackground}"
                                 BorderBrush="{Binding FileCardBorderBrush}"
-                                BorderThickness="1.2"
-                                CornerRadius="18"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource CornerRadiusLarge}"
                                 Tag="DeskFileRoot"
                                 ClipToBounds="False"
                                 IsVisible="{Binding IsFileCard}"
@@ -979,16 +1390,16 @@
                                 <Grid Margin="12">
                                   <Border HorizontalAlignment="Right"
                                           VerticalAlignment="Top"
-                                          Background="#B42318"
-                                          BorderBrush="#7A271A"
+                                          Background="{DynamicResource DangerBackgroundBrush}"
+                                          BorderBrush="{DynamicResource DangerBrush}"
                                           BorderThickness="1"
-                                          CornerRadius="0,12,0,12"
+                                          CornerRadius="0,6,0,6"
                                           Padding="9,5"
                                           IsVisible="{Binding IsImportant}">
                                     <TextBlock Text="Wichtig"
                                                FontSize="12"
                                                FontWeight="Bold"
-                                               Foreground="#FFFFFF" />
+                                               Foreground="{DynamicResource DangerBrush}" />
                                   </Border>
 
                                   <Image IsVisible="{Binding HasPreviewThumbnail}"
@@ -1015,17 +1426,17 @@
                                     <Border Background="{Binding FileCardBadgeBackground}"
                                             BorderBrush="{Binding FileCardBadgeBorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="12"
+                                            CornerRadius="{DynamicResource CornerRadiusLarge}"
                                             Padding="16,12">
                                       <TextBlock Text="{Binding FileKindLabel}"
                                                  FontSize="28"
                                                  FontWeight="SemiBold"
                                                  HorizontalAlignment="Center"
-                                                 Foreground="#050505" />
+                                                 Foreground="{DynamicResource DeskStrongInkBrush}" />
                                     </Border>
                                     <TextBlock Text="{Binding FileBadgeText}"
                                                HorizontalAlignment="Center"
-                                               Foreground="#111111"
+                                               Foreground="{DynamicResource DeskStrongInkBrush}"
                                                FontSize="12" />
                                   </StackPanel>
                                 </Grid>
@@ -1040,13 +1451,13 @@
                                            TextTrimming="CharacterEllipsis"
                                            FontSize="12"
                                            FontWeight="SemiBold"
-                                           Foreground="#050505"
+                                           Foreground="{DynamicResource DeskStrongInkBrush}"
                                            IsHitTestVisible="False" />
                                 <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          Classes="DeskNoteEditor DeskItemNameEditor"
                                          IsVisible="{Binding IsRenaming}"
                                          HorizontalAlignment="Stretch"
-                                         Background="{DynamicResource WindowBackgroundBrush}"
+                                         Background="{DynamicResource ContentBackgroundBrush}"
                                          TextAlignment="Center"
                                          FontSize="12"
                                          LostFocus="DeskItemNameEditor_OnLostFocus"
@@ -1088,20 +1499,30 @@
     </Border>
 
     <Border Grid.Column="1"
-            Grid.ColumnSpan="2"
+            Grid.ColumnSpan="3"
             Padding="26"
-            Background="{DynamicResource WindowBackgroundBrush}"
+            Background="{DynamicResource ContentBackgroundBrush}"
             IsVisible="{Binding IsSettingsSelected}">
       <ScrollViewer>
         <StackPanel Spacing="18">
           <StackPanel>
-            <TextBlock Text="Einstellungen" FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Datenspeicher und lokale Sicherungen" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0" />
+            <TextBlock Text="Einstellungen" FontSize="22" FontWeight="SemiBold" />
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,14,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Classes="SettingsTab" Tag="General" Click="SettingsTab_OnClick" Content="Allgemein" Classes.Selected="{Binding IsSettingsGeneralTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Orders" Click="SettingsTab_OnClick" Content="Aufträge" Classes.Selected="{Binding IsSettingsOrdersTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Categories" Click="SettingsTab_OnClick" Content="Kategorien" Classes.Selected="{Binding IsSettingsCategoriesTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Technicians" Click="SettingsTab_OnClick" Content="Techniker" Classes.Selected="{Binding IsSettingsTechniciansTabSelected}" />
+                <Button Classes="SettingsTab" Tag="Display" Click="SettingsTab_OnClick" Content="Darstellung" Classes.Selected="{Binding IsSettingsDisplayTabSelected}" />
+                <Button Classes="SettingsTab" Tag="DataSync" Click="SettingsTab_OnClick" Content="Daten &amp; Pfade" Classes.Selected="{Binding IsSettingsDataTabSelected}" />
+                <Button Classes="SettingsTab" Tag="LocalNetworkSync" Click="SettingsTab_OnClick" Content="Sync" Classes.Selected="{Binding IsSettingsSyncTabSelected}" />
+              </StackPanel>
+            </ScrollViewer>
           </StackPanel>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsGeneralOrDisplayTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="General" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="General" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Allgemein">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Allgemein" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsGeneralToggleText}" />
@@ -1115,73 +1536,24 @@
                             SelectedItem="{Binding AppearanceMode, Mode=TwoWay}"
                             Width="180" />
                 </StackPanel>
-                <StackPanel Spacing="10">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="Backup" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="Backup jetzt erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
-                  </Grid>
-                  <TextBlock Text="{Binding BackupStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}"
-                             IsVisible="{Binding HasLastBackup}"
-                             Foreground="{DynamicResource TextSecondaryBrush}" />
-                  <TextBlock Text="{Binding LastBackupPath}"
-                             IsVisible="{Binding HasLastBackup}"
+                <StackPanel Spacing="6">
+                  <CheckBox Content="Schreibtisch anzeigen"
+                            IsChecked="{Binding ShowDesktopSetting, Mode=TwoWay}"
+                            AutomationProperties.Name="Schreibtisch anzeigen"
+                            AutomationProperties.AutomationId="ShowDesktopSetting"
+                            AutomationProperties.HelpText="Zeigt den optionalen Schreibtisch in der linken Navigation an." />
+                  <TextBlock Text="Zeigt den optionalen Schreibtisch für freie Notizen und lose Dateien in der linken Navigation an."
                              Foreground="{DynamicResource TextSecondaryBrush}"
-                             TextWrapping="Wrap" />
-                  <TextBlock Text="Verfügbare Backups"
                              FontSize="12"
-                             FontWeight="SemiBold"
-                             Foreground="{DynamicResource TextTertiaryBrush}" />
-                  <TextBlock Text="Noch keine Backups vorhanden. Mit „Backup jetzt erstellen“ legen Sie das erste Sicherheitsbackup an."
-                             IsVisible="{Binding HasNoBackupEntries}"
-                             Foreground="{DynamicResource TextSecondaryBrush}" />
-                  <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBackupEntries}">
-                    <ItemsControl ItemsSource="{Binding BackupEntries}">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border BorderBrush="{DynamicResource BorderBrush}"
-                                  BorderThickness="1"
-                                  CornerRadius="10"
-                                  Padding="10"
-                                  Margin="0,0,0,8">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                              <StackPanel Spacing="2">
-                                <TextBlock Text="{Binding TimestampText}" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding FileName}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           FontSize="12"
-                                           TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding HintText}"
-                                           IsVisible="{Binding HasHintText}"
-                                           Foreground="{DynamicResource TextTertiaryBrush}"
-                                           FontSize="12"
-                                           TextWrapping="Wrap" />
-                              </StackPanel>
-                              <StackPanel Grid.Column="1"
-                                          Spacing="6"
-                                          HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding SizeText}"
-                                           Foreground="{DynamicResource TextTertiaryBrush}"
-                                           FontSize="12"
-                                           HorizontalAlignment="Right" />
-                                <Button Content="Backup wiederherstellen"
-                                        Click="RestoreBackup_OnClick"
-                                        HorizontalAlignment="Right" />
-                              </StackPanel>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </ScrollViewer>
+                             TextWrapping="Wrap" />
                 </StackPanel>
               </StackPanel>
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsDataTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="DataSync" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="DataSync" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Datenordner und Synchronisation">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Datenordner und Synchronisation" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsDataSyncToggleText}" />
@@ -1221,13 +1593,45 @@
                   <Button Content="Datenordner auswählen" Click="SelectOneDriveFolder_OnClick" />
                   <Button Grid.Column="1" Content="Datenordner öffnen" Click="OpenOneDriveFolder_OnClick" />
                 </Grid>
+                <StackPanel Spacing="10">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Backup" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="Backup jetzt erstellen" Classes="Primary" Click="CreateBackup_OnClick" />
+                  </Grid>
+                  <TextBlock Text="{Binding BackupStatus}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding LastBackupTime, StringFormat='Letztes Backup: {0}'}" IsVisible="{Binding HasLastBackup}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="{Binding LastBackupPath}" IsVisible="{Binding HasLastBackup}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <TextBlock Text="Verfügbare Backups" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextTertiaryBrush}" />
+                  <TextBlock Text="Noch keine Backups vorhanden. Mit „Backup jetzt erstellen“ legen Sie das erste Sicherheitsbackup an." IsVisible="{Binding HasNoBackupEntries}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBackupEntries}">
+                    <ItemsControl ItemsSource="{Binding BackupEntries}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource CornerRadiusLarge}" Padding="10" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding TimestampText}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding FileName}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding HintText}" IsVisible="{Binding HasHintText}" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" TextWrapping="Wrap" />
+                              </StackPanel>
+                              <StackPanel Grid.Column="1" Spacing="6" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding SizeText}" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" />
+                                <Button Content="Backup wiederherstellen" Click="RestoreBackup_OnClick" HorizontalAlignment="Right" />
+                              </StackPanel>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </StackPanel>
               </StackPanel>
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsSyncTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="LocalNetworkSync" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="LocalNetworkSync" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Lokaler Netzwerk-Sync">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Lokaler Netzwerk-Sync" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsLocalNetworkSyncToggleText}" />
@@ -1312,9 +1716,9 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="False">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="Technicians" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="Technicians" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Techniker">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Techniker" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsTechniciansToggleText}" />
@@ -1327,7 +1731,7 @@
                            Margin="0,4,0,8" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <TextBox Grid.Column="0"
-                           Text="{Binding NewTechnicianName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           Text="{Binding TechnicianNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="Monteurname" />
                   <Button Grid.Column="1" Content="Hinzufügen" Click="AddTechnician_OnClick" />
                 </Grid>
@@ -1342,7 +1746,9 @@
                       <Border Classes="InlineCard" Margin="0,0,-2,-2" Padding="10" MinWidth="220" MaxWidth="280">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                           <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                          <Button Grid.Column="1" Content="Entfernen" Classes="Secondary" Click="RemoveTechnician_OnClick" />
+                          <Button Grid.Column="1" Content="×" Classes="Danger" Width="30" Height="30" Padding="0"
+                                  FontSize="18" ToolTip.Tip="Techniker entfernen"
+                                  AutomationProperties.Name="Techniker entfernen" Click="RemoveTechnician_OnClick" />
                         </Grid>
                       </Border>
                     </DataTemplate>
@@ -1352,9 +1758,51 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding IsSettingsTechniciansTabSelected}">
+            <Border Grid.Column="0" Classes="Card" Padding="0" MinHeight="470">
+              <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel Margin="18,16,18,14" Spacing="4">
+                  <TextBlock Text="Techniker / Monteure" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Text="Verwalte deine Techniker und Monteure." Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <ListBox Grid.Row="1" ItemsSource="{Binding TechnicianProfiles}"
+                         SelectedItem="{Binding SelectedTechnicianProfile, Mode=TwoWay}"
+                         BorderThickness="0" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Border Padding="18,13" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="0,1,0,0">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="15" />
+                          <Button Grid.Column="1" Classes="TechnicianDelete" Content="×" ToolTip.Tip="Techniker löschen"
+                                  AutomationProperties.Name="Techniker löschen" Click="RemoveTechnician_OnClick" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Grid.Row="2" Content="＋  Techniker hinzufügen" Classes="Secondary" HorizontalAlignment="Left" Margin="18,14" Click="AddTechnician_OnClick" />
+              </Grid>
+            </Border>
+            <Border Grid.Column="1" Classes="Card" MinHeight="470">
+              <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Techniker bearbeiten" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Text="Daten des ausgewählten Technikers." Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Margin="0,24,0,0" Spacing="14" IsEnabled="{Binding HasSelectedTechnicianProfile}">
+                  <StackPanel Spacing="6"><TextBlock Text="Name" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                  <StackPanel Spacing="6"><TextBlock Text="Kürzel (optional)" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianAbbreviationInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                  <StackPanel Spacing="6"><TextBlock Text="E-Mail (optional)" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianEmailInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                  <StackPanel Spacing="6"><TextBlock Text="Telefon (optional)" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBox Text="{Binding TechnicianPhoneInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                </StackPanel>
+                <Button Grid.Row="2" Content="Speichern" Classes="Primary" HorizontalAlignment="Right" IsEnabled="{Binding HasSelectedTechnicianProfile}" Click="SaveTechnicianProfile_OnClick" />
+              </Grid>
+            </Border>
+          </Grid>
+
+          <Border Classes="Card" IsVisible="{Binding IsSettingsCategoriesTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="Categories" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="Categories" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Kategorien">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Kategorien" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsCategoriesToggleText}" />
@@ -1391,7 +1839,7 @@
                              FontSize="12"
                              TextWrapping="Wrap" />
                 </Border>
-                <ItemsControl ItemsSource="{Binding TaskCategories}" Margin="0,8,0,0">
+                <ItemsControl ItemsSource="{Binding CategoryManagementCategories}" Margin="0,8,0,0">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Border Classes="InlineCard"
@@ -1431,9 +1879,9 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsOrdersTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="Orders" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="Orders" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Aufträge">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Aufträge" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsOrdersToggleText}" />
@@ -1452,9 +1900,9 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsGeneralTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="Updates" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="Updates" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Updates">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsUpdatesToggleText}" />
@@ -1489,9 +1937,9 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="Card">
+          <Border Classes="Card" IsVisible="{Binding IsSettingsDataTabSelected}">
             <StackPanel Spacing="10">
-              <Button Classes="SettingsSectionHeader" Tag="Diagnostics" Click="SettingsSectionHeader_OnClick">
+              <Button Classes="SettingsSectionHeader" Tag="Diagnostics" Click="SettingsSectionHeader_OnClick" AutomationProperties.Name="Diagnose">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Diagnose" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Classes="SettingsSectionToggle" Text="{Binding SettingsDiagnosticsToggleText}" />
@@ -1535,13 +1983,21 @@
       </ScrollViewer>
     </Border>
 
-    <Border Grid.Column="1" Padding="20" Background="{DynamicResource WindowBackgroundBrush}" IsVisible="{Binding IsTaskAreaVisible}">
+    <Border Grid.Column="1" MinWidth="240" Padding="20" Background="{DynamicResource ContentBackgroundBrush}" IsVisible="{Binding IsTaskAreaVisible}">
       <DockPanel LastChildFill="True">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,14">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding TaskListCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0" IsVisible="{Binding IsAppointmentsNavigationSelected}">
+              <TextBlock Text="Zeitraum" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <ComboBox ItemsSource="{Binding AppointmentFilterOptions}"
+                        SelectedItem="{Binding SelectedAppointmentFilter, Mode=TwoWay}"
+                        Width="140" />
+            </StackPanel>
             <TextBox Text="{Binding SearchText}"
+                     AutomationProperties.Name="Aufgaben durchsuchen"
+                     AutomationProperties.AutomationId="TaskSearchBox"
                      TextChanged="SearchBox_OnTextChanged"
                      PlaceholderText="Suchen nach Kunde, Titel, Adresse, Monteur, Status, Material, Anhang"
                      Margin="0,12,0,0" />
@@ -1648,11 +2104,11 @@
             </Border>
           </StackPanel>
           <Button Grid.Column="1"
-                  Content="Speichern"
+                  Content="Alles speichern"
                   Click="ManualSave_OnClick"
                   VerticalAlignment="Top"
                   Margin="0,0,8,0" />
-          <Button Grid.Column="2"
+          <Button Grid.Column="3"
                   Classes="Primary"
                   Content="Neue Aufgabe"
                   IsVisible="{Binding CanCreateTaskInSelectedCategory}"
@@ -1675,7 +2131,7 @@
                   <Border Background="{DynamicResource AccentSoftBrush}"
                           BorderBrush="{DynamicResource AccentSoftBorderBrush}"
                           BorderThickness="1"
-                          CornerRadius="10"
+                          CornerRadius="{DynamicResource CornerRadiusLarge}"
                           Padding="10"
                           Margin="0,0,0,8"
                           PointerPressed="GlobalSearchResult_OnPointerPressed">
@@ -1753,19 +2209,74 @@
           </StackPanel>
         </Border>
 
+        <ScrollViewer x:Name="TaskTableHorizontalScrollViewer"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled">
+          <DockPanel LastChildFill="True">
+        <Grid x:Name="TaskTableHeaderGrid" DockPanel.Dock="Top" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsNotAppointmentsNavigationSelected}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="{Binding TaskStatusColumnWidth}" />
+            <ColumnDefinition Width="{Binding TaskCustomerColumnWidth}" />
+            <ColumnDefinition Width="{Binding TaskLocationColumnWidth}" />
+            <ColumnDefinition Width="{Binding TaskDateColumnWidth}" />
+            <ColumnDefinition Width="{Binding TaskTechnicianColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Titel ein-/ausblenden" Click="ToggleTaskTitleColumn_OnClick" />
+              <MenuItem Header="Standard wiederherstellen" Click="ResetTaskTableColumns_OnClick" />
+            </ContextMenu>
+          </Grid.ContextMenu>
+          <TextBlock Text="Status" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="1" Text="Kunde" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="2" Text="Ort" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="3" Text="Termin" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="4" Text="Techniker" Classes="TaskTableHeader" />
+          <GridSplitter Grid.Column="0" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="2" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+        </Grid>
+        <Grid x:Name="AppointmentTableHeaderGrid" DockPanel.Dock="Top" ColumnSpacing="8" Margin="8,0,8,4" IsVisible="{Binding IsAppointmentsNavigationSelected}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="{Binding AppointmentDateColumnWidth}" />
+            <ColumnDefinition Width="{Binding AppointmentTimeColumnWidth}" />
+            <ColumnDefinition Width="{Binding AppointmentStatusColumnWidth}" />
+            <ColumnDefinition Width="{Binding AppointmentCustomerColumnWidth}" />
+            <ColumnDefinition Width="{Binding AppointmentLocationColumnWidth}" />
+            <ColumnDefinition Width="{Binding AppointmentTechnicianColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Titel ein-/ausblenden" Click="ToggleTaskTitleColumn_OnClick" />
+              <MenuItem Header="Standard wiederherstellen" Click="ResetTaskTableColumns_OnClick" />
+            </ContextMenu>
+          </Grid.ContextMenu>
+          <TextBlock Text="Datum" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="1" Text="Uhrzeit" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="2" Text="Status" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="3" Text="Kunde" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="4" Text="Ort" Classes="TaskTableHeader" />
+          <TextBlock Grid.Column="5" Text="Techniker" Classes="TaskTableHeader" />
+          <GridSplitter Grid.Column="0" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="2" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+          <GridSplitter Grid.Column="4" Width="6" HorizontalAlignment="Right" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrushDark}" />
+        </Grid>
         <ListBox x:Name="TaskList"
+                 AutomationProperties.Name="Vorgangstabelle"
+                 AutomationProperties.AutomationId="TaskList"
                  ItemsSource="{Binding VisibleTasks}"
                  SelectedItem="{Binding SelectedTask}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                  SelectionChanged="TaskList_OnSelectionChanged">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Border Classes="Card TaskCard"
-                      Margin="0,0,0,10"
-                      Background="{DynamicResource SurfaceBackgroundBrush}"
-                      BorderBrush="{Binding CardBorderBrush}"
-                      BorderThickness="1"
-                      PointerEntered="TaskCard_OnPointerEntered"
-                      PointerExited="TaskCard_OnPointerExited">
+              <Border Classes="TaskCard"
+                      Margin="0,0,0,3"
+                      Padding="8,7">
                 <Border.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Wiedervorlage bestätigen"
@@ -1773,93 +2284,58 @@
                               Click="ConfirmFollowUp_OnClick" />
                   </ContextMenu>
                 </Border.ContextMenu>
-                <StackPanel Spacing="8">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="{Binding CustomerName}"
-                               FontWeight="SemiBold"
-                               FontSize="15"
-                               TextWrapping="Wrap" />
-                    <Border Grid.Column="1"
-                            Background="{Binding MobileInboxStatusBadgeBackground}"
-                            BorderBrush="{Binding MobileInboxStatusBadgeBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="7"
-                            Padding="7,2"
-                            Margin="8,0,0,0"
-                            VerticalAlignment="Top"
-                            IsVisible="{Binding IsMobileInboxCard}">
-                      <TextBlock Text="{Binding Status}"
-                                 FontSize="11"
-                                 FontWeight="SemiBold"
-                                 Foreground="{Binding MobileInboxStatusBadgeForeground}" />
-                    </Border>
-                  </Grid>
-                  <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-                  <ItemsControl ItemsSource="{Binding CategoryNameChips}"
-                                IsVisible="{Binding ShowCategoryHint}"
-                                Margin="0,2,12,0">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Border Background="{DynamicResource AccentSoftBrush}"
-                                BorderBrush="{DynamicResource AccentSoftBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="7"
-                                Padding="6,2"
-                                Margin="0,0,4,4"
-                                MaxWidth="130">
-                          <TextBlock Text="{Binding}"
-                                     FontSize="11"
+                <ItemsControl ItemsSource="{Binding TableCells}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Width="{Binding Width}" Padding="0,2" ClipToBounds="True">
+                        <Grid>
+                          <Border IsVisible="{Binding IsStatus}"
+                                  Background="{DynamicResource AccentSoftBrush}"
+                                  BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="{DynamicResource CornerRadiusSmall}"
+                                  Padding="6,2"
+                                  HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
+                          </Border>
+                          <TextBlock IsVisible="{Binding IsNotStatus}"
+                                     Text="{Binding Text}"
                                      TextTrimming="CharacterEllipsis"
-                                     Foreground="{DynamicResource AccentBrush}" />
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  <TextBlock Text="{Binding Technician, StringFormat='Monteur: {0}'}"
-                             IsVisible="{Binding HasTechnician}"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding CustomerAddress, StringFormat='Adresse: {0}'}"
-                             IsVisible="{Binding HasCustomerAddress}"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             TextWrapping="Wrap"
-                             MaxHeight="48" />
-                  <StackPanel Spacing="3" IsVisible="{Binding IsMobileInboxCard}">
-                    <TextBlock Text="{Binding MobileInboxCreatedAtText, StringFormat='Datum: {0}'}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="12" />
-                    <TextBlock Text="{Binding MobileInboxAttachmentOverviewText}"
-                               IsVisible="{Binding HasMobileInboxAttachmentOverviewText}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="12"
-                               TextWrapping="Wrap" />
-                  </StackPanel>
-                  <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding IsStandardTaskCard}">
-                    <TextBlock Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <TextBlock Grid.Column="1" Text="Termin" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <TextBlock Grid.Row="1" Text="{Binding Status}" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DueDateText}" />
-                  </Grid>
-                  <TextBlock Text="{Binding SentAtText, StringFormat='Gesendet: {0}'}"
-                             IsVisible="{Binding HasSentAt}"
-                             Foreground="{DynamicResource TextSecondaryBrush}" />
-                  <TextBlock Text="{Binding FollowUpDateText, StringFormat='Wiedervorlage: {0}'}"
-                             IsVisible="{Binding IsStandardTaskCard}"
-                             Foreground="{DynamicResource TextSecondaryBrush}" />
-                </StackPanel>
+                                     ToolTip.Tip="{Binding ToolTipText}"
+                                     VerticalAlignment="Center" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </Border>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+          </DockPanel>
+        </ScrollViewer>
       </DockPanel>
     </Border>
 
-    <Border Grid.Column="2"
+    <GridSplitter Grid.Column="2"
+                  Width="6"
+                  MinWidth="6"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch"
+                  ResizeDirection="Columns"
+                  ResizeBehavior="PreviousAndNext"
+                  ShowsPreview="False"
+                  Background="{DynamicResource BorderBrushDark}"
+                  PointerReleased="RootLayoutGrid_OnPointerReleased"
+                  IsVisible="{Binding IsTaskAreaVisible}"
+                  ToolTip.Tip="Detailbereich verschieben" />
+
+    <Border Grid.Column="3" MinWidth="280"
             Background="{DynamicResource SurfaceBackgroundBrush}"
             BorderBrush="{DynamicResource BorderBrushDark}"
             BorderThickness="1,0,0,0"
@@ -1974,8 +2450,8 @@
                                    TextWrapping="Wrap" />
                         <Border Height="112"
                                 CornerRadius="6"
-                                Background="#FFFFFF"
-                                BorderBrush="#D8DEE8"
+                                Background="{DynamicResource InputBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrushDark}"
                                 BorderThickness="1"
                                 ClipToBounds="True">
                           <Grid>
@@ -2167,8 +2643,8 @@
               </Border>
               <Border Height="360"
                       CornerRadius="8"
-                      Background="#FFFFFF"
-                      BorderBrush="#D8DEE8"
+                      Background="{DynamicResource InputBackgroundBrush}"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
                       ClipToBounds="True"
                       IsVisible="{Binding SelectedMobileInboxPreviewItem.IsSketchPreview}">
@@ -2202,27 +2678,72 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Margin="24" Spacing="10" IsVisible="{Binding HasNormalSelectedTask}">
-          <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
-            <TextBlock Text="Details" FontSize="24" FontWeight="SemiBold" />
-            <Button Grid.Column="1" Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,0" />
-            <Button Grid.Column="3" Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,0" />
-            <Button Grid.Column="3" Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" />
-          </Grid>
+        <StackPanel Classes="TaskDetailRoot" Margin="24" Spacing="14" IsVisible="{Binding HasNormalSelectedTask}">
+          <Border Classes="TaskDetailHeader">
+            <Grid RowDefinitions="Auto,Auto">
+              <StackPanel Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="{Binding SelectedTask.CustomerName, StringFormat='Kunde: {0}'}" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding SelectedTask.Title}"
+                           Classes="TaskDetailSubtitle" />
+              </StackPanel>
+              <WrapPanel Grid.Row="1" Margin="0,10,0,0">
+                <Button Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,8" />
+                <Button Content="Duplizieren" Click="DuplicateTask_OnClick" Margin="0,0,8,8" />
+                <Button Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,8" />
+                <Button Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" Margin="0,0,8,8" />
+              </WrapPanel>
+            </Grid>
+          </Border>
 
-          <TextBlock Text="Hinweis: Ähnliche Aufträge werden beim Speichern geprüft."
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     Margin="0,-4,0,2" />
+          <Border Classes="TaskDetailCard">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Status" Classes="TaskDetailFieldLabel" />
+                  <ComboBox ItemsSource="{Binding WorkflowStatusOptions}"
+                            SelectedItem="{Binding SelectedTask.WorkflowStep, Mode=TwoWay}"
+                            SelectionChanged="StatusCombo_OnSelectionChanged" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding SelectedTask.WorkflowType}" Classes="TaskDetailSubtitle" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Text="Ablauf" Classes="TaskDetailFieldLabel" />
+              <ItemsControl ItemsSource="{Binding WorkflowSteps}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Tag="{Binding Name}"
+                            Click="WorkflowStep_OnClick"
+                            Classes="Tertiary"
+                            Margin="0,0,6,6"
+                            Padding="9,5">
+                      <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="●" Foreground="{DynamicResource AccentBrush}" />
+                        <TextBlock Text="{Binding Name}" FontSize="12" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Text="Der aktuelle Schritt wird gespeichert; bestehende Kategorien bleiben unverändert."
+                         Classes="TaskDetailSubtitle" />
+            </StackPanel>
+          </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Aufgabe" />
-          <Border Classes="Card" Padding="14">
+          <Border Classes="TaskDetailInset">
+            <TextBlock Text="Hinweis: Ähnliche Aufträge werden beim Speichern geprüft."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap" />
+          </Border>
+
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Aufgabe" />
+          <Border Classes="TaskDetailCard">
             <StackPanel Spacing="8">
-              <TextBlock Text="Kunde" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Text="Kunde" Classes="TaskDetailFieldLabel" />
               <TextBox Text="{Binding SelectedTask.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kundenname" GotFocus="TaskDetailEditor_OnGotFocus" />
 
-              <TextBlock Text="Kundenadresse" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="Kundenadresse" Classes="TaskDetailFieldLabel" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.CustomerAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Adresse"
                        AcceptsReturn="True"
@@ -2232,23 +2753,23 @@
 
               <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,6,0,0">
                 <StackPanel Spacing="6">
-                  <TextBlock Text="Kunden-E-Mail" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="Kunden-E-Mail" Classes="TaskDetailFieldLabel" />
                   <TextBox Text="{Binding SelectedTask.CustomerEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="E-Mail-Adresse"
                            GotFocus="TaskDetailEditor_OnGotFocus" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="6">
-                  <TextBlock Text="Telefonnummer" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="Telefonnummer" Classes="TaskDetailFieldLabel" />
                   <TextBox Text="{Binding SelectedTask.CustomerPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="Telefonnummer"
                            GotFocus="TaskDetailEditor_OnGotFocus" />
                 </StackPanel>
               </Grid>
 
-              <TextBlock Text="Titel" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="Titel" Classes="TaskDetailFieldLabel" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Kurzer Aufgabentitel" GotFocus="TaskDetailEditor_OnGotFocus" />
 
-              <TextBlock Text="Beschreibung / Notiz" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+              <TextBlock Text="Beschreibung / Notiz" Classes="TaskDetailFieldLabel" Margin="0,6,0,0" />
               <TextBox Text="{Binding SelectedTask.Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        PlaceholderText="Notizen, Verlauf, offene Punkte"
                        AcceptsReturn="True"
@@ -2258,30 +2779,23 @@
             </StackPanel>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Organisation" Margin="0,8,0,0" />
-          <Border Classes="Card" Padding="12">
-            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="0" Grid.Column="1" Text="Monteur" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="0" Grid.Column="2" Text="Gesendet am" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Grid.Row="0" Grid.Column="3" Text="Material bestellt am" Foreground="{DynamicResource TextSecondaryBrush}" />
-
-              <ComboBox Grid.Row="1" Grid.Column="0"
-                        ItemsSource="{Binding StatusOptions}"
-                        SelectedItem="{Binding SelectedTask.Status}"
-                        GotFocus="TaskDetailEditor_OnGotFocus"
-                        SelectionChanged="StatusCombo_OnSelectionChanged" />
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Organisation" />
+          <Border Classes="TaskDetailCard">
+            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Monteur" Classes="TaskDetailFieldLabel" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="Gesendet am" Classes="TaskDetailFieldLabel" />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Material bestellt am" Classes="TaskDetailFieldLabel" />
 
               <ComboBox Grid.Row="1"
-                        Grid.Column="1"
+                        Grid.Column="0"
                         ItemsSource="{Binding TechnicianOptions}"
-                        SelectedItem="{Binding SelectedTask.Technician, Mode=TwoWay}"
+                        SelectedItem="{Binding SelectedTechnicianOption, Mode=TwoWay}"
                         HorizontalAlignment="Stretch"
                         GotFocus="TaskDetailEditor_OnGotFocus"
                         SelectionChanged="TechnicianCombo_OnSelectionChanged" />
 
               <TextBox Grid.Row="1"
-                       Grid.Column="2"
+                       Grid.Column="1"
                        Text="{Binding SentAtInputText}"
                        Tag="SentAt"
                        PlaceholderText="TT.MM.JJJJ"
@@ -2291,7 +2805,7 @@
                            KeyDown="DateTextBox_OnKeyDown" />
 
               <TextBox Grid.Row="1"
-                       Grid.Column="3"
+                       Grid.Column="2"
                        Text="{Binding MaterialOrderedAtInputText}"
                        Tag="MaterialOrderedAt"
                        PlaceholderText="TT.MM.JJJJ"
@@ -2299,15 +2813,16 @@
                        LostFocus="MaterialOrderedAtTextBox_OnLostFocus"
                        TextChanged="DateTextBox_OnTextChanged"
                        KeyDown="DateTextBox_OnKeyDown" />
+              <CheckBox Grid.Row="2" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                        Content="Auf den Schreibtisch legen"
+                        IsChecked="{Binding IsSelectedTaskOnDesk, Mode=TwoWay}" />
             </Grid>
           </Border>
 
-          <Border Classes="Card"
-                  Padding="12"
+          <Border Classes="TaskDetailCard"
                   IsVisible="{Binding SelectedTask.HasCategoryNameChips}">
             <StackPanel Spacing="8">
-              <TextBlock Text="Zugeordnete Kategorien"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Text="Zugeordnete Kategorien" Classes="TaskDetailFieldLabel" />
               <ItemsControl ItemsSource="{Binding SelectedTask.CategoryNameChips}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -2316,11 +2831,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Background="{DynamicResource AccentSoftBrush}"
-                            BorderBrush="{DynamicResource AccentSoftBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="7"
-                            Padding="6,2"
+                    <Border Classes="TaskDetailChip"
                             Margin="0,0,4,4">
                       <TextBlock Text="{Binding}"
                                  FontSize="12"
@@ -2332,8 +2843,8 @@
             </StackPanel>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Kategorien" Margin="0,12,0,0" />
-          <Border Classes="Card" Padding="12">
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Kategorien" />
+          <Border Classes="TaskDetailCard">
             <ItemsControl ItemsSource="{Binding TaskCategorySelections}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -2342,9 +2853,8 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <CheckBox Content="{Binding Name}"
+                  <CheckBox Content="{Binding Category.SelectionName}"
                             IsChecked="{Binding IsSelected}"
-                            IsEnabled="{Binding IsSelectable}"
                             Margin="0,0,16,8"
                             Click="TaskCategoryCheckBox_OnChanged" />
                 </DataTemplate>
@@ -2352,13 +2862,13 @@
             </ItemsControl>
           </Border>
 
-          <TextBlock Classes="SectionTitle" Text="Termine" Margin="0,12,0,0" />
-          <Border Classes="Card" Padding="14">
+          <TextBlock Classes="TaskDetailSectionTitle" Text="Termine" />
+          <Border Classes="TaskDetailCard">
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="2*,*,2*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-                <TextBlock Text="Termin" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="1" Text="Uhrzeit" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="2" Text="Wiedervorlage" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Text="Termin" Classes="TaskDetailFieldLabel" />
+                <TextBlock Grid.Column="1" Text="Uhrzeit" Classes="TaskDetailFieldLabel" />
+                <TextBlock Grid.Column="2" Text="Wiedervorlage" Classes="TaskDetailFieldLabel" />
                 <StackPanel Grid.Row="1" Spacing="6">
                   <TextBox Text="{Binding DueDateInputText}"
                            Tag="DueDate"
@@ -2393,19 +2903,16 @@
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-            <TextBlock Classes="SectionTitle" Text="Material" Margin="0" />
+          <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+            <TextBlock Classes="TaskDetailSectionTitle" Text="Material" Margin="0" />
             <Button Grid.Column="1" Content="+ Material hinzufügen" Click="AddMaterial_OnClick" />
           </Grid>
           <TextBlock Text="Materialpositionen für diesen Auftrag."
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     Margin="0,-4,0,2" />
+                     Classes="TaskDetailSubtitle"
+                     Margin="0,-6,0,0" />
 
-          <Border Classes="Card"
+          <Border Classes="TaskDetailCard"
                   IsVisible="{Binding HasNoMaterials}"
-                  Padding="12"
                   Margin="0,0,0,8">
             <TextBlock Text="Noch kein Material erfasst." Foreground="{DynamicResource TextSecondaryBrush}" />
           </Border>
@@ -2413,17 +2920,17 @@
           <ItemsControl ItemsSource="{Binding Materials}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Classes="Card" Margin="0,0,0,8" Padding="12">
-                  <Grid ColumnDefinitions="120,78,*,132,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                <Border Classes="TaskDetailCard" Margin="0,0,0,8">
+                  <Grid ColumnDefinitions="96,70,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
                     <TextBlock Text="Menge" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <TextBlock Grid.Column="1" Text="Einheit" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <TextBlock Grid.Column="2" Text="Bezeichnung" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <TextBlock Grid.Column="3" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <NumericUpDown Grid.Row="1" Value="{Binding Quantity}" Minimum="0" Increment="1" Width="112" />
+                    <TextBlock Grid.Column="2" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
+                    <NumericUpDown Grid.Row="1" Value="{Binding Quantity}" Minimum="0" Increment="1" Width="88" />
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" />
-                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Name}" PlaceholderText="Material" />
-                    <ComboBox Grid.Row="1" Grid.Column="3" ItemsSource="{Binding $parent[Window].DataContext.MaterialStatusOptions}" SelectedItem="{Binding Status}" />
-                    <Button Grid.Row="1" Grid.Column="4" Content="×" Click="DeleteMaterial_OnClick" Tag="{Binding}" />
+                    <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.MaterialStatusOptions}" SelectedItem="{Binding Status}" />
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="Bezeichnung" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" Margin="0,2,0,0" />
+                    <TextBox Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding Name}" PlaceholderText="Material" />
+                    <Button Grid.Row="3" Grid.Column="2" Content="Entfernen" Click="DeleteMaterial_OnClick" Tag="{Binding}" HorizontalAlignment="Right" />
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -2451,7 +2958,7 @@
 
                       <Border MinHeight="220"
                       MaxHeight="520"
-                      CornerRadius="12"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
                       Background="{DynamicResource InputBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
@@ -2487,7 +2994,7 @@
               <Border Background="{DynamicResource InputBackgroundBrush}"
                       BorderBrush="{DynamicResource BorderBrushDark}"
                       BorderThickness="1"
-                      CornerRadius="10"
+                      CornerRadius="{DynamicResource CornerRadiusLarge}"
                       Padding="10">
                 <StackPanel Spacing="8">
                   <TextBlock Text="iPad-Bearbeitung"
@@ -2519,8 +3026,8 @@
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-            <TextBlock Classes="SectionTitle" Text="Anhänge" Margin="0" />
+          <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+            <TextBlock Classes="TaskDetailSectionTitle" Text="Anhänge" Margin="0" />
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
                         Spacing="8">
@@ -2529,16 +3036,11 @@
             </StackPanel>
           </Grid>
           <TextBlock Text="Dateien, Fotos und PDFs zum Auftrag."
-                     Foreground="{DynamicResource TextSecondaryBrush}"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     Margin="0,-4,0,2" />
+                     Classes="TaskDetailSubtitle"
+                     Margin="0,-6,0,0" />
 
-          <Border Classes="Card"
-                  Padding="14"
+          <Border Classes="TaskDetailInset"
                   Margin="0,0,0,10"
-                  Background="{DynamicResource InputBackgroundBrush}"
-                  BorderBrush="{DynamicResource BorderBrushDark}"
                   DragDrop.AllowDrop="True"
                   DragDrop.DragOver="AttachmentDropZone_OnDragOver"
                   DragDrop.Drop="AttachmentDropZone_OnDrop">
@@ -2550,9 +3052,8 @@
           <ItemsControl ItemsSource="{Binding Attachments}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Classes="Card"
+                <Border Classes="TaskDetailCard"
                         Margin="0,0,0,8"
-                        Padding="12"
                         Background="{DynamicResource SurfaceBackgroundBrush}"
                         BorderBrush="{DynamicResource BorderBrushDark}"
                         PointerPressed="AttachmentCard_OnPointerPressed">
@@ -2568,7 +3069,7 @@
                     </ContextMenu>
                   </Border.ContextMenu>
                   <Grid ColumnDefinitions="170,*,Auto" ColumnSpacing="12">
-                    <Border Grid.Column="0" Width="160" Height="110" CornerRadius="10" Background="{DynamicResource InputBackgroundBrush}" ClipToBounds="True">
+                    <Border Grid.Column="0" Width="160" Height="110" CornerRadius="{DynamicResource CornerRadiusLarge}" Background="{DynamicResource InputBackgroundBrush}" ClipToBounds="True">
                       <Grid>
                         <Image IsVisible="{Binding HasThumbnail}"
                                Source="{Binding ThumbnailPath, Converter={StaticResource ThumbnailImageConverter}}"
@@ -2585,7 +3086,7 @@
                       </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding FileDisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="#111827" />
+                      <TextBlock Text="{Binding FileDisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
                       <TextBlock Text="{Binding FileTypeBadge}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" />
                       <TextBlock Text="{Binding FileStatusText}"
                                  IsVisible="{Binding HasMissingFile}"

@@ -17,6 +17,21 @@ public sealed class AppSettings
     // Lokal/geraetespezifisch: reine UI-Darstellung.
     public string AppearanceMode { get; set; } = "Dark Mode";
 
+    // Lokal/geraetespezifisch: zeigt den optionalen Schreibtisch in der Navigation an.
+    // Der Initialwert hält den Schreibtisch für bestehende Installationen sichtbar.
+    public bool ShowDesktop { get; set; } = true;
+
+    // Lokal/geraetespezifisch: Breite des rechten Vorgangsinspektors in Pixeln.
+    public double TaskDetailPaneWidth { get; set; } = 380;
+
+    // Lokal/geraetespezifisch: optionale Zusatzinformation in der kompakten Vorgangsliste.
+    public bool ShowTaskTitleColumn { get; set; } = true;
+
+    // Lokal/geraetespezifisch: getrennte Tabellenkonfigurationen für die drei Arbeitsansichten.
+    public TableLayoutSettings OrdersTableLayout { get; set; } = TableLayoutSettings.CreateOrdersDefault();
+    public TableLayoutSettings OffersTableLayout { get; set; } = TableLayoutSettings.CreateOffersDefault();
+    public TableLayoutSettings AppointmentsTableLayout { get; set; } = TableLayoutSettings.CreateAppointmentsDefault();
+
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
     public string UpdateFeedUrl { get; set; } = string.Empty;
@@ -42,6 +57,39 @@ public sealed class AppSettings
     // Legacy/Fallback: Techniker/Monteure werden zentral in Sync/live/settings.json gespeichert.
     // Dieser lokale Wert wird nur noch zum einmaligen Befuellen leerer Live-Settings gelesen.
     public List<string> TechnicianNames { get; set; } = [];
+}
+
+public sealed class TableLayoutSettings
+{
+    public List<string> ColumnOrder { get; set; } = [];
+    public Dictionary<string, double> ColumnWidths { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<string> HiddenColumns { get; set; } = [];
+    public string SortField { get; set; } = "Erstellt am";
+    public bool SortDescending { get; set; } = true;
+
+    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 220, 120, 150);
+    public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 220, 120, 150);
+    public static TableLayoutSettings CreateAppointmentsDefault()
+    {
+        var settings = Create(["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"], 96, 78, 112, 240, 220, 150);
+        settings.SortField = "Datum";
+        settings.SortDescending = false;
+        return settings;
+    }
+
+    private static TableLayoutSettings Create(IEnumerable<string> columns, params double[] widths)
+    {
+        var columnList = columns.ToList();
+        var columnWidths = columnList
+            .Select((column, index) => new { column, width = index < widths.Length ? widths[index] : 140d })
+            .ToDictionary(item => item.column, item => item.width, StringComparer.OrdinalIgnoreCase);
+        return new TableLayoutSettings
+        {
+            ColumnOrder = columnList,
+            ColumnWidths = columnWidths,
+            HiddenColumns = columnList.Contains("Titel", StringComparer.OrdinalIgnoreCase) ? ["Titel"] : []
+        };
+    }
 }
 
 public sealed class LocalNetworkSyncPairedDevice

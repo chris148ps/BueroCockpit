@@ -244,7 +244,8 @@ final class MobilePhotoDraftStore: @unchecked Sendable {
         let paths = Set([
             draft.localImagePath,
             draft.originalLocalPath,
-            draft.thumbnailPath
+            draft.thumbnailPath,
+            draft.annotatedLocalPath
         ].compactMap { $0 })
 
         for path in paths {

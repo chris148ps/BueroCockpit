@@ -171,6 +171,13 @@ struct MobilePhotoDraftsView: View {
 
                 assignmentView(for: draft)
 
+                ForEach(localFileIssueTexts(for: draft), id: \.self) { issueText in
+                    Label(issueText, systemImage: "exclamationmark.triangle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Button {
                     draftPendingAssignment = draft
                 } label: {
@@ -255,6 +262,31 @@ struct MobilePhotoDraftsView: View {
 
         if let imagePath = draft.localImagePath ?? draft.originalLocalPath {
             return UIImage(contentsOfFile: imagePath)
+        }
+
+        return nil
+    }
+
+    private func localFileIssueTexts(for draft: MobilePhotoDraft) -> [String] {
+        [
+            localFileIssueText(path: draft.originalLocalPath ?? draft.localImagePath, label: "Originaldatei"),
+            localFileIssueText(path: draft.thumbnailPath, label: "Vorschaubild"),
+            localFileIssueText(path: draft.annotatedLocalPath, label: "Markierte Datei")
+        ].compactMap { $0 }
+    }
+
+    private func localFileIssueText(path: String?, label: String) -> String? {
+        guard let path, !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: path) else {
+            return "\(label) nicht gefunden"
+        }
+
+        guard UIImage(contentsOfFile: path) != nil else {
+            return "\(label) nicht lesbar"
         }
 
         return nil

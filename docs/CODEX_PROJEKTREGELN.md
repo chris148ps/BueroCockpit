@@ -35,6 +35,8 @@ codex -m gpt-5.5
 - Kein Tag und keine Versionserhoehung ohne ausdrueckliche Freigabe.
 - Keine produktiven Daten verschieben oder loeschen.
 - Keine riskante Datenmigration ohne Freigabe.
+- Fuer ausdruecklich beauftragte Status- und Workflowfunktionen sind additive, rueckwaertskompatible Erweiterungen von Datenmodell und Persistenz ohne separate Einzelfreigabe erlaubt.
+- Diese Ausnahme erlaubt weder das Loeschen noch das stille Umsortieren oder Neu-Zuordnen bestehender Produktivdaten, Kategorien oder Auftraege; riskante Migrationen bleiben freigabepflichtig.
 - Keine alte Cloud-/Live-Datei-/Pairing-Code-Logik wieder aktivieren.
 - Kein Desktop-Autostart.
 - Kein UDP-Broadcast oder Portscan.

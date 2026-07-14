@@ -49,6 +49,8 @@ public sealed class BueroRepository
                 Description TEXT NOT NULL,
                 CategoryId TEXT NOT NULL,
                 Status TEXT NOT NULL,
+                WorkflowType TEXT NOT NULL DEFAULT '',
+                WorkflowStep TEXT NOT NULL DEFAULT '',
                 Priority TEXT NOT NULL,
                 DueDate TEXT NULL,
                 FollowUpDate TEXT NULL,
@@ -227,7 +229,7 @@ public sealed class BueroRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, Title, CustomerName, Description, CategoryId, Status, Priority,
+            SELECT Id, Title, CustomerName, Description, CategoryId, Status, WorkflowType, WorkflowStep, Priority,
                    DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
                    AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt
             FROM Tasks
@@ -246,22 +248,24 @@ public sealed class BueroRepository
                 Description = reader.GetString(3),
                 CategoryId = reader.GetString(4),
                 Status = reader.GetString(5),
-                Priority = reader.GetString(6),
-                DueDate = ReadNullableDate(reader, 7),
-                FollowUpDate = ReadNullableDate(reader, 8),
-                SentAt = ReadNullableDate(reader, 9),
-                MaterialOrderedAt = ReadNullableDate(reader, 10),
-                CustomerAddress = reader.GetString(11),
-                CustomerEmail = reader.GetString(12),
-                CustomerPhone = reader.GetString(13),
-                Technician = reader.GetString(14),
-                SortPosition = reader.GetDouble(15),
-                AssignedTo = reader.GetString(16),
-                CreatedAt = ReadDateOrFallback(reader.GetString(17), ReadDate(reader.GetString(18))),
-                UpdatedAt = ReadDate(reader.GetString(18)),
-                CompletedAt = ReadNullableDate(reader, 19),
-                IsDeleted = reader.GetInt32(20) == 1,
-                DeletedAt = ReadNullableDate(reader, 21)
+                WorkflowType = reader.GetString(6),
+                WorkflowStep = reader.GetString(7),
+                Priority = reader.GetString(8),
+                DueDate = ReadNullableDate(reader, 9),
+                FollowUpDate = ReadNullableDate(reader, 10),
+                SentAt = ReadNullableDate(reader, 11),
+                MaterialOrderedAt = ReadNullableDate(reader, 12),
+                CustomerAddress = reader.GetString(13),
+                CustomerEmail = reader.GetString(14),
+                CustomerPhone = reader.GetString(15),
+                Technician = reader.GetString(16),
+                SortPosition = reader.GetDouble(17),
+                AssignedTo = reader.GetString(18),
+                CreatedAt = ReadDateOrFallback(reader.GetString(19), ReadDate(reader.GetString(20))),
+                UpdatedAt = ReadDate(reader.GetString(20)),
+                CompletedAt = ReadNullableDate(reader, 21),
+                IsDeleted = reader.GetInt32(22) == 1,
+                DeletedAt = ReadNullableDate(reader, 23)
             });
         }
 
@@ -271,6 +275,13 @@ public sealed class BueroRepository
 
     public void SaveCategory(CategoryItem category)
     {
+        ArgumentNullException.ThrowIfNull(category);
+        if (string.IsNullOrWhiteSpace(category.Name))
+        {
+            throw new ArgumentException("Eine Kategorie benötigt einen Namen.", nameof(category));
+        }
+
+        category.Name = category.Name.Trim();
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -470,10 +481,10 @@ public sealed class BueroRepository
 
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, Priority,
+            INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, WorkflowType, WorkflowStep, Priority,
                                DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
                                AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt)
-            VALUES ($id, $title, $customerName, $description, $categoryId, $status, $priority,
+            VALUES ($id, $title, $customerName, $description, $categoryId, $status, $workflowType, $workflowStep, $priority,
                     $dueDate, $followUpDate, $sentAt, $materialOrderedAt, $customerAddress, $customerEmail, $customerPhone, $technician, $sortPosition,
                     $assignedTo, $createdAt, $updatedAt, $completedAt, $isDeleted, $deletedAt)
             ON CONFLICT(Id) DO UPDATE SET
@@ -485,6 +496,8 @@ public sealed class BueroRepository
                 Description = excluded.Description,
                 CategoryId = excluded.CategoryId,
                 Status = excluded.Status,
+                WorkflowType = excluded.WorkflowType,
+                WorkflowStep = excluded.WorkflowStep,
                 Priority = excluded.Priority,
                 DueDate = excluded.DueDate,
                 FollowUpDate = excluded.FollowUpDate,
@@ -594,15 +607,15 @@ public sealed class BueroRepository
                 OrderedAt = excluded.OrderedAt,
                 Note = excluded.Note;
             """;
-        command.Parameters.AddWithValue("$id", item.Id);
-        command.Parameters.AddWithValue("$taskId", item.TaskId);
-        command.Parameters.AddWithValue("$quantity", item.Quantity);
-        command.Parameters.AddWithValue("$unit", item.Unit);
-        command.Parameters.AddWithValue("$name", item.Name);
-        command.Parameters.AddWithValue("$status", item.Status);
-        command.Parameters.AddWithValue("$supplier", item.Supplier);
-        command.Parameters.AddWithValue("$orderedAt", ToDb(item.OrderedAt));
-        command.Parameters.AddWithValue("$note", item.Note);
+        AddParameter(command, "$id", item.Id ?? string.Empty);
+        AddParameter(command, "$taskId", item.TaskId ?? string.Empty);
+        AddParameter(command, "$quantity", item.Quantity);
+        AddParameter(command, "$unit", item.Unit ?? string.Empty);
+        AddParameter(command, "$name", item.Name ?? string.Empty);
+        AddParameter(command, "$status", item.Status ?? string.Empty);
+        AddParameter(command, "$supplier", item.Supplier ?? string.Empty);
+        AddParameter(command, "$orderedAt", ToDb(item.OrderedAt));
+        AddParameter(command, "$note", item.Note ?? string.Empty);
         command.ExecuteNonQuery();
         NotifyDataWritten("Material gespeichert");
     }
@@ -1027,6 +1040,8 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Categories", "SortMode", "TEXT NOT NULL DEFAULT 'Erstellt am'");
         AddColumnIfMissing(connection, "Categories", "ParentId", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "SentAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Tasks", "WorkflowType", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Tasks", "WorkflowStep", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "MaterialOrderedAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "CustomerAddress", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "CustomerEmail", "TEXT NOT NULL DEFAULT ''");
@@ -1388,6 +1403,8 @@ public sealed class BueroRepository
         AddParameter(command, "$description", task.Description ?? string.Empty);
         AddParameter(command, "$categoryId", task.CategoryId ?? string.Empty);
         AddParameter(command, "$status", task.Status ?? string.Empty);
+        AddParameter(command, "$workflowType", task.WorkflowType ?? string.Empty);
+        AddParameter(command, "$workflowStep", task.WorkflowStep ?? string.Empty);
         AddParameter(command, "$priority", task.Priority ?? string.Empty);
         AddParameter(command, "$dueDate", ToDb(task.DueDate));
         AddParameter(command, "$followUpDate", ToDb(task.FollowUpDate));
