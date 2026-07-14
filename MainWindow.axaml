@@ -2104,15 +2104,8 @@
             </Border>
           </StackPanel>
           <Button Grid.Column="1"
-                  Content="Speichern"
+                  Content="Alles speichern"
                   Click="ManualSave_OnClick"
-                  VerticalAlignment="Top"
-                  Margin="0,0,8,0" />
-          <Button Grid.Column="2"
-                  Classes="Tertiary"
-                  Content="Titel"
-                  ToolTip.Tip="Titelspalte ein- oder ausblenden"
-                  Click="ToggleTaskTitleColumn_OnClick"
                   VerticalAlignment="Top"
                   Margin="0,0,8,0" />
           <Button Grid.Column="3"
@@ -2693,11 +2686,12 @@
                 <TextBlock Text="{Binding SelectedTask.Title}"
                            Classes="TaskDetailSubtitle" />
               </StackPanel>
-              <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-                <Button Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" />
-                <Button Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" />
-                <Button Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" />
-              </StackPanel>
+              <WrapPanel Grid.Row="1" Margin="0,10,0,0">
+                <Button Content="Speichern und prüfen" Classes="Primary" Click="SaveTask_OnClick" Margin="0,0,8,8" />
+                <Button Content="Duplizieren" Click="DuplicateTask_OnClick" Margin="0,0,8,8" />
+                <Button Content="Wiederherstellen" Click="RestoreTask_OnClick" IsVisible="{Binding IsTrashSelected}" Margin="0,0,8,8" />
+                <Button Content="Löschen" Classes="Danger" Click="DeleteTask_OnClick" IsVisible="{Binding IsNotTrashSelected}" Margin="0,0,8,8" />
+              </WrapPanel>
             </Grid>
           </Border>
 
@@ -2927,16 +2921,16 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Border Classes="TaskDetailCard" Margin="0,0,0,8">
-                  <Grid ColumnDefinitions="120,78,*,132,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                  <Grid ColumnDefinitions="96,70,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
                     <TextBlock Text="Menge" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
                     <TextBlock Grid.Column="1" Text="Einheit" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <TextBlock Grid.Column="2" Text="Bezeichnung" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <TextBlock Grid.Column="3" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
-                    <NumericUpDown Grid.Row="1" Value="{Binding Quantity}" Minimum="0" Increment="1" Width="112" />
+                    <TextBlock Grid.Column="2" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" />
+                    <NumericUpDown Grid.Row="1" Value="{Binding Quantity}" Minimum="0" Increment="1" Width="88" />
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" />
-                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Name}" PlaceholderText="Material" />
-                    <ComboBox Grid.Row="1" Grid.Column="3" ItemsSource="{Binding $parent[Window].DataContext.MaterialStatusOptions}" SelectedItem="{Binding Status}" />
-                    <Button Grid.Row="1" Grid.Column="4" Content="×" Click="DeleteMaterial_OnClick" Tag="{Binding}" />
+                    <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.MaterialStatusOptions}" SelectedItem="{Binding Status}" />
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="Bezeichnung" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="11" Margin="0,2,0,0" />
+                    <TextBox Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding Name}" PlaceholderText="Material" />
+                    <Button Grid.Row="3" Grid.Column="2" Content="Entfernen" Click="DeleteMaterial_OnClick" Tag="{Binding}" HorizontalAlignment="Right" />
                   </Grid>
                 </Border>
               </DataTemplate>

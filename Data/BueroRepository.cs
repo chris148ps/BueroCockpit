@@ -607,15 +607,15 @@ public sealed class BueroRepository
                 OrderedAt = excluded.OrderedAt,
                 Note = excluded.Note;
             """;
-        command.Parameters.AddWithValue("$id", item.Id);
-        command.Parameters.AddWithValue("$taskId", item.TaskId);
-        command.Parameters.AddWithValue("$quantity", item.Quantity);
-        command.Parameters.AddWithValue("$unit", item.Unit);
-        command.Parameters.AddWithValue("$name", item.Name);
-        command.Parameters.AddWithValue("$status", item.Status);
-        command.Parameters.AddWithValue("$supplier", item.Supplier);
-        command.Parameters.AddWithValue("$orderedAt", ToDb(item.OrderedAt));
-        command.Parameters.AddWithValue("$note", item.Note);
+        AddParameter(command, "$id", item.Id ?? string.Empty);
+        AddParameter(command, "$taskId", item.TaskId ?? string.Empty);
+        AddParameter(command, "$quantity", item.Quantity);
+        AddParameter(command, "$unit", item.Unit ?? string.Empty);
+        AddParameter(command, "$name", item.Name ?? string.Empty);
+        AddParameter(command, "$status", item.Status ?? string.Empty);
+        AddParameter(command, "$supplier", item.Supplier ?? string.Empty);
+        AddParameter(command, "$orderedAt", ToDb(item.OrderedAt));
+        AddParameter(command, "$note", item.Note ?? string.Empty);
         command.ExecuteNonQuery();
         NotifyDataWritten("Material gespeichert");
     }

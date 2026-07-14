@@ -52,6 +52,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string DirectWorkflowType = "Direktauftrag";
     private static readonly HashSet<string> WorkflowAndLegacyCategoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
+        "Übersicht",
+        "Dashboard",
         "Offene Aufgaben",
         "Angebot",
         "Material",
@@ -843,7 +845,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                                                    !IsTrashSelected &&
                                                    !IsMobileInboxSelected &&
                                                    SelectedCategory is not null &&
-                                                   IsSelectableTaskCategory(SelectedCategory);
+                                                   (IsOrdersNavigationSelected ||
+                                                    IsOffersNavigationSelected ||
+                                                    IsSelectableTaskCategory(SelectedCategory));
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
     public bool IsCategoryRootDropTarget => _isCategoryRootDropTarget;
     public IBrush CategoryRootDropBackground => _isCategoryRootDropTarget
@@ -2413,6 +2417,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             Debug.WriteLine($"Save failed ({reason}): {ex}");
+            Console.Error.WriteLine($"Save failed ({reason}): {ex}");
             AutoSaveStatus = "Speichern fehlgeschlagen. Die Änderung bleibt vorgemerkt und wird erneut versucht.";
             return false;
         }
@@ -4201,6 +4206,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Attachments.Clear();
         OnPropertyChanged(nameof(SelectedTask));
         OnPropertyChanged(nameof(HasSelectedTask));
+        OnPropertyChanged(nameof(HasNormalSelectedTask));
         OnPropertyChanged(nameof(HasNoMaterials));
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
@@ -5143,6 +5149,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ClearSelectedTask();
         }
 
+        var createOffer = IsOffersNavigationSelected;
         var category = !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected && !IsTrashSelected &&
             SelectedCategory is not null &&
             IsSelectableTaskCategory(SelectedCategory)
@@ -5166,8 +5173,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CustomerName = "Neuer Kunde",
             Title = "Neue Aufgabe",
             Status = "Offen",
-            WorkflowType = DirectWorkflowType,
-            WorkflowStep = "Auftrag",
+            WorkflowType = createOffer ? OfferWorkflowType : DirectWorkflowType,
+            WorkflowStep = createOffer ? "Angebot" : "Auftrag",
             Priority = "Normal",
             SortPosition = _repository.GetTopTaskSortPosition(category.Id),
             CreatedAt = now,
@@ -5180,7 +5187,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AllTasks.Insert(0, task);
 
         ClearSearchTextWithoutRefresh();
-        SelectedCategory = category;
+        if (!createOffer && !IsOrdersNavigationSelected)
+        {
+            SelectedCategory = category;
+        }
         RefreshVisibleTasks();
         SelectedTask = task;
         UpdateCategoryCounts();
@@ -5846,6 +5856,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         task.UpdatedAt = DateTime.Now;
         _tasksPendingDuplicateCheck.Remove(task.Id);
+        SaveTaskAndQueueIpadSnapshot(task);
         RefreshVisibleTasks();
         UpdateCategoryCounts();
     }
@@ -6354,10 +6365,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CaptureTaskUndoState(SelectedTask ?? AllTasks.FirstOrDefault(task => string.Equals(task.Id, item.TaskId, StringComparison.OrdinalIgnoreCase)));
+        item.PropertyChanged -= MaterialItem_OnPropertyChanged;
+        Materials.Remove(item);
         _dirtyMaterials.Remove(item.Id);
         _deletedMaterials.Add(item.Id);
         MarkDataDirty($"material-delete:{item.Id}");
-        Materials.Remove(item);
         OnPropertyChanged(nameof(HasNoMaterials));
     }
 
@@ -6968,7 +6980,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SaveCategoryAndQueueIpadSnapshot(category, "Kategorie umbenannt");
         OnPropertyChanged(nameof(SelectedCategory));
         RefreshCategoryDependentViews();
-        ApplySelectedCategoryContent();
+        if (!IsSettingsSelected)
+        {
+            ApplySelectedCategoryContent();
+        }
         UpdateCategoryCounts();
         CategoryMessage = "Kategorie umbenannt.";
     }
@@ -7524,7 +7539,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         RefreshCategoryDependentViews();
-        ApplySelectedCategoryContent();
+        if (!IsSettingsSelected)
+        {
+            ApplySelectedCategoryContent();
+        }
         UpdateCategoryCounts();
         CategoryMessage = message;
     }
@@ -7660,7 +7678,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var restoreButton = new Button
         {
-            Content = "Zurück in Offene Aufgaben",
+            Content = "Aus Archiv zurückholen",
             Padding = new Thickness(10, 5)
         };
         restoreButton.Classes.Add("Secondary");
@@ -7741,42 +7759,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RestoreArchivedTaskToOpenTasks(TaskItem task)
     {
-        var openCategory = Categories.FirstOrDefault(category =>
-                IsSelectableTaskCategory(category) &&
-                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category =>
-                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(IsSelectableTaskCategory);
-        if (openCategory is null)
-        {
-            CategoryMessage = "Offene Aufgaben wurde nicht gefunden.";
-            return;
-        }
-
         CaptureTaskUndoState(task, preserveExistingSnapshot: true);
         EnsureTaskCategoryState(task);
         task.Status = "Offen";
+        task.WorkflowStep = IsOfferWorkflow(task) ? "Angebot" : "Auftrag";
         task.CompletedAt = null;
-        task.CategoryId = openCategory.Id;
         task.CategoryIds.RemoveAll(categoryId =>
         {
             var category = Categories.FirstOrDefault(item =>
                 string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
             return category is not null && IsArchiveCategory(category);
         });
-        task.CategoryIds.RemoveAll(categoryId =>
-            string.Equals(categoryId, openCategory.Id, StringComparison.OrdinalIgnoreCase));
-        task.CategoryIds.Insert(0, openCategory.Id);
+
+        var targetCategory = task.CategoryIds
+            .Select(categoryId => Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, categoryId, StringComparison.OrdinalIgnoreCase)))
+            .FirstOrDefault(category => category is not null && IsSelectableTaskCategory(category));
+        targetCategory ??= Categories.FirstOrDefault(IsSelectableTaskCategory);
+        if (targetCategory is null)
+        {
+            CategoryMessage = "Keine Auftragskategorie wurde gefunden.";
+            return;
+        }
+
+        if (!task.CategoryIds.Any(categoryId =>
+                string.Equals(categoryId, targetCategory.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            task.CategoryIds.Insert(0, targetCategory.Id);
+        }
+
+        if (!task.CategoryIds.Any(categoryId =>
+                string.Equals(categoryId, task.CategoryId, StringComparison.OrdinalIgnoreCase)))
+        {
+            task.CategoryId = targetCategory.Id;
+        }
         task.UpdatedAt = DateTime.Now;
 
         SaveTaskAndQueueIpadSnapshot(task);
         UpdateTaskCategoryPresentation(task);
         RefreshTaskCategories();
-        SelectCategoryAndTask(openCategory, task);
+        SelectCategoryAndTask(targetCategory, task);
         LoadTaskDetails();
         RefreshGlobalSearchResults();
         UpdateCategoryCounts();
-        CategoryMessage = "Auftrag wurde in Offene Aufgaben zurückgeholt.";
+        CategoryMessage = "Auftrag wurde aus dem Archiv zurückgeholt.";
     }
 
     private static string FormatArchiveTaskTitle(TaskItem task)
@@ -7821,17 +7847,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var openOrdersCategory = FindOpenOrdersCategory(category.Id);
-        if (openOrdersCategory is null && assignedTaskCount > 0)
-        {
-            CategoryMessage = "Kategorie kann nicht gelöscht werden: „Offene Aufträge“ wurde nicht gefunden.";
-            return;
-        }
-
-        if (openOrdersCategory is not null)
-        {
-            MoveDirectTasksToCategory(category.Id, openOrdersCategory.Id);
-        }
+        RemoveCategoryAssignmentFromTasks(category.Id);
 
         category.IsVisible = false;
         SaveCategoryAndQueueIpadSnapshot(category, "Kategorie entfernt");
@@ -7852,32 +7868,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CategoryMessage = "Kategorie entfernt.";
     }
 
-    private CategoryItem? FindOpenOrdersCategory(string excludedCategoryId)
+    private void RemoveCategoryAssignmentFromTasks(string categoryId)
     {
-        return Categories.FirstOrDefault(category =>
-                   !string.Equals(category.Id, excludedCategoryId, StringComparison.OrdinalIgnoreCase) &&
-                   string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
-               ?? Categories.FirstOrDefault(category =>
-                   !string.Equals(category.Id, excludedCategoryId, StringComparison.OrdinalIgnoreCase) &&
-                   string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void MoveDirectTasksToCategory(string sourceCategoryId, string targetCategoryId)
-    {
-        foreach (var task in AllTasks.Where(task => TaskBelongsToCategory(task, sourceCategoryId)).ToList())
+        foreach (var task in AllTasks.Where(task => TaskBelongsToCategory(task, categoryId)).ToList())
         {
             CaptureTaskUndoState(task, preserveExistingSnapshot: true);
             EnsureTaskCategoryState(task);
-            task.CategoryIds.RemoveAll(id => string.Equals(id, sourceCategoryId, StringComparison.OrdinalIgnoreCase));
-            if (!task.CategoryIds.Contains(targetCategoryId, StringComparer.OrdinalIgnoreCase))
-            {
-                task.CategoryIds.Insert(0, targetCategoryId);
-            }
-
-            if (string.Equals(task.CategoryId, sourceCategoryId, StringComparison.OrdinalIgnoreCase) ||
+            task.CategoryIds.RemoveAll(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+            if (string.Equals(task.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase) ||
                 !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
             {
-                task.CategoryId = targetCategoryId;
+                task.CategoryId = task.CategoryIds.FirstOrDefault() ?? string.Empty;
             }
 
             EnsureTaskCategoryState(task);
@@ -7926,7 +7927,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     },
                     new TextBlock
                     {
-                        Text = "Die Kategorie wird nur ausgeblendet. Direkt zugeordnete Aufträge werden in „Offene Aufträge“ verschoben; weitere Zuordnungen bleiben erhalten.",
+                        Text = "Die Kategorie wird ausgeblendet und nur diese Zuordnung von den Aufträgen entfernt. Die Aufträge und alle weiteren Kategoriezuordnungen bleiben erhalten.",
                         TextWrapping = TextWrapping.Wrap
                     },
                     new StackPanel
@@ -8042,6 +8043,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = source.Title.StartsWith("Kopie - ", StringComparison.OrdinalIgnoreCase) ? source.Title : $"Kopie - {source.Title}",
             Description = source.Description,
             CategoryId = source.CategoryId,
+            CategoryIds = source.CategoryIds.ToList(),
             Status = source.Status,
             WorkflowType = source.WorkflowType,
             WorkflowStep = source.WorkflowStep,
@@ -11641,6 +11643,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Attachments.Clear();
         OnPropertyChanged(nameof(SelectedTask));
         OnPropertyChanged(nameof(HasSelectedTask));
+        OnPropertyChanged(nameof(HasNormalSelectedTask));
         OnPropertyChanged(nameof(HasNoMaterials));
         DateInputMessage = string.Empty;
         UpdateDateTextFieldsFromSelectedTask();
@@ -11667,7 +11670,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CategoryManagementCategories.Clear();
-        foreach (var category in Categories.Where(CanEditCategory))
+        foreach (var category in GetOrderedEditableCategories())
         {
             CategoryManagementCategories.Add(category);
         }
@@ -11761,6 +11764,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AddSidebarUserCategory(category);
         }
 
+        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == TrashCategoryId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == SettingsCategoryId));
 
         if (SelectedCategory is not null && SidebarCategories.Any(category =>
@@ -11872,6 +11876,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(IsTaskCategoryChoiceVisible)
             .OrderBy(category => category.ParentId is null ? category.SortOrder : GetRootSortOrder(category))
             .ThenBy(category => category.SelectionName, StringComparer.CurrentCultureIgnoreCase);
+    }
+
+    private IEnumerable<CategoryItem> GetOrderedEditableCategories()
+    {
+        var editable = Categories.Where(CanEditCategory).ToList();
+        var editableIds = editable.Select(category => category.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var childrenByParent = editable
+            .GroupBy(category => category.ParentId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(category => category.SortOrder)
+                    .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        IEnumerable<CategoryItem> AddBranch(CategoryItem category)
+        {
+            if (!visited.Add(category.Id))
+            {
+                yield break;
+            }
+
+            yield return category;
+            if (!childrenByParent.TryGetValue(category.Id, out var children))
+            {
+                yield break;
+            }
+
+            foreach (var child in children)
+            {
+                foreach (var item in AddBranch(child))
+                {
+                    yield return item;
+                }
+            }
+        }
+
+        var roots = editable
+            .Where(category => string.IsNullOrWhiteSpace(category.ParentId) || !editableIds.Contains(category.ParentId))
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase);
+        foreach (var root in roots)
+        {
+            foreach (var item in AddBranch(root))
+            {
+                yield return item;
+            }
+        }
+
+        foreach (var category in editable.Where(category => !visited.Contains(category.Id)))
+        {
+            yield return category;
+        }
     }
 
     private int GetRootSortOrder(CategoryItem category)
@@ -12237,14 +12295,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return true;
         }
 
-        return category.Id.StartsWith("__", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), OverviewCategoryName, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), "Dashboard", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), DeskCategoryName, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), SettingsCategoryName, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), TrashCategoryName, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), MobileInboxCategoryName, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Name?.Trim(), "Archiv", StringComparison.OrdinalIgnoreCase);
+        return IsCanonicalSystemNavigationCategory(category);
     }
 
     private static bool IsCanonicalSystemNavigationCategory(CategoryItem category)
@@ -12253,7 +12304,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, TrashCategoryId, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(category.Id, MobileInboxCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase);
+               string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, OffersNavigationId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, MaterialsNavigationId, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(category.Id, AppointmentsNavigationId, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUserCategory(CategoryItem category)
@@ -12261,6 +12316,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return !string.IsNullOrWhiteSpace(category.Name) &&
                !IsSystemNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
+               !IsArchiveCategory(category) &&
                !IsWorkflowOrLegacyCategory(category);
     }
 

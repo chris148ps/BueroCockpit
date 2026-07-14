@@ -2,34 +2,40 @@
 
 ## Aktueller Entwicklungsstand
 
-BüroCockpit enthält kompakte dynamische Vorgangstabellen für Aufträge und Angebote sowie eine chronologische Terminansicht. Kopf und Zeilen verwenden dieselbe lokale Ansichtskonfiguration. Spaltenverschieben, Spaltenbreitenänderung und typgerechte Kopfklick-Sortierung sind getrennt bedienbar.
+BüroCockpit ist auf macOS mit einer isolierten Kopie des aktuellen Datenbestands funktional durchgetestet. Aufträge und Angebote besitzen getrennte Erstellungsworkflows, Kategorien werden hierarchisch aus einer gemeinsamen Quelle dargestellt, und Tabellenlayouts bleiben je Ansicht lokal persistent. Material- und Löschvorgänge speichern sichtbar und tatsächlich konsistent.
 
 ## Architektur
 
-- Drei getrennte TableLayoutSettings speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung.
-- TableCellItem projiziert jede sichtbare Spalte für Kopf-/Zeilenkonsistenz.
-- Kopfklicks werden nach der Bewegungsprüfung als Sortierklick behandelt; Drag und Resize bleiben davon getrennt.
-- Sortierung verwendet eigene fachliche Sortierfelder für Status, Text, Datum und Uhrzeit.
-- WorkflowStep bleibt zentrale Statusquelle; Kategorien bleiben kompatibel.
+- `AppPaths` akzeptiert optionale Umgebungsvariablen für isolierte Daten- und lokale Konfigurationsverzeichnisse; ohne Variablen bleiben die bisherigen produktiven Pfade unverändert.
+- Drei getrennte `TableLayoutSettings` speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung lokal.
+- `WorkflowType` und `WorkflowStep` bleiben die fachliche Quelle für Direktauftrag, Angebot, Material, Termin und Erledigt.
+- Kategorien werden als gemeinsame Hierarchie für Navigation, Einstellungen und Detailauswahl aufgebaut.
+- Repository-Speicherung normalisiert nullable Materialwerte über die vorhandene Parameterhilfe.
 
 ## Erledigte Hauptfunktionen
 
-- kompakte Standardspalten und zusätzliche Titelspalte
-- getrennte Resize-Griffe mit Live-Breitenübernahme
-- Drag-and-drop-Reihenfolge der sichtbaren Spalten ohne Sortiernebenwirkung
-- Kopfklick-Sortierung mit Auf-/Abwärtspfeil
-- fachliche Statusreihenfolge für direkte Aufträge und Angebotsvorgänge
-- alphabetische Textsortierung ohne Groß-/Kleinschreibung
-- chronologische Termin-/Datums-/Uhrzeitsortierung mit leeren Werten am Ende
-- lokale Wiederherstellung je Ansicht nach Neustart
-- horizontales Scrollen von Kopf und Zeilen
+- Direktauftrag unter Aufträge und Angebotsvorgang unter Angebote neu anlegen
+- eindeutige globale Aktion `Alles speichern` und rechte Aktion `Speichern und prüfen`
+- Duplizieren, Löschen, Papierkorb, Wiederherstellen, Archivieren und Rückholen
+- Kategorien erstellen, umbenennen, verschieben, verschachteln, auf Hauptebene ziehen und zuordnungsschonend löschen
+- ausschließlich echte feste System-IDs sperren
+- getrennte persistente Tabellenlayouts für Aufträge, Angebote und Termine
+- responsive Materialpositionen im schmalen Detailbereich
+- robustes Speichern leerer optionaler Materialwerte
+- tatsächliches Löschen von Materialpositionen trotz spätem UI-Binding-Ereignis
+- isolierbarer funktionaler Testbetrieb ohne Zugriff auf die produktive Hauptdatenbank
+- real geprüfte Anhänge, Backup/Restore, Diagnose, Schreibtischnotiz und manueller lokaler Sync-Testdienst
 
 ## Bekannte offene Punkte
 
-- Produktive mutierende Status-/Monteurtests wurden nicht ausgeführt.
+- Windows-spezifische Bedienwege sind erfolgreich gebaut, aber noch nicht real auf Windows geprüft.
+- Finder-Dateidrop auf den Schreibtisch und horizontales Trackpad-Scrollen benötigen noch einen gezielten Plattform-Nachtest.
+- Der ältere zentrale Live-Settings-Pfad sollte bei künftigen isolierten Tests bereits vor dem ersten Start explizit auf den temporären Datenordner zeigen.
 
 ## Wichtige Entscheidungen
 
-- Kunde bleibt immer sichtbar.
-- Technische IDs bleiben intern.
-- Layout- und Sortierwerte werden ausschließlich lokal gespeichert.
+- Produktive Tests werden ausschließlich über explizite temporäre Daten- und lokale Konfigurationspfade ausgeführt.
+- Kategorie-Löschen entfernt nur die gewählte Zuordnung; Aufträge und weitere Kategorien bleiben erhalten.
+- Fachliche Kategorien mit technischen `__`-IDs bleiben editierbar, sofern ihre ID nicht in der kleinen festen System-ID-Menge steht.
+- Archiv-Rückholung erhält vorhandene Kategorien und setzt Workflow und Status konsistent zurück.
+- Layout- und Sortierwerte bleiben lokal; fachliche Daten bleiben im gemeinsamen Datenbestand.
