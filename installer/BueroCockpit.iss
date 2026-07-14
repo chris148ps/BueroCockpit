@@ -3,7 +3,7 @@
 ;   ISCC.exe installer\BueroCockpit.iss
 
 #define MyAppName "BüroCockpit"
-#define MyAppVersion "0.2.5"
+#define MyAppVersion "0.4.18"
 #define MyAppPublisher "Christian Stange"
 #define MyAppExeName "BueroCockpit.exe"
 
@@ -22,8 +22,8 @@ SetupIconFile=..\Assets\BueroCockpit.ico
 Compression=zip
 SolidCompression=no
 WizardStyle=modern
-ArchitecturesAllowed=x64compatible arm64
-ArchitecturesInstallIn64BitMode=x64compatible arm64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=admin
 
@@ -35,7 +35,6 @@ Name: "desktopicon"; Description: "Desktop-Verknuepfung erstellen"; GroupDescrip
 
 [Files]
 Source: "..\publish\windows-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64Install
-Source: "..\publish\windows-arm64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsArm64Install
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
