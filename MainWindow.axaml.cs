@@ -11905,15 +11905,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         EnsureTaskCategoryState(SelectedTask);
         foreach (var category in TaskCategories)
         {
-            if (!IsSelectableTaskCategory(category))
-            {
-                continue;
-            }
-
             TaskCategorySelections.Add(new TaskCategorySelection(
                 category,
                 TaskBelongsToCategory(SelectedTask, category.Id),
-                isSelectable: true));
+                IsSelectableTaskCategory(category)));
         }
     }
 
@@ -12000,7 +11995,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         PrepareCategoryDisplay(category, 0, category.Name, hasChildren: false);
         SidebarCategories.Add(category);
-        if (string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(category.Id, TrashCategoryId, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase))
         {
             SidebarSettingsCategories.Add(category);
         }

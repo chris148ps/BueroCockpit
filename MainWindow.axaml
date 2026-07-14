@@ -718,7 +718,7 @@
                 BorderThickness="0,1,0,0">
           <ListBox x:Name="SettingsCategoryList"
                    Classes="SidebarCategoryList"
-                   AutomationProperties.Name="Einstellungen"
+                   AutomationProperties.Name="Papierkorb und Einstellungen"
                    ItemsSource="{Binding SidebarSettingsCategories}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
@@ -1862,13 +1862,21 @@
                                   IsVisible="{Binding IsDropAfter}" />
                           <Border Classes="CategoryDropInside"
                                   IsVisible="{Binding IsDropInside}" />
-                          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                          <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                            <TextBlock Grid.Column="0"
+                                       Text="⋮⋮"
+                                       Cursor="SizeAll"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       ToolTip.Tip="Kategorie ziehen, um sie zu sortieren oder unterzuordnen"
+                                       PointerPressed="CategorySettingsItem_OnPointerPressed"
+                                       PointerMoved="CategorySettingsItem_OnPointerMoved" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
                               <Border Width="{Binding SelectionIndent}" />
                               <TextBlock Text="{Binding SelectionName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                            <Button Grid.Column="1" Content="Umbenennen" Classes="Secondary" Click="CategoryRenameFromSettings_OnClick" />
-                            <Button Grid.Column="2" Content="Entfernen" Classes="Secondary" Click="CategoryRemoveFromSettings_OnClick" />
+                            <Button Grid.Column="2" Content="Umbenennen" Classes="Secondary" Click="CategoryRenameFromSettings_OnClick" />
+                            <Button Grid.Column="3" Content="Entfernen" Classes="Secondary" Click="CategoryRemoveFromSettings_OnClick" />
                           </Grid>
                         </Grid>
                       </Border>
@@ -2847,21 +2855,28 @@
 
           <TextBlock Classes="TaskDetailSectionTitle" Text="Kategorien" />
           <Border Classes="TaskDetailCard">
-            <ItemsControl ItemsSource="{Binding TaskCategorySelections}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <CheckBox Content="{Binding Category.SelectionName}"
-                            IsChecked="{Binding IsSelected}"
-                            Margin="0,0,16,8"
-                            Click="TaskCategoryCheckBox_OnChanged" />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel Spacing="8">
+              <TextBlock Text="Hauptkategorien gruppieren die Auswahl; auswählbar sind die jeweiligen Endkategorien."
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="12"
+                         TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding TaskCategorySelections}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <CheckBox Content="{Binding Category.SelectionName}"
+                              IsChecked="{Binding IsSelected}"
+                              IsEnabled="{Binding IsSelectable}"
+                              Margin="0,0,16,8"
+                              Click="TaskCategoryCheckBox_OnChanged" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
           </Border>
 
           <TextBlock Classes="TaskDetailSectionTitle" Text="Termine" />

@@ -10,7 +10,7 @@ BüroCockpit führt Angebotsvorgänge und Direktaufträge dauerhaft als getrennt
 - Drei getrennte `TableLayoutSettings` speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung lokal.
 - `WorkflowType` ist die dauerhafte Quelle für Angebotsvorgang oder Direktauftrag; `WorkflowStep` speichert ausschließlich den Bearbeitungsstand.
 - Uneindeutige Altbestände ohne Typfeld erhalten zur Laufzeit den stabilen Fallback Direktauftrag. Nur eindeutige Angebotsmerkmale wie vorhandene Angebotskategorien oder ein Sendedatum ergeben einen Angebotsvorgang; die Ableitung schreibt ohne spätere echte Bearbeitung keine Produktivdaten um.
-- Kategorien werden als eigenständige gemeinsame Hierarchie für Navigation, Einstellungen, Detailauswahl und Drag & Drop aufgebaut.
+- Kategorien werden als eigenständige gemeinsame Hierarchie für Navigation, Einstellungen, Detailauswahl und Drag & Drop aufgebaut; die Detailauswahl zeigt die Struktur vollständig und kennzeichnet gruppierende Hauptkategorien als nicht auswählbar.
 - Repository-Speicherung normalisiert nullable Materialwerte über die vorhandene Parameterhilfe.
 
 ## Erledigte Hauptfunktionen
@@ -18,6 +18,8 @@ BüroCockpit führt Angebotsvorgänge und Direktaufträge dauerhaft als getrennt
 - organisatorische Navigation `Alle Vorgänge`, `Angebote` und `Aufträge` mit ausschließlich typbasierter Filterung
 - Direktauftrag unter Aufträge und Angebotsvorgang unter Angebote neu anlegen und über alle Bearbeitungsstände im ursprünglichen Bereich halten
 - vorhandene End- und Unterkategorien vollständig auswählen; Hauptkategorien mit Unterkategorien bleiben gesperrt
+- Papierkorb im festen Navigationsfuß direkt über Einstellungen
+- sichtbarer Drag-Griff zum Sortieren und Unterordnen des Kategorienbaums
 - Vorgänge per Drag & Drop ausschließlich in eine zulässige fachliche Kategorie verschieben
 - fachliche Kategorie als sichtbare und sortierbare Spalte in den Vorgangslisten
 - Übersichtsklick führt typgerecht zu Angebote oder Aufträge

@@ -7,8 +7,9 @@ Die neue Vorgangstyp-, Kategorien- und Drag-&-Drop-Bedienung auf einer entsperrt
 ## Geplante Schritte
 
 1. App mit `BUEROCOCKPIT_DATA_DIRECTORY` und `BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY` auf temporäre Ordner starten.
-2. Angebots- und Direktauftragsfolgen sichtbar anklicken, Übersichtseinträge öffnen und Vorgänge per Maus zwischen zulässigen Fachkategorien ziehen.
-3. Nach Neustart Typ, Bearbeitungsstand, Kategorie, Filter, Zähler und Suchergebnis sichtbar sowie per SQLite prüfen.
+2. Angebots- und Direktauftragsfolgen sichtbar anklicken, Übersichtseinträge öffnen, Vorgänge per Maus zwischen zulässigen fachlichen Endkategorien ziehen und Kategorien über den neuen Drag-Griff umsortieren.
+3. Vollständige Kategorienstruktur sowie den fest über Einstellungen stehenden Papierkorb sichtbar prüfen.
+4. Nach Neustart Typ, Bearbeitungsstand, Kategorie, Kategorienreihenfolge, Filter, Zähler und Suchergebnis sichtbar sowie per SQLite prüfen.
 
 ## Vermutlich betroffene Dateien
 
