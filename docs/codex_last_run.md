@@ -48,7 +48,7 @@ Die Detailauswahl bildet jetzt die vollständige fachliche Kategorienstruktur ab
 codex/work
 
 ## Commit
-2a6b307d4941c1df7d556380832b001f8fbb6ddc
+53614f5a54f1f3605bdeeedffc05d88735aea98f
 
 ## Push erfolgreich
 Ja
