@@ -1,71 +1,38 @@
-# Letzter Codex-Lauf
+# Letzter Codex-/Agentenlauf
 
-## Datum/Uhrzeit
+## Datum
 
-2026-07-15 19:44 +0200
+2026-07-15
 
-## Letzter Auftrag
+## Auftrag
 
-Verbindliche Arbeitskategorienlogik und zusätzliche Release-Konsistenzprüfung dokumentieren.
-
-## Zusammenfassung
-
-Die Dokumentation unterscheidet jetzt genau einen Vorgangstyp, einen
-Workflowstatus und eine daraus automatisch abgeleitete sichtbare
-Arbeitskategorie. Kennzeichnungen sind davon getrennt. Variante A schützt
-unveränderte Produktivdaten. Vor jedem Codex-Auftrag und jedem Release ist eine
-Konsistenzprüfung Pflicht; jeder ungeklärte Widerspruch stoppt den Release.
-
-## Geänderte Dateien
-
-- `AGENTS.md`
-- `docs/ARBEITSKATEGORIEN.md`
-- `docs/CODEX_PROJEKTREGELN.md`
-- `docs/CODEX_AUFTRAGSPRUEFUNG.md`
-- `docs/DESIGN_RICHTLINIEN.md`
-- `docs/PROJEKTSTATUS.md`
-- `docs/TESTRICHTLINIEN.md`
-- `docs/RELEASE_PROZESS.md`
-- `docs/SETTINGS_KONZEPT.md`
-- `docs/ipad-readonly-preparation.md`
-- `docs/codex_run_template.md`
-- `docs/NEXT_TASK.md`
-- `docs/codex_last_run.md`
-- `docs/codex_journal/README.md`
-- `docs/codex_journal/2026-07-15_19-44_arbeitskategorien-regeln.md`
-
-## Tests
-
-- Nur Dokumentationsprüfung; keine Implementierung und kein Build.
-- `git diff --check`: erfolgreich.
-- Gezielte Konsistenzsuche nach widersprüchlichen Kategorie-, Workflow-,
-  Release-, Branch- und Buildregeln: erfolgreich; keine aktive Gegenregel
-  außerhalb ausdrücklich historisch eingeordneter Dokumente gefunden.
-- Dateiumfang geprüft: ausschließlich `AGENTS.md` und Markdown-Dokumentation.
-- `git status --short`: ausgeführt; nur die dokumentierten Dateien geändert.
+Das fachliche Zielbild nach Nutzerkorrektur auf frei verwaltbare Kategorien mit konfigurierbarer automatischer Statuszuordnung umstellen.
 
 ## Ergebnis
 
-Das neue fachliche Zielbild ist verbindlich dokumentiert. Der tatsächliche
-Code entspricht ihm noch nicht; diese Abweichung ist ausdrücklich als
-Release-Blocker dokumentiert und die Implementierung ist die genau nächste
-Aufgabe.
+- `docs/ARBEITSKATEGORIEN.md` schreibt keine festen Kategorienamen mehr vor.
+- Normale Kategorien bleiben vollständig benutzerdefiniert.
+- Statuszuordnungen verweisen auf stabile Kategorie-IDs.
+- Ein Statuswechsel verschiebt den Vorgang in die konfigurierte Zielkategorie.
+- Jeder neue oder bewusst geänderte Vorgang besitzt genau eine normale Kategorie.
+- Variante A bleibt verbindlich: keine automatische Migration unveränderter Produktivdaten.
+- `docs/PROJEKTSTATUS.md` und `docs/NEXT_TASK.md` wurden konsistent angepasst.
 
-## Offene Punkte
+## Gefundener verbleibender Widerspruch
 
-- Arbeitskategorienlogik und Kennzeichnungsbereich implementieren.
-- Variante A mit isolierten Legacy-Daten nachweisen.
-- Release-Blocker erst nach Implementierung und vollständiger Prüfung aufheben.
+`docs/DESIGN_RICHTLINIEN.md` enthält noch die vorherige starre Ableitung auf fest benannte Arbeitskategorien. Nach `docs/CODEX_AUFTRAGSPRUEFUNG.md` muss dieser Widerspruch im nächsten Codex-Auftrag vor jeder Implementierung korrigiert werden.
 
-## Branch
-codex/work
+## Geänderte Dateien
 
-## Commit
-cc9ac3f5cd2bbe776d04fc1a4156c44df19acc6f
+- `docs/ARBEITSKATEGORIEN.md`
+- `docs/PROJEKTSTATUS.md`
+- `docs/NEXT_TASK.md`
+- `docs/codex_last_run.md`
 
-## Push erfolgreich
-Ja
+## Tests
 
-## Empfohlener nächster Schritt
+Nur Dokumentationsänderungen. Keine Implementierung und keine Produktivdatenänderung. Die GitHub-Änderungen wurden auf `codex/work` geschrieben.
 
-Die neue Fachlogik minimal-invasiv implementieren und mit isolierten Neu-, Änderungs- und Legacy-Fällen prüfen.
+## Nächster Schritt
+
+`docs/DESIGN_RICHTLINIEN.md` konsistent korrigieren und danach die konfigurierbaren Statuszuordnungen gemäß `docs/NEXT_TASK.md` über Codex implementieren und vollständig mit isolierten Daten testen.
