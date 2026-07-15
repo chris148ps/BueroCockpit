@@ -1,7 +1,7 @@
-# BüroCockpit – verbindliche Fachlogik für Arbeitskategorien
+# BüroCockpit – verbindliche Fachlogik für Kategorien und Statuszuordnungen
 
 Diese Datei ist die verbindliche Fachquelle für Vorgangstyp, Workflowstatus,
-sichtbare Arbeitskategorie und davon getrennte Kennzeichnungen. Sie ist vor
+benutzerdefinierte Kategorien und automatische Statuszuordnungen. Sie ist vor
 jeder Änderung an Vorgängen, Kategorien, Navigation, Suche, Filtern, Import,
 Export oder Sync vollständig zu lesen.
 
@@ -11,80 +11,140 @@ Jeder Vorgang besitzt fachlich genau:
 
 - einen Vorgangstyp,
 - einen Workflowstatus,
-- eine daraus automatisch abgeleitete sichtbare Arbeitskategorie.
+- genau eine aktuell zugeordnete Kategorie.
 
-Die sichtbare Arbeitskategorie ist keine frei wählbare zweite Zuordnung. Sie
-wird ausschließlich aus Vorgangstyp und Workflowstatus bestimmt. Ein Vorgang
-darf in der Oberfläche niemals gleichzeitig in mehreren sichtbaren
-Arbeitskategorien erscheinen.
+Die Kategorien in der linken Navigation sind benutzerdefiniert. Der Endbenutzer
+darf sie frei anlegen, umbenennen, verschieben, verschachteln und löschen,
+sofern keine Sicherheits- oder Systemregel entgegensteht.
 
-Kennzeichnungen sind davon getrennte Metadaten. `SH-Netz`, `Retouren`, `Lager`,
-`Marktstammdatenregister` und `Warten auf Kunde` sind keine
-Arbeitskategorien. Sie werden in einem eigenen Bereich geführt und können zum
-Beispiel als kompakte Badges sichtbar sein. Eine Kennzeichnung darf die
-Arbeitskategorie weder ersetzen noch zusätzlich als zweite Arbeitskategorie
-erscheinen lassen.
+Die automatische Zuordnung erfolgt nicht über Kategorienamen, sondern über die
+stabile Kategorie-ID. Dadurch bleibt eine Statuszuordnung erhalten, wenn eine
+Kategorie umbenannt oder innerhalb der Hierarchie verschoben wird.
 
-## Verbindliche Ableitung
+Ein Vorgang darf in der Oberfläche niemals gleichzeitig in mehreren normalen
+Kategorien erscheinen.
 
-| Vorgangstyp | Workflowstatus | sichtbare Arbeitskategorie |
+## Automatische Statuszuordnung
+
+Für jede zulässige Kombination aus Vorgangstyp und Workflowstatus kann der
+Benutzer genau eine vorhandene Kategorie-ID als Ziel festlegen.
+
+Beispiele für mögliche, aber nicht fest vorgeschriebene Zuordnungen:
+
+| Vorgangstyp | Workflowstatus | mögliche Zielkategorie |
 |---|---|---|
 | Angebotsvorgang | Ansicht | Angebote |
 | Angebotsvorgang | Angebot | Angebote |
-| Angebotsvorgang | Angebot gesendet | Angebote gesendet |
-| Angebotsvorgang | Auftrag | Angebotsaufträge |
+| Angebotsvorgang | Angebot gesendet | Angebote / Gesendet |
+| Angebotsvorgang | Auftrag | Angebote / Beauftragt |
 | Angebotsvorgang | Material | Material |
-| Angebotsvorgang | Termin | Termin |
+| Angebotsvorgang | Termin | Termine |
 | Angebotsvorgang | Erledigt | Erledigt |
 | Direktauftrag | Auftrag | Aufträge |
 | Direktauftrag | Material | Material |
-| Direktauftrag | Termin | Termin |
+| Direktauftrag | Termin | Termine |
 | Direktauftrag | Erledigt | Erledigt |
 
-Der vorhandene Angebotsstatus `Ansicht` bleibt als kompatibler Status erhalten
-und wird der Arbeitskategorie `Angebote` zugeordnet. Unbekannte Altstatuswerte
-dürfen nicht still umgeschrieben werden. Sie müssen als Legacy-Zustand sichtbar
-und kontrolliert behandelbar bleiben, bis eine ausdrücklich freigegebene
-Zuordnung festgelegt ist.
+Die Namen in dieser Tabelle sind nur Beispiele. Verbindlich ist die Zuordnung
+auf eine stabile Kategorie-ID, nicht ein bestimmter Kategoriename.
+
+Bei einem Statuswechsel wird der Vorgang automatisch in die für Vorgangstyp und
+Workflowstatus konfigurierte Kategorie verschoben.
+
+Ist für die neue Kombination keine Zielkategorie konfiguriert, darf keine
+beliebige Ersatzkategorie gewählt werden. Der Benutzer muss eine gültige
+Zuordnung festlegen oder den Vorgang kontrolliert kategorielos lassen, sofern
+dieser Zustand in der Oberfläche ausdrücklich unterstützt wird.
+
+## Vorgangstyp
+
+Beim Anlegen eines neuen Vorgangs muss der Benutzer wählen:
+
+- Angebotsvorgang
+- Direktauftrag
+
+Empfohlene Anfangsstatus:
+
+- Angebotsvorgang → `Angebot`
+- Direktauftrag → `Auftrag`
+
+Der Vorgangstyp muss später bewusst änderbar sein. Vor der Änderung ist eine
+Bestätigung erforderlich.
+
+Beim Wechsel bleiben Kunde, Beschreibung, Anhänge, Material, Termine,
+Techniker, Wiedervorlagen und sonstige Vorgangsdaten erhalten.
+
+Existiert der aktuelle Workflowstatus im neuen Vorgangstyp, bleibt er erhalten.
+Ist er nicht zulässig, muss der Benutzer einen passenden Zielstatus auswählen.
+Es darf keine stille Typ- oder Statusänderung geben.
+
+## Kategorieverwaltung
+
+Der Endbenutzer darf normale Kategorien und Unterkategorien frei:
+
+- anlegen,
+- umbenennen,
+- verschieben,
+- verschachteln,
+- in der Reihenfolge ändern,
+- löschen.
+
+Systemansichten wie Übersicht, Papierkorb, Archiv oder Einstellungen sind keine
+normalen Kategorien und nicht frei löschbar.
+
+Wird eine Kategorie gelöscht, die in einer automatischen Statuszuordnung
+verwendet wird, muss die App vor dem Löschen warnen. Der Benutzer muss entweder:
+
+- eine Ersatzkategorie auswählen,
+- die betroffenen Statuszuordnungen bewusst entfernen,
+- oder den Löschvorgang abbrechen.
+
+Vorgänge dürfen beim Löschen einer zugeordneten Kategorie nicht still in eine
+andere Kategorie verschoben werden.
+
+## Drag & Drop
+
+Ein Vorgang darf per Drag & Drop in eine andere normale Kategorie verschoben
+werden. Dadurch ändert sich nur seine aktuelle Kategorie, nicht automatisch
+Vorgangstyp oder Workflowstatus.
+
+Beim nächsten bewussten Statuswechsel greift wieder die konfigurierte
+automatische Statuszuordnung.
+
+Drops auf Systemansichten dürfen keine stille Typ-, Status- oder
+Kategorieänderung auslösen.
 
 ## Variante A für bestehende Daten
 
 - Es findet keine automatische oder massenhafte Migration von Produktivdaten
   statt.
-- Die neue Logik gilt sofort für neue Vorgänge, bewusst geänderte Vorgänge und
-  bewusst geänderte Vorgangstypen oder Workflowstatus.
+- Die neue Logik gilt sofort für neue Vorgänge, bewusst geänderte Vorgänge,
+  bewusst geänderte Vorgangstypen und Workflowstatus.
 - Bestehende unveränderte Datensätze werden beim Start, Laden oder Anzeigen
   nicht zurückgeschrieben, umsortiert oder neu zugeordnet.
-- Die Oberfläche darf die eindeutige Arbeitskategorie aus Vorgangstyp und
-  Workflowstatus ableiten, ohne dadurch den gespeicherten Altbestand zu
-  verändern.
 - Alte Kategorie-IDs oder Mehrfachzuordnungen dürfen aus
-  Rückwärtskompatibilitätsgründen tolerant gelesen werden. Sie sind keine
-  zweite Arbeitskategorie und dürfen bei neuen oder geänderten Vorgängen nicht
-  als solche fortgeschrieben werden.
-- Sobald ein bestehender Vorgang bewusst geändert und gespeichert wird, muss
-  für seinen neuen Stand genau eine Arbeitskategorie nach obiger Tabelle
-  gelten. Erhalt oder Umwandlung alter Kennzeichnungen muss ohne stille
-  Datenverluste erfolgen.
+  Rückwärtskompatibilitätsgründen tolerant gelesen werden.
+- Sobald ein bestehender Vorgang bewusst geändert und gespeichert wird, darf
+  für den neuen Stand nur noch genau eine normale Kategorie fortgeschrieben
+  werden.
+- Alte Mehrfachzuordnungen dürfen nicht still gelöscht werden. Die Umstellung
+  muss kontrolliert und ohne Datenverlust erfolgen.
 
 ## Bedien- und Darstellungsregeln
 
-- Die Arbeitskategorie wird nicht manuell gewählt und nicht durch Drag & Drop
-  unabhängig vom Status verändert.
-- Ein Status- oder Typwechsel aktualisiert die sichtbare Arbeitskategorie
-  deterministisch nach der Tabelle.
-- Listen, Navigation, Zähler, Suche, Übersicht und Detailansicht verwenden
-  dieselbe Ableitung.
-- Workflowstatus und Arbeitskategorie bleiben als zwei unterschiedliche Werte
-  sichtbar; die Arbeitskategorie ist eine Projektion des Status, kein Ersatz
-  für die Statusbezeichnung.
-- Kennzeichnungen werden optisch und fachlich von Arbeitskategorien getrennt,
-  beispielsweise über neutrale Badges und einen eigenen Bearbeitungsbereich.
+- Navigation, Listen, Zähler, Suche, Übersicht und Detailansicht verwenden
+  dieselbe aktuelle Kategorie-ID.
+- Workflowstatus und Kategorie bleiben als unterschiedliche Werte sichtbar.
+- Die Kategorie wird als kompaktes neutrales Badge angezeigt.
+- Der Status wird weiterhin als eigenes Status-Badge angezeigt.
+- Statuszuordnungen werden in den Einstellungen über verständliche
+  Kategoriepfade dargestellt, intern aber ausschließlich über stabile IDs
+  gespeichert.
+- Eine Umbenennung oder Verschiebung einer Kategorie darf die Zuordnung nicht
+  zerstören.
 
 ## Aktueller Umsetzungsstand
 
-Diese Fachlogik ist seit dem Dokumentationsauftrag vom 15. Juli 2026
-verbindlich, aber noch nicht in der App implementiert. Bis zur Umsetzung ist
-die Abweichung zwischen Dokumentation und Anwendung ein Release-Blocker. Der
-vorliegende Dokumentationsauftrag selbst darf keine Implementierung oder
-Produktivdatenmigration enthalten.
+Diese korrigierte Fachlogik ist verbindlich, aber noch nicht vollständig in der
+App implementiert. Bis zur Umsetzung und vollständigen Prüfung ist die
+Abweichung zwischen Dokumentation und Anwendung ein Release-Blocker.
