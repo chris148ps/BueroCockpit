@@ -77,16 +77,13 @@ Die neue Fachlogik ist implementiert und mit isolierten Daten sowohl automatisie
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+3660afb0f699308372c62375edca5d326fc85241
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
