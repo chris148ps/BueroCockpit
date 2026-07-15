@@ -1,16 +1,21 @@
-# Letzter Codex-Lauf
+# Codex-Journal: Feste Angebots-, Auftrags-, Material- und Terminansichten entfernen, freie Kategorien als einzige normale Arbeitsbereiche verwenden und Detail- sowie Wiedervorlagen-UI vereinheitlichen.
 
-## Datum/Uhrzeit
+## Ziel
 
-2026-07-16 01:59 +0200
+Die linke Navigation auf technische Systemansichten und vollständig benutzerverwaltete normale Kategorien begrenzen, jeden Vorgang genau einmal in seiner stabilen Kategorie führen und Statuswechsel, Listenlayout, Übersicht und Vorgangsdetail konsistent auf dieses Modell umstellen.
 
-## Letzter Auftrag
+## Umsetzung
 
-Feste Angebots-, Auftrags-, Material- und Terminansichten entfernen, freie Kategorien als einzige normale Arbeitsbereiche verwenden und Detail- sowie Wiedervorlagen-UI vereinheitlichen.
-
-## Zusammenfassung
-
-Normale Arbeitsbereiche sind jetzt ausschließlich frei verwaltete Kategorien. Die früheren festen Angebots-, Auftrags-, Material- und Terminansichten erzeugen weder zusätzliche Navigation noch parallele Treffer. Statuswechsel führen genau in die konfigurierte stabile Kategorie und erhalten die Auswahl. Tabellenlayout, Wiedervorlagen, Detailkopf, Bereichsreihenfolge und Workflow-Stepper entsprechen den aktualisierten Regeln. Die Tests liefen ausschließlich gegen temporäre Pfade; die produktive Standarddatenbank behielt vor und nach dem Test unverändert den Änderungszeitpunkt 16.07.2026 00:00:56. Produktive Kategorien, Anhänge, Backups, Cloud-Dateien, Netzwerkdienste, Version, Release und Tags wurden nicht verändert.
+- Alle aktiven Regel- und Fachdateien vor der Implementierung gegen das neue Zielbild geprüft; widersprüchliche Vorgaben zu festen Arbeitsansichten und getrennten fachlichen Tabellenlayouts korrigiert.
+- Die festen IDs `__offers`, `__orders`, `__materials` und `__appointments` aus aktiver Navigation, Filterung, Zählern, Suche, Übersichtsnavigation und Tabellenprojektion entfernt. Sie werden ausschließlich als Legacy-IDs tolerant ausgefiltert.
+- Die technische Hauptnavigation zentral auf Übersicht und Alle Vorgänge begrenzt; Papierkorb und Einstellungen bleiben fest im Navigationsfuß, der optionale Schreibtisch bleibt technisch getrennt.
+- Normale Haupt- und Unterkategorien werden vollständig aus den stabilen Benutzerkategorien gespeist und stehen in Navigation, Vorgangsauswahl, Kategorieverwaltung und Statuszuordnung zur Verfügung.
+- Statuswechsel und manuelle Kategorieänderungen navigieren zur Zielkategorie, klappen verschachtelte Ziele auf und halten Vorgang sowie Detailansicht ausgewählt. Die Ein-Kategorie-Persistenz bleibt über `CategoryId` und dieselbe einzelne ID in `CategoryIds` erhalten.
+- Ein gemeinsames lokales Tabellenlayout eingeführt. Alte feste Layoutschlüssel werden nur als unveränderter Fallback gelesen und erst bei einer bewussten Layoutänderung in eine unabhängige gemeinsame Kopie übernommen.
+- Überfällige und heute fällige Wiedervorlagen erhalten eine neutrale Kartenfläche, einen schmalen semantischen Warnrahmen und eine zusätzliche Textkennzeichnung statt einer roten Vollfläche.
+- Den Detailkopf außerhalb des Scrollbereichs platziert; Kunde, Speichern und Löschen bleiben sichtbar. Duplizieren liegt sekundär im scrollbaren Inhalt. Termine folgen direkt auf Aufgabe.
+- Den Workflow als verbundenen horizontalen Stepper mit abgeschlossenem, aktuellem und zukünftigem Zustand, Symbolen, Textzustand, Tooltip und Automation-Namen umgesetzt. ComboBox, Stepper, Badge, Persistenz und Export verwenden weiterhin dieselbe `WorkflowStep`-Quelle.
+- Den `set -u`-Fehler des macOS-Bundle-Skripts für ein leeres `open_args`-Array minimal behoben.
 
 ## Geänderte Dateien
 
@@ -48,7 +53,16 @@ Normale Arbeitsbereiche sind jetzt ausschließlich frei verwaltete Kategorien. D
 - `git diff --check`: erfolgreich.
 - Kein `xcodebuild`, weil kein iPad-Code geändert wurde.
 
-## Git-Status
+## Ergebnis
+
+Normale Arbeitsbereiche sind jetzt ausschließlich frei verwaltete Kategorien. Die früheren festen Angebots-, Auftrags-, Material- und Terminansichten erzeugen weder zusätzliche Navigation noch parallele Treffer. Statuswechsel führen genau in die konfigurierte stabile Kategorie und erhalten die Auswahl. Tabellenlayout, Wiedervorlagen, Detailkopf, Bereichsreihenfolge und Workflow-Stepper entsprechen den aktualisierten Regeln. Die Tests liefen ausschließlich gegen temporäre Pfade; die produktive Standarddatenbank behielt vor und nach dem Test unverändert den Änderungszeitpunkt 16.07.2026 00:00:56. Produktive Kategorien, Anhänge, Backups, Cloud-Dateien, Netzwerkdienste, Version, Release und Tags wurden nicht verändert.
+
+## Bekannte offene Punkte
+
+- Die Windows-spezifische Bedienung wurde nicht real unter Windows geprüft; der erfolgreiche win-x64-Build ersetzt diese Abnahme nicht.
+- Der native Kategoriezeilen-Drag sollte bei der nächsten realen Plattformabnahme nochmals manuell bestätigt werden, weil die macOS-Bedienhilfe die Drag-Geste in diesem Lauf nicht zuverlässig an Avalonia übergeben hat.
+
+## Aktueller Git-Status
 
 ```text
  M MainWindow.axaml
@@ -67,30 +81,3 @@ Normale Arbeitsbereiche sind jetzt ausschließlich frei verwaltete Kategorien. D
 ?? Services/NavigationCategoryPolicy.cs
 ?? docs/codex_journal/2026-07-16_01-59_freie-kategorien-navigation-detail.md
 ```
-
-## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
-
-## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
-
-## Offene Punkte
-
-- Die Windows-spezifische Bedienung wurde nicht real unter Windows geprüft; der erfolgreiche win-x64-Build ersetzt diese Abnahme nicht.
-- Der native Kategoriezeilen-Drag sollte bei der nächsten realen Plattformabnahme nochmals manuell bestätigt werden, weil die macOS-Bedienhilfe die Drag-Geste in diesem Lauf nicht zuverlässig an Avalonia übergeben hat.
-
-## Empfohlener nächster Schritt
-
-Die neue Navigation, Kategorieverwaltung und Workflow-Detailansicht mit isolierten Daten real unter Windows abnehmen.
-
-1. Temporäre Daten- und lokale Konfigurationspfade unter Windows setzen und die App sichtbar starten.
-2. Beide Vorgangstypen und alle Statuswechsel, genau eine Kategorie, Alle Vorgänge, Suche, Zähler sowie verschachtelte Zielnavigation bedienen.
-3. Kategoriezeilen-Drag, Vorgangs-Drop, Umbenennen, Löschen und Neustartpersistenz manuell prüfen.
-4. Detailkopf, Stepper, Termine, Wiedervorlagen, Tabellenlayout sowie Dark und Light prüfen.
-5. Angrenzende Desktopfunktionen einschließlich Papierkorb, Archiv, Schreibtisch, Anhänge, Backup und Diagnose regressiv bedienen und nur tatsächlich ausgeführte Ergebnisse dokumentieren.

@@ -17,6 +17,20 @@ Die Kategorien in der linken Navigation sind benutzerdefiniert. Der Endbenutzer
 darf sie frei anlegen, umbenennen, verschieben, verschachteln und löschen,
 sofern keine Sicherheits- oder Systemregel entgegensteht.
 
+Fest eingebaute Navigationsziele sind ausschließlich technische Systemansichten:
+
+- Übersicht,
+- Alle Vorgänge,
+- Papierkorb,
+- Einstellungen,
+- das unter Einstellungen geführte Archiv,
+- sowie ein technisch erforderlicher mobiler Eingang.
+
+Angebote, Aufträge, Material und Termine sind keine fest eingebauten
+Systemansichten. Solche Arbeitsbereiche entstehen ausschließlich durch frei
+verwaltete normale Kategorien. Vorgangstyp oder Workflowstatus erzeugen keine
+zusätzliche parallele Sammelansicht.
+
 Die automatische Zuordnung erfolgt nicht über Kategorienamen, sondern über die
 stabile Kategorie-ID. Dadurch bleibt eine Statuszuordnung erhalten, wenn eine
 Kategorie umbenannt oder innerhalb der Hierarchie verschoben wird.
@@ -89,8 +103,9 @@ Der Endbenutzer darf normale Kategorien und Unterkategorien frei:
 - in der Reihenfolge ändern,
 - löschen.
 
-Systemansichten wie Übersicht, Papierkorb, Archiv oder Einstellungen sind keine
-normalen Kategorien und nicht frei löschbar.
+Die oben genannten technischen Systemansichten sind keine normalen Kategorien
+und nicht frei löschbar. Jede normale Kategorie muss dagegen unabhängig von
+Name und Hierarchiestufe in der Kategorieverwaltung vollständig verwaltbar sein.
 
 Wird eine Kategorie gelöscht, die in einer automatischen Statuszuordnung
 verwendet wird, muss die App vor dem Löschen warnen. Der Benutzer muss entweder:
@@ -134,6 +149,9 @@ Kategorieänderung auslösen.
 
 - Navigation, Listen, Zähler, Suche, Übersicht und Detailansicht verwenden
   dieselbe aktuelle Kategorie-ID.
+- `Alle Vorgänge` ist die einzige technische Sammelansicht für normale
+  Vorgänge. Ein Treffer dort bleibt genau seiner einen normalen Kategorie
+  zugeordnet.
 - Workflowstatus und Kategorie bleiben als unterschiedliche Werte sichtbar.
 - Die Kategorie wird als kompaktes neutrales Badge angezeigt.
 - Der Status wird weiterhin als eigenes Status-Badge angezeigt.

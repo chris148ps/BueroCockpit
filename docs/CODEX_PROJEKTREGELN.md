@@ -36,6 +36,7 @@ Die vollstaendige Fachquelle ist `docs/ARBEITSKATEGORIEN.md`.
 - Jeder Vorgang besitzt genau einen Vorgangstyp und einen Workflowstatus.
 - Jeder neue oder bewusst geaenderte Vorgang hat genau eine normale Kategorie und darf niemals gleichzeitig in mehreren normalen Kategorien erscheinen.
 - Normale Kategorien und ihre Hierarchie sind vollstaendig benutzerdefiniert; Kategorienamen wie `Angebote`, `Material` oder `Termin` sind nur moegliche Beispiele und keine feste Systemvorgabe.
+- Fest eingebaute Navigation ist auf technische Systemansichten wie Uebersicht, Alle Vorgaenge, Papierkorb, Einstellungen, Archiv und einen technisch erforderlichen mobilen Eingang begrenzt. Vorgangstyp und Workflowstatus erzeugen keine parallelen Angebots-, Auftrags-, Material- oder Terminansichten.
 - Fuer jede zulaessige Kombination aus Vorgangstyp und Workflowstatus kann der Benutzer genau eine Zielkategorie konfigurieren.
 - Statuszuordnungen speichern ausschliesslich stabile Kategorie-IDs. Umbenennen oder Verschieben einer Kategorie darf die Zuordnung nicht zerstoeren.
 - Bei einem bewussten Statuswechsel wird die konfigurierte Zielkategorie angewendet. Fehlt eine gueltige Zuordnung, darf keine beliebige Ersatzkategorie gewaehlt werden.

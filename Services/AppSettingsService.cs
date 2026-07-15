@@ -27,10 +27,27 @@ public sealed class AppSettings
     // Lokal/geraetespezifisch: optionale Zusatzinformation in der kompakten Vorgangsliste.
     public bool ShowTaskTitleColumn { get; set; } = true;
 
-    // Lokal/geraetespezifisch: getrennte Tabellenkonfigurationen für die drei Arbeitsansichten.
-    public TableLayoutSettings OrdersTableLayout { get; set; } = TableLayoutSettings.CreateOrdersDefault();
-    public TableLayoutSettings OffersTableLayout { get; set; } = TableLayoutSettings.CreateOffersDefault();
-    public TableLayoutSettings AppointmentsTableLayout { get; set; } = TableLayoutSettings.CreateAppointmentsDefault();
+    // Lokal/geraetespezifisch: gemeinsame Tabellenkonfiguration für technische und normale Kategorien.
+    public TableLayoutSettings? TaskTableLayout { get; set; }
+
+    // Legacy/Toleranz: frühere ansichtsgebundene Layouts werden nur als Fallback gelesen.
+    // Es findet keine automatische Migration oder Umschreibung der lokalen Einstellungen statt.
+    public TableLayoutSettings? OrdersTableLayout { get; set; }
+    public TableLayoutSettings? OffersTableLayout { get; set; }
+    public TableLayoutSettings? AppointmentsTableLayout { get; set; }
+
+    public TableLayoutSettings ResolveTaskTableLayout() =>
+        TaskTableLayout
+        ?? OrdersTableLayout
+        ?? OffersTableLayout
+        ?? AppointmentsTableLayout
+        ?? TableLayoutSettings.CreateDefault();
+
+    public TableLayoutSettings GetWritableTaskTableLayout()
+    {
+        TaskTableLayout ??= ResolveTaskTableLayout().Clone();
+        return TaskTableLayout;
+    }
 
     // Leer bedeutet: Standard-Updatekanal aus UpdateService verwenden.
     // Nur fuer lokale Tests oder Sonderkanaele setzen.
@@ -67,7 +84,19 @@ public sealed class TableLayoutSettings
     public string SortField { get; set; } = "Erstellt am";
     public bool SortDescending { get; set; } = true;
 
-    public static TableLayoutSettings CreateOrdersDefault() => Create(["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 180, 220, 120, 150);
+    public TableLayoutSettings Clone() => new()
+    {
+        ColumnOrder = [.. ColumnOrder],
+        ColumnWidths = new Dictionary<string, double>(ColumnWidths, StringComparer.OrdinalIgnoreCase),
+        HiddenColumns = [.. HiddenColumns],
+        SortField = SortField,
+        SortDescending = SortDescending
+    };
+
+    public static TableLayoutSettings CreateDefault() => Create(["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 180, 220, 120, 150);
+
+    // Legacy-Fabriken bleiben ausschließlich für tolerantes Lesen älterer lokaler Einstellungen erhalten.
+    public static TableLayoutSettings CreateOrdersDefault() => CreateDefault();
     public static TableLayoutSettings CreateOffersDefault() => Create(["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"], 112, 240, 180, 220, 120, 150);
     public static TableLayoutSettings CreateAppointmentsDefault()
     {

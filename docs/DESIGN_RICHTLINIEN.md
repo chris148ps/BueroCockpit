@@ -137,6 +137,10 @@ unverändert.
 - Normale Kategorien und ihre Hierarchie bleiben frei benutzerdefiniert.
   Kategoriezeilen und Kategoriepfade dürfen keine fest eingebauten
   Kategorienamen voraussetzen.
+- Fest eingebaute Angebots-, Auftrags-, Material- oder Terminansichten sind
+  unzulässig. Normale Arbeitsbereiche werden ausschließlich durch die frei
+  verwalteten Kategorien dargestellt; `Alle Vorgänge` bleibt die technische
+  Sammelansicht.
 - Chevrons werden ohne runden Button dargestellt; der optische Klickbereich
   liegt nur am Pfeil.
 - In hierarchischen Kategorien bleiben Einrückung, Auf- und Zuklappen sowie
@@ -175,8 +179,9 @@ unverändert.
   Listenbezeichnung hervorgehoben werden.
 - Die kompakten Standardspalten der Auftragsliste sind: Status, Kunde, Ort,
   Termin und Techniker. Zusätzliche Spalten brauchen eine fachliche Begründung.
-- Stepper, Detailansicht, Listen-Badge und Terminansicht verwenden dieselbe
-  zentrale Statusquelle und zeigen exakt dieselbe aktuelle Statusbezeichnung.
+- Stepper, Detailansicht, Listen-Badge und jede terminbezogene Darstellung
+  verwenden dieselbe zentrale Statusquelle und zeigen exakt dieselbe aktuelle
+  Statusbezeichnung.
   Status-Badge und Kategorie-Badge bleiben getrennt sichtbar. Das
   Kategorie-Badge zeigt den vollständigen aktuellen Kategoriepfad, bei Bedarf
   gekürzt und mit vollständigem Pfad im Tooltip.
@@ -188,15 +193,20 @@ unverändert.
   verständliche Kategoriepfade; intern bleibt ausschließlich die stabile
   Kategorie-ID maßgeblich. Kategorieumbenennung und -verschiebung müssen die
   Auswahl unmittelbar aktualisieren, ohne die Zuordnung zu verlieren.
-- Die Standardspalten der Terminansicht sind Datum, Uhrzeit, Status, Kunde, Ort
-  und Techniker. Termine werden chronologisch und dedupliziert dargestellt;
-  fehlende Monteurzuordnungen bleiben vollständig leer.
+- Wird innerhalb einer Kategorienansicht eine terminbezogene Darstellung
+  angeboten, verwendet sie Datum, Uhrzeit, Status, Kunde, Ort und Techniker.
+  Termine werden chronologisch und dedupliziert dargestellt; fehlende
+  Monteurzuordnungen bleiben vollständig leer. Daraus entsteht keine eigene
+  fest eingebaute Termin-Navigation.
 - Tabellenkopf-Kontextmenüs dürfen optionale reale Zusatzfelder wie Titel
   ein- und ausblenden und müssen eine Rückkehr zu den Standardspalten anbieten.
   Änderungen an Spaltenkonfigurationen bleiben lokale UI-Einstellungen.
 - Spaltenbreiten werden über dezente Kopf-Splitter verändert und müssen in den
-  Datenzeilen unmittelbar mitgeführt werden. Die Layoutwerte werden getrennt
-  für Aufträge, Angebote und Termine gespeichert.
+  Datenzeilen unmittelbar mitgeführt werden. Tabellenlayouts werden tolerant
+  über eine gemeinsame beziehungsweise kategoriebewusste Layoutstruktur lokal
+  gespeichert. Neue feste Layoutschlüssel für fachlich benannte Ansichten wie
+  Aufträge, Angebote oder Termine sind unzulässig; bestehende Schlüssel dürfen
+  zur Kompatibilität weiterhin gelesen werden, ohne Datenmigration.
 - Ein kurzer Klick auf einen normalen Spaltentitel sortiert die aktuelle
   Tabellenansicht; ein erneuter Klick wechselt die Richtung. Die aktive
   Sortierspalte zeigt einen dezenten Pfeil. Ein Kopf-Drag ab der definierten
@@ -255,6 +265,28 @@ unverändert.
 - Drag-&-Drop-Markierungen dürfen nur während Drag & Drop sichtbar sein. Oben
   und unten zeigen eine Einfügelinie, mittig eine dezente Zielmarkierung. Nach
   Drop oder Abbruch verschwinden alle temporären Markierungen.
+
+## Vorgangsdetail und Workflowdarstellung
+
+- Der Detailkopf liegt außerhalb des scrollenden Inhalts und bleibt beim
+  Scrollen sichtbar. Er enthält den Kundennamen sowie `Speichern und prüfen`
+  und `Löschen`. `Duplizieren` gehört nicht in diesen festen Kopf.
+- Die inhaltliche Reihenfolge im Vorgangsdetail ist verbindlich:
+  `Status / Ablauf`, `Aufgabe`, `Termine`, danach die übrigen Bereiche.
+- Die Workflowdarstellung ist ein kompakter, verbundener Stepper im ruhigen
+  Windows-11-Stil. Schritte werden durch eine sichtbare Linie verbunden;
+  aktueller, abgeschlossener, zukünftiger, fokussierter und deaktivierter
+  Zustand verwenden ausschließlich semantische Ressourcen.
+- Stepper, Statusauswahl, Badges und Export beziehen Bezeichnung und Reihenfolge
+  aus derselben `WorkflowStep`-Quelle. Status darf weder aus Kategorienamen
+  abgeleitet noch in einer parallelen UI-Liste gepflegt werden.
+- Der Stepper reagiert auf die verfügbare Breite, bleibt per Tastatur bedienbar
+  und vermittelt seinen Zustand zusätzlich durch Text, Symbol oder
+  Zugänglichkeitsinformation, niemals ausschließlich durch Farbe.
+- Überfällige Wiedervorlagen auf der Übersicht verwenden eine neutrale
+  Kartenfläche mit dünnem semantischem Fehlerrahmen oder schmalem Fehlerakzent.
+  Eine vollflächig rote Karte ist unzulässig; Text und Symbol bleiben klar
+  lesbar und benennen den Zustand unabhängig von der Farbe.
 
 ## Regeln für neue Desktop-Views
 

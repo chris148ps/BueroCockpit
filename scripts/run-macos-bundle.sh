@@ -36,4 +36,8 @@ fi
 if [[ -n "${BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY:-}" ]]; then
   open_args+=(--env "BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY=$BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY")
 fi
-open "${open_args[@]}" "$bundle_dir"
+if [[ -n "${BUEROCOCKPIT_DATA_DIRECTORY:-}" || -n "${BUEROCOCKPIT_LOCAL_CONFIG_DIRECTORY:-}" ]]; then
+  open "${open_args[@]}" "$bundle_dir"
+else
+  open "$bundle_dir"
+fi

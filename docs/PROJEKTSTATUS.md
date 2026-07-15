@@ -12,6 +12,11 @@ Die normalen Kategorien in der linken Navigation sind benutzerdefiniert. Der
 Endbenutzer darf sie frei anlegen, umbenennen, verschieben, verschachteln und
 löschen, soweit keine System- oder Sicherheitsregel entgegensteht.
 
+Als feste Navigation bleiben nur Übersicht, Alle Vorgänge, Papierkorb,
+Einstellungen, das unter Einstellungen geführte Archiv und ein technisch
+erforderlicher mobiler Eingang. Angebote, Aufträge, Material und Termine sind
+normale frei verwaltete Kategorien und keine zusätzlichen Systemansichten.
+
 Für jede zulässige Kombination aus Vorgangstyp und Workflowstatus kann der
 Benutzer eine Zielkategorie konfigurieren. Die Zuordnung wird intern über die
 stabile Kategorie-ID gespeichert und bleibt deshalb bei Umbenennung oder
@@ -85,6 +90,16 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 - Neue mobile Eingänge und Duplikate verwenden die Statuszuordnung. Der
   additive Snapshot-Export enthält `currentCategoryId`, `workflowType`,
   `workflowStep` und `status`; alte Leser tolerieren die zusätzlichen Felder.
+- Die feste Navigation enthält keine Angebots-, Auftrags-, Material- oder
+  Terminansicht mehr. Normale Vorgänge werden ausschließlich über ihre eine
+  stabile Kategorie-ID oder die technische Gesamtansicht `Alle Vorgänge`
+  angezeigt.
+- Statuswechsel navigieren in die konfigurierte Zielkategorie und halten den
+  bearbeiteten Vorgang samt Detailansicht ausgewählt; verschachtelte Ziele
+  werden dafür aufgeklappt.
+- Der Detailkopf bleibt beim Scrollen sichtbar, die Termine folgen direkt auf
+  Aufgabe und der Workflow wird als verbundener, zugänglicher Stepper aus der
+  gemeinsamen `WorkflowStep`-Quelle dargestellt.
 
 ## Übergang für bestehende Daten – Variante A
 
@@ -102,7 +117,9 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 
 - `AppPaths` unterstützt explizite temporäre Daten- und lokale
   Konfigurationsverzeichnisse für isolierte Tests.
-- Tabellenlayouts bleiben je Ansicht lokal persistent.
+- Tabellenlayouts bleiben über eine gemeinsame beziehungsweise
+  kategoriebewusste Struktur lokal persistent; bestehende feste Layoutschlüssel
+  dürfen nur tolerant weitergelesen und nicht migriert werden.
 - Status-ComboBox, Workflowanzeige und Status-Badges verwenden
   `WorkflowStep` als gemeinsame Statusquelle.
 - Papierkorb steht im festen Navigationsfuß direkt über Einstellungen.

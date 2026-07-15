@@ -2,14 +2,15 @@
 
 ## Ziel
 
-Die implementierte Status-/Kategorie-Fachlogik mit isolierten Daten real unter Windows abnehmen.
+Die neue Navigation, Kategorieverwaltung und Workflow-Detailansicht mit isolierten Daten real unter Windows abnehmen.
 
 ## Geplante Schritte
 
-1. Temporären Daten- und lokalen Konfigurationsordner unter Windows setzen und die App starten.
-2. Statuszuordnungen, Neuanlage, Status- und Typwechsel, Haupt- und Unterkategorieauswahl sowie Drag & Drop real bedienen.
-3. Löschschutz, Navigation, Zähler, Papierkorb und Neustartpersistenz prüfen.
-4. Ausschließlich tatsächlich ausgeführte Windows-Ergebnisse dokumentieren.
+1. Temporäre Daten- und lokale Konfigurationspfade unter Windows setzen und die App sichtbar starten.
+2. Beide Vorgangstypen und alle Statuswechsel, genau eine Kategorie, Alle Vorgänge, Suche, Zähler sowie verschachtelte Zielnavigation bedienen.
+3. Kategoriezeilen-Drag, Vorgangs-Drop, Umbenennen, Löschen und Neustartpersistenz manuell prüfen.
+4. Detailkopf, Stepper, Termine, Wiedervorlagen, Tabellenlayout sowie Dark und Light prüfen.
+5. Angrenzende Desktopfunktionen einschließlich Papierkorb, Archiv, Schreibtisch, Anhänge, Backup und Diagnose regressiv bedienen und nur tatsächlich ausgeführte Ergebnisse dokumentieren.
 
 ## Vermutlich betroffene Dateien
 

@@ -29,13 +29,13 @@ namespace BueroCockpit;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private bool _dateTextFormattingActive;
-    private const string OverviewCategoryId = "__overview";
-    private const string DeskCategoryId = "__desk";
+    private const string OverviewCategoryId = NavigationCategoryPolicy.OverviewId;
+    private const string DeskCategoryId = NavigationCategoryPolicy.DeskId;
     private const string DeskCategoryName = "Schreibtisch";
     private const string OverviewCategoryName = "Übersicht";
-    private const string TrashCategoryId = "__trash";
+    private const string TrashCategoryId = NavigationCategoryPolicy.TrashId;
     private const string TrashCategoryName = "Papierkorb";
-    private const string MobileInboxCategoryId = "__mobile_inbox";
+    private const string MobileInboxCategoryId = NavigationCategoryPolicy.MobileInboxId;
     private const string MobileInboxCategoryName = "Mobile Eingänge";
     private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
     private const int MobileProcessedRetentionDays = 30;
@@ -43,13 +43,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string LegacyOneDriveDataFolderName = "BueroCockpit_iPad_Bearbeitung";
     private const string CompanyOneDriveMacFolderName = "OneDrive-ElektroSchweim";
     private const string CompanyOneDriveWindowsFolderName = "OneDrive - Elektro Schweim";
-    private const string SettingsCategoryId = "__settings";
+    private const string SettingsCategoryId = NavigationCategoryPolicy.SettingsId;
     private const string SettingsCategoryName = "Einstellungen";
-    private const string AllTasksNavigationId = "__all_tasks";
-    private const string OrdersNavigationId = "__orders";
-    private const string OffersNavigationId = "__offers";
-    private const string MaterialsNavigationId = "__materials";
-    private const string AppointmentsNavigationId = "__appointments";
+    private const string AllTasksNavigationId = NavigationCategoryPolicy.AllTasksId;
     private const string OfferWorkflowType = WorkflowCategoryService.OfferWorkflowType;
     private const string DirectWorkflowType = WorkflowCategoryService.DirectWorkflowType;
     private static readonly string[] OfferWorkflowSteps = WorkflowCategoryService.OfferWorkflowSteps.ToArray();
@@ -122,7 +118,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
     private string _selectedSortField = SortFieldCreatedAt;
-    private string _selectedAppointmentFilter = "Alle";
     private bool _isSortDescending = true;
     private string _dueDateText = string.Empty;
     private string _dueTimeText = string.Empty;
@@ -391,7 +386,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             _selectedSortField = normalized;
-            GetActiveTableLayout().SortField = normalized;
+            GetWritableTableLayout().SortField = normalized;
             _settingsService.Save(_appSettings);
             OnPropertyChanged(nameof(SelectedSortField));
             RefreshTableProjection();
@@ -416,26 +411,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                    !steps.Contains(current, StringComparer.OrdinalIgnoreCase)
                 ? steps.Append(current).ToArray()
                 : steps;
-        }
-    }
-    public string[] AppointmentFilterOptions { get; } = ["Alle", "Vergangen", "Heute", "Zukünftig"];
-    public string SelectedAppointmentFilter
-    {
-        get => _selectedAppointmentFilter;
-        set
-        {
-            var normalized = AppointmentFilterOptions.Contains(value, StringComparer.OrdinalIgnoreCase) ? value : "Alle";
-            if (string.Equals(_selectedAppointmentFilter, normalized, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            _selectedAppointmentFilter = normalized;
-            OnPropertyChanged(nameof(SelectedAppointmentFilter));
-            if (IsAppointmentsNavigationSelected)
-            {
-                RefreshVisibleTasks();
-            }
         }
     }
     public ObservableCollection<string> TechnicianOptions { get; } = new();
@@ -619,11 +594,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsNotTrashSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsAllTasksNavigationSelected));
-            OnPropertyChanged(nameof(IsOrdersNavigationSelected));
-            OnPropertyChanged(nameof(IsOffersNavigationSelected));
-            OnPropertyChanged(nameof(IsMaterialsNavigationSelected));
-            OnPropertyChanged(nameof(IsAppointmentsNavigationSelected));
-            OnPropertyChanged(nameof(IsNotAppointmentsNavigationSelected));
             ApplyTableLayoutForCurrentView();
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             OnPropertyChanged(nameof(CanCreateTaskInSelectedCategory));
@@ -845,30 +815,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsAllTasksNavigationSelected => SelectedCategory?.Id == AllTasksNavigationId;
-    public bool IsOrdersNavigationSelected => SelectedCategory?.Id == OrdersNavigationId;
-    public bool IsOffersNavigationSelected => SelectedCategory?.Id == OffersNavigationId;
-    public bool IsMaterialsNavigationSelected => SelectedCategory?.Id == MaterialsNavigationId;
-    public bool IsAppointmentsNavigationSelected => SelectedCategory?.Id == AppointmentsNavigationId;
-    public bool IsNotAppointmentsNavigationSelected => !IsAppointmentsNavigationSelected;
     public GridLength TaskStatusColumnWidth => PixelColumnWidth("Status", 112);
     public GridLength TaskCustomerColumnWidth => PixelColumnWidth("Kunde", 240);
     public GridLength TaskLocationColumnWidth => PixelColumnWidth("Ort", 220);
     public GridLength TaskDateColumnWidth => PixelColumnWidth("Termin", 120);
     public GridLength TaskTechnicianColumnWidth => PixelColumnWidth("Techniker", 150);
-    public GridLength AppointmentDateColumnWidth => PixelColumnWidth("Datum", 96);
-    public GridLength AppointmentTimeColumnWidth => PixelColumnWidth("Uhrzeit", 78);
-    public GridLength AppointmentStatusColumnWidth => PixelColumnWidth("Status", 112);
-    public GridLength AppointmentCustomerColumnWidth => PixelColumnWidth("Kunde", 240);
-    public GridLength AppointmentLocationColumnWidth => PixelColumnWidth("Ort", 220);
-    public GridLength AppointmentTechnicianColumnWidth => PixelColumnWidth("Techniker", 150);
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible &&
                                                    !IsTrashSelected &&
                                                    !IsMobileInboxSelected &&
                                                    SelectedCategory is not null &&
                                                    (IsAllTasksNavigationSelected ||
-                                                    IsOrdersNavigationSelected ||
-                                                    IsOffersNavigationSelected ||
                                                     IsSelectableTaskCategory(SelectedCategory));
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
     public bool IsCategoryRootDropTarget => _isCategoryRootDropTarget;
@@ -1111,7 +1068,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => !GetActiveTableLayout().HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase);
         set
         {
-            var layout = GetActiveTableLayout();
+            var layout = GetWritableTableLayout();
             var isVisible = !layout.HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase);
             if (isVisible == value)
             {
@@ -1136,23 +1093,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ResetTaskTableColumns_OnClick(object? sender, RoutedEventArgs e)
     {
-        var resetLayout = IsAppointmentsNavigationSelected
-            ? TableLayoutSettings.CreateAppointmentsDefault()
-            : IsOffersNavigationSelected
-            ? TableLayoutSettings.CreateOffersDefault()
-            : TableLayoutSettings.CreateOrdersDefault();
-        if (IsAppointmentsNavigationSelected)
-        {
-            _appSettings.AppointmentsTableLayout = resetLayout;
-        }
-        else if (IsOffersNavigationSelected)
-        {
-            _appSettings.OffersTableLayout = resetLayout;
-        }
-        else
-        {
-            _appSettings.OrdersTableLayout = resetLayout;
-        }
+        _appSettings.TaskTableLayout = TableLayoutSettings.CreateDefault();
 
         ApplyTableLayoutForCurrentView();
         _settingsService.Save(_appSettings);
@@ -1164,12 +1105,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private static readonly string[] StandardTableColumns = ["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"];
-    private static readonly string[] AppointmentTableColumns = ["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"];
 
     private IReadOnlyList<string> GetVisibleTableColumns()
     {
         var layout = GetActiveTableLayout();
-        var available = IsAppointmentsNavigationSelected ? AppointmentTableColumns : StandardTableColumns;
+        var available = StandardTableColumns;
         var order = new List<string>();
         foreach (var key in layout.ColumnOrder)
         {
@@ -1188,7 +1128,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
 
-        layout.ColumnOrder = order;
         return order
             .Where(key => string.Equals(key, "Kunde", StringComparison.OrdinalIgnoreCase) ||
                           !layout.HiddenColumns.Contains(key, StringComparer.OrdinalIgnoreCase))
@@ -1240,14 +1179,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshTableProjection()
     {
-        if (TaskTableHeaderGrid is null || AppointmentTableHeaderGrid is null)
+        if (TaskTableHeaderGrid is null)
         {
             return;
         }
 
         var columns = GetVisibleTableColumns();
         BuildTableHeader(TaskTableHeaderGrid, columns);
-        BuildTableHeader(AppointmentTableHeaderGrid, columns);
         foreach (var task in AllTasks)
         {
             UpdateTaskTableCells(task, columns);
@@ -1311,7 +1249,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var menu = new ContextMenu();
-        foreach (var key in (IsAppointmentsNavigationSelected ? AppointmentTableColumns : StandardTableColumns))
+        foreach (var key in StandardTableColumns)
         {
             var item = new MenuItem
             {
@@ -1424,7 +1362,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         var visibleOrder = columns.ToList();
         visibleOrder.RemoveAll(key => string.Equals(key, draggedKey, StringComparison.OrdinalIgnoreCase));
         targetIndex = Math.Clamp(targetIndex, 0, visibleOrder.Count);
@@ -1455,7 +1393,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SortByTableColumn(string key)
     {
         var sortField = GetSortFieldForTableColumn(key);
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         if (string.Equals(NormalizeSortField(layout.SortField), sortField, StringComparison.OrdinalIgnoreCase))
         {
             _isSortDescending = !_isSortDescending;
@@ -1483,7 +1421,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         var hidden = layout.HiddenColumns.FirstOrDefault(column => string.Equals(column, key, StringComparison.OrdinalIgnoreCase));
         if (hidden is null)
         {
@@ -1651,12 +1589,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveTableColumnWidths(Grid header)
     {
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         var columns = header.Tag is List<string> configuredColumns
             ? configuredColumns
-            : (IsAppointmentsNavigationSelected
-                ? AppointmentTableColumns.Take(6).ToList()
-                : StandardTableColumns.Take(5).ToList());
+            : StandardTableColumns.Take(5).ToList();
         for (var index = 0; index < columns.Count && index < header.ColumnDefinitions.Count; index++)
         {
             var width = header.ColumnDefinitions[index].ActualWidth;
@@ -1672,12 +1608,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(TaskLocationColumnWidth));
         OnPropertyChanged(nameof(TaskDateColumnWidth));
         OnPropertyChanged(nameof(TaskTechnicianColumnWidth));
-        OnPropertyChanged(nameof(AppointmentDateColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTimeColumnWidth));
-        OnPropertyChanged(nameof(AppointmentStatusColumnWidth));
-        OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
-        OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
         // Die Zeilen verwenden eine eigene kompakte Zellprojektion. Nach dem
         // Verschieben eines Kopf-Splitters müssen deren Breiten sofort aus
         // denselben gespeicherten Layoutwerten neu aufgebaut werden.
@@ -3728,6 +3658,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var category in persistedCategories)
             {
                 if (IsSystemNavigationCategory(category) ||
+                    IsLegacyWorkNavigationCategory(category) ||
                     IsLegacyMobileApprovalCategory(category.Name) ||
                     string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
                     (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
@@ -3833,14 +3764,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
                         : IsAllTasksNavigationSelected
                         ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted))
-                        : IsOrdersNavigationSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && !IsOfferWorkflow(t)))
-                        : IsOffersNavigationSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && IsOfferWorkflow(t)))
-                        : IsMaterialsNavigationSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && string.Equals(t.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase)))
-                        : IsAppointmentsNavigationSelected
-                        ? GetAppointmentTasks()
                         : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToSelectedCategory(t, selected)));
             }
             else
@@ -3861,8 +3784,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? (VisibleTasks.Count == 1 ? "1 mobiler Eingang" : $"{VisibleTasks.Count} mobile Eingänge")
                     : IsTrashSelected
                     ? (VisibleTasks.Count == 1 ? "1 gelöschte Aufgabe" : $"{VisibleTasks.Count} gelöschte Aufgaben")
-                    : IsAppointmentsNavigationSelected
-                    ? (VisibleTasks.Count == 1 ? "1 Termin" : $"{VisibleTasks.Count} Termine")
                     : (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
                 : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
             if (IsTrashSelected && VisibleTasks.Count == 0 && string.IsNullOrWhiteSpace(SearchText))
@@ -3889,61 +3810,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private IEnumerable<TaskItem> GetAppointmentTasks()
-    {
-        var now = DateTime.Now;
-        var today = DateTime.Today;
-        var filteredTasks = AllTasks
-            .Where(task => !task.IsDeleted && task.DueDate.HasValue)
-            .Where(task => MatchesAppointmentFilter(task, now, today))
-            .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First());
-        return SortTasksForCategory(filteredTasks);
-    }
-
-    private bool MatchesAppointmentFilter(TaskItem task, DateTime? now = null, DateTime? today = null)
-    {
-        if (!task.DueDate.HasValue)
-        {
-            return false;
-        }
-
-        var current = now ?? DateTime.Now;
-        var currentDate = today ?? DateTime.Today;
-        return _selectedAppointmentFilter switch
-        {
-            "Vergangen" => task.DueDate.Value < current,
-            "Heute" => task.DueDate.Value.Date == currentDate,
-            "Zukünftig" => task.DueDate.Value.Date > currentDate,
-            _ => true
-        };
-    }
-
     private bool TaskMatchesCurrentNavigation(TaskItem task)
     {
         if (IsAllTasksNavigationSelected)
         {
             return true;
-        }
-
-        if (IsOffersNavigationSelected)
-        {
-            return IsOfferWorkflow(task);
-        }
-
-        if (IsOrdersNavigationSelected)
-        {
-            return !IsOfferWorkflow(task);
-        }
-
-        if (IsMaterialsNavigationSelected)
-        {
-            return string.Equals(task.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (IsAppointmentsNavigationSelected)
-        {
-            return MatchesAppointmentFilter(task);
         }
 
         return SelectedCategory is null || IsSpecialCategory(SelectedCategory) ||
@@ -4840,7 +4711,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(task =>
                 !task.IsDeleted &&
                 task.FollowUpDate.HasValue &&
-                task.FollowUpDate.Value.Date == today)
+                task.FollowUpDate.Value.Date <= today)
             .OrderBy(task => GetFollowUpSortGroup(task))
             .ThenBy(task => task.FollowUpDate!.Value.Date)
             .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
@@ -4936,18 +4807,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
 
-        foreach (var category in SidebarCategories)
+        var allTasksNavigation = SidebarCategories.FirstOrDefault(category =>
+            string.Equals(category.Id, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase));
+        if (allTasksNavigation is not null)
         {
-            category.TaskCount = category.Id switch
-            {
-                AllTasksNavigationId => AllTasks.Count(task => !task.IsDeleted),
-                OrdersNavigationId => AllTasks.Count(task => !task.IsDeleted && !IsOfferWorkflow(task)),
-                OffersNavigationId => AllTasks.Count(task => !task.IsDeleted && IsOfferWorkflow(task)),
-                MaterialsNavigationId => AllTasks.Count(task =>
-                    !task.IsDeleted && string.Equals(task.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase)),
-                AppointmentsNavigationId => GetAppointmentTasks().Count(),
-                _ => category.TaskCount
-            };
+            allTasksNavigation.TaskCount = AllTasks.Count(task => !task.IsDeleted);
         }
 
         OnPropertyChanged(nameof(HasTrashItems));
@@ -5455,15 +5319,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AllTasks.Insert(0, task);
 
         ClearSearchTextWithoutRefresh();
-        if (!IsAllTasksNavigationSelected &&
-            !(IsOffersNavigationSelected && IsOfferWorkflow(task)) &&
-            !(IsOrdersNavigationSelected && !IsOfferWorkflow(task)))
-        {
-            SelectedCategory = category;
-        }
-        RefreshVisibleTasks();
-        SelectedTask = task;
-        UpdateCategoryCounts();
+        SelectCategoryAndTask(category, task);
     }
 
     private async Task<string?> ShowNewTaskTypeDialogAsync()
@@ -5824,7 +5680,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ReverseSortDirection_OnClick(object? sender, RoutedEventArgs e)
     {
         _isSortDescending = !_isSortDescending;
-        GetActiveTableLayout().SortDescending = _isSortDescending;
+        GetWritableTableLayout().SortDescending = _isSortDescending;
         _settingsService.Save(_appSettings);
         OnPropertyChanged(nameof(SortDirectionGlyph));
         OnPropertyChanged(nameof(SortDirectionTooltip));
@@ -5834,17 +5690,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private TableLayoutSettings GetActiveTableLayout()
     {
-        if (IsAppointmentsNavigationSelected)
-        {
-            return _appSettings.AppointmentsTableLayout ??= TableLayoutSettings.CreateAppointmentsDefault();
-        }
+        return _appSettings.ResolveTaskTableLayout();
+    }
 
-        if (IsOffersNavigationSelected)
-        {
-            return _appSettings.OffersTableLayout ??= TableLayoutSettings.CreateOffersDefault();
-        }
-
-        return _appSettings.OrdersTableLayout ??= TableLayoutSettings.CreateOrdersDefault();
+    private TableLayoutSettings GetWritableTableLayout()
+    {
+        return _appSettings.GetWritableTaskTableLayout();
     }
 
     private void ApplyTableLayoutForCurrentView()
@@ -5869,12 +5720,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(TaskLocationColumnWidth));
         OnPropertyChanged(nameof(TaskDateColumnWidth));
         OnPropertyChanged(nameof(TaskTechnicianColumnWidth));
-        OnPropertyChanged(nameof(AppointmentDateColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTimeColumnWidth));
-        OnPropertyChanged(nameof(AppointmentStatusColumnWidth));
-        OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
-        OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
         RefreshTableProjection();
     }
 
@@ -8722,10 +8567,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        NavigateToTask(
-            task,
-            fromGlobalSearch: false,
-            IsOfferWorkflow(task) ? OffersNavigationId : OrdersNavigationId);
+        NavigateToTask(task, fromGlobalSearch: false);
     }
 
     private void ConfirmFollowUp_OnClick(object? sender, RoutedEventArgs e)
@@ -11491,7 +11333,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         if (!string.IsNullOrWhiteSpace(preferredCategoryId) &&
-            IsValidOrganizationalNavigationForTask(preferredCategoryId, task))
+            IsValidOrganizationalNavigation(preferredCategoryId))
         {
             return Categories.FirstOrDefault(category =>
                 string.Equals(category.Id, preferredCategoryId, StringComparison.OrdinalIgnoreCase));
@@ -11534,11 +11376,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return matchingCategories.FirstOrDefault();
     }
 
-    private static bool IsValidOrganizationalNavigationForTask(string categoryId, TaskItem task)
+    private static bool IsValidOrganizationalNavigation(string categoryId)
     {
-        return string.Equals(categoryId, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               (string.Equals(categoryId, OffersNavigationId, StringComparison.OrdinalIgnoreCase) && IsOfferWorkflow(task)) ||
-               (string.Equals(categoryId, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) && !IsOfferWorkflow(task));
+        return string.Equals(categoryId, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ExpandCategoryAncestors(CategoryItem category)
@@ -11564,6 +11404,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             return;
         }
+
+        ExpandCategoryAncestors(category);
+        RebuildCategoryTreeViews();
 
         _selectionNavigationDepth++;
         _isUpdatingSelection = true;
@@ -12368,10 +12211,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SidebarSettingsCategories.Clear();
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OverviewCategoryId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AllTasksNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OffersNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OrdersNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == MaterialsNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AppointmentsNavigationId));
         if (ShowDesktopSetting)
             AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == DeskCategoryId));
 
@@ -12451,17 +12290,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static IEnumerable<CategoryItem> CreateSystemNavigationCategories(IReadOnlyCollection<CategoryItem> persistedCategories)
     {
-        var defaults = new[]
-        {
-            CreateNavigationCategory(OverviewCategoryId, OverviewCategoryName, int.MinValue),
-            CreateNavigationCategory(AllTasksNavigationId, "Alle Vorgänge", int.MinValue + 1),
-            CreateNavigationCategory(OffersNavigationId, "Angebote", int.MinValue + 2),
-            CreateNavigationCategory(OrdersNavigationId, "Aufträge", int.MinValue + 3),
-            CreateNavigationCategory(MaterialsNavigationId, "Material", int.MinValue + 4),
-            CreateNavigationCategory(AppointmentsNavigationId, "Termine", int.MinValue + 5),
-            CreateDeskCategory(),
-            CreateSettingsCategory()
-        };
+        var defaults = NavigationCategoryPolicy.PrimaryNavigation
+            .Select((definition, index) =>
+                CreateNavigationCategory(definition.Id, definition.Name, int.MinValue + index))
+            .Concat([CreateDeskCategory(), CreateSettingsCategory()])
+            .ToArray();
 
         foreach (var category in defaults)
         {
@@ -12858,12 +12691,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var unknownStep = SelectedTask.WorkflowStep?.Trim();
             if (!string.IsNullOrWhiteSpace(unknownStep))
             {
-                WorkflowSteps.Add(new WorkflowStepItem(unknownStep, false, true));
+                WorkflowSteps.Add(new WorkflowStepItem(unknownStep, 1, false, true));
             }
 
-            foreach (var step in steps)
+            for (var index = 0; index < steps.Length; index++)
             {
-                WorkflowSteps.Add(new WorkflowStepItem(step, false, false));
+                WorkflowSteps.Add(new WorkflowStepItem(steps[index], index + 2, false, false));
             }
 
             return;
@@ -12871,7 +12704,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         for (var index = 0; index < steps.Length; index++)
         {
-            WorkflowSteps.Add(new WorkflowStepItem(steps[index], index < activeIndex, index == activeIndex));
+            WorkflowSteps.Add(new WorkflowStepItem(steps[index], index + 1, index < activeIndex, index == activeIndex));
         }
     }
 
@@ -13048,12 +12881,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static bool IsSpecialCategory(CategoryItem category)
     {
         return IsSystemNavigationCategory(category) ||
+               IsLegacyWorkNavigationCategory(category) ||
                IsLegacyMobileApprovalCategory(category.Name);
     }
 
     private static bool CanEditCategory(CategoryItem category)
     {
         return !IsSystemNavigationCategory(category) &&
+               !IsLegacyWorkNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
                !IsArchiveCategory(category);
     }
@@ -13070,22 +12905,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsCanonicalSystemNavigationCategory(CategoryItem category)
     {
-        return string.Equals(category.Id, OverviewCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, TrashCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, MobileInboxCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, OffersNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, MaterialsNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, AppointmentsNavigationId, StringComparison.OrdinalIgnoreCase);
+        return NavigationCategoryPolicy.IsTechnicalId(category.Id);
     }
+
+    private static bool IsLegacyWorkNavigationCategory(CategoryItem category) =>
+        NavigationCategoryPolicy.IsLegacyWorkId(category.Id);
 
     private static bool IsUserCategory(CategoryItem category)
     {
         return !string.IsNullOrWhiteSpace(category.Name) &&
                !IsSystemNavigationCategory(category) &&
+               !IsLegacyWorkNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
                !IsArchiveCategory(category);
     }

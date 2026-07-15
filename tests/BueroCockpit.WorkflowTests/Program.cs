@@ -97,6 +97,105 @@ try
         !WorkflowCategoryService.IsValidStep(WorkflowCategoryService.DirectWorkflowType, "Angebot gesendet"),
         "Nicht kompatible Status werden erkannt.");
 
+    foreach (var workflowType in new[] { WorkflowCategoryService.OfferWorkflowType, WorkflowCategoryService.DirectWorkflowType })
+    {
+        var workflowTask = new TaskItem
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Title = $"Statusfolge {workflowType}",
+            CustomerName = "Workflow-Test",
+            WorkflowType = workflowType,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        foreach (var workflowStep in WorkflowCategoryService.GetSteps(workflowType))
+        {
+            var stepCategory = new CategoryItem
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = $"{workflowType} - {workflowStep}",
+                SortOrder = 1000,
+                SortMode = "Erstellt am",
+                Color = "#F2F3F5",
+                IsVisible = true
+            };
+            repository.SaveCategory(stepCategory);
+            repository.SaveWorkflowCategoryMapping(workflowType, workflowStep, stepCategory.Id);
+
+            workflowTask.WorkflowStep = workflowStep;
+            workflowTask.Status = workflowStep;
+            WorkflowCategoryService.ApplyCategory(workflowTask, stepCategory.Id);
+            repository.SaveTask(workflowTask);
+
+            var persistedStep = GetTask(repository, workflowTask.Id);
+            Assert(
+                persistedStep.WorkflowStep == workflowStep &&
+                persistedStep.Status == workflowStep &&
+                persistedStep.CategoryId == stepCategory.Id &&
+                persistedStep.CategoryIds.SequenceEqual([stepCategory.Id]),
+                $"{workflowType} / {workflowStep} bleibt genau einer stabilen Kategorie zugeordnet.");
+        }
+
+        Assert(
+            repository.GetTasks().Count(task => task.Id == workflowTask.Id) == 1,
+            $"{workflowType} erscheint in der technischen Gesamtmenge genau einmal.");
+    }
+
+    Assert(
+        NavigationCategoryPolicy.PrimaryNavigation.Select(item => item.Id)
+            .SequenceEqual([NavigationCategoryPolicy.OverviewId, NavigationCategoryPolicy.AllTasksId]),
+        "Die feste Hauptnavigation enthält nur Übersicht und Alle Vorgänge.");
+    Assert(
+        NavigationCategoryPolicy.PrimaryNavigation.Select(item => item.Name)
+            .SequenceEqual(["Übersicht", "Alle Vorgänge"]),
+        "Die technischen Hauptansichten tragen keine fachlich festgelegten Arbeitskategorienamen.");
+    foreach (var legacyNavigationId in new[] { "__offers", "__orders", "__materials", "__appointments" })
+    {
+        Assert(
+            NavigationCategoryPolicy.IsLegacyWorkId(legacyNavigationId) &&
+            !NavigationCategoryPolicy.IsTechnicalId(legacyNavigationId),
+            $"{legacyNavigationId} wird nur tolerant als Alt-ID erkannt und nicht als technische Systemansicht geführt.");
+    }
+    Assert(
+        !NavigationCategoryPolicy.IsTechnicalId(first.Id) &&
+        !NavigationCategoryPolicy.IsLegacyWorkId(first.Id),
+        "Eine frei vergebene stabile Kategorie-ID bleibt eine normale Kategorie.");
+
+    var legacyLayout = TableLayoutSettings.CreateOrdersDefault();
+    legacyLayout.ColumnWidths["Kunde"] = 333;
+    var localSettings = new AppSettings
+    {
+        TaskTableLayout = null,
+        OrdersTableLayout = legacyLayout,
+        OffersTableLayout = TableLayoutSettings.CreateOffersDefault(),
+        AppointmentsTableLayout = TableLayoutSettings.CreateAppointmentsDefault()
+    };
+    var resolvedLegacyLayout = localSettings.ResolveTaskTableLayout();
+    Assert(
+        ReferenceEquals(resolvedLegacyLayout, legacyLayout) && localSettings.TaskTableLayout is null,
+        "Ein altes Layout wird tolerant gelesen, ohne es automatisch zu migrieren.");
+    var writableLayout = localSettings.GetWritableTaskTableLayout();
+    Assert(
+        !ReferenceEquals(writableLayout, legacyLayout) && writableLayout.ColumnWidths["Kunde"] == 333,
+        "Erst eine bewusste Layoutänderung erhält eine gemeinsame, unabhängige Layoutkopie.");
+    writableLayout.ColumnWidths["Kunde"] = 280;
+    Assert(
+        legacyLayout.ColumnWidths["Kunde"] == 333,
+        "Das alte Layout bleibt bei Änderungen am gemeinsamen Layout unverändert.");
+
+    var completedStep = new WorkflowStepItem("Angebot", 2, true, false);
+    var currentStep = new WorkflowStepItem("Auftrag", 3, false, true);
+    var futureStep = new WorkflowStepItem("Material", 4, false, false);
+    Assert(completedStep.Glyph == "✓" && completedStep.IsConnectorActive, "Der Stepper kennzeichnet abgeschlossene Schritte eindeutig.");
+    Assert(currentStep.Glyph == "●" && currentStep.StateText == "aktuell", "Der Stepper kennzeichnet den aktuellen Schritt mit Text und Symbol.");
+    Assert(futureStep.IsFuture && futureStep.StateText == "zukünftig", "Der Stepper kennzeichnet zukünftige Schritte unabhängig von Farbe.");
+
+    var overdueFollowUp = new TaskItem { FollowUpDate = DateTime.Today.AddDays(-1) };
+    var dueTodayFollowUp = new TaskItem { FollowUpDate = DateTime.Today };
+    Assert(overdueFollowUp.FollowUpAlertText == "Überfällig", "Eine überfällige Wiedervorlage hat eine textliche Warnkennzeichnung.");
+    Assert(dueTodayFollowUp.FollowUpAlertText == "Heute fällig", "Eine heute fällige Wiedervorlage hat eine textliche Warnkennzeichnung.");
+
     third.IsVisible = true;
     repository.SaveCategory(third);
     var exportRoot = Path.Combine(tempRoot, "export");

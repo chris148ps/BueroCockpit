@@ -69,6 +69,15 @@ mindestens folgende Fälle geprüft werden:
 - jeder bewusste Statuswechsel verschiebt in genau die konfigurierte Kategorie,
 - Navigation, Zähler, Suche, Übersicht, Detail und Neustartpersistenz zeigen
   keine doppelte normale Kategorie,
+- Angebote, Aufträge, Material und Termine erscheinen nicht als fest
+  eingebaute Systemnavigation oder parallele Typ-/Status-Sammelansicht,
+- `Alle Vorgänge` bleibt die einzige technische Sammelansicht; dortige Treffer
+  behalten genau eine normale Kategorie,
+- jede normale Haupt- und Unterkategorie ist in Navigation,
+  Kategorieauswahl, Statuszuordnung und Kategorieverwaltung erreichbar,
+- Drag & Drop und bewusster Statuswechsel navigieren in die Zielkategorie und
+  erhalten Auswahl sowie Detailansicht; dies gilt auch für einen noch nicht
+  gespeicherten neuen Vorgang,
 - neue und bewusst geänderte Vorgänge verwenden die neue Logik,
 - unveränderte Legacy-Datensätze werden nach Variante A weder migriert noch
   still zurückgeschrieben.
@@ -78,13 +87,17 @@ mindestens folgende Fälle geprüft werden:
 Mindestens prüfen:
 
 1. Start, Navigation, Auswahlmarkierung, Zähler und Fenstergrößen
-2. Aufträge und Angebote erstellen, bearbeiten, speichern, löschen, wiederherstellen und archivieren
-3. Kategorien frei verwalten, Statuszuordnungen konfigurieren und Kategoriepfade korrekt anzeigen
-4. Suche, Sortierung, Spaltenbreiten, Spaltenreihenfolge und Sichtbarkeit
-5. Detailfelder, Termine, Wiedervorlagen, Techniker, Material und Anhänge
+2. Vorgänge beider Typen erstellen, bearbeiten, speichern, löschen, wiederherstellen und archivieren
+3. Alle normalen Haupt- und Unterkategorien frei verwalten, auswählen, verschieben, als Drop-Ziel verwenden, Statuszuordnungen konfigurieren und Kategoriepfade korrekt anzeigen
+4. Suche, Sortierung, Spaltenbreiten, Spaltenreihenfolge, Sichtbarkeit und gemeinsame beziehungsweise kategoriebewusste Layoutpersistenz ohne neue feste fachliche Ansichten
+5. Festen Detailkopf, Bereichsreihenfolge, verbundenen responsiven Workflow-Stepper, Detailfelder, Termine, Wiedervorlagen, Techniker, Material und Anhänge
 6. Schreibtischfunktionen und Neustartpersistenz
 7. Einstellungen, Backup, Diagnose und lokale Testdienste
 8. Konsolenausgaben, Exceptions, Binding-Fehler und widersprüchliche UI-Zustände
+
+Zusätzlich ist auf der Übersicht zu prüfen, dass überfällige Wiedervorlagen
+eine neutrale Fläche mit dünnem semantischem Fehlerrahmen oder -akzent besitzen
+und ihre Bedeutung nicht ausschließlich durch Farbe vermitteln.
 
 ## Fehlerbehandlung
 
