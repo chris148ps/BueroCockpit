@@ -69,16 +69,13 @@ Normale Arbeitsbereiche sind jetzt ausschließlich frei verwaltete Kategorien. D
 ```
 
 ## Branch
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+codex/work
 
 ## Commit
-
-Wird nach dem Dokumentationslauf durch den Git-Helfer ergänzt.
+7c3dd75c2f819538ece4611378d6df4ba598ffe4
 
 ## Push erfolgreich
-
-Nein – der reine Dokumentationslauf führt keinen Push aus.
+Ja
 
 ## Offene Punkte
 
