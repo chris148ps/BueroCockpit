@@ -134,14 +134,13 @@ unverändert.
   zentrale Ressourcen und nicht durch schwarze Konturen dargestellt.
 - Kategoriezeilen folgen der Kartensprache. Hover bleibt neutral, Auswahl nutzt
   die weiche Akzentfläche, Einfügepositionen nutzen dünne Linien.
-- Arbeitskategorien und Kennzeichnungen sind visuell und fachlich getrennt.
-  Arbeitskategorien bilden den aktuellen Bearbeitungsbereich ab;
-  Kennzeichnungen erscheinen beispielsweise als kompakte neutrale Badges.
+- Normale Kategorien und ihre Hierarchie bleiben frei benutzerdefiniert.
+  Kategoriezeilen und Kategoriepfade dürfen keine fest eingebauten
+  Kategorienamen voraussetzen.
 - Chevrons werden ohne runden Button dargestellt; der optische Klickbereich
   liegt nur am Pfeil.
-- Soweit Kennzeichnungen hierarchisch dargestellt werden, bleiben Einrückung,
-  Auf- und Zuklappen sowie sichtbarer Tastaturfokus erhalten. Diese Hierarchie
-  darf keine zweite Arbeitskategorie erzeugen.
+- In hierarchischen Kategorien bleiben Einrückung, Auf- und Zuklappen sowie
+  sichtbarer Tastaturfokus erhalten.
 
 ### Schaltflächen und Eingaben
 
@@ -178,18 +177,17 @@ unverändert.
   Termin und Techniker. Zusätzliche Spalten brauchen eine fachliche Begründung.
 - Stepper, Detailansicht, Listen-Badge und Terminansicht verwenden dieselbe
   zentrale Statusquelle und zeigen exakt dieselbe aktuelle Statusbezeichnung.
-  Zusätzlich zeigen Navigation und Arbeitsbereich genau eine aus Vorgangstyp
-  und Status abgeleitete Arbeitskategorie. Die Arbeitskategorie ersetzt oder
-  verfälscht die sichtbare Statusbezeichnung nicht.
+  Status-Badge und Kategorie-Badge bleiben getrennt sichtbar. Das
+  Kategorie-Badge zeigt den vollständigen aktuellen Kategoriepfad, bei Bedarf
+  gekürzt und mit vollständigem Pfad im Tooltip.
 - Der Angebotsablauf verwendet die sichtbaren Schritte Ansicht, Angebot,
   Angebot gesendet, Auftrag, Material, Termin und Erledigt. Der Direktauftrag
   verwendet Auftrag, Material, Termin und Erledigt.
-- Die sichtbare Arbeitskategorie folgt verbindlich der Tabelle in
-  `docs/ARBEITSKATEGORIEN.md`. `Ansicht` und `Angebot` erscheinen unter
-  `Angebote`, `Angebot gesendet` unter `Angebote gesendet` und `Auftrag` eines
-  Angebotsvorgangs unter `Angebotsaufträge`. Gemeinsame Statusbereiche sind
-  `Material`, `Termin` und `Erledigt`; ein Direktauftrag mit Status `Auftrag`
-  erscheint unter `Aufträge`.
+- Automatische Statuszuordnungen werden in den Einstellungen pro Kombination
+  aus Vorgangstyp und Workflowstatus konfiguriert. Die Oberfläche zeigt dabei
+  verständliche Kategoriepfade; intern bleibt ausschließlich die stabile
+  Kategorie-ID maßgeblich. Kategorieumbenennung und -verschiebung müssen die
+  Auswahl unmittelbar aktualisieren, ohne die Zuordnung zu verlieren.
 - Die Standardspalten der Terminansicht sind Datum, Uhrzeit, Status, Kunde, Ort
   und Techniker. Termine werden chronologisch und dedupliziert dargestellt;
   fehlende Monteurzuordnungen bleiben vollständig leer.
@@ -233,31 +231,30 @@ unverändert.
 - Lade- und Fortschrittszustände verwenden Akzent nur als Aktivitätsanzeige;
   der übrige Container bleibt neutral.
 
-## Arbeitskategorien und Kennzeichnungen
+## Kategorien und automatische Statuszuordnungen
 
-- Eine Arbeitskategorie wird niemals manuell ausgewählt. Sie ergibt sich
-  ausschließlich aus Vorgangstyp und Workflowstatus.
-- Ein Vorgang darf an keiner Stelle gleichzeitig in mehreren sichtbaren
-  Arbeitskategorien erscheinen. Navigation, Listen, Übersicht, Suche und
-  Zähler müssen dieselbe eindeutige Ableitung verwenden.
-- `SH-Netz`, `Retouren`, `Lager`, `Marktstammdatenregister` und
-  `Warten auf Kunde` sind Kennzeichnungen. Sie werden in einem eigenen Bereich
-  bearbeitet und beispielsweise als kompakte neutrale Badges angezeigt.
-- Ein Vorgang darf mehrere Kennzeichnungen tragen, sofern die spätere
-  Implementierung dies fachlich benötigt; sie dürfen jedoch weder wie
-  Arbeitskategorien aussehen noch die eindeutige Arbeitskategorie verändern.
-- Drag & Drop eines Vorgangs darf die Arbeitskategorie nicht unabhängig von
-  Vorgangstyp oder Workflowstatus verändern. Ein Statuswechsel aktualisiert
-  die Arbeitskategorie automatisch.
+- Normale Kategorien und Unterkategorien können frei angelegt, umbenannt,
+  verschoben, verschachtelt, sortiert und gelöscht werden.
+- Neue und bewusst geänderte Vorgänge dürfen an keiner Stelle gleichzeitig in
+  mehreren normalen Kategorien erscheinen. Navigation, Listen, Übersicht,
+  Suche und Zähler verwenden dieselbe aktuelle Kategorie-ID.
+- Automatische Statuszuordnungen bieten nur gültige normale Kategorien an und
+  zeigen deren vollständigen Pfad. Systemansichten sind keine Ziele.
+- Jede sichtbare normale Kategorie ist unabhängig von ihrer Hierarchiestufe als
+  direkte Vorgangskategorie und als Ziel einer Statuszuordnung auswählbar.
+- Fehlende oder gelöschte Zielkategorien werden sichtbar als ungültig
+  gekennzeichnet. Die Oberfläche wählt niemals still eine Ersatzkategorie.
+- Drag & Drop darf die aktuelle Kategorie unabhängig von der Statuszuordnung
+  ändern, ohne Vorgangstyp oder Workflowstatus zu ändern. Beim nächsten
+  bewussten Statuswechsel greift wieder die konfigurierte Zielkategorie.
 - Das Archiv ist keine normale Kategorie und liegt unter
   `Einstellungen > Aufträge`.
 - Mobile Eingänge und `Wartet auf Freigabe` dürfen nicht als normale
-  Arbeitskategorien oder Kennzeichnungen angeboten werden. Spätere iPad-Views
-  müssen dieselbe Trennung verwenden.
+  Kategorien angeboten werden. Spätere iPad-Views müssen dieselbe Trennung
+  verwenden.
 - Drag-&-Drop-Markierungen dürfen nur während Drag & Drop sichtbar sein. Oben
   und unten zeigen eine Einfügelinie, mittig eine dezente Zielmarkierung. Nach
-  Drop oder Abbruch verschwinden alle temporären Markierungen. Markierungen für
-  Kennzeichnungen müssen sich optisch von Arbeitskategorien unterscheiden.
+  Drop oder Abbruch verschwinden alle temporären Markierungen.
 
 ## Regeln für neue Desktop-Views
 

@@ -37,8 +37,9 @@ Fachlogik aus `docs/ARBEITSKATEGORIEN.md` einhält:
 
 - genau ein Vorgangstyp,
 - genau ein Workflowstatus,
-- genau eine daraus abgeleitete sichtbare Arbeitskategorie,
-- Kennzeichnungen getrennt von Arbeitskategorien,
+- genau eine normale Kategorie pro neuem oder bewusst geändertem Vorgang,
+- Statuszuordnungen ausschließlich über stabile Kategorie-IDs,
+- frei benutzerdefinierte Kategorienamen und Kategoriehierarchien,
 - keine automatische Migration unveränderter Produktivdaten nach Variante A.
 
 ## Verhalten bei Widerspruch

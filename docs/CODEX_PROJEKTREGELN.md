@@ -34,13 +34,14 @@ codex
 Die vollstaendige Fachquelle ist `docs/ARBEITSKATEGORIEN.md`.
 
 - Jeder Vorgang besitzt genau einen Vorgangstyp und einen Workflowstatus.
-- Jeder Vorgang hat genau eine sichtbare Arbeitskategorie, die automatisch und ausschliesslich aus Vorgangstyp und Workflowstatus abgeleitet wird.
-- Ein Vorgang darf niemals gleichzeitig in mehreren sichtbaren Arbeitskategorien erscheinen.
-- `SH-Netz`, `Retouren`, `Lager`, `Marktstammdatenregister` und `Warten auf Kunde` sind getrennte Kennzeichnungen und keine zweite Arbeitskategorie.
-- Angebotsvorgaenge werden je nach Status den Arbeitskategorien `Angebote`, `Angebote gesendet`, `Angebotsauftraege`, `Material`, `Termin` oder `Erledigt` zugeordnet.
-- Direktauftraege werden je nach Status den Arbeitskategorien `Auftraege`, `Material`, `Termin` oder `Erledigt` zugeordnet.
+- Jeder neue oder bewusst geaenderte Vorgang hat genau eine normale Kategorie und darf niemals gleichzeitig in mehreren normalen Kategorien erscheinen.
+- Normale Kategorien und ihre Hierarchie sind vollstaendig benutzerdefiniert; Kategorienamen wie `Angebote`, `Material` oder `Termin` sind nur moegliche Beispiele und keine feste Systemvorgabe.
+- Fuer jede zulaessige Kombination aus Vorgangstyp und Workflowstatus kann der Benutzer genau eine Zielkategorie konfigurieren.
+- Statuszuordnungen speichern ausschliesslich stabile Kategorie-IDs. Umbenennen oder Verschieben einer Kategorie darf die Zuordnung nicht zerstoeren.
+- Bei einem bewussten Statuswechsel wird die konfigurierte Zielkategorie angewendet. Fehlt eine gueltige Zuordnung, darf keine beliebige Ersatzkategorie gewaehlt werden.
+- Ein manueller Drag & Drop darf die aktuelle Kategorie aendern, ohne Vorgangstyp oder Workflowstatus zu aendern. Beim naechsten bewussten Statuswechsel greift wieder die konfigurierte Zuordnung.
 - Variante A ist verbindlich: keine automatische Produktivdatenmigration; neue und bewusst geaenderte Vorgaenge verwenden sofort die neue Logik, unveraenderte Altbestaende werden nicht still zurueckgeschrieben oder neu zugeordnet.
-- Arbeitskategorie und Kennzeichnungen muessen in Bedienung, Navigation, Suche, Export und spaeterem Sync fachlich getrennt bleiben.
+- Navigation, Suche, Zaehler, Uebersicht, Detail, Import und Export muessen dieselbe aktuelle Kategorie-ID verwenden.
 
 ## Sicherheitsregeln
 

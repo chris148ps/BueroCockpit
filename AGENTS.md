@@ -11,7 +11,7 @@ Immer:
 
 Zusätzlich je nach Thema:
 
-- Vorgangstyp, Workflowstatus, Kategorien, Navigation oder Kennzeichnungen: `docs/ARBEITSKATEGORIEN.md`
+- Vorgangstyp, Workflowstatus, Kategorien, Navigation oder Statuszuordnungen: `docs/ARBEITSKATEGORIEN.md`
 - UI/Design: `docs/DESIGN_RICHTLINIEN.md`
 - iPad, iPhone, Fotos, Netzwerk oder Sync: `docs/LOCAL_NETWORK_SYNC.md`
 - vollständige Funktionsprüfung oder Release: `docs/TESTRICHTLINIEN.md`

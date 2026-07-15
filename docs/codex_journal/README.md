@@ -10,8 +10,8 @@ Bei Abweichungen gelten in dieser Reihenfolge:
 2. die aktuellen thematischen Regeldateien unter `docs/`,
 3. `docs/PROJEKTSTATUS.md` für den tatsächlichen Umsetzungsstand.
 
-Für Vorgangstyp, Workflowstatus, Arbeitskategorie und Kennzeichnungen ist
-`docs/ARBEITSKATEGORIEN.md` verbindlich. Ältere Journal-Aussagen über frei
-wählbare oder mehrere fachliche Kategorien bleiben ausschließlich als
-historischer Nachweis erhalten und dürfen nicht als Altregel angewendet
-werden.
+Für Vorgangstyp, Workflowstatus, aktuelle Kategorie und Statuszuordnungen ist
+`docs/ARBEITSKATEGORIEN.md` verbindlich. Ältere Journal-Aussagen über feste,
+frei wählbare oder mehrere gleichzeitig zugeordnete fachliche Kategorien
+bleiben ausschließlich als historischer Nachweis erhalten und dürfen nicht als
+Altregel angewendet werden.

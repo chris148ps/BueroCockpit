@@ -53,22 +53,22 @@ Jeder gefundene Widerspruch stoppt den Release. Der Nutzer entscheidet, ob
 zuerst die Regeldateien oder die Implementierung angepasst werden. Erst nach
 erneuter erfolgreicher Prüfung dürfen Releasearbeiten beginnen.
 
-## Pflichtfälle für Arbeitskategorien
+## Pflichtfälle für Kategorien und Statuszuordnungen
 
 Nach der Implementierung von `docs/ARBEITSKATEGORIEN.md` müssen isoliert
 mindestens folgende Fälle geprüft werden:
 
 - jeder Vorgang besitzt genau einen Typ und genau einen Workflowstatus,
-- jede Kombination erscheint in genau einer Arbeitskategorie gemäß Tabelle,
-- Angebotsvorgänge wechseln korrekt zwischen `Angebote`,
-  `Angebote gesendet`, `Angebotsaufträge`, `Material`, `Termin` und `Erledigt`,
-- Direktaufträge wechseln korrekt zwischen `Aufträge`, `Material`, `Termin`
-  und `Erledigt`,
-- `SH-Netz`, `Retouren`, `Lager`, `Marktstammdatenregister` und
-  `Warten auf Kunde` erscheinen ausschließlich als getrennte
-  Kennzeichnungen,
+- jede zulässige Kombination aus Vorgangstyp und Workflowstatus lässt sich
+  getrennt auf eine vorhandene normale Kategorie-ID konfigurieren,
+- frei gewählte Kategorienamen und vollständige Kategoriepfade werden korrekt
+  angezeigt,
+- Umbenennen und Verschieben einer Kategorie erhält die Statuszuordnung,
+- fehlende oder gelöschte Zielkategorien werden als ungültig angezeigt und
+  niemals still ersetzt,
+- jeder bewusste Statuswechsel verschiebt in genau die konfigurierte Kategorie,
 - Navigation, Zähler, Suche, Übersicht, Detail und Neustartpersistenz zeigen
-  keine doppelte Arbeitskategorie,
+  keine doppelte normale Kategorie,
 - neue und bewusst geänderte Vorgänge verwenden die neue Logik,
 - unveränderte Legacy-Datensätze werden nach Variante A weder migriert noch
   still zurückgeschrieben.
@@ -79,7 +79,7 @@ Mindestens prüfen:
 
 1. Start, Navigation, Auswahlmarkierung, Zähler und Fenstergrößen
 2. Aufträge und Angebote erstellen, bearbeiten, speichern, löschen, wiederherstellen und archivieren
-3. Arbeitskategorien automatisch ableiten sowie Kennzeichnungen getrennt anlegen, bearbeiten und anzeigen
+3. Kategorien frei verwalten, Statuszuordnungen konfigurieren und Kategoriepfade korrekt anzeigen
 4. Suche, Sortierung, Spaltenbreiten, Spaltenreihenfolge und Sichtbarkeit
 5. Detailfelder, Termine, Wiedervorlagen, Techniker, Material und Anhänge
 6. Schreibtischfunktionen und Neustartpersistenz

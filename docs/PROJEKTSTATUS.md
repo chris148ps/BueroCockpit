@@ -56,31 +56,41 @@ Verbindlich ist immer die vom Benutzer gewählte stabile Kategorie-ID.
 
 ## Tatsächlicher Implementierungsstand
 
-Die App speichert Vorgangstyp und Workflowstatus bereits getrennt in
-`WorkflowType` und `WorkflowStep`. Kategorien werden bereits über IDs geführt,
-die vollständige konfigurierbare Zuordnung von Vorgangstyp und Status zu einer
-Zielkategorie ist jedoch noch nicht umgesetzt.
+Die Desktop-App setzt die konfigurierbare Fachlogik um:
 
-Die App muss noch ergänzen:
-
-- Auswahl des Vorgangstyps beim Anlegen,
-- nachträgliche bewusste Änderung des Vorgangstyps,
-- Konfiguration der Statuszuordnungen in den Einstellungen,
-- automatische Verschiebung beim Statuswechsel,
-- Schutz beim Löschen einer zugeordneten Kategorie,
-- genau eine Kategorie pro neuem oder bewusst geändertem Vorgang,
-- konsistente Verwendung in Navigation, Suche, Zählern, Übersicht, Import und
-  Export.
-
-Bis diese Abweichung implementiert und vollständig geprüft ist, blockiert sie
-einen Release.
+- `WorkflowType` und `WorkflowStep` bleiben getrennte Quellen für Vorgangstyp
+  und Workflowstatus.
+- `WorkflowCategoryMappings` speichert die zentrale Zielkategorie pro
+  Kombination ausschließlich über die stabile Kategorie-ID.
+- Unter `Einstellungen > Kategorien` sind sämtliche Angebots- und
+  Direktauftragsstatus einzeln konfigurierbar; fehlende oder ausgeblendete
+  Ziele werden sichtbar ungültig.
+- Neue Vorgänge verlangen die Auswahl `Angebotsvorgang` oder `Direktauftrag`
+  und werden ohne gültige Anfangszuordnung nicht angelegt.
+- Die nachträgliche Typänderung verlangt eine Bestätigung und bei
+  inkompatiblem Status eine ausdrückliche Statusauswahl.
+- Ein Statuswechsel übernimmt genau eine konfigurierte Kategorie. Ohne gültige
+  Zuordnung wird die Änderung blockiert und auf die Einstellungen verwiesen.
+- Manuelle Kategorieauswahl und Drag & Drop ändern ausschließlich die aktuelle
+  Kategorie; Haupt- und Unterkategorien sind gleichermaßen auswählbar.
+- Das Löschen einer verwendeten Kategorie verlangt eine ausdrückliche
+  Ersatz-/Entfernungsentscheidung oder Abbruch; Vorgänge werden nicht still
+  verschoben.
+- Neue und bewusst geänderte Vorgänge schreiben genau eine Kategorie fort.
+  Unveränderte Legacy-Mehrfachzuordnungen bleiben beim Laden und bei reinen
+  Konfigurationsänderungen unverändert.
+- Navigation, Zähler, Suche, Übersicht und Detail verwenden die aktuelle
+  Kategorie-ID; Status- und Kategorie-Badges bleiben getrennt und zeigen beim
+  Kategorie-Badge den Pfad.
+- Neue mobile Eingänge und Duplikate verwenden die Statuszuordnung. Der
+  additive Snapshot-Export enthält `currentCategoryId`, `workflowType`,
+  `workflowStep` und `status`; alte Leser tolerieren die zusätzlichen Felder.
 
 ## Übergang für bestehende Daten – Variante A
 
 - Keine automatische oder massenhafte Migration von Produktivdaten.
 - Keine stillen Schreibvorgänge beim Start, Laden oder Anzeigen.
-- Neue und bewusst geänderte Vorgänge verwenden nach der Umsetzung sofort die
-  neue Logik.
+- Neue und bewusst geänderte Vorgänge verwenden sofort die neue Logik.
 - Unveränderte Altbestände dürfen technisch unverändert bleiben und werden
   tolerant gelesen.
 - Alte Mehrfachzuordnungen dürfen nicht still gelöscht werden.
@@ -104,15 +114,16 @@ einen Release.
 
 ## Release-Blocker und offene Punkte
 
-- Frei konfigurierbare Statuszuordnungen sind noch nicht implementiert.
-- Die Auswahl des Vorgangstyps beim Erstellen fehlt.
-- Die nachträgliche Typänderung fehlt.
-- Navigation, Zähler, Suche, Übersicht, Detailansicht, Import/Export und spätere
-  Sync-Formate müssen dieselbe eindeutige Kategorie-ID verwenden.
-- Variante A und der unveränderte Produktivdatenbestand müssen mit isolierten
-  Legacy-Testdaten nachgewiesen werden.
-- Windows-spezifische Bedienwege müssen nach der Implementierung real unter
-  Windows geprüft werden.
+- Die isolierten Repository-, Workflow-, Legacy- und Snapshot-Exporttests sind
+  erfolgreich. Das reale macOS-Bundle wurde mit isolierten Pfaden sichtbar
+  bedient; Neuanlage, Status- und Typwechsel, Haupt- und Unterkategorieauswahl,
+  Vorgangs- und Kategorie-Drag-and-drop, Löschschutz und Neustartpersistenz
+  wurden erfolgreich geprüft.
+- Zwei im sichtbaren Rundgang gefundene Auswahlfehler wurden behoben und erneut
+  erfolgreich geprüft: initiale ComboBox-Ereignisse verändern keine
+  Statuszuordnung, und ein noch neuer Vorgang bleibt beim programmgesteuerten
+  Statuskategorienwechsel erhalten.
+- Windows-spezifische Bedienwege müssen real unter Windows geprüft werden.
 
 ## Verbindliche Projektentscheidungen
 

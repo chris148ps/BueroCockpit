@@ -53,8 +53,8 @@ Workflowstatus konfigurierte Kategorie verschoben.
 
 Ist für die neue Kombination keine Zielkategorie konfiguriert, darf keine
 beliebige Ersatzkategorie gewählt werden. Der Benutzer muss eine gültige
-Zuordnung festlegen oder den Vorgang kontrolliert kategorielos lassen, sofern
-dieser Zustand in der Oberfläche ausdrücklich unterstützt wird.
+Zuordnung festlegen; Neuanlage, Typwechsel oder Statuswechsel werden bis dahin
+mit einem klaren Hinweis blockiert.
 
 ## Vorgangstyp
 
@@ -145,6 +145,23 @@ Kategorieänderung auslösen.
 
 ## Aktueller Umsetzungsstand
 
-Diese korrigierte Fachlogik ist verbindlich, aber noch nicht vollständig in der
-App implementiert. Bis zur Umsetzung und vollständigen Prüfung ist die
-Abweichung zwischen Dokumentation und Anwendung ein Release-Blocker.
+Die Fachlogik ist in der Desktop-App umgesetzt:
+
+- Statuszuordnungen liegen zentral in `buerocockpit.db` und speichern stabile
+  Kategorie-IDs,
+- neue Vorgänge verlangen die Typauswahl und eine gültige Anfangszuordnung,
+- Typ- und Statuswechsel sind bestätigt beziehungsweise kontrolliert und
+  übernehmen genau die konfigurierte Kategorie,
+- manuelle Kategorieänderungen lassen Typ und Status unverändert,
+- Kategorie-Löschungen mit Verwendungen verlangen Ersatz, bewusstes Entfernen
+  oder Abbruch,
+- neue und bewusst geänderte Vorgänge werden mit genau einer Kategorie
+  fortgeschrieben,
+- unveränderte Legacy-Datensätze werden gemäß Variante A tolerant gelesen und
+  nicht automatisch migriert,
+- der additive Snapshot-Export enthält Vorgangstyp, Workflowstatus und aktuelle
+  Kategorie-ID.
+
+Die isolierten Persistenz-, Legacy- und Exportprüfungen sind nachgewiesen. Ein
+vollständiger realer Bedienrundgang bleibt vor einer Releasefreigabe weiterhin
+Pflicht.

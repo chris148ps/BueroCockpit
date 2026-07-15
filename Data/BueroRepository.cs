@@ -11,11 +11,28 @@ public sealed class BueroRepository
     public event Action<string>? DataWritten;
 
     public BueroRepository()
+        : this(AppPaths.DatabasePath)
     {
-        _databasePath = AppPaths.DatabasePath;
+    }
+
+    public BueroRepository(string databasePath)
+    {
+        if (string.IsNullOrWhiteSpace(databasePath))
+        {
+            throw new ArgumentException("Der Datenbankpfad darf nicht leer sein.", nameof(databasePath));
+        }
+
+        _databasePath = Path.GetFullPath(databasePath);
         try
         {
-            AppPaths.EnsureBaseDirectories();
+            if (string.Equals(_databasePath, AppPaths.DatabasePath, StringComparison.Ordinal))
+            {
+                AppPaths.EnsureBaseDirectories();
+            }
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
+            }
         }
         catch (Exception ex)
         {
@@ -93,6 +110,15 @@ public sealed class BueroRepository
             """);
 
         ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS WorkflowCategoryMappings (
+                WorkflowType TEXT NOT NULL,
+                WorkflowStep TEXT NOT NULL,
+                CategoryId TEXT NOT NULL,
+                PRIMARY KEY (WorkflowType, WorkflowStep)
+            );
+            """);
+
+        ExecuteNonQuery(connection, """
             CREATE TABLE IF NOT EXISTS Attachments (
                 Id TEXT PRIMARY KEY,
                 TaskId TEXT NOT NULL,
@@ -162,7 +188,102 @@ public sealed class BueroRepository
             """);
 
         SeedDefaultCategories(connection);
-        EnsureDefaultCategoryTree(connection);
+    }
+
+    public List<WorkflowCategoryMapping> GetWorkflowCategoryMappings()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT WorkflowType, WorkflowStep, CategoryId
+            FROM WorkflowCategoryMappings
+            ORDER BY WorkflowType, WorkflowStep;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var mappings = new List<WorkflowCategoryMapping>();
+        while (reader.Read())
+        {
+            mappings.Add(new WorkflowCategoryMapping(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2)));
+        }
+
+        return mappings;
+    }
+
+    public void SaveWorkflowCategoryMapping(string workflowType, string workflowStep, string categoryId)
+    {
+        if (string.IsNullOrWhiteSpace(workflowType) ||
+            string.IsNullOrWhiteSpace(workflowStep) ||
+            string.IsNullOrWhiteSpace(categoryId))
+        {
+            throw new ArgumentException("Vorgangstyp, Workflowstatus und Kategorie-ID müssen gesetzt sein.");
+        }
+
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO WorkflowCategoryMappings (WorkflowType, WorkflowStep, CategoryId)
+            VALUES ($workflowType, $workflowStep, $categoryId)
+            ON CONFLICT(WorkflowType, WorkflowStep) DO UPDATE SET
+                CategoryId = excluded.CategoryId;
+            """;
+        command.Parameters.AddWithValue("$workflowType", workflowType.Trim());
+        command.Parameters.AddWithValue("$workflowStep", workflowStep.Trim());
+        command.Parameters.AddWithValue("$categoryId", categoryId.Trim());
+        command.ExecuteNonQuery();
+        NotifyDataWritten("Workflow-Kategoriezuordnung gespeichert");
+    }
+
+    public void DeleteWorkflowCategoryMapping(string workflowType, string workflowStep)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM WorkflowCategoryMappings
+            WHERE WorkflowType = $workflowType AND WorkflowStep = $workflowStep;
+            """;
+        command.Parameters.AddWithValue("$workflowType", workflowType.Trim());
+        command.Parameters.AddWithValue("$workflowStep", workflowStep.Trim());
+        command.ExecuteNonQuery();
+        NotifyDataWritten("Workflow-Kategoriezuordnung entfernt");
+    }
+
+    public int ReplaceWorkflowCategoryMappings(string categoryId, string replacementCategoryId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE WorkflowCategoryMappings
+            SET CategoryId = $replacementCategoryId
+            WHERE CategoryId = $categoryId;
+            """;
+        command.Parameters.AddWithValue("$categoryId", categoryId.Trim());
+        command.Parameters.AddWithValue("$replacementCategoryId", replacementCategoryId.Trim());
+        var changed = command.ExecuteNonQuery();
+        if (changed > 0)
+        {
+            NotifyDataWritten("Workflow-Kategoriezuordnungen ersetzt");
+        }
+
+        return changed;
+    }
+
+    public int DeleteWorkflowCategoryMappingsForCategory(string categoryId)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM WorkflowCategoryMappings WHERE CategoryId = $categoryId;";
+        command.Parameters.AddWithValue("$categoryId", categoryId.Trim());
+        var changed = command.ExecuteNonQuery();
+        if (changed > 0)
+        {
+            NotifyDataWritten("Workflow-Kategoriezuordnungen entfernt");
+        }
+
+        return changed;
     }
 
     public List<CategoryItem> GetCategories()
@@ -1152,97 +1273,6 @@ public sealed class BueroRepository
             command.ExecuteNonQuery();
         }
     }
-
-    private static void EnsureDefaultCategoryTree(SqliteConnection connection)
-    {
-        var roots = new[]
-        {
-            "Offene Aufgaben",
-            "Angebot",
-            "Material",
-            "Termin",
-            "Firma",
-            "Netzbetreiber",
-            "Wartet auf Kunde"
-        };
-
-        var rootIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        for (var i = 0; i < roots.Length; i++)
-        {
-            rootIds[roots[i]] = EnsureCategory(connection, roots[i], null, i + 1);
-        }
-
-        EnsureCategory(connection, "erstellen", rootIds["Angebot"], 0, "Angebote erstellen");
-        EnsureCategory(connection, "gesendet", rootIds["Angebot"], 1, "Angebote gesendet");
-        EnsureCategory(connection, "bestellen", rootIds["Material"], 0, "Material bestellen");
-        EnsureCategory(connection, "bestellt", rootIds["Material"], 1);
-        EnsureCategory(connection, "terminieren", rootIds["Termin"], 0, "Terminieren");
-        EnsureCategory(connection, "terminiert", rootIds["Termin"], 1, "Terminiert");
-        EnsureCategory(connection, "zum terminieren gegeben", rootIds["Termin"], 2);
-        EnsureCategory(connection, "Retouren", rootIds["Firma"], 0, "Retoure / Rückgabe");
-        EnsureCategory(connection, "Lager", rootIds["Firma"], 1);
-        EnsureCategory(connection, "SH-Netz", rootIds["Netzbetreiber"], 0);
-        EnsureCategory(connection, "Marktstammdatenregister", rootIds["Netzbetreiber"], 1);
-    }
-
-    private static string EnsureCategory(SqliteConnection connection, string name, string? parentId, int sortOrder, params string[] legacyNames)
-    {
-        var existing = FindCategoryIdByNames(connection, legacyNames.Prepend(name));
-        if (!string.IsNullOrWhiteSpace(existing))
-        {
-            using var updateCommand = connection.CreateCommand();
-            updateCommand.CommandText = """
-                UPDATE Categories
-                SET Name = $name,
-                    ParentId = $parentId,
-                    SortOrder = $sortOrder,
-                    IsVisible = 1
-                WHERE Id = $id;
-                """;
-            updateCommand.Parameters.AddWithValue("$id", existing);
-            updateCommand.Parameters.AddWithValue("$name", name);
-            updateCommand.Parameters.AddWithValue("$parentId", string.IsNullOrWhiteSpace(parentId) ? DBNull.Value : parentId);
-            updateCommand.Parameters.AddWithValue("$sortOrder", sortOrder);
-            updateCommand.ExecuteNonQuery();
-            return existing;
-        }
-
-        var id = Guid.NewGuid().ToString("N");
-        using var insertCommand = connection.CreateCommand();
-        insertCommand.CommandText = """
-            INSERT INTO Categories (Id, Name, ParentId, SortOrder, SortMode, Color, IsVisible)
-            VALUES ($id, $name, $parentId, $sortOrder, 'Erstellt am', '#F2F3F5', 1);
-            """;
-        insertCommand.Parameters.AddWithValue("$id", id);
-        insertCommand.Parameters.AddWithValue("$name", name);
-        insertCommand.Parameters.AddWithValue("$parentId", string.IsNullOrWhiteSpace(parentId) ? DBNull.Value : parentId);
-        insertCommand.Parameters.AddWithValue("$sortOrder", sortOrder);
-        insertCommand.ExecuteNonQuery();
-        return id;
-    }
-
-    private static string? FindCategoryIdByNames(SqliteConnection connection, IEnumerable<string> names)
-    {
-        foreach (var name in names)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = """
-                SELECT Id
-                FROM Categories
-                WHERE lower(trim(Name)) = lower(trim($name))
-                LIMIT 1;
-                """;
-            command.Parameters.AddWithValue("$name", name);
-            var result = command.ExecuteScalar() as string;
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                return result;
-            }
-        }
-
-        return null;
-    }
-
 
     private void LoadTaskCategories(List<TaskItem> tasks)
     {

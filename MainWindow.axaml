@@ -1887,6 +1887,54 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <Border Height="1"
+                        Background="{DynamicResource BorderBrushDark}"
+                        Margin="0,14,0,8" />
+                <TextBlock Text="Statuszuordnungen"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Für jeden Vorgangstyp und Workflowstatus wird genau eine sichtbare Kategorie über ihre stabile ID festgelegt. Umbenennen und Verschieben der Kategorie ändern die Zuordnung nicht."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding StatusCategoryMappingMessage}"
+                           IsVisible="{Binding HasStatusCategoryMappingMessage}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{Binding StatusCategoryMappings}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Classes="InlineCard" Margin="0,0,0,6" Padding="10">
+                        <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="4">
+                          <TextBlock Text="{Binding DisplayName}"
+                                     VerticalAlignment="Center"
+                                     TextWrapping="Wrap" />
+                          <ComboBox Grid.Column="1"
+                                    ItemsSource="{Binding CategoryOptions}"
+                                    SelectedItem="{Binding SelectedCategory}"
+                                    SelectionChanged="StatusCategoryMappingSelection_OnChanged"
+                                    HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate>
+                                <TextBlock Text="{Binding DisplayPath}"
+                                           TextTrimming="CharacterEllipsis" />
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                          <TextBlock Grid.Row="1"
+                                     Grid.Column="1"
+                                     Text="{Binding ValidationText}"
+                                     IsVisible="{Binding HasValidationText}"
+                                     Foreground="{DynamicResource DangerBrush}"
+                                     FontSize="11"
+                                     TextWrapping="Wrap" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -2732,7 +2780,16 @@
                             AutomationProperties.Name="Workflowstatus"
                             SelectionChanged="StatusCombo_OnSelectionChanged" />
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding SelectedTask.WorkflowType}" Classes="TaskDetailSubtitle" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding SelectedTask.WorkflowType}"
+                             Classes="TaskDetailSubtitle"
+                             HorizontalAlignment="Right" />
+                  <Button Content="Vorgangstyp ändern"
+                          Classes="Tertiary"
+                          FontSize="11"
+                          Padding="7,3"
+                          Click="ChangeWorkflowType_OnClick" />
+                </StackPanel>
               </Grid>
               <TextBlock Text="Ablauf" Classes="TaskDetailFieldLabel" />
               <ItemsControl ItemsSource="{Binding WorkflowSteps}">
@@ -2754,7 +2811,7 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <TextBlock Text="Der aktuelle Schritt wird gespeichert; bestehende Kategorien bleiben unverändert."
+              <TextBlock Text="Ein Statuswechsel übernimmt automatisch die dafür konfigurierte Kategorie. Eine manuell verschobene Kategorie bleibt bis zum nächsten Statuswechsel bestehen."
                          Classes="TaskDetailSubtitle" />
             </StackPanel>
           </Border>
@@ -2850,7 +2907,7 @@
           <Border Classes="TaskDetailCard"
                   IsVisible="{Binding SelectedTask.HasCategoryNameChips}">
             <StackPanel Spacing="8">
-              <TextBlock Text="Zugeordnete Kategorien" Classes="TaskDetailFieldLabel" />
+              <TextBlock Text="Gespeicherte Kategoriepfade" Classes="TaskDetailFieldLabel" />
               <ItemsControl ItemsSource="{Binding SelectedTask.CategoryNameChips}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -2874,26 +2931,21 @@
           <TextBlock Classes="TaskDetailSectionTitle" Text="Kategorien" />
           <Border Classes="TaskDetailCard">
             <StackPanel Spacing="8">
-              <TextBlock Text="Hauptkategorien gruppieren die Auswahl; auswählbar sind die jeweiligen Endkategorien."
+              <TextBlock Text="Ein Vorgang besitzt genau eine aktuelle Kategorie. Eine manuelle Änderung lässt Vorgangstyp und Workflowstatus unverändert; der nächste Statuswechsel übernimmt wieder die konfigurierte Statuskategorie."
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          FontSize="12"
                          TextWrapping="Wrap" />
-              <ItemsControl ItemsSource="{Binding TaskCategorySelections}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
+              <ComboBox ItemsSource="{Binding TaskCategories}"
+                        SelectedItem="{Binding SelectedTaskCategory}"
+                        SelectionChanged="TaskCategoryComboBox_OnChanged"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
                   <DataTemplate>
-                    <CheckBox Content="{Binding Category.SelectionName}"
-                              IsChecked="{Binding IsSelected}"
-                              IsEnabled="{Binding IsSelectable}"
-                              Margin="0,0,16,8"
-                              Click="TaskCategoryCheckBox_OnChanged" />
+                    <TextBlock Text="{Binding SelectionName}"
+                               TextTrimming="CharacterEllipsis" />
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
             </StackPanel>
           </Border>
 
