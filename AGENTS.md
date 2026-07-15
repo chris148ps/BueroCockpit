@@ -7,6 +7,7 @@ Diese Datei ist der verbindliche Einstieg für Codex und andere Agenten.
 Immer:
 
 - `docs/CODEX_PROJEKTREGELN.md`
+- `docs/CODEX_AUFTRAGSPRUEFUNG.md`
 
 Zusätzlich je nach Thema:
 
@@ -14,6 +15,8 @@ Zusätzlich je nach Thema:
 - iPad, iPhone, Fotos, Netzwerk oder Sync: `docs/LOCAL_NETWORK_SYNC.md`
 - vollständige Funktionsprüfung oder Release: `docs/TESTRICHTLINIEN.md`
 - Release, Version, Tag, GitHub Upload oder Auto-Update: `docs/RELEASE_PROZESS.md`
+
+Vor jedem Codex-Auftrag müssen alle relevanten Regel- und Fachdateien auf widersprüchliche Aussagen, Verbote und veraltete Vorgaben geprüft werden. Bei einem Widerspruch darf der Auftrag nicht gestartet werden. Der Widerspruch ist dem Nutzer konkret mit Datei, Regel, notwendiger Änderung und Auswirkung zu nennen. Die betroffene Regeldatei darf erst nach ausdrücklicher Freigabe angepasst werden.
 
 ## Werkzeug- und Modellwahl
 
