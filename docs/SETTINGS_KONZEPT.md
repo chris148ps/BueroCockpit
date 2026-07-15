@@ -20,7 +20,7 @@ Grundregel: `settings.local.json` darf nur geraetespezifische Einstellungen enth
 | LocalNetworkSyncPairedDevices | `BueroCockpitLocal/settings.local.json` | lokal | Legacy / Toleranz | nicht im aktuellen Bedienweg verwenden | Alte Liste aus der Pairing-Code-Vorbereitung; darf in vorhandenen lokalen Settings stehen bleiben und wird im aktuellen lokalen Netzwerk-Sync-Bedienweg ignoriert. |
 | TechnicianNames lokal | `BueroCockpitLocal/settings.local.json` oder alter `settings.json` | lokal | Legacy / Fallback | nicht mehr aktiv pflegen | Wird nur noch als Fallback gelesen, wenn zentrale Live-Settings leer sind. |
 | technicianNames zentral | `BueroCockpit_Daten/Sync/live/settings.json` | zentral | Sollte zentral gespeichert werden | aktuell korrekt | Gemeinsame Monteur-/Technikerliste muss auf Windows, MacBook und Mac mini identisch sein. |
-| Kategorien | `BueroCockpit_Daten/buerocockpit.db`, Export nach `Sync/live/categories.json` | zentral | Sollte zentral gespeichert werden | aktuell korrekt | Kategorien sind fachliche Struktur und werden von allen Geraeten geteilt. |
+| Arbeitskategorien und Kennzeichnungen | derzeit `BueroCockpit_Daten/buerocockpit.db`, Export nach `Sync/live/categories.json` | zentral | Fachlogik zentral, Speicherung noch umzubauen | Umsetzung offen | Die sichtbare Arbeitskategorie wird künftig eindeutig aus Vorgangstyp und Workflowstatus abgeleitet. Alte Kategorien wie `SH-Netz` oder `Retouren` werden getrennte Kennzeichnungen. Variante A verbietet eine automatische Migration unveränderter Produktivdaten. |
 | Aufträge | `BueroCockpit_Daten/buerocockpit.db`, Export nach `Sync/live/tasks.json` | zentral | Sollte zentral gespeichert werden | aktuell korrekt | Auftragsdaten sind Produktivdaten und gehoeren nicht in lokale AppSettings. |
 | Monteur-Zuordnung in Aufträgen | `Tasks.Technician` in `BueroCockpit_Daten/buerocockpit.db`, Export nach `Sync/live/tasks.json` | zentral | Sollte zentral gespeichert werden | aktuell korrekt | Die Zuordnung ist Teil des Auftrags und muss zentral erhalten bleiben. |
 | Alte iPad-Exportdaten | vorhandene lokale Exportdateien | Legacy / Altbestand | nicht als aktuelle Zielarchitektur verwenden | tolerant lesen, falls fuer vorhandene Anzeige noetig | Der neue Zielweg ist lokaler Netzwerk-Sync. |
@@ -44,5 +44,10 @@ Gefundene zentrale Settings und Daten:
 
 - `buerocockpit.db` im lokalen Datenordner mit Kategorien, Auftraegen, Materialien, Anhaengen, Schreibtischdaten und Monteur-Zuordnung.
 - mobile Eingangsordner unter der gemeinsamen Sync-Struktur.
+
+Für die weitere Umsetzung gilt `docs/ARBEITSKATEGORIEN.md`. Bestehende
+`CategoryId`-/`CategoryIds`-Werte sind bis zur kontrollierten Umstellung
+Legacy-Daten und dürfen nicht als mehrere sichtbare Arbeitskategorien
+interpretiert werden.
 
 Derzeit wurden keine weiteren globalen Standardwerte, Vorlagen oder fachlichen Sync-Konfigurationen gefunden, die nur lokal in `AppSettings` liegen. Sollten kuenftig globale Vorgaben hinzukommen, gehoeren sie in die lokale Datenbank oder in ein bewusst definiertes lokales Netzwerk-Sync-Format, nicht in alte Datei-Kopplungen.

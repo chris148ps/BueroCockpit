@@ -2,59 +2,73 @@
 
 ## Datum/Uhrzeit
 
-2026-07-14 22:31 +0200
+2026-07-15 19:44 +0200
 
 ## Letzter Auftrag
 
-Workflowstatus, Kategorie-Badge sowie Sidebar- und Entf-Tastaturbedienung korrigieren und die vollständige Funktionsprüfung vorbereiten.
+Verbindliche Arbeitskategorienlogik und zusätzliche Release-Konsistenzprüfung dokumentieren.
 
-## Ergebnis
+## Zusammenfassung
 
-Die Statusauswahl bleibt beim Wechsel zwischen Angebotsvorgang und Direktauftrag sichtbar und persistent. Status, Vorgangstyp und fachliche Kategorie bleiben getrennt. Kategorielose Vorgänge erhalten keine erfundene Zuordnung. Die Kategorie-Spalte zeigt echte Kategoriepfade als Badge. Sidebar-Tastaturnavigation und Entf-Papierkorbpfad sind ergänzt.
+Die Dokumentation unterscheidet jetzt genau einen Vorgangstyp, einen
+Workflowstatus und eine daraus automatisch abgeleitete sichtbare
+Arbeitskategorie. Kennzeichnungen sind davon getrennt. Variante A schützt
+unveränderte Produktivdaten. Vor jedem Codex-Auftrag und jedem Release ist eine
+Konsistenzprüfung Pflicht; jeder ungeklärte Widerspruch stoppt den Release.
 
 ## Geänderte Dateien
 
-- `Data/BueroRepository.cs`
-- `MainWindow.axaml`
-- `MainWindow.axaml.cs`
-- `Models/TableCellItem.cs`
+- `AGENTS.md`
+- `docs/ARBEITSKATEGORIEN.md`
+- `docs/CODEX_PROJEKTREGELN.md`
+- `docs/CODEX_AUFTRAGSPRUEFUNG.md`
+- `docs/DESIGN_RICHTLINIEN.md`
 - `docs/PROJEKTSTATUS.md`
-- `docs/codex_last_run.md`
+- `docs/TESTRICHTLINIEN.md`
+- `docs/RELEASE_PROZESS.md`
+- `docs/SETTINGS_KONZEPT.md`
+- `docs/ipad-readonly-preparation.md`
+- `docs/codex_run_template.md`
 - `docs/NEXT_TASK.md`
-- `docs/codex_journal/2026-07-14_22-31_workflowstatus-kategorien-bedienung.md`
+- `docs/codex_last_run.md`
+- `docs/codex_journal/README.md`
+- `docs/codex_journal/2026-07-15_19-44_arbeitskategorien-regeln.md`
 
-## Prüfungen
+## Tests
 
+- Nur Dokumentationsprüfung; keine Implementierung und kein Build.
 - `git diff --check`: erfolgreich.
-- `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
-- `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler; nicht real unter Windows bedient.
-- Isolierte gezielte Avalonia- und Persistenztests: Status-ComboBox, unbekannter Altstatus, Kategorieauswahl/-Badge, Kategorie-DnD und -Reihenfolge, Übersichtsnavigation, Sidebar-Tastatur, Entf-Schutz, Suche, Sortierung, Darstellung und Techniker erfolgreich.
-- Isolierter Repository-Gesamtlauf: Vorgangsdetails, Kategorienverwaltung, Material, Testanhang, Schreibtischnotiz, Backup, Papierkorb, Wiederherstellung und Leeren erfolgreich.
-- SQLite-Integrität nach Neustart und Gesamtläufen: `ok`.
-- Lokaler Testdienst manuell gestartet und gestoppt; nur harmlose Teststatusdaten, Port `53941` danach geschlossen.
-- Echte App mit temporären Pfaden gestartet. Die gesperrte macOS-Sitzung verhinderte den verpflichtenden erneuten sichtbaren Gesamtrundgang.
-- Das lokal fremd geänderte `scripts/run-macos-bundle.sh` wurde nicht ausgeführt oder verändert, da seine aktuelle Fassung isolierte Startpfade nicht weitergibt.
-- Keine im Testzeitraum geänderten Dateien in den read-only geprüften produktiven App-/OneDrive-Pfaden gefunden.
+- Gezielte Konsistenzsuche nach widersprüchlichen Kategorie-, Workflow-,
+  Release-, Branch- und Buildregeln: erfolgreich; keine aktive Gegenregel
+  außerhalb ausdrücklich historisch eingeordneter Dokumente gefunden.
+- Dateiumfang geprüft: ausschließlich `AGENTS.md` und Markdown-Dokumentation.
+- `git status --short`: ausgeführt; nur die dokumentierten Dateien geändert.
 
-## Während des Gesamttests zusätzlich gefundener und behobener Fehler
+## Ergebnis
 
-Die Repository-Normalisierung ordnete einem tatsächlich kategorielosen Vorgang still die erste verfügbare Kategorie zu. Die automatische Ersatzzuordnung wurde entfernt und isoliert mit Neustartpersistenz geprüft.
+Das neue fachliche Zielbild ist verbindlich dokumentiert. Der tatsächliche
+Code entspricht ihm noch nicht; diese Abweichung ist ausdrücklich als
+Release-Blocker dokumentiert und die Implementierung ist die genau nächste
+Aufgabe.
 
 ## Offene Punkte
 
-- Vollständige sichtbare Realbedienung auf entsperrtem macOS einschließlich Maus-Drag, Kontextmenüs, Dialogfokus und Entf-Bestätigung.
-- Reale Windows-Bedienung.
-- Der fremde lokale Diff in `scripts/run-macos-bundle.sh` bleibt unangetastet und wird nicht veröffentlicht.
+- Arbeitskategorienlogik und Kennzeichnungsbereich implementieren.
+- Variante A mit isolierten Legacy-Daten nachweisen.
+- Release-Blocker erst nach Implementierung und vollständiger Prüfung aufheben.
 
 ## Branch
+
 codex/work
 
 ## Commit
-f03761211cc6e343ce0f1dce03a1f2a2c92787a4
+
+ausstehend (Ausgangscommit `a282a1c25364`)
 
 ## Push erfolgreich
-Ja
+
+ausstehend
 
 ## Empfohlener nächster Schritt
 
-Die korrigierten Wege und den vollständigen Desktop-Rundgang auf einer entsperrten macOS-Sitzung mit ausschließlich temporären Daten- und Konfigurationspfaden sichtbar abnehmen.
+Die neue Fachlogik minimal-invasiv implementieren und mit isolierten Neu-, Änderungs- und Legacy-Fällen prüfen.

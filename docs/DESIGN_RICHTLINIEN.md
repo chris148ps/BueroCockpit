@@ -134,12 +134,14 @@ unverändert.
   zentrale Ressourcen und nicht durch schwarze Konturen dargestellt.
 - Kategoriezeilen folgen der Kartensprache. Hover bleibt neutral, Auswahl nutzt
   die weiche Akzentfläche, Einfügepositionen nutzen dünne Linien.
-- Bestehende Hierarchie und Einrückung bleiben erhalten.
+- Arbeitskategorien und Kennzeichnungen sind visuell und fachlich getrennt.
+  Arbeitskategorien bilden den aktuellen Bearbeitungsbereich ab;
+  Kennzeichnungen erscheinen beispielsweise als kompakte neutrale Badges.
 - Chevrons werden ohne runden Button dargestellt; der optische Klickbereich
   liegt nur am Pfeil.
-- Hauptkategorien sind beim Start eingeklappt. Doppelklick klappt nur ein oder
-  aus. Ein Klick auf eine Hauptkategorie zeigt nur direkt zugeordnete Aufgaben;
-  Unterkategorien werden separat gewählt.
+- Soweit Kennzeichnungen hierarchisch dargestellt werden, bleiben Einrückung,
+  Auf- und Zuklappen sowie sichtbarer Tastaturfokus erhalten. Diese Hierarchie
+  darf keine zweite Arbeitskategorie erzeugen.
 
 ### Schaltflächen und Eingaben
 
@@ -176,11 +178,18 @@ unverändert.
   Termin und Techniker. Zusätzliche Spalten brauchen eine fachliche Begründung.
 - Stepper, Detailansicht, Listen-Badge und Terminansicht verwenden dieselbe
   zentrale Statusquelle und zeigen exakt dieselbe aktuelle Statusbezeichnung.
-  Status darf nicht für die Darstellung in eine abweichende Unterkategorie oder
-  Ersatzbezeichnung umgerechnet werden.
+  Zusätzlich zeigen Navigation und Arbeitsbereich genau eine aus Vorgangstyp
+  und Status abgeleitete Arbeitskategorie. Die Arbeitskategorie ersetzt oder
+  verfälscht die sichtbare Statusbezeichnung nicht.
 - Der Angebotsablauf verwendet die sichtbaren Schritte Ansicht, Angebot,
   Angebot gesendet, Auftrag, Material, Termin und Erledigt. Der Direktauftrag
   verwendet Auftrag, Material, Termin und Erledigt.
+- Die sichtbare Arbeitskategorie folgt verbindlich der Tabelle in
+  `docs/ARBEITSKATEGORIEN.md`. `Ansicht` und `Angebot` erscheinen unter
+  `Angebote`, `Angebot gesendet` unter `Angebote gesendet` und `Auftrag` eines
+  Angebotsvorgangs unter `Angebotsaufträge`. Gemeinsame Statusbereiche sind
+  `Material`, `Termin` und `Erledigt`; ein Direktauftrag mit Status `Auftrag`
+  erscheint unter `Aufträge`.
 - Die Standardspalten der Terminansicht sind Datum, Uhrzeit, Status, Kunde, Ort
   und Techniker. Termine werden chronologisch und dedupliziert dargestellt;
   fehlende Monteurzuordnungen bleiben vollständig leer.
@@ -224,19 +233,31 @@ unverändert.
 - Lade- und Fortschrittszustände verwenden Akzent nur als Aktivitätsanzeige;
   der übrige Container bleibt neutral.
 
-## Kategorieauswahl und fachliche Sperren
+## Arbeitskategorien und Kennzeichnungen
 
-- Hauptkategorien mit Unterkategorien dürfen in Kategorieauswahlen nicht als
-  Ziel angeboten werden. Unterkategorien und echte Endkategorien sind
-  auswählbar.
+- Eine Arbeitskategorie wird niemals manuell ausgewählt. Sie ergibt sich
+  ausschließlich aus Vorgangstyp und Workflowstatus.
+- Ein Vorgang darf an keiner Stelle gleichzeitig in mehreren sichtbaren
+  Arbeitskategorien erscheinen. Navigation, Listen, Übersicht, Suche und
+  Zähler müssen dieselbe eindeutige Ableitung verwenden.
+- `SH-Netz`, `Retouren`, `Lager`, `Marktstammdatenregister` und
+  `Warten auf Kunde` sind Kennzeichnungen. Sie werden in einem eigenen Bereich
+  bearbeitet und beispielsweise als kompakte neutrale Badges angezeigt.
+- Ein Vorgang darf mehrere Kennzeichnungen tragen, sofern die spätere
+  Implementierung dies fachlich benötigt; sie dürfen jedoch weder wie
+  Arbeitskategorien aussehen noch die eindeutige Arbeitskategorie verändern.
+- Drag & Drop eines Vorgangs darf die Arbeitskategorie nicht unabhängig von
+  Vorgangstyp oder Workflowstatus verändern. Ein Statuswechsel aktualisiert
+  die Arbeitskategorie automatisch.
 - Das Archiv ist keine normale Kategorie und liegt unter
   `Einstellungen > Aufträge`.
 - Mobile Eingänge und `Wartet auf Freigabe` dürfen nicht als normale
-  Kategorien angeboten werden. Die iPad-Kategorieauswahl nutzt dieselbe
-  fachliche Logik.
+  Arbeitskategorien oder Kennzeichnungen angeboten werden. Spätere iPad-Views
+  müssen dieselbe Trennung verwenden.
 - Drag-&-Drop-Markierungen dürfen nur während Drag & Drop sichtbar sein. Oben
   und unten zeigen eine Einfügelinie, mittig eine dezente Zielmarkierung. Nach
-  Drop oder Abbruch verschwinden alle temporären Markierungen.
+  Drop oder Abbruch verschwinden alle temporären Markierungen. Markierungen für
+  Kennzeichnungen müssen sich optisch von Arbeitskategorien unterscheiden.
 
 ## Regeln für neue Desktop-Views
 

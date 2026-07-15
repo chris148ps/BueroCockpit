@@ -11,12 +11,13 @@ Immer:
 
 Zusätzlich je nach Thema:
 
+- Vorgangstyp, Workflowstatus, Kategorien, Navigation oder Kennzeichnungen: `docs/ARBEITSKATEGORIEN.md`
 - UI/Design: `docs/DESIGN_RICHTLINIEN.md`
 - iPad, iPhone, Fotos, Netzwerk oder Sync: `docs/LOCAL_NETWORK_SYNC.md`
 - vollständige Funktionsprüfung oder Release: `docs/TESTRICHTLINIEN.md`
 - Release, Version, Tag, GitHub Upload oder Auto-Update: `docs/RELEASE_PROZESS.md`
 
-Vor jedem Codex-Auftrag müssen alle relevanten Regel- und Fachdateien auf widersprüchliche Aussagen, Verbote und veraltete Vorgaben geprüft werden. Bei einem Widerspruch darf der Auftrag nicht gestartet werden. Der Widerspruch ist dem Nutzer konkret mit Datei, Regel, notwendiger Änderung und Auswirkung zu nennen. Die betroffene Regeldatei darf erst nach ausdrücklicher Freigabe angepasst werden.
+Vor jedem Codex-Auftrag und zusätzlich vor jedem Release müssen alle relevanten Regel- und Fachdateien automatisch als erster Arbeitsschritt auf widersprüchliche Aussagen, Verbote und veraltete Vorgaben geprüft werden. Dabei ist außerdem zu prüfen, ob die Dokumentation der tatsächlichen App entspricht und ob Releaseprozess, Agentenregeln und Designrichtlinien noch mit der Implementierung übereinstimmen. Bei einem Widerspruch darf der Auftrag beziehungsweise Release nicht gestartet werden. Der Widerspruch ist dem Nutzer konkret mit Datei, Regel, notwendiger Änderung und Auswirkung zu nennen. Der Nutzer entscheidet, ob zuerst die Regeldateien oder die Implementierung angepasst werden. Eine betroffene Regeldatei darf erst nach ausdrücklicher Freigabe angepasst werden.
 
 ## Werkzeug- und Modellwahl
 
@@ -34,8 +35,11 @@ Vor Änderungen:
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
 git status --short
-git pull origin main
+git fetch origin main codex/work
+git pull --ff-only origin "$(git branch --show-current)"
 ```
+
+Der Pull muss den aktuellen Branch nur per Fast-Forward aktualisieren. Auf `codex/work` darf dabei `main` nicht automatisch gemergt werden.
 
 Nach Änderungen:
 
@@ -44,6 +48,8 @@ git diff --check
 dotnet build
 git status --short
 ```
+
+Bei reinen Dokumentationsänderungen ohne Code-, Projekt-, Build- oder Skriptänderung ist kein Build erforderlich. Pflicht bleiben `git diff --check`, eine dokumentierte Konsistenzsuche und `git status --short`.
 
 Bei iPad-Code zusätzlich `xcodebuild`; bei Windows-Code mindestens `dotnet build -r win-x64`.
 
@@ -66,6 +72,7 @@ Bei iPad-Code zusätzlich `xcodebuild`; bei Windows-Code mindestens `dotnet buil
 ## Release-Regel
 
 - Kein Release, Tag oder Versionswechsel ohne ausdrückliche Freigabe.
+- Vor jedem Release ist die Konsistenzprüfung aus `docs/CODEX_AUFTRAGSPRUEFUNG.md` zwingend durchzuführen und zu dokumentieren. Jeder gefundene Widerspruch stoppt den Release vor Versionsänderung, Build, Tag oder Upload.
 - „Release erstellen“ bedeutet immer den vollständigen GitHub-Release für die Windows-Auto-Update-Funktion.
 - Pflicht sind frische Velopack-Artefakte, Tag, Push, GitHub Release, Upload und `gh release view`.
 - Der optionale Inno-Installer ist nicht Voraussetzung für das Velopack-Auto-Update.
@@ -89,3 +96,4 @@ Pflicht:
 - `docs/NEXT_TASK.md` auf genau eine nächste Aufgabe setzen
 
 Die Dokumentation muss dem tatsächlich geprüften Stand entsprechen. Keine erfundenen Tests oder Ergebnisse.
+Einträge unter `docs/codex_journal/` sind historische Laufprotokolle und keine aktuelle Regelquelle; bei Abweichungen gelten die aktuellen Regeldateien und `docs/PROJEKTSTATUS.md`.

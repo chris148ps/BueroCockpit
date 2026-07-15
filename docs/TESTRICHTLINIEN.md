@@ -24,6 +24,16 @@ git diff --check
 dotnet build
 ```
 
+Bei einem reinen Dokumentationsauftrag ohne Code-, Projekt-, Build- oder
+Skriptänderung ist kein Build erforderlich. Pflicht bleiben:
+
+```bash
+cd "$HOME/AppProjekte/BueroCockpit"
+git diff --check
+rg -n '<betroffene Fachbegriffe und Altregeln>' AGENTS.md docs
+git status --short
+```
+
 Zusätzlich je nach Bereich:
 
 - Windows/Desktop: `dotnet build -r win-x64`
@@ -32,13 +42,44 @@ Zusätzlich je nach Bereich:
 - Netzwerk/Sync: Endpunkte, Portzustand und Stop-Verhalten real prüfen
 - Release: `docs/RELEASE_PROZESS.md` vollständig befolgen
 
+## Konsistenzprüfung vor jedem Release
+
+Vor jedem Release muss automatisch als erster Schritt zusätzlich die Prüfung aus
+`docs/CODEX_AUFTRAGSPRUEFUNG.md` vollständig durchgeführt werden. Dabei werden
+Regeldateien, Projektstatus, tatsächliche App, Releaseprozess und
+Designrichtlinien gegeneinander geprüft.
+
+Jeder gefundene Widerspruch stoppt den Release. Der Nutzer entscheidet, ob
+zuerst die Regeldateien oder die Implementierung angepasst werden. Erst nach
+erneuter erfolgreicher Prüfung dürfen Releasearbeiten beginnen.
+
+## Pflichtfälle für Arbeitskategorien
+
+Nach der Implementierung von `docs/ARBEITSKATEGORIEN.md` müssen isoliert
+mindestens folgende Fälle geprüft werden:
+
+- jeder Vorgang besitzt genau einen Typ und genau einen Workflowstatus,
+- jede Kombination erscheint in genau einer Arbeitskategorie gemäß Tabelle,
+- Angebotsvorgänge wechseln korrekt zwischen `Angebote`,
+  `Angebote gesendet`, `Angebotsaufträge`, `Material`, `Termin` und `Erledigt`,
+- Direktaufträge wechseln korrekt zwischen `Aufträge`, `Material`, `Termin`
+  und `Erledigt`,
+- `SH-Netz`, `Retouren`, `Lager`, `Marktstammdatenregister` und
+  `Warten auf Kunde` erscheinen ausschließlich als getrennte
+  Kennzeichnungen,
+- Navigation, Zähler, Suche, Übersicht, Detail und Neustartpersistenz zeigen
+  keine doppelte Arbeitskategorie,
+- neue und bewusst geänderte Vorgänge verwenden die neue Logik,
+- unveränderte Legacy-Datensätze werden nach Variante A weder migriert noch
+  still zurückgeschrieben.
+
 ## Vollständiger Desktop-Funktionstest
 
 Mindestens prüfen:
 
 1. Start, Navigation, Auswahlmarkierung, Zähler und Fenstergrößen
 2. Aufträge und Angebote erstellen, bearbeiten, speichern, löschen, wiederherstellen und archivieren
-3. Kategorien erstellen, umbenennen, verschieben, verschachteln und löschen
+3. Arbeitskategorien automatisch ableiten sowie Kennzeichnungen getrennt anlegen, bearbeiten und anzeigen
 4. Suche, Sortierung, Spaltenbreiten, Spaltenreihenfolge und Sichtbarkeit
 5. Detailfelder, Termine, Wiedervorlagen, Techniker, Material und Anhänge
 6. Schreibtischfunktionen und Neustartpersistenz

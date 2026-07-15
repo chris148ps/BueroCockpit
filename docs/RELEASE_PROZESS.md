@@ -37,14 +37,42 @@ Wichtig: `BueroCockpit-win-x64-Setup.exe` ist das von Velopack erzeugte Setup un
 
 ## Vorbereitung
 
+### 1. Konsistenzprüfung vor jedem Release
+
+Automatisch als erster Schritt und noch vor Versionsfestlegung, Build,
+Artefakterzeugung, Commit, Tag oder Upload muss die Prüfung aus
+`docs/CODEX_AUFTRAGSPRUEFUNG.md` durchgeführt und im Releaseprotokoll
+festgehalten werden.
+
+Mindestens zu prüfen sind:
+
+- widersprüchliche Regel- und Fachdateien,
+- veraltete Projektregeln,
+- Dokumentation gegen den tatsächlichen Stand der App,
+- dieser Releaseprozess gegen `AGENTS.md`,
+- `docs/DESIGN_RICHTLINIEN.md` gegen die sichtbare Implementierung,
+- offene Release-Blocker in `docs/PROJEKTSTATUS.md`,
+- bei Vorgangs-, Workflow- oder Kategoriethemen die Fachlogik aus
+  `docs/ARBEITSKATEGORIEN.md`.
+
+Wird ein Widerspruch gefunden, ist der Release sofort zu stoppen. Es dürfen
+noch keine Version geändert, keine Release-Artefakte erzeugt, keine
+Release-Commits oder Tags erstellt und keine Dateien hochgeladen werden. Der
+Nutzer entscheidet ausdrücklich, ob zuerst die Regeldateien oder die
+Implementierung angepasst werden. Danach ist die vollständige
+Konsistenzprüfung zu wiederholen.
+
+### 2. Technische Vorbereitung
+
 1. Arbeitsstand vollständig geprüft und auf `main` übernommen.
 2. Arbeitsbaum sauber.
-3. Nächste Version festlegen.
-4. Version in `BueroCockpit.csproj` setzen:
+3. Konsistenzprüfung ohne offenen Widerspruch dokumentiert.
+4. Nächste Version festlegen.
+5. Version in `BueroCockpit.csproj` setzen:
    - `Version`
    - `AssemblyVersion`
    - `FileVersion`
-5. Falls der Inno-Installer gepflegt wird, dessen Versionsangabe ebenfalls aktualisieren. Er blockiert den Velopack-Release jedoch nicht.
+6. Falls der Inno-Installer gepflegt wird, dessen Versionsangabe ebenfalls aktualisieren. Er blockiert den Velopack-Release jedoch nicht.
 
 ## Build und Paketierung
 
@@ -142,6 +170,8 @@ Erst nach diesem Windows-Test gilt der Auto-Update-Weg als praktisch bestätigt.
 ## Verbindliche Regeln
 
 - Kein Release ohne ausdrückliche Freigabe des Nutzers.
+- Kein Release bei einem ungeklärten Widerspruch zwischen Regeln, Dokumentation, Design, Releaseprozess und tatsächlicher App.
+- Die Konsistenzprüfung muss vor jeder Versionsänderung und Artefakterzeugung dokumentiert sein.
 - Ein Auftrag „Release erstellen“ bedeutet immer vollständiges GitHub Release inklusive Auto-Update-Artefakten.
 - Ein bloßes ZIP oder ein Git-Tag ist kein vollständiges Release.
 - Der optionale Inno-Installer darf den Velopack-Release nicht unnötig blockieren.

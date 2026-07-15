@@ -10,7 +10,7 @@ Diese Datei ist die zentrale Regelquelle fuer Codex- und Agentenarbeit im Projek
 - Erst Terminalbefehle, gezielte Suche mit `grep`/`sed`, kleine Patch-Skripte oder einzelne ueberschaubare Dateiaenderungen nutzen, wenn das sicher reicht.
 - Codex nur bei groesseren oder zusammenhaengenden Aenderungen, komplexem UI, Architekturarbeit, schwer nachvollziehbaren Fehlern oder mehreren betroffenen Dateien verwenden.
 - Das Codex-Modell abhaengig vom Aufgabentyp waehlen: Fuer kleine und mittlere Aufgaben ein effizientes Modell, fuer komplexe Architektur-, Refactoring- oder schwierige Fehlersuchaufgaben ein leistungsfaehigeres Modell. Eine deutliche Abweichung vom ueblichen Modellstandard kurz begruenden.
-- Vor jeder Codex-Aufgabe `AGENTS.md` und diese Datei lesen.
+- Vor jeder Codex-Aufgabe `AGENTS.md`, `docs/CODEX_AUFTRAGSPRUEFUNG.md` und diese Datei lesen.
 - Wenn sich Projektregeln, Codex-Regeln, Sperren, Modellvorgaben, Arbeitsweise oder wiederkehrende Pruefpflichten aendern, muessen `AGENTS.md` und/oder `docs/CODEX_PROJEKTREGELN.md` automatisch mit angepasst werden.
 
 Codex-Startbefehl:
@@ -28,6 +28,19 @@ codex
 - Zielweg fuer spaetere Zusammenarbeit ist lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
 - Pairing-Code, Live-Datei, Cloud-Datei und Datei-Kopplung sind nicht mehr der aktuelle Kopplungsweg.
 - Spaetere Freigabe- oder Transportfunktionen werden nur bewusst und getrennt eingefuehrt.
+
+## Verbindliche Fachlogik fuer Vorgaenge
+
+Die vollstaendige Fachquelle ist `docs/ARBEITSKATEGORIEN.md`.
+
+- Jeder Vorgang besitzt genau einen Vorgangstyp und einen Workflowstatus.
+- Jeder Vorgang hat genau eine sichtbare Arbeitskategorie, die automatisch und ausschliesslich aus Vorgangstyp und Workflowstatus abgeleitet wird.
+- Ein Vorgang darf niemals gleichzeitig in mehreren sichtbaren Arbeitskategorien erscheinen.
+- `SH-Netz`, `Retouren`, `Lager`, `Marktstammdatenregister` und `Warten auf Kunde` sind getrennte Kennzeichnungen und keine zweite Arbeitskategorie.
+- Angebotsvorgaenge werden je nach Status den Arbeitskategorien `Angebote`, `Angebote gesendet`, `Angebotsauftraege`, `Material`, `Termin` oder `Erledigt` zugeordnet.
+- Direktauftraege werden je nach Status den Arbeitskategorien `Auftraege`, `Material`, `Termin` oder `Erledigt` zugeordnet.
+- Variante A ist verbindlich: keine automatische Produktivdatenmigration; neue und bewusst geaenderte Vorgaenge verwenden sofort die neue Logik, unveraenderte Altbestaende werden nicht still zurueckgeschrieben oder neu zugeordnet.
+- Arbeitskategorie und Kennzeichnungen muessen in Bedienung, Navigation, Suche, Export und spaeterem Sync fachlich getrennt bleiben.
 
 ## Sicherheitsregeln
 
@@ -92,7 +105,9 @@ Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 
 - Kein Release ohne ausdrueckliche Freigabe.
 - Ein ausdruecklicher Release-Auftrag bedeutet immer den kompletten Ablauf inklusive GitHub-Upload.
-- Pruefung vor dem Release: `git status` und `git pull origin main`, danach `dotnet build` und bei iPad-Code zusaetzlich `xcodebuild`.
+- Vor jedem Release automatisch als ersten Arbeitsschritt die Konsistenzpruefung aus `docs/CODEX_AUFTRAGSPRUEFUNG.md` durchfuehren und dokumentieren. Geprueft werden widerspruechliche oder veraltete Regeln, Dokumentation gegen tatsaechliche App, Releaseprozess gegen `AGENTS.md` sowie Designrichtlinien gegen Implementierung.
+- Jeder Fund stoppt den Release vor Versionsaenderung, Build, Commit, Tag oder Upload. Der Nutzer entscheidet, ob zuerst Regeldateien oder Implementierung angepasst werden.
+- Erst nach erfolgreicher Konsistenzpruefung folgen `git status` und `git pull origin main`, danach `dotnet build` und bei iPad-Code zusaetzlich `xcodebuild`.
 - Der aktuelle Release-Befehl ist `./scripts/release.sh <version>`.
 - Danach Artefakte pruefen, Release-Commit erstellen, `git tag v<version>` setzen, `git push origin main` ausfuehren, `git push origin v<version>` ausfuehren, `gh release create` mit Upload aller passenden Artefakte ausfuehren und zuletzt `gh release view` pruefen.
 
@@ -101,10 +116,15 @@ Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
 git status --short
-git pull origin main
+git fetch origin main codex/work
+git pull --ff-only origin "$(git branch --show-current)"
 git status --short
 dotnet build
 ```
+
+Der aktuelle Branch darf nur per Fast-Forward aktualisiert werden. Ein normaler Codex-Auftrag auf `codex/work` darf `main` nicht automatisch einmischen.
+
+Bei einem ausdruecklich reinen Dokumentationsauftrag ohne Code-, Projekt-, Build- oder Skriptaenderung entfaellt der Build. Vor und nach der Aenderung bleiben Branch-/Statuspruefung, `git diff --check` und eine gezielte Konsistenzsuche Pflicht.
 
 Vor Codeaenderungen relevante Stellen mit `grep`/`sed` suchen und anzeigen.
 
@@ -114,6 +134,15 @@ Vor Codeaenderungen relevante Stellen mit `grep`/`sed` suchen und anzeigen.
 cd "$HOME/AppProjekte/BueroCockpit"
 git diff --check
 dotnet build
+git status --short
+```
+
+Bei reinen Dokumentationsaenderungen gilt stattdessen mindestens:
+
+```bash
+cd "$HOME/AppProjekte/BueroCockpit"
+git diff --check
+rg -n '<betroffene Fachbegriffe und Altregeln>' AGENTS.md docs
 git status --short
 ```
 
@@ -149,15 +178,17 @@ dotnet build
 git status --short
 ```
 
-Commit und Push nur nach sauberer Pruefung:
+Groessere Codex-Arbeiten werden nach sauberer Pruefung ausschliesslich ueber den dokumentierten Arbeitsbranch veroeffentlicht:
 
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
-git add <geaenderte Dateien>
-git commit -m "<kurze Beschreibung>"
-git push origin main
+./scripts/publish-codex-work.sh \
+  --description "<kurze Beschreibung>" \
+  --include <geaenderte Datei> [--include <weitere Datei> ...]
 git status --short
 ```
+
+Ein direkter Push nach `main` gehoert ausschliesslich zu einem ausdruecklich freigegebenen Release- oder Mergeablauf und ist kein normaler Codex-Abschluss.
 
 ## Keine Echtdaten ins Git
 
@@ -190,7 +221,7 @@ Zusatzgrenzen:
 
 Pruefen:
 git diff --check
-dotnet build
+dotnet build, ausser bei einem reinen Dokumentationsauftrag
 <ggf. grep/lsof/App-Test>
 
 Commit:
@@ -209,13 +240,16 @@ git status --short
 git diff -- AGENTS.md docs/CODEX_PROJEKTREGELN.md
 ```
 
+Bei ausschliesslichen Regel- und Dokumentationsaenderungen ohne Code-, Projekt-, Build- oder Skriptaenderung entfaellt `dotnet build`.
+
 Wenn alles sauber ist:
 
 ```bash
 cd "$HOME/AppProjekte/BueroCockpit"
-git add AGENTS.md docs/CODEX_PROJEKTREGELN.md
-git commit -m "Codex Projektregeln zentral dokumentieren"
-git push origin main
+./scripts/publish-codex-work.sh \
+  --description "Projektregeln zentral dokumentieren" \
+  --include AGENTS.md \
+  --include docs/CODEX_PROJEKTREGELN.md
 ```
 
 Wichtig:
