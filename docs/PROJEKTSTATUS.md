@@ -129,18 +129,25 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 - Produktive Tests dürfen ausschließlich mit explizit isolierten Testpfaden
   erfolgen.
 
-## Release-Blocker und offene Punkte
+## Prüfstand und nachgelagerte Abnahme
 
 - Die isolierten Repository-, Workflow-, Legacy- und Snapshot-Exporttests sind
   erfolgreich. Das reale macOS-Bundle wurde mit isolierten Pfaden sichtbar
-  bedient; Neuanlage, Status- und Typwechsel, Haupt- und Unterkategorieauswahl,
-  Vorgangs- und Kategorie-Drag-and-drop, Löschschutz und Neustartpersistenz
-  wurden erfolgreich geprüft.
+  bedient; Neuanlage, Statuswechsel, Haupt- und Unterkategorieauswahl,
+  Vorgangs-Drag-and-drop, Löschschutz und Neustartpersistenz wurden erfolgreich
+  geprüft.
 - Zwei im sichtbaren Rundgang gefundene Auswahlfehler wurden behoben und erneut
   erfolgreich geprüft: initiale ComboBox-Ereignisse verändern keine
   Statuszuordnung, und ein noch neuer Vorgang bleibt beim programmgesteuerten
   Statuskategorienwechsel erhalten.
-- Windows-spezifische Bedienwege müssen real unter Windows geprüft werden.
+- Der native Kategoriezeilen-Drag ließ sich im letzten macOS-Lauf über die
+  Bedienhilfe nicht zuverlässig auslösen. Der unveränderte Drag-and-drop-Pfad
+  und die Parent-/ID-Persistenz wurden angrenzend geprüft; die reale Geste wird
+  bei der Windows-Abnahme erneut bedient.
+- Die Windows-spezifischen Bedienwege und der praktische Auto-Update-Weg werden
+  nach dem ausdrücklich freigegebenen Release auf dem Firmenrechner geprüft.
+  Diese nachgelagerte Abnahme darf nicht als bereits ausgeführter Test
+  dokumentiert werden.
 
 ## Verbindliche Projektentscheidungen
 
