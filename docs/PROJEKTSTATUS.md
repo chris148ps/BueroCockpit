@@ -1,57 +1,163 @@
 # Projektstatus BüroCockpit
 
-## Aktueller Entwicklungsstand
+## Verbindliches fachliches Zielbild
 
-BüroCockpit führt Angebotsvorgänge und Direktaufträge dauerhaft als getrennte organisatorische Vorgangstypen. Bearbeitungsstand und fachliche Kategorien bleiben davon unabhängig. Kategorien werden hierarchisch aus einer gemeinsamen Quelle dargestellt, und Tabellenlayouts bleiben je Ansicht lokal persistent.
+BüroCockpit unterscheidet dauerhaft:
 
-## Architektur
+1. genau einen Vorgangstyp,
+2. genau einen Workflowstatus,
+3. genau eine aktuell zugeordnete normale Kategorie.
 
-- `AppPaths` akzeptiert optionale Umgebungsvariablen für isolierte Daten- und lokale Konfigurationsverzeichnisse; ohne Variablen bleiben die bisherigen produktiven Pfade unverändert.
-- Drei getrennte `TableLayoutSettings` speichern Reihenfolge, Sichtbarkeit, Breiten, Sortierfeld und Sortierrichtung lokal.
-- `WorkflowType` ist die dauerhafte Quelle für Angebotsvorgang oder Direktauftrag; `WorkflowStep` speichert ausschließlich den Bearbeitungsstand.
-- Uneindeutige Altbestände ohne Typfeld erhalten zur Laufzeit den stabilen Fallback Direktauftrag. Nur eindeutige Angebotsmerkmale wie vorhandene Angebotskategorien oder ein Sendedatum ergeben einen Angebotsvorgang; die Ableitung schreibt ohne spätere echte Bearbeitung keine Produktivdaten um.
-- Kategorien werden als eigenständige gemeinsame Hierarchie für Navigation, Einstellungen, Detailauswahl und Drag & Drop aufgebaut; die Detailauswahl zeigt die Struktur vollständig und kennzeichnet gruppierende Hauptkategorien als nicht auswählbar.
-- Kategorielose Vorgänge bleiben kategorielos; die Persistenz ergänzt keine beliebige Ersatzkategorie.
-- Repository-Speicherung normalisiert nullable Materialwerte über die vorhandene Parameterhilfe.
+Die normalen Kategorien in der linken Navigation sind benutzerdefiniert. Der
+Endbenutzer darf sie frei anlegen, umbenennen, verschieben, verschachteln und
+löschen, soweit keine System- oder Sicherheitsregel entgegensteht.
 
-## Erledigte Hauptfunktionen
+Als feste Navigation bleiben nur Übersicht, Alle Vorgänge, Papierkorb,
+Einstellungen, das unter Einstellungen geführte Archiv und ein technisch
+erforderlicher mobiler Eingang. Angebote, Aufträge, Material und Termine sind
+normale frei verwaltete Kategorien und keine zusätzlichen Systemansichten.
 
-- organisatorische Navigation `Alle Vorgänge`, `Angebote` und `Aufträge` mit ausschließlich typbasierter Filterung
-- Direktauftrag unter Aufträge und Angebotsvorgang unter Angebote neu anlegen und über alle Bearbeitungsstände im ursprünglichen Bereich halten
-- vorhandene End- und Unterkategorien vollständig auswählen; Hauptkategorien mit Unterkategorien bleiben gesperrt
-- Papierkorb im festen Navigationsfuß direkt über Einstellungen
-- sichtbarer Drag-Griff zum Sortieren und Unterordnen des Kategorienbaums
-- Vorgänge per Drag & Drop ausschließlich in eine zulässige fachliche Kategorie verschieben
-- fachliche Kategorie als sichtbare und sortierbare Spalte in den Vorgangslisten
-- fachliche Kategoriepfade als kompakte neutrale Badges; ohne Zuordnung bleibt die Zelle leer
-- Übersichtsklick führt typgerecht zu Angebote oder Aufträge
-- stabile typabhängige Status-ComboBox einschließlich sichtbarer unbekannter Altstatuswerte
-- durchgängige Sidebar-Tastaturnavigation und Entf-Taste über den abgesicherten Papierkorbpfad
-- eindeutige globale Aktion `Alles speichern` und rechte Aktion `Speichern und prüfen`
-- Duplizieren, Löschen, Papierkorb, Wiederherstellen, Archivieren und Rückholen
-- Kategorien erstellen, umbenennen, verschieben, verschachteln, auf Hauptebene ziehen und zuordnungsschonend löschen
-- ausschließlich echte feste System-IDs sperren
-- getrennte persistente Tabellenlayouts für Aufträge, Angebote und Termine
-- responsive Materialpositionen im schmalen Detailbereich
-- robustes Speichern leerer optionaler Materialwerte
-- tatsächliches Löschen von Materialpositionen trotz spätem UI-Binding-Ereignis
-- isolierbarer funktionaler Testbetrieb ohne Zugriff auf die produktive Hauptdatenbank
-- real geprüfte Anhänge, Backup/Restore, Diagnose, Schreibtischnotiz und manueller lokaler Sync-Testdienst
+Für jede zulässige Kombination aus Vorgangstyp und Workflowstatus kann der
+Benutzer eine Zielkategorie konfigurieren. Die Zuordnung wird intern über die
+stabile Kategorie-ID gespeichert und bleibt deshalb bei Umbenennung oder
+Verschiebung der Kategorie erhalten.
 
-## Bekannte offene Punkte
+Beim Statuswechsel wird der Vorgang automatisch in die konfigurierte
+Zielkategorie verschoben. Ein Vorgang darf niemals gleichzeitig in mehreren
+normalen Kategorien erscheinen.
 
-- Windows-spezifische Bedienwege sind erfolgreich gebaut, aber noch nicht real auf Windows geprüft.
-- Der echte Maus-Drag zwischen Vorgangsliste und Fachkategorie sowie der sichtbare Übersichtsklick müssen auf einer entsperrten macOS-Sitzung noch real bedient werden; die zugehörigen Zustands- und Persistenzpfade wurden isoliert ausgeführt.
-- Der vollständige reale Desktop-Rundgang der aktuellen Änderungen konnte wegen der gesperrten macOS-Sitzung nicht erneut abgeschlossen werden; die geänderten und angrenzenden Pfade wurden isoliert gegen das echte `MainWindow` geprüft.
-- Finder-Dateidrop auf den Schreibtisch und horizontales Trackpad-Scrollen benötigen noch einen gezielten Plattform-Nachtest.
-- Der ältere zentrale Live-Settings-Pfad sollte bei künftigen isolierten Tests bereits vor dem ersten Start explizit auf den temporären Datenordner zeigen.
+Die verbindliche Fachlogik steht in `docs/ARBEITSKATEGORIEN.md`.
 
-## Wichtige Entscheidungen
+## Vorgangstypen
 
-- Produktive Tests werden ausschließlich über explizite temporäre Daten- und lokale Konfigurationspfade ausgeführt.
-- Vorgangstyp, Bearbeitungsstand und fachliche Kategorie werden getrennt gespeichert und dürfen sich nicht gegenseitig still ändern.
-- Drops auf organisatorische Filterbereiche sind keine Typänderung; ein Vorgangstyp wird nicht per Drag & Drop geändert.
-- Kategorie-Löschen entfernt nur die gewählte Zuordnung; Aufträge und weitere Kategorien bleiben erhalten.
-- Fachliche Kategorien mit technischen `__`-IDs bleiben editierbar, sofern ihre ID nicht in der kleinen festen System-ID-Menge steht.
-- Archiv-Rückholung erhält vorhandene Kategorien und setzt Workflow und Status konsistent zurück.
-- Layout- und Sortierwerte bleiben lokal; fachliche Daten bleiben im gemeinsamen Datenbestand.
+Beim Erstellen eines neuen Vorgangs muss zwischen folgenden Typen gewählt werden:
+
+- Angebotsvorgang
+- Direktauftrag
+
+Empfohlene Anfangsstatus:
+
+- Angebotsvorgang → `Angebot`
+- Direktauftrag → `Auftrag`
+
+Der Vorgangstyp muss später bewusst und nach Bestätigung änderbar sein. Daten
+wie Kunde, Beschreibung, Anhänge, Material, Termine, Techniker und
+Wiedervorlagen bleiben dabei erhalten.
+
+## Automatische Statuszuordnungen
+
+Die Kategorienamen sind nicht fest vorgeschrieben. Folgende Zuordnungen sind
+nur Beispiele:
+
+- Angebotsvorgang / Angebot → Angebote
+- Angebotsvorgang / Angebot gesendet → Angebote / Gesendet
+- Angebotsvorgang / Auftrag → Angebote / Beauftragt
+- Direktauftrag / Auftrag → Aufträge
+- Material → Material
+- Termin → Termine
+- Erledigt → Erledigt
+
+Verbindlich ist immer die vom Benutzer gewählte stabile Kategorie-ID.
+
+## Tatsächlicher Implementierungsstand
+
+Die Desktop-App setzt die konfigurierbare Fachlogik um:
+
+- `WorkflowType` und `WorkflowStep` bleiben getrennte Quellen für Vorgangstyp
+  und Workflowstatus.
+- `WorkflowCategoryMappings` speichert die zentrale Zielkategorie pro
+  Kombination ausschließlich über die stabile Kategorie-ID.
+- Unter `Einstellungen > Kategorien` sind sämtliche Angebots- und
+  Direktauftragsstatus einzeln konfigurierbar; fehlende oder ausgeblendete
+  Ziele werden sichtbar ungültig.
+- Neue Vorgänge verlangen die Auswahl `Angebotsvorgang` oder `Direktauftrag`
+  und werden ohne gültige Anfangszuordnung nicht angelegt.
+- Die nachträgliche Typänderung verlangt eine Bestätigung und bei
+  inkompatiblem Status eine ausdrückliche Statusauswahl.
+- Ein Statuswechsel übernimmt genau eine konfigurierte Kategorie. Ohne gültige
+  Zuordnung wird die Änderung blockiert und auf die Einstellungen verwiesen.
+- Manuelle Kategorieauswahl und Drag & Drop ändern ausschließlich die aktuelle
+  Kategorie; Haupt- und Unterkategorien sind gleichermaßen auswählbar.
+- Das Löschen einer verwendeten Kategorie verlangt eine ausdrückliche
+  Ersatz-/Entfernungsentscheidung oder Abbruch; Vorgänge werden nicht still
+  verschoben.
+- Neue und bewusst geänderte Vorgänge schreiben genau eine Kategorie fort.
+  Unveränderte Legacy-Mehrfachzuordnungen bleiben beim Laden und bei reinen
+  Konfigurationsänderungen unverändert.
+- Navigation, Zähler, Suche, Übersicht und Detail verwenden die aktuelle
+  Kategorie-ID; Status- und Kategorie-Badges bleiben getrennt und zeigen beim
+  Kategorie-Badge den Pfad.
+- Neue mobile Eingänge und Duplikate verwenden die Statuszuordnung. Der
+  additive Snapshot-Export enthält `currentCategoryId`, `workflowType`,
+  `workflowStep` und `status`; alte Leser tolerieren die zusätzlichen Felder.
+- Die feste Navigation enthält keine Angebots-, Auftrags-, Material- oder
+  Terminansicht mehr. Normale Vorgänge werden ausschließlich über ihre eine
+  stabile Kategorie-ID oder die technische Gesamtansicht `Alle Vorgänge`
+  angezeigt.
+- Statuswechsel navigieren in die konfigurierte Zielkategorie und halten den
+  bearbeiteten Vorgang samt Detailansicht ausgewählt; verschachtelte Ziele
+  werden dafür aufgeklappt.
+- Der Detailkopf bleibt beim Scrollen sichtbar, die Termine folgen direkt auf
+  Aufgabe und der Workflow wird als verbundener, zugänglicher Stepper aus der
+  gemeinsamen `WorkflowStep`-Quelle dargestellt.
+
+## Übergang für bestehende Daten – Variante A
+
+- Keine automatische oder massenhafte Migration von Produktivdaten.
+- Keine stillen Schreibvorgänge beim Start, Laden oder Anzeigen.
+- Neue und bewusst geänderte Vorgänge verwenden sofort die neue Logik.
+- Unveränderte Altbestände dürfen technisch unverändert bleiben und werden
+  tolerant gelesen.
+- Alte Mehrfachzuordnungen dürfen nicht still gelöscht werden.
+- Sobald ein bestehender Vorgang bewusst geändert und gespeichert wird, darf
+  für seinen neuen Stand nur noch genau eine normale Kategorie fortgeschrieben
+  werden.
+
+## Weiterhin gültiger technischer Stand
+
+- `AppPaths` unterstützt explizite temporäre Daten- und lokale
+  Konfigurationsverzeichnisse für isolierte Tests.
+- Tabellenlayouts bleiben über eine gemeinsame beziehungsweise
+  kategoriebewusste Struktur lokal persistent; bestehende feste Layoutschlüssel
+  dürfen nur tolerant weitergelesen und nicht migriert werden.
+- Status-ComboBox, Workflowanzeige und Status-Badges verwenden
+  `WorkflowStep` als gemeinsame Statusquelle.
+- Papierkorb steht im festen Navigationsfuß direkt über Einstellungen.
+- Speichern, Duplizieren, Löschen, Wiederherstellen, Archivieren, Material,
+  Anhänge, Schreibtisch, Backup, Diagnose und manueller lokaler Testdienst sind
+  vorhandene Funktionen.
+- Produktive Tests dürfen ausschließlich mit explizit isolierten Testpfaden
+  erfolgen.
+
+## Prüfstand und nachgelagerte Abnahme
+
+- Die isolierten Repository-, Workflow-, Legacy- und Snapshot-Exporttests sind
+  erfolgreich. Das reale macOS-Bundle wurde mit isolierten Pfaden sichtbar
+  bedient; Neuanlage, Statuswechsel, Haupt- und Unterkategorieauswahl,
+  Vorgangs-Drag-and-drop, Löschschutz und Neustartpersistenz wurden erfolgreich
+  geprüft.
+- Zwei im sichtbaren Rundgang gefundene Auswahlfehler wurden behoben und erneut
+  erfolgreich geprüft: initiale ComboBox-Ereignisse verändern keine
+  Statuszuordnung, und ein noch neuer Vorgang bleibt beim programmgesteuerten
+  Statuskategorienwechsel erhalten.
+- Der native Kategoriezeilen-Drag ließ sich im letzten macOS-Lauf über die
+  Bedienhilfe nicht zuverlässig auslösen. Der unveränderte Drag-and-drop-Pfad
+  und die Parent-/ID-Persistenz wurden angrenzend geprüft; die reale Geste wird
+  bei der Windows-Abnahme erneut bedient.
+- Die Windows-spezifischen Bedienwege und der praktische Auto-Update-Weg werden
+  nach dem ausdrücklich freigegebenen Release auf dem Firmenrechner geprüft.
+  Diese nachgelagerte Abnahme darf nicht als bereits ausgeführter Test
+  dokumentiert werden.
+
+## Verbindliche Projektentscheidungen
+
+- `docs/ARBEITSKATEGORIEN.md` ist die Fachquelle für Vorgangstyp,
+  Workflowstatus, benutzerdefinierte Kategorien und Statuszuordnungen.
+- Historische Journal-Einträge beschreiben frühere Stände und setzen das neue
+  Zielbild nicht außer Kraft.
+- Vor jedem Codex-Auftrag und jedem Release ist die Konsistenzprüfung aus
+  `docs/CODEX_AUFTRAGSPRUEFUNG.md` Pflicht.
+- Jeder ungeklärte Widerspruch zwischen Regeln, Dokumentation, Design und App
+  stoppt einen Release.
+- Kein Release, Tag, Versionswechsel oder Eingriff in Produktivdaten ohne
+  ausdrückliche Freigabe.

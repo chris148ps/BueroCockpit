@@ -528,6 +528,7 @@ public sealed class IpadSnapshotExportService
             task.CustomerName,
             string.IsNullOrWhiteSpace(task.CustomerEmail) ? null : task.CustomerEmail,
             string.IsNullOrWhiteSpace(task.CustomerPhone) ? null : task.CustomerPhone,
+            string.IsNullOrWhiteSpace(task.CategoryId) ? null : task.CategoryId,
             categoryIds.ToArray(),
             categoryNames,
             task.DueDate,
@@ -536,6 +537,8 @@ public sealed class IpadSnapshotExportService
             task.UpdatedAt,
             task.MaterialOrderedAt,
             string.IsNullOrWhiteSpace(task.Status) ? null : task.Status,
+            string.IsNullOrWhiteSpace(task.WorkflowType) ? null : task.WorkflowType,
+            string.IsNullOrWhiteSpace(task.WorkflowStep) ? null : task.WorkflowStep,
             string.IsNullOrWhiteSpace(task.Description) ? null : task.Description,
             CreateShortText(task.Description),
             attachments.Select(attachment => attachment.Id).ToArray());
@@ -1347,6 +1350,7 @@ public sealed class IpadSnapshotExportService
         string CustomerName,
         string? CustomerEmail,
         string? CustomerPhone,
+        string? CurrentCategoryId,
         IReadOnlyCollection<string> CategoryIds,
         IReadOnlyCollection<string> CategoryNames,
         DateTime? DueDate,
@@ -1355,6 +1359,8 @@ public sealed class IpadSnapshotExportService
         DateTime UpdatedAt,
         DateTime? MaterialOrderedAt,
         string? Status,
+        string? WorkflowType,
+        string? WorkflowStep,
         string? Notes,
         string? ShortText,
         IReadOnlyCollection<string> AttachmentRefs);

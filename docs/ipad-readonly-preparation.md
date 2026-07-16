@@ -2,6 +2,11 @@
 
 Stand: 2026-06-20
 
+> Historischer Vorbereitungsstand: Diese Datei beschreibt ein altes
+> Snapshot-Format und ist keine aktuelle Fachregel. Für Vorgangstyp,
+> Workflowstatus, aktuelle normale Kategorie und Statuszuordnungen gilt ausschließlich
+> `docs/ARBEITSKATEGORIEN.md`.
+
 ## Aktueller Status im Repository
 
 - Es gibt derzeit kein separates iPad-, iOS-, SwiftUI-, MAUI- oder anderes Mobile-Projekt im Repository.
@@ -77,8 +82,11 @@ Felder pro Aufgabe:
 
 Hinweis:
 
-- `categoryIds` enthält die Kategorie-IDs der Aufgabe.
-- `categoryNames` enthält die zugehörigen lesbaren Namen.
+- `categoryIds` enthält historische Kategorie-IDs der Aufgabe. Das Feld darf
+  in einer späteren Anpassung nicht als mehrere gleichzeitig sichtbare normale Kategorien
+  interpretiert werden.
+- `categoryNames` enthält die zugehörigen historischen lesbaren Namen. Eine
+  neue Darstellung muss genau eine aktuelle Kategorie eindeutig führen.
 - `notes` ist die ausführliche Beschreibung, falls vorhanden.
 - `shortText` ist eine gekürzte Textversion der Beschreibung.
 - `attachmentRefs` enthält die Anhang-IDs.

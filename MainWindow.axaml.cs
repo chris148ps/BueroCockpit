@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -28,13 +29,13 @@ namespace BueroCockpit;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private bool _dateTextFormattingActive;
-    private const string OverviewCategoryId = "__overview";
-    private const string DeskCategoryId = "__desk";
+    private const string OverviewCategoryId = NavigationCategoryPolicy.OverviewId;
+    private const string DeskCategoryId = NavigationCategoryPolicy.DeskId;
     private const string DeskCategoryName = "Schreibtisch";
     private const string OverviewCategoryName = "Übersicht";
-    private const string TrashCategoryId = "__trash";
+    private const string TrashCategoryId = NavigationCategoryPolicy.TrashId;
     private const string TrashCategoryName = "Papierkorb";
-    private const string MobileInboxCategoryId = "__mobile_inbox";
+    private const string MobileInboxCategoryId = NavigationCategoryPolicy.MobileInboxId;
     private const string MobileInboxCategoryName = "Mobile Eingänge";
     private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
     private const int MobileProcessedRetentionDays = 30;
@@ -42,17 +43,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string LegacyOneDriveDataFolderName = "BueroCockpit_iPad_Bearbeitung";
     private const string CompanyOneDriveMacFolderName = "OneDrive-ElektroSchweim";
     private const string CompanyOneDriveWindowsFolderName = "OneDrive - Elektro Schweim";
-    private const string SettingsCategoryId = "__settings";
+    private const string SettingsCategoryId = NavigationCategoryPolicy.SettingsId;
     private const string SettingsCategoryName = "Einstellungen";
-    private const string AllTasksNavigationId = "__all_tasks";
-    private const string OrdersNavigationId = "__orders";
-    private const string OffersNavigationId = "__offers";
-    private const string MaterialsNavigationId = "__materials";
-    private const string AppointmentsNavigationId = "__appointments";
-    private const string OfferWorkflowType = "Angebotsvorgang";
-    private const string DirectWorkflowType = "Direktauftrag";
-    private static readonly string[] OfferWorkflowSteps = ["Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt"];
-    private static readonly string[] DirectWorkflowSteps = ["Auftrag", "Material", "Termin", "Erledigt"];
+    private const string AllTasksNavigationId = NavigationCategoryPolicy.AllTasksId;
+    private const string OfferWorkflowType = WorkflowCategoryService.OfferWorkflowType;
+    private const string DirectWorkflowType = WorkflowCategoryService.DirectWorkflowType;
+    private static readonly string[] OfferWorkflowSteps = WorkflowCategoryService.OfferWorkflowSteps.ToArray();
+    private static readonly string[] DirectWorkflowSteps = WorkflowCategoryService.DirectWorkflowSteps.ToArray();
     private const string SortFieldDate = "Datum";
     private const string SortFieldName = "Name";
     private const string SortFieldStatus = "Status";
@@ -101,6 +98,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly IpadSnapshotExportService _ipadSnapshotExportService;
     private readonly MobileInboxLoader _mobileInboxLoader = new();
     private readonly HashSet<string> _tasksPendingDuplicateCheck = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _tasksRequiringSingleCategoryPersistence = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, WorkflowCategoryMapping> _workflowCategoryMappings = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MobileInboxEntry> _mobileInboxTaskMap = new(StringComparer.OrdinalIgnoreCase);
     private AppSettings _appSettings = new();
     private TaskUndoSnapshot? _taskUndoSnapshot;
@@ -119,7 +118,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _globalSearchCaption = string.Empty;
     private string _searchText = string.Empty;
     private string _selectedSortField = SortFieldCreatedAt;
-    private string _selectedAppointmentFilter = "Alle";
     private bool _isSortDescending = true;
     private string _dueDateText = string.Empty;
     private string _dueTimeText = string.Empty;
@@ -134,6 +132,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _includeArchiveInSearch;
     private string _categoryEditorName = string.Empty;
     private string _categoryMessage = string.Empty;
+    private string _statusCategoryMappingMessage = string.Empty;
     private string _mobileInboxCleanupStatus = string.Empty;
     private string _backupStatus = string.Empty;
     private string _storageLocationStatus = "Speicherort nicht geändert.";
@@ -181,6 +180,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _suppressCategorySelectionChanged;
     private bool _suppressStatusSelectionChanged;
     private bool _suppressSavingDuringSelection;
+    private bool _isRefreshingStatusCategoryMappings;
     private bool _isUpdatingDateFields;
     private int _selectionNavigationDepth;
     private string? _searchSelectedTaskId;
@@ -276,7 +276,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public ObservableCollection<CategoryItem> SystemNavigationCategories { get; } = new();
     public ObservableCollection<CategoryItem> UserCategories { get; } = new();
     public ObservableCollection<CategoryItem> CategoryManagementCategories { get; } = new();
-    public ObservableCollection<TaskCategorySelection> TaskCategorySelections { get; } = new();
+    public ObservableCollection<StatusCategoryMappingRow> StatusCategoryMappings { get; } = new();
     public ObservableCollection<TaskItem> AllTasks { get; } = new();
     public ObservableCollection<WorkflowStepItem> WorkflowSteps { get; } = new();
     public ObservableCollection<TaskItem> VisibleTasks { get; } = new();
@@ -386,7 +386,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             _selectedSortField = normalized;
-            GetActiveTableLayout().SortField = normalized;
+            GetWritableTableLayout().SortField = normalized;
             _settingsService.Save(_appSettings);
             OnPropertyChanged(nameof(SelectedSortField));
             RefreshTableProjection();
@@ -399,7 +399,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ? "Sortierung umkehren (aktuell absteigend)"
         : "Sortierung umkehren (aktuell aufsteigend)";
 
-    public string[] StatusOptions { get; } = ["Offen", "Wartet auf Kunde", "Material offen", "Terminiert", "Erledigt", "Archiv"];
     public IReadOnlyList<string> SelectedWorkflowStatusOptions
     {
         get
@@ -412,26 +411,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                    !steps.Contains(current, StringComparer.OrdinalIgnoreCase)
                 ? steps.Append(current).ToArray()
                 : steps;
-        }
-    }
-    public string[] AppointmentFilterOptions { get; } = ["Alle", "Vergangen", "Heute", "Zukünftig"];
-    public string SelectedAppointmentFilter
-    {
-        get => _selectedAppointmentFilter;
-        set
-        {
-            var normalized = AppointmentFilterOptions.Contains(value, StringComparer.OrdinalIgnoreCase) ? value : "Alle";
-            if (string.Equals(_selectedAppointmentFilter, normalized, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            _selectedAppointmentFilter = normalized;
-            OnPropertyChanged(nameof(SelectedAppointmentFilter));
-            if (IsAppointmentsNavigationSelected)
-            {
-                RefreshVisibleTasks();
-            }
         }
     }
     public ObservableCollection<string> TechnicianOptions { get; } = new();
@@ -596,7 +575,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _selectedCategory.IsSelected = false;
             }
 
-            if (IsUnsavedPlaceholderTask(_selectedTask))
+            if (!_suppressCategorySelectionChanged && IsUnsavedPlaceholderTask(_selectedTask))
             {
                 RemovePendingNewTask(_selectedTask!);
             }
@@ -615,11 +594,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsNotTrashSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsAllTasksNavigationSelected));
-            OnPropertyChanged(nameof(IsOrdersNavigationSelected));
-            OnPropertyChanged(nameof(IsOffersNavigationSelected));
-            OnPropertyChanged(nameof(IsMaterialsNavigationSelected));
-            OnPropertyChanged(nameof(IsAppointmentsNavigationSelected));
-            OnPropertyChanged(nameof(IsNotAppointmentsNavigationSelected));
             ApplyTableLayoutForCurrentView();
             OnPropertyChanged(nameof(IsTaskAreaVisible));
             OnPropertyChanged(nameof(CanCreateTaskInSelectedCategory));
@@ -841,30 +815,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsNotTrashSelected => !IsTrashSelected;
     public bool IsSettingsSelected => SelectedCategory?.Id == SettingsCategoryId;
     public bool IsAllTasksNavigationSelected => SelectedCategory?.Id == AllTasksNavigationId;
-    public bool IsOrdersNavigationSelected => SelectedCategory?.Id == OrdersNavigationId;
-    public bool IsOffersNavigationSelected => SelectedCategory?.Id == OffersNavigationId;
-    public bool IsMaterialsNavigationSelected => SelectedCategory?.Id == MaterialsNavigationId;
-    public bool IsAppointmentsNavigationSelected => SelectedCategory?.Id == AppointmentsNavigationId;
-    public bool IsNotAppointmentsNavigationSelected => !IsAppointmentsNavigationSelected;
     public GridLength TaskStatusColumnWidth => PixelColumnWidth("Status", 112);
     public GridLength TaskCustomerColumnWidth => PixelColumnWidth("Kunde", 240);
     public GridLength TaskLocationColumnWidth => PixelColumnWidth("Ort", 220);
     public GridLength TaskDateColumnWidth => PixelColumnWidth("Termin", 120);
     public GridLength TaskTechnicianColumnWidth => PixelColumnWidth("Techniker", 150);
-    public GridLength AppointmentDateColumnWidth => PixelColumnWidth("Datum", 96);
-    public GridLength AppointmentTimeColumnWidth => PixelColumnWidth("Uhrzeit", 78);
-    public GridLength AppointmentStatusColumnWidth => PixelColumnWidth("Status", 112);
-    public GridLength AppointmentCustomerColumnWidth => PixelColumnWidth("Kunde", 240);
-    public GridLength AppointmentLocationColumnWidth => PixelColumnWidth("Ort", 220);
-    public GridLength AppointmentTechnicianColumnWidth => PixelColumnWidth("Techniker", 150);
     public bool IsTaskAreaVisible => !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected;
     public bool CanCreateTaskInSelectedCategory => IsTaskAreaVisible &&
                                                    !IsTrashSelected &&
                                                    !IsMobileInboxSelected &&
                                                    SelectedCategory is not null &&
                                                    (IsAllTasksNavigationSelected ||
-                                                    IsOrdersNavigationSelected ||
-                                                    IsOffersNavigationSelected ||
                                                     IsSelectableTaskCategory(SelectedCategory));
     public bool HasArchiveCategory => Categories.Any(IsArchiveCategory);
     public bool IsCategoryRootDropTarget => _isCategoryRootDropTarget;
@@ -1107,7 +1068,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => !GetActiveTableLayout().HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase);
         set
         {
-            var layout = GetActiveTableLayout();
+            var layout = GetWritableTableLayout();
             var isVisible = !layout.HiddenColumns.Contains("Titel", StringComparer.OrdinalIgnoreCase);
             if (isVisible == value)
             {
@@ -1132,23 +1093,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ResetTaskTableColumns_OnClick(object? sender, RoutedEventArgs e)
     {
-        var resetLayout = IsAppointmentsNavigationSelected
-            ? TableLayoutSettings.CreateAppointmentsDefault()
-            : IsOffersNavigationSelected
-            ? TableLayoutSettings.CreateOffersDefault()
-            : TableLayoutSettings.CreateOrdersDefault();
-        if (IsAppointmentsNavigationSelected)
-        {
-            _appSettings.AppointmentsTableLayout = resetLayout;
-        }
-        else if (IsOffersNavigationSelected)
-        {
-            _appSettings.OffersTableLayout = resetLayout;
-        }
-        else
-        {
-            _appSettings.OrdersTableLayout = resetLayout;
-        }
+        _appSettings.TaskTableLayout = TableLayoutSettings.CreateDefault();
 
         ApplyTableLayoutForCurrentView();
         _settingsService.Save(_appSettings);
@@ -1160,12 +1105,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private static readonly string[] StandardTableColumns = ["Status", "Kunde", "Kategorie", "Ort", "Termin", "Techniker", "Titel"];
-    private static readonly string[] AppointmentTableColumns = ["Datum", "Uhrzeit", "Status", "Kunde", "Ort", "Techniker", "Titel"];
 
     private IReadOnlyList<string> GetVisibleTableColumns()
     {
         var layout = GetActiveTableLayout();
-        var available = IsAppointmentsNavigationSelected ? AppointmentTableColumns : StandardTableColumns;
+        var available = StandardTableColumns;
         var order = new List<string>();
         foreach (var key in layout.ColumnOrder)
         {
@@ -1184,7 +1128,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
 
-        layout.ColumnOrder = order;
         return order
             .Where(key => string.Equals(key, "Kunde", StringComparison.OrdinalIgnoreCase) ||
                           !layout.HiddenColumns.Contains(key, StringComparer.OrdinalIgnoreCase))
@@ -1236,14 +1179,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshTableProjection()
     {
-        if (TaskTableHeaderGrid is null || AppointmentTableHeaderGrid is null)
+        if (TaskTableHeaderGrid is null)
         {
             return;
         }
 
         var columns = GetVisibleTableColumns();
         BuildTableHeader(TaskTableHeaderGrid, columns);
-        BuildTableHeader(AppointmentTableHeaderGrid, columns);
         foreach (var task in AllTasks)
         {
             UpdateTaskTableCells(task, columns);
@@ -1307,7 +1249,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var menu = new ContextMenu();
-        foreach (var key in (IsAppointmentsNavigationSelected ? AppointmentTableColumns : StandardTableColumns))
+        foreach (var key in StandardTableColumns)
         {
             var item = new MenuItem
             {
@@ -1420,7 +1362,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         var visibleOrder = columns.ToList();
         visibleOrder.RemoveAll(key => string.Equals(key, draggedKey, StringComparison.OrdinalIgnoreCase));
         targetIndex = Math.Clamp(targetIndex, 0, visibleOrder.Count);
@@ -1451,7 +1393,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SortByTableColumn(string key)
     {
         var sortField = GetSortFieldForTableColumn(key);
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         if (string.Equals(NormalizeSortField(layout.SortField), sortField, StringComparison.OrdinalIgnoreCase))
         {
             _isSortDescending = !_isSortDescending;
@@ -1479,7 +1421,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         var hidden = layout.HiddenColumns.FirstOrDefault(column => string.Equals(column, key, StringComparison.OrdinalIgnoreCase));
         if (hidden is null)
         {
@@ -1647,12 +1589,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SaveTableColumnWidths(Grid header)
     {
-        var layout = GetActiveTableLayout();
+        var layout = GetWritableTableLayout();
         var columns = header.Tag is List<string> configuredColumns
             ? configuredColumns
-            : (IsAppointmentsNavigationSelected
-                ? AppointmentTableColumns.Take(6).ToList()
-                : StandardTableColumns.Take(5).ToList());
+            : StandardTableColumns.Take(5).ToList();
         for (var index = 0; index < columns.Count && index < header.ColumnDefinitions.Count; index++)
         {
             var width = header.ColumnDefinitions[index].ActualWidth;
@@ -1668,12 +1608,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(TaskLocationColumnWidth));
         OnPropertyChanged(nameof(TaskDateColumnWidth));
         OnPropertyChanged(nameof(TaskTechnicianColumnWidth));
-        OnPropertyChanged(nameof(AppointmentDateColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTimeColumnWidth));
-        OnPropertyChanged(nameof(AppointmentStatusColumnWidth));
-        OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
-        OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
         // Die Zeilen verwenden eine eigene kompakte Zellprojektion. Nach dem
         // Verschieben eines Kopf-Splitters müssen deren Breiten sofort aus
         // denselben gespeicherten Layoutwerten neu aufgebaut werden.
@@ -2024,6 +1958,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public bool HasCategoryMessage => !string.IsNullOrWhiteSpace(CategoryMessage);
+    public string StatusCategoryMappingMessage
+    {
+        get => _statusCategoryMappingMessage;
+        private set
+        {
+            if (_statusCategoryMappingMessage == value)
+            {
+                return;
+            }
+
+            _statusCategoryMappingMessage = value;
+            OnPropertyChanged(nameof(StatusCategoryMappingMessage));
+            OnPropertyChanged(nameof(HasStatusCategoryMappingMessage));
+        }
+    }
+
+    public bool HasStatusCategoryMappingMessage => !string.IsNullOrWhiteSpace(StatusCategoryMappingMessage);
+
     public string BackupStatus
     {
         get => _backupStatus;
@@ -2562,6 +2514,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var task in _dirtyTasks.Values.ToList())
             {
+                if (_tasksRequiringSingleCategoryPersistence.Contains(task.Id))
+                {
+                    WorkflowCategoryService.ApplyCategory(task, task.CategoryId);
+                }
+
                 _repository.SaveTask(task);
             }
 
@@ -2584,6 +2541,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _dirtyCategories.Clear();
             _dirtyTasks.Clear();
+            _tasksRequiringSingleCategoryPersistence.Clear();
             _dirtyMaterials.Clear();
             _dirtyAttachments.Clear();
             _dirtyDeskItems.Clear();
@@ -2708,6 +2666,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (_isLoadingData || _isLoadingSelection || _suppressSavingDuringSelection)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(task.CategoryId))
+        {
+            WorkflowCategoryService.ApplyCategory(task, task.CategoryId);
+            UpdateTaskCategoryPresentation(task);
+        }
+
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
         MarkTaskDirty(task);
     }
 
@@ -3688,6 +3658,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var category in persistedCategories)
             {
                 if (IsSystemNavigationCategory(category) ||
+                    IsLegacyWorkNavigationCategory(category) ||
                     IsLegacyMobileApprovalCategory(category.Name) ||
                     string.Equals(category.Name, "Dashboard", StringComparison.OrdinalIgnoreCase) ||
                     (string.Equals(category.Name, "Schreibtisch", StringComparison.OrdinalIgnoreCase) &&
@@ -3793,14 +3764,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
                         : IsAllTasksNavigationSelected
                         ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted))
-                        : IsOrdersNavigationSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && !IsOfferWorkflow(t)))
-                        : IsOffersNavigationSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && IsOfferWorkflow(t)))
-                        : IsMaterialsNavigationSelected
-                        ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && string.Equals(t.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase)))
-                        : IsAppointmentsNavigationSelected
-                        ? GetAppointmentTasks()
                         : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToSelectedCategory(t, selected)));
             }
             else
@@ -3821,8 +3784,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? (VisibleTasks.Count == 1 ? "1 mobiler Eingang" : $"{VisibleTasks.Count} mobile Eingänge")
                     : IsTrashSelected
                     ? (VisibleTasks.Count == 1 ? "1 gelöschte Aufgabe" : $"{VisibleTasks.Count} gelöschte Aufgaben")
-                    : IsAppointmentsNavigationSelected
-                    ? (VisibleTasks.Count == 1 ? "1 Termin" : $"{VisibleTasks.Count} Termine")
                     : (VisibleTasks.Count == 1 ? "1 Aufgabe" : $"{VisibleTasks.Count} Aufgaben")
                 : (VisibleTasks.Count == 1 ? "1 Treffer" : $"{VisibleTasks.Count} Treffer");
             if (IsTrashSelected && VisibleTasks.Count == 0 && string.IsNullOrWhiteSpace(SearchText))
@@ -3849,61 +3810,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private IEnumerable<TaskItem> GetAppointmentTasks()
-    {
-        var now = DateTime.Now;
-        var today = DateTime.Today;
-        var filteredTasks = AllTasks
-            .Where(task => !task.IsDeleted && task.DueDate.HasValue)
-            .Where(task => MatchesAppointmentFilter(task, now, today))
-            .GroupBy(task => task.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First());
-        return SortTasksForCategory(filteredTasks);
-    }
-
-    private bool MatchesAppointmentFilter(TaskItem task, DateTime? now = null, DateTime? today = null)
-    {
-        if (!task.DueDate.HasValue)
-        {
-            return false;
-        }
-
-        var current = now ?? DateTime.Now;
-        var currentDate = today ?? DateTime.Today;
-        return _selectedAppointmentFilter switch
-        {
-            "Vergangen" => task.DueDate.Value < current,
-            "Heute" => task.DueDate.Value.Date == currentDate,
-            "Zukünftig" => task.DueDate.Value.Date > currentDate,
-            _ => true
-        };
-    }
-
     private bool TaskMatchesCurrentNavigation(TaskItem task)
     {
         if (IsAllTasksNavigationSelected)
         {
             return true;
-        }
-
-        if (IsOffersNavigationSelected)
-        {
-            return IsOfferWorkflow(task);
-        }
-
-        if (IsOrdersNavigationSelected)
-        {
-            return !IsOfferWorkflow(task);
-        }
-
-        if (IsMaterialsNavigationSelected)
-        {
-            return string.Equals(task.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (IsAppointmentsNavigationSelected)
-        {
-            return MatchesAppointmentFilter(task);
         }
 
         return SelectedCategory is null || IsSpecialCategory(SelectedCategory) ||
@@ -4677,6 +4588,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         target.CategoryId = source.CategoryId;
         target.CategoryIds = source.CategoryIds.ToList();
         target.Status = source.Status;
+        target.WorkflowType = source.WorkflowType;
+        target.WorkflowStep = source.WorkflowStep;
         target.Priority = source.Priority;
         target.DueDate = source.DueDate;
         target.FollowUpDate = source.FollowUpDate;
@@ -4798,7 +4711,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(task =>
                 !task.IsDeleted &&
                 task.FollowUpDate.HasValue &&
-                task.FollowUpDate.Value.Date == today)
+                task.FollowUpDate.Value.Date <= today)
             .OrderBy(task => GetFollowUpSortGroup(task))
             .ThenBy(task => task.FollowUpDate!.Value.Date)
             .ThenBy(task => task.CustomerName, StringComparer.CurrentCultureIgnoreCase)
@@ -4894,18 +4807,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
 
-        foreach (var category in SidebarCategories)
+        var allTasksNavigation = SidebarCategories.FirstOrDefault(category =>
+            string.Equals(category.Id, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase));
+        if (allTasksNavigation is not null)
         {
-            category.TaskCount = category.Id switch
-            {
-                AllTasksNavigationId => AllTasks.Count(task => !task.IsDeleted),
-                OrdersNavigationId => AllTasks.Count(task => !task.IsDeleted && !IsOfferWorkflow(task)),
-                OffersNavigationId => AllTasks.Count(task => !task.IsDeleted && IsOfferWorkflow(task)),
-                MaterialsNavigationId => AllTasks.Count(task =>
-                    !task.IsDeleted && string.Equals(task.WorkflowStep, "Material", StringComparison.OrdinalIgnoreCase)),
-                AppointmentsNavigationId => GetAppointmentTasks().Count(),
-                _ => category.TaskCount
-            };
+            allTasksNavigation.TaskCount = AllTasks.Count(task => !task.IsDeleted);
         }
 
         OnPropertyChanged(nameof(HasTrashItems));
@@ -5328,7 +5234,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 MobileInboxFilePreviews.Add(preview);
             }
 
-            RefreshTaskCategorySelections();
             OnPropertyChanged(nameof(HasMobileInboxPhotoPreviews));
             OnPropertyChanged(nameof(HasMobileInboxSketchPreviews));
             OnPropertyChanged(nameof(HasMobileInboxFilePreviews));
@@ -5341,7 +5246,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             EnsureTaskCategoryState(SelectedTask);
             SelectedTaskCategory = Categories.FirstOrDefault(c => c.Id == SelectedTask.CategoryId);
             UpdateTaskCategoryPresentation(SelectedTask);
-            RefreshTaskCategorySelections();
 
             foreach (var item in _repository.GetMaterials(SelectedTask.Id))
             {
@@ -5358,7 +5262,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else
         {
             SelectedTaskCategory = null;
-            RefreshTaskCategorySelections();
         }
 
         OnPropertyChanged(nameof(HasMobileInboxPhotoPreviews));
@@ -5372,26 +5275,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateDateTextFieldsFromSelectedTask();
     }
 
-    private void NewTask_OnClick(object? sender, RoutedEventArgs e)
+    private async void NewTask_OnClick(object? sender, RoutedEventArgs e)
     {
         if (IsUnsavedPlaceholderTask(SelectedTask))
         {
             ClearSelectedTask();
         }
 
-        var createOffer = IsOffersNavigationSelected;
-        var category = !IsOverviewSelected && !IsDeskSelected && !IsSettingsSelected && !IsTrashSelected &&
-            SelectedCategory is not null &&
-            IsSelectableTaskCategory(SelectedCategory)
-            ? SelectedCategory
-            : null;
-        category ??= Categories.FirstOrDefault(c =>
-            IsSelectableTaskCategory(c) &&
-            string.Equals(c.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase));
-        category ??= Categories.FirstOrDefault(IsSelectableTaskCategory);
-        category ??= Categories.FirstOrDefault();
-        if (category is null)
+        var workflowType = await ShowNewTaskTypeDialogAsync();
+        if (string.IsNullOrWhiteSpace(workflowType))
         {
+            return;
+        }
+
+        var workflowStep = WorkflowCategoryService.GetInitialStep(workflowType);
+        if (!TryResolveMappedCategory(workflowType, workflowStep, out var category))
+        {
+            await ShowMissingWorkflowCategoryMappingDialogAsync(workflowType, workflowStep);
             return;
         }
 
@@ -5400,11 +5300,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Id = Guid.NewGuid().ToString("N"),
             CategoryId = category.Id,
+            CategoryIds = [category.Id],
             CustomerName = "Neuer Kunde",
             Title = "Neue Aufgabe",
-            Status = createOffer ? "Angebot" : "Auftrag",
-            WorkflowType = createOffer ? OfferWorkflowType : DirectWorkflowType,
-            WorkflowStep = createOffer ? "Angebot" : "Auftrag",
+            Status = workflowStep,
+            WorkflowType = workflowType,
+            WorkflowStep = workflowStep,
             Priority = "Normal",
             SortPosition = _repository.GetTopTaskSortPosition(category.Id),
             CreatedAt = now,
@@ -5412,18 +5313,145 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         SubscribeTaskItem(task);
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
         SaveTaskAndQueueIpadSnapshot(task);
         _tasksPendingDuplicateCheck.Add(task.Id);
         AllTasks.Insert(0, task);
 
         ClearSearchTextWithoutRefresh();
-        if (!createOffer && !IsOrdersNavigationSelected && !IsAllTasksNavigationSelected)
+        SelectCategoryAndTask(category, task);
+    }
+
+    private async Task<string?> ShowNewTaskTypeDialogAsync()
+    {
+        var dialog = new Window
         {
-            SelectedCategory = category;
+            Title = "Neuen Vorgang anlegen",
+            Width = 440,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = ResourceBrush("WindowBackgroundBrush")
+        };
+
+        var offerButton = new Button { Content = "Angebotsvorgang", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var directButton = new Button { Content = "Direktauftrag", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var cancelButton = new Button { Content = "Abbrechen", HorizontalAlignment = HorizontalAlignment.Right, IsCancel = true };
+        offerButton.Classes.Add("Primary");
+        directButton.Classes.Add("Secondary");
+        offerButton.Click += (_, _) => dialog.Close(OfferWorkflowType);
+        directButton.Click += (_, _) => dialog.Close(DirectWorkflowType);
+        cancelButton.Click += (_, _) => dialog.Close(null);
+
+        dialog.Content = new Border
+        {
+            Padding = new Thickness(18),
+            Child = new StackPanel
+            {
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Welcher Vorgangstyp soll angelegt werden?",
+                        FontSize = 17,
+                        FontWeight = FontWeight.SemiBold,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = "Der erste Workflowstatus und die sichtbare Kategorie werden aus der Statuszuordnung übernommen.",
+                        Foreground = ResourceBrush("TextSecondaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    offerButton,
+                    directButton,
+                    cancelButton
+                }
+            }
+        };
+
+        return await dialog.ShowDialog<string?>(this);
+    }
+
+    private async Task ShowMissingWorkflowCategoryMappingDialogAsync(string workflowType, string workflowStep)
+    {
+        var dialog = new Window
+        {
+            Title = "Statuszuordnung fehlt",
+            Width = 500,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = ResourceBrush("WindowBackgroundBrush")
+        };
+        var openSettings = false;
+        var settingsButton = new Button { Content = "Statuszuordnungen öffnen" };
+        var cancelButton = new Button { Content = "Abbrechen", IsCancel = true };
+        settingsButton.Classes.Add("Primary");
+        settingsButton.Click += (_, _) =>
+        {
+            openSettings = true;
+            dialog.Close();
+        };
+        cancelButton.Click += (_, _) => dialog.Close();
+
+        dialog.Content = new Border
+        {
+            Padding = new Thickness(18),
+            Child = new StackPanel
+            {
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Der Vorgang kann nicht geändert werden.",
+                        FontSize = 17,
+                        FontWeight = FontWeight.SemiBold,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = $"Für „{workflowType} · {workflowStep}“ ist keine gültige sichtbare Kategorie konfiguriert.",
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = "Bitte ordnen Sie diesen Status zuerst unter Einstellungen > Kategorien zu.",
+                        Foreground = ResourceBrush("TextSecondaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 8,
+                        Children = { cancelButton, settingsButton }
+                    }
+                }
+            }
+        };
+
+        await dialog.ShowDialog(this);
+        if (openSettings)
+        {
+            OpenStatusCategoryMappingSettings();
         }
-        RefreshVisibleTasks();
-        SelectedTask = task;
-        UpdateCategoryCounts();
+    }
+
+    private void OpenStatusCategoryMappingSettings()
+    {
+        var settingsCategory = Categories.FirstOrDefault(category => category.Id == SettingsCategoryId);
+        if (settingsCategory is null)
+        {
+            return;
+        }
+
+        SelectedCategory = settingsCategory;
+        SelectCategoryInSidebar(settingsCategory);
+        ApplySelectedCategoryContent();
+        SelectSettingsTab("Categories");
     }
 
     private static string GetDeskItemTypeForFile(string sourcePath)
@@ -5617,112 +5645,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private async void TaskCategoryCheckBox_OnChanged(object? sender, RoutedEventArgs e)
+    private void TaskCategoryComboBox_OnChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_isLoadingSelection ||
             _isUpdatingSelection ||
             _isRefreshingVisibleTasks ||
             _selectionNavigationDepth > 0 ||
             SelectedTask is null ||
-            sender is not CheckBox checkBox ||
-            checkBox.DataContext is not TaskCategorySelection selection ||
-            !selection.IsSelectable)
+            sender is not ComboBox { SelectedItem: CategoryItem category } ||
+            !IsSelectableTaskCategory(category))
         {
             return;
         }
 
-        var categoryId = selection.Category.Id;
-        if (!EnsureTaskCategoryState(SelectedTask))
+        var task = SelectedTask;
+        if (GetTaskCategoryIds(task).Count == 1 && TaskBelongsToCategory(task, category.Id))
         {
-            RefreshTaskCategorySelections();
             return;
         }
 
-        var visibleCategoryIdBeforeChange = SelectedCategory?.Id;
-        var wasAlreadyAssigned = SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase);
-
-        if (checkBox.IsChecked == true)
-        {
-            if (!wasAlreadyAssigned)
-            {
-                if (await HandleSimilarCategoryAssignmentAsync(SelectedTask, selection.Category))
-                {
-                    return;
-                }
-
-                CaptureTaskUndoState(SelectedTask);
-                SelectedTask.CategoryIds.Add(categoryId);
-            }
-        }
-        else
-        {
-            if (SelectedTask.CategoryIds.Count <= 1 &&
-                SelectedTask.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
-            {
-                RefreshTaskCategorySelections();
-                return;
-            }
-
-            CaptureTaskUndoState(SelectedTask);
-            SelectedTask.CategoryIds.RemoveAll(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
-
-            if (SelectedTask.CategoryIds.Count == 0)
-            {
-                SelectedTask.CategoryIds.Add(categoryId);
-                RefreshTaskCategorySelections();
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(SelectedTask.CategoryId) ||
-                string.Equals(SelectedTask.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase) ||
-                !SelectedTask.CategoryIds.Contains(SelectedTask.CategoryId, StringComparer.OrdinalIgnoreCase))
-            {
-                SelectedTask.CategoryId = SelectedTask.CategoryIds.First();
-            }
-        }
-
-        if (!EnsureTaskCategoryState(SelectedTask))
-        {
-            RefreshTaskCategorySelections();
-            return;
-        }
-
-        var currentVisibleCategoryWasRemoved =
-            !string.IsNullOrWhiteSpace(visibleCategoryIdBeforeChange) &&
-            !SelectedTask.CategoryIds.Contains(visibleCategoryIdBeforeChange, StringComparer.OrdinalIgnoreCase);
-
-        var primaryCategory = Categories.FirstOrDefault(category =>
-            string.Equals(category.Id, SelectedTask.CategoryId, StringComparison.OrdinalIgnoreCase));
-        var visibleCategory = Categories.FirstOrDefault(category =>
-            string.Equals(category.Id, visibleCategoryIdBeforeChange, StringComparison.OrdinalIgnoreCase) &&
-            SelectedTask.CategoryIds.Contains(category.Id, StringComparer.OrdinalIgnoreCase));
-        var targetCategory = visibleCategory ?? primaryCategory;
-
-        _isUpdatingSelection = true;
-        try
-        {
-            SelectedTaskCategory = targetCategory;
-        }
-        finally
-        {
-            _isUpdatingSelection = false;
-        }
-
-        SaveTaskAndQueueIpadSnapshot(SelectedTask);
-        UpdateTaskCategoryPresentation(SelectedTask);
-        RefreshTaskCategorySelections();
-
-        if (currentVisibleCategoryWasRemoved)
-        {
-            if (targetCategory is not null)
-            {
-                SelectCategoryAndTask(targetCategory, SelectedTask);
-                return;
-            }
-        }
-
-        RefreshVisibleTasks();
+        CaptureTaskUndoState(task);
+        WorkflowCategoryService.ApplyCategory(task, category.Id);
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
+        SaveTaskAndQueueIpadSnapshot(task);
+        UpdateTaskCategoryPresentation(task);
+        SelectCategoryAndTask(category, task);
         UpdateCategoryCounts();
+        RefreshDashboard();
+        CategoryMessage = $"Vorgang manuell nach „{category.SelectionName}“ verschoben. Vorgangstyp und Status blieben unverändert.";
     }
 
 
@@ -5730,7 +5680,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ReverseSortDirection_OnClick(object? sender, RoutedEventArgs e)
     {
         _isSortDescending = !_isSortDescending;
-        GetActiveTableLayout().SortDescending = _isSortDescending;
+        GetWritableTableLayout().SortDescending = _isSortDescending;
         _settingsService.Save(_appSettings);
         OnPropertyChanged(nameof(SortDirectionGlyph));
         OnPropertyChanged(nameof(SortDirectionTooltip));
@@ -5740,17 +5690,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private TableLayoutSettings GetActiveTableLayout()
     {
-        if (IsAppointmentsNavigationSelected)
-        {
-            return _appSettings.AppointmentsTableLayout ??= TableLayoutSettings.CreateAppointmentsDefault();
-        }
+        return _appSettings.ResolveTaskTableLayout();
+    }
 
-        if (IsOffersNavigationSelected)
-        {
-            return _appSettings.OffersTableLayout ??= TableLayoutSettings.CreateOffersDefault();
-        }
-
-        return _appSettings.OrdersTableLayout ??= TableLayoutSettings.CreateOrdersDefault();
+    private TableLayoutSettings GetWritableTableLayout()
+    {
+        return _appSettings.GetWritableTaskTableLayout();
     }
 
     private void ApplyTableLayoutForCurrentView()
@@ -5775,12 +5720,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(TaskLocationColumnWidth));
         OnPropertyChanged(nameof(TaskDateColumnWidth));
         OnPropertyChanged(nameof(TaskTechnicianColumnWidth));
-        OnPropertyChanged(nameof(AppointmentDateColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTimeColumnWidth));
-        OnPropertyChanged(nameof(AppointmentStatusColumnWidth));
-        OnPropertyChanged(nameof(AppointmentCustomerColumnWidth));
-        OnPropertyChanged(nameof(AppointmentLocationColumnWidth));
-        OnPropertyChanged(nameof(AppointmentTechnicianColumnWidth));
         RefreshTableProjection();
     }
 
@@ -7724,12 +7663,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         MoveTaskToCategory(task, targetCategory.Id);
         task.WorkflowType = workflowType;
         task.WorkflowStep = workflowStep;
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
         SaveTaskAndQueueIpadSnapshot(task);
         UpdateTaskCategoryPresentation(task);
         if (SelectedTask?.Id == task.Id)
         {
             SelectedTaskCategory = targetCategory;
-            RefreshTaskCategorySelections();
         }
 
         RefreshVisibleTasks();
@@ -8081,10 +8020,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Padding = new Thickness(10, 5)
         };
         restoreButton.Classes.Add("Secondary");
-        restoreButton.Click += (_, _) =>
+        restoreButton.Click += async (_, _) =>
         {
-            RestoreArchivedTaskToOpenTasks(task);
-            dialog?.Close();
+            if (await RestoreArchivedTaskToOpenTasksAsync(task))
+            {
+                dialog?.Close();
+            }
         };
 
         var row = new Border
@@ -8156,42 +8097,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void RestoreArchivedTaskToOpenTasks(TaskItem task)
+    private async Task<bool> RestoreArchivedTaskToOpenTasksAsync(TaskItem task)
     {
+        var workflowStep = WorkflowCategoryService.GetInitialStep(task.WorkflowType);
+        if (!TryResolveMappedCategory(task.WorkflowType, workflowStep, out var targetCategory))
+        {
+            await ShowMissingWorkflowCategoryMappingDialogAsync(task.WorkflowType, workflowStep);
+            return false;
+        }
+
         CaptureTaskUndoState(task, preserveExistingSnapshot: true);
-        EnsureTaskCategoryState(task);
-        task.Status = "Offen";
-        task.WorkflowStep = IsOfferWorkflow(task) ? "Angebot" : "Auftrag";
+        task.Status = workflowStep;
+        task.WorkflowStep = workflowStep;
         task.CompletedAt = null;
-        task.CategoryIds.RemoveAll(categoryId =>
-        {
-            var category = Categories.FirstOrDefault(item =>
-                string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
-            return category is not null && IsArchiveCategory(category);
-        });
-
-        var targetCategory = task.CategoryIds
-            .Select(categoryId => Categories.FirstOrDefault(category =>
-                string.Equals(category.Id, categoryId, StringComparison.OrdinalIgnoreCase)))
-            .FirstOrDefault(category => category is not null && IsSelectableTaskCategory(category));
-        targetCategory ??= Categories.FirstOrDefault(IsSelectableTaskCategory);
-        if (targetCategory is null)
-        {
-            CategoryMessage = "Keine Auftragskategorie wurde gefunden.";
-            return;
-        }
-
-        if (!task.CategoryIds.Any(categoryId =>
-                string.Equals(categoryId, targetCategory.Id, StringComparison.OrdinalIgnoreCase)))
-        {
-            task.CategoryIds.Insert(0, targetCategory.Id);
-        }
-
-        if (!task.CategoryIds.Any(categoryId =>
-                string.Equals(categoryId, task.CategoryId, StringComparison.OrdinalIgnoreCase)))
-        {
-            task.CategoryId = targetCategory.Id;
-        }
+        WorkflowCategoryService.ApplyCategory(task, targetCategory.Id);
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
         task.UpdatedAt = DateTime.Now;
 
         SaveTaskAndQueueIpadSnapshot(task);
@@ -8202,6 +8122,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshGlobalSearchResults();
         UpdateCategoryCounts();
         CategoryMessage = "Auftrag wurde aus dem Archiv zurückgeholt.";
+        return true;
     }
 
     private static string FormatArchiveTaskTitle(TaskItem task)
@@ -8240,13 +8161,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var assignedTaskCount = AllTasks.Count(task => TaskBelongsToCategory(task, category.Id));
-        if (assignedTaskCount > 0 && !await ShowCategoryDeleteConfirmationDialogAsync(category, assignedTaskCount))
+        var assignedTasks = AllTasks.Where(task => TaskBelongsToCategory(task, category.Id)).ToList();
+        var mappedStatuses = _workflowCategoryMappings.Values
+            .Where(mapping => string.Equals(mapping.CategoryId, category.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        CategoryRemovalDecision? decision = null;
+        if (assignedTasks.Count > 0 || mappedStatuses.Count > 0)
         {
-            return;
+            decision = await ShowCategoryRemovalDecisionDialogAsync(category, assignedTasks, mappedStatuses);
+            if (decision is null)
+            {
+                return;
+            }
         }
 
-        RemoveCategoryAssignmentFromTasks(category.Id);
+        if (decision?.ReplacementCategory is { } replacementCategory)
+        {
+            _repository.ReplaceWorkflowCategoryMappings(category.Id, replacementCategory.Id);
+            ReplaceCategoryAssignmentInTasks(assignedTasks, replacementCategory);
+        }
+        else
+        {
+            _repository.DeleteWorkflowCategoryMappingsForCategory(category.Id);
+            RemoveCategoryAssignmentFromTasks(category.Id, assignedTasks);
+        }
 
         category.IsVisible = false;
         SaveCategoryAndQueueIpadSnapshot(category, "Kategorie entfernt");
@@ -8264,46 +8202,99 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         UpdateCategoryCounts();
-        CategoryMessage = "Kategorie entfernt.";
+        CategoryMessage = decision?.ReplacementCategory is { } replacement
+            ? $"Kategorie entfernt. Betroffene Zuordnungen wurden ausdrücklich durch „{replacement.SelectionName}“ ersetzt."
+            : mappedStatuses.Count > 0
+                ? "Kategorie entfernt. Betroffene Statuszuordnungen wurden ausdrücklich entfernt."
+                : "Kategorie entfernt.";
     }
 
-    private void RemoveCategoryAssignmentFromTasks(string categoryId)
+    private void ReplaceCategoryAssignmentInTasks(IEnumerable<TaskItem> assignedTasks, CategoryItem replacementCategory)
     {
-        foreach (var task in AllTasks.Where(task => TaskBelongsToCategory(task, categoryId)).ToList())
+        foreach (var task in assignedTasks)
         {
             CaptureTaskUndoState(task, preserveExistingSnapshot: true);
-            EnsureTaskCategoryState(task);
-            task.CategoryIds.RemoveAll(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
-            if (string.Equals(task.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase) ||
-                !task.CategoryIds.Contains(task.CategoryId, StringComparer.OrdinalIgnoreCase))
-            {
-                task.CategoryId = task.CategoryIds.FirstOrDefault() ?? string.Empty;
-            }
-
-            EnsureTaskCategoryState(task);
+            WorkflowCategoryService.ApplyCategory(task, replacementCategory.Id);
+            _tasksRequiringSingleCategoryPersistence.Add(task.Id);
             task.UpdatedAt = DateTime.Now;
             SaveTaskAndQueueIpadSnapshot(task);
             UpdateTaskCategoryPresentation(task);
         }
     }
 
-    private async Task<bool> ShowCategoryDeleteConfirmationDialogAsync(CategoryItem category, int assignedTaskCount)
+    private void RemoveCategoryAssignmentFromTasks(string categoryId, IEnumerable<TaskItem> assignedTasks)
     {
+        foreach (var task in assignedTasks)
+        {
+            var remainingCategoryId = GetTaskCategoryIds(task).FirstOrDefault(id =>
+                !string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(remainingCategoryId))
+            {
+                throw new InvalidOperationException("Eine Kategoriezuordnung kann nicht ohne Ersatz entfernt werden, wenn ein Vorgang sonst keine Kategorie mehr hätte.");
+            }
+
+            CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+            WorkflowCategoryService.ApplyCategory(task, remainingCategoryId);
+            _tasksRequiringSingleCategoryPersistence.Add(task.Id);
+            task.UpdatedAt = DateTime.Now;
+            SaveTaskAndQueueIpadSnapshot(task);
+            UpdateTaskCategoryPresentation(task);
+        }
+    }
+
+    private async Task<CategoryRemovalDecision?> ShowCategoryRemovalDecisionDialogAsync(
+        CategoryItem category,
+        IReadOnlyCollection<TaskItem> assignedTasks,
+        IReadOnlyCollection<WorkflowCategoryMapping> mappedStatuses)
+    {
+        var replacementOptions = GetOrderedEditableCategories()
+            .Where(item => IsTaskCategoryChoiceVisible(item) &&
+                           !string.Equals(item.Id, category.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var replacementComboBox = new ComboBox
+        {
+            ItemsSource = replacementOptions,
+            SelectedItem = replacementOptions.FirstOrDefault(),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        replacementComboBox.ItemTemplate = new FuncDataTemplate<CategoryItem>((item, _) =>
+            new TextBlock { Text = item?.SelectionName ?? string.Empty });
+
         var dialog = new Window
         {
             Title = "Kategorie löschen",
-            Width = 460,
+            Width = 540,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = ResourceBrush("WindowBackgroundBrush")
         };
 
-        var result = false;
+        CategoryRemovalDecision? result = null;
+        var canRemoveWithoutReplacement = assignedTasks.All(task =>
+            GetTaskCategoryIds(task).Any(id => !string.Equals(id, category.Id, StringComparison.OrdinalIgnoreCase)));
         var cancelButton = new Button { Content = "Abbrechen" };
-        var deleteButton = new Button { Content = "Kategorie ausblenden" };
+        var removeButton = new Button
+        {
+            Content = "Ohne Ersatz entfernen",
+            IsEnabled = canRemoveWithoutReplacement
+        };
+        var replaceButton = new Button { Content = "Durch Auswahl ersetzen" };
+        replaceButton.Classes.Add("Primary");
         cancelButton.Click += (_, _) => dialog.Close();
-        deleteButton.Click += (_, _) => { result = true; dialog.Close(); };
+        removeButton.Click += (_, _) =>
+        {
+            result = new CategoryRemovalDecision(null);
+            dialog.Close();
+        };
+        replaceButton.Click += (_, _) =>
+        {
+            if (replacementComboBox.SelectedItem is CategoryItem replacement)
+            {
+                result = new CategoryRemovalDecision(replacement);
+                dialog.Close();
+            }
+        };
 
         dialog.Content = new Border
         {
@@ -8319,14 +8310,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 {
                     new TextBlock
                     {
-                        Text = $"„{category.SelectionName}“ enthält {assignedTaskCount} zugeordnete { (assignedTaskCount == 1 ? "Auftrag" : "Aufträge") }.",
+                        Text = $"„{category.SelectionName}“ wird noch verwendet.",
                         FontSize = 17,
                         FontWeight = FontWeight.Bold,
                         TextWrapping = TextWrapping.Wrap
                     },
                     new TextBlock
                     {
-                        Text = "Die Kategorie wird ausgeblendet und nur diese Zuordnung von den Aufträgen entfernt. Die Aufträge und alle weiteren Kategoriezuordnungen bleiben erhalten.",
+                        Text = $"Betroffene Vorgänge: {assignedTasks.Count}\nBetroffene Statuszuordnungen: {mappedStatuses.Count}",
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = "Wählen Sie eine Ersatzkategorie oder entfernen Sie die Statuszuordnungen ausdrücklich. Vorgänge werden niemals still verschoben.",
+                        Foreground = ResourceBrush("TextSecondaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    replacementComboBox,
+                    new TextBlock
+                    {
+                        Text = canRemoveWithoutReplacement
+                            ? "Ohne Ersatz werden Statuszuordnungen entfernt; betroffene Altdaten behalten ausdrücklich eine ihrer übrigen Kategorien."
+                            : "Ohne Ersatz ist nicht möglich, weil mindestens ein Vorgang sonst keine Kategorie mehr hätte.",
+                        Foreground = canRemoveWithoutReplacement
+                            ? ResourceBrush("TextSecondaryBrush")
+                            : ResourceBrush("DangerBrush"),
                         TextWrapping = TextWrapping.Wrap
                     },
                     new StackPanel
@@ -8334,7 +8342,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         Orientation = Orientation.Horizontal,
                         HorizontalAlignment = HorizontalAlignment.Right,
                         Spacing = 10,
-                        Children = { cancelButton, deleteButton }
+                        Children = { cancelButton, removeButton, replaceButton }
                     }
                 }
             }
@@ -8431,6 +8439,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SaveCurrentMaterials();
         var source = SelectedTask;
+        if (!TryResolveMappedCategory(source.WorkflowType, source.WorkflowStep, out var mappedCategory))
+        {
+            await ShowMissingWorkflowCategoryMappingDialogAsync(source.WorkflowType, source.WorkflowStep);
+            return;
+        }
+
         var now = DateTime.Now;
         var copy = new TaskItem
         {
@@ -8441,8 +8455,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CustomerPhone = source.CustomerPhone,
             Title = source.Title.StartsWith("Kopie - ", StringComparison.OrdinalIgnoreCase) ? source.Title : $"Kopie - {source.Title}",
             Description = source.Description,
-            CategoryId = source.CategoryId,
-            CategoryIds = source.CategoryIds.ToList(),
+            CategoryId = mappedCategory.Id,
+            CategoryIds = [mappedCategory.Id],
             Status = source.Status,
             WorkflowType = source.WorkflowType,
             WorkflowStep = source.WorkflowStep,
@@ -8453,12 +8467,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             MaterialOrderedAt = source.MaterialOrderedAt,
             AssignedTo = source.AssignedTo,
             Technician = source.Technician,
-            SortPosition = _repository.GetTopTaskSortPosition(source.CategoryId),
+            SortPosition = _repository.GetTopTaskSortPosition(mappedCategory.Id),
             CreatedAt = now,
             UpdatedAt = now,
             CompletedAt = source.Status == "Erledigt" ? now : null
         };
 
+        _tasksRequiringSingleCategoryPersistence.Add(copy.Id);
         SaveTaskAndQueueIpadSnapshot(copy);
         foreach (var material in Materials.Where(item => string.Equals(item.TaskId, source.Id, StringComparison.OrdinalIgnoreCase)).ToList())
         {
@@ -8491,7 +8506,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateCategoryCounts();
     }
 
-    private void StatusCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void StatusCombo_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_isLoadingSelection ||
             _isUpdatingSelection ||
@@ -8504,7 +8519,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        ApplySelectedWorkflowStep(status);
+        await ApplySelectedWorkflowStepAsync(status);
     }
 
     private void SyncWorkflowStatusComboBox()
@@ -8552,10 +8567,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        NavigateToTask(
-            task,
-            fromGlobalSearch: false,
-            IsOfferWorkflow(task) ? OffersNavigationId : OrdersNavigationId);
+        NavigateToTask(task, fromGlobalSearch: false);
     }
 
     private void ConfirmFollowUp_OnClick(object? sender, RoutedEventArgs e)
@@ -10268,6 +10280,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void DeleteTaskAndQueueIpadSnapshot(string taskId)
     {
         _dirtyTasks.Remove(taskId);
+        _tasksRequiringSingleCategoryPersistence.Remove(taskId);
         foreach (var materialId in _dirtyMaterials
                      .Where(item => string.Equals(item.Value.TaskId, taskId, StringComparison.OrdinalIgnoreCase))
                      .Select(item => item.Key)
@@ -11320,7 +11333,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         if (!string.IsNullOrWhiteSpace(preferredCategoryId) &&
-            IsValidOrganizationalNavigationForTask(preferredCategoryId, task))
+            IsValidOrganizationalNavigation(preferredCategoryId))
         {
             return Categories.FirstOrDefault(category =>
                 string.Equals(category.Id, preferredCategoryId, StringComparison.OrdinalIgnoreCase));
@@ -11363,11 +11376,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return matchingCategories.FirstOrDefault();
     }
 
-    private static bool IsValidOrganizationalNavigationForTask(string categoryId, TaskItem task)
+    private static bool IsValidOrganizationalNavigation(string categoryId)
     {
-        return string.Equals(categoryId, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               (string.Equals(categoryId, OffersNavigationId, StringComparison.OrdinalIgnoreCase) && IsOfferWorkflow(task)) ||
-               (string.Equals(categoryId, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) && !IsOfferWorkflow(task));
+        return string.Equals(categoryId, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ExpandCategoryAncestors(CategoryItem category)
@@ -11393,6 +11404,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             return;
         }
+
+        ExpandCategoryAncestors(category);
+        RebuildCategoryTreeViews();
 
         _selectionNavigationDepth++;
         _isUpdatingSelection = true;
@@ -11565,22 +11579,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             material.Status.Equals("retour", StringComparison.OrdinalIgnoreCase));
     }
 
-    private bool IsOfficeTask(TaskItem task)
-    {
-        if (task.IsDeleted || IsDoneOrArchived(task))
-        {
-            return false;
-        }
-
-        var categoryNames = GetTaskCategoryNameList(task);
-        return categoryNames.Any(categoryName => Contains(categoryName, "Angebote erstellen")) ||
-               categoryNames.Any(categoryName => Contains(categoryName, "Wartet auf Kunde")) ||
-               categoryNames.Any(categoryName => Contains(categoryName, "Material bestellen")) ||
-               task.Status.Equals("Wartet auf Kunde", StringComparison.OrdinalIgnoreCase) ||
-               task.Status.Equals("Material offen", StringComparison.OrdinalIgnoreCase) ||
-               !IsDoneOrArchived(task);
-    }
-
     private static bool IsDoneOrArchived(TaskItem task)
     {
         return task.Status.Equals("Erledigt", StringComparison.OrdinalIgnoreCase) ||
@@ -11622,16 +11620,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         switch (choice)
         {
-            case DuplicateTaskChoice.AddToCategory:
-                AddTaskToCategory(duplicate.Task, targetCategory.Id);
-                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
-                RemovePendingNewTask(newTask);
-                NavigateToTask(duplicate.Task, fromGlobalSearch: false);
-                UpdateCategoryCounts();
-                return true;
-
             case DuplicateTaskChoice.MoveToCategory:
                 MoveTaskToCategory(duplicate.Task, targetCategory.Id);
+                _tasksRequiringSingleCategoryPersistence.Add(duplicate.Task.Id);
                 SaveTaskAndQueueIpadSnapshot(duplicate.Task);
                 RemovePendingNewTask(newTask);
                 NavigateToTask(duplicate.Task, fromGlobalSearch: false);
@@ -11647,47 +11638,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 RefreshVisibleTasks();
                 UpdateCategoryCounts();
                 return true;
-        }
-    }
-
-    private async Task<bool> HandleSimilarCategoryAssignmentAsync(TaskItem currentTask, CategoryItem targetCategory)
-    {
-        if (!HasMeaningfulDuplicateInput(currentTask))
-        {
-            return false;
-        }
-
-        var duplicate = FindSimilarTaskCandidate(currentTask, excludedCategoryId: targetCategory.Id, minimumScore: 50);
-        if (duplicate is null)
-        {
-            return false;
-        }
-
-        var choice = await ShowSimilarTaskDialogAsync(duplicate, targetCategory.Name);
-
-        switch (choice)
-        {
-            case DuplicateTaskChoice.AddToCategory:
-                AddTaskToCategory(duplicate.Task, targetCategory.Id);
-                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
-                SelectCategoryAndTask(targetCategory, duplicate.Task);
-                RefreshTaskCategorySelections();
-                return true;
-
-            case DuplicateTaskChoice.MoveToCategory:
-                MoveTaskToCategory(duplicate.Task, targetCategory.Id);
-                SaveTaskAndQueueIpadSnapshot(duplicate.Task);
-                SelectCategoryAndTask(targetCategory, duplicate.Task);
-                RefreshTaskCategorySelections();
-                return true;
-
-            case DuplicateTaskChoice.Cancel:
-                RefreshTaskCategorySelections();
-                return true;
-
-            case DuplicateTaskChoice.CreateAnyway:
-            default:
-                return false;
         }
     }
 
@@ -11961,33 +11911,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
-    private void AddTaskToCategory(TaskItem task, string categoryId)
-    {
-        if (string.IsNullOrWhiteSpace(categoryId))
-        {
-            return;
-        }
-
-        EnsureTaskCategoryState(task);
-
-        task.CategoryIds = task.CategoryIds
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (!task.CategoryIds.Contains(categoryId, StringComparer.OrdinalIgnoreCase))
-        {
-            task.CategoryIds.Add(categoryId);
-        }
-
-        if (string.IsNullOrWhiteSpace(task.CategoryId))
-        {
-            task.CategoryId = categoryId;
-        }
-
-        EnsureTaskCategoryState(task);
-    }
-
     private static void MoveTaskToCategory(TaskItem task, string categoryId)
     {
         if (string.IsNullOrWhiteSpace(categoryId))
@@ -11995,9 +11918,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        task.CategoryIds = [categoryId];
-        task.CategoryId = categoryId;
-        EnsureTaskCategoryState(task);
+        WorkflowCategoryService.ApplyCategory(task, categoryId);
     }
 
     private List<string> GetTaskCategoryNameList(TaskItem task)
@@ -12043,6 +11964,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         _tasksPendingDuplicateCheck.Remove(task.Id);
         _dirtyTasks.Remove(task.Id);
+        _tasksRequiringSingleCategoryPersistence.Remove(task.Id);
         AllTasks.Remove(task);
         ClearTaskSelectionAfterRemoval(task);
         UpdateCategoryCounts();
@@ -12106,25 +12028,135 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CategoryManagementCategories.Add(category);
         }
 
-        RefreshTaskCategorySelections();
+        RefreshStatusCategoryMappings();
     }
 
-    private void RefreshTaskCategorySelections()
+    private static string GetWorkflowCategoryMappingKey(string workflowType, string workflowStep) =>
+        $"{workflowType.Trim()}\u001f{workflowStep.Trim()}";
+
+    private void RefreshStatusCategoryMappings()
     {
-        TaskCategorySelections.Clear();
-        if (SelectedTask is null)
+        _isRefreshingStatusCategoryMappings = true;
+        try
+        {
+            _workflowCategoryMappings.Clear();
+            foreach (var mapping in _repository.GetWorkflowCategoryMappings())
+            {
+                _workflowCategoryMappings[GetWorkflowCategoryMappingKey(mapping.WorkflowType, mapping.WorkflowStep)] = mapping;
+            }
+
+            var categoryOptions = GetOrderedEditableCategories()
+                .Where(IsTaskCategoryChoiceVisible)
+                .Select(category => new StatusCategoryOption(category.Id, category.SelectionName, false))
+                .ToList();
+
+            StatusCategoryMappings.Clear();
+            AddStatusCategoryMappingRows(OfferWorkflowType, OfferWorkflowSteps, categoryOptions);
+            AddStatusCategoryMappingRows(DirectWorkflowType, DirectWorkflowSteps, categoryOptions);
+        }
+        finally
+        {
+            _isRefreshingStatusCategoryMappings = false;
+        }
+    }
+
+    private void AddStatusCategoryMappingRows(
+        string workflowType,
+        IEnumerable<string> workflowSteps,
+        IReadOnlyCollection<StatusCategoryOption> validOptions)
+    {
+        foreach (var workflowStep in workflowSteps)
+        {
+            _workflowCategoryMappings.TryGetValue(
+                GetWorkflowCategoryMappingKey(workflowType, workflowStep),
+                out var mapping);
+
+            var options = new List<StatusCategoryOption>
+            {
+                new(string.Empty, "— Nicht zugeordnet —", false)
+            };
+            options.AddRange(validOptions.Select(option => option with { }));
+
+            var selected = options.FirstOrDefault(option =>
+                string.Equals(option.CategoryId, mapping?.CategoryId, StringComparison.OrdinalIgnoreCase));
+            var validationText = string.Empty;
+            if (mapping is not null && selected is null)
+            {
+                selected = new StatusCategoryOption(
+                    mapping.CategoryId,
+                    $"Ungültige Kategorie ({mapping.CategoryId})",
+                    true);
+                options.Add(selected);
+                validationText = "Die gespeicherte Kategorie fehlt oder ist ausgeblendet. Statuswechsel sind blockiert.";
+            }
+            else if (mapping is null)
+            {
+                selected = options[0];
+                validationText = "Noch nicht zugeordnet. Statuswechsel sind blockiert.";
+            }
+
+            StatusCategoryMappings.Add(new StatusCategoryMappingRow(
+                workflowType,
+                workflowStep,
+                options,
+                selected,
+                validationText));
+        }
+    }
+
+    private void StatusCategoryMappingSelection_OnChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshingStatusCategoryMappings ||
+            sender is not ComboBox { DataContext: StatusCategoryMappingRow row, SelectedItem: StatusCategoryOption option })
         {
             return;
         }
 
-        EnsureTaskCategoryState(SelectedTask);
-        foreach (var category in TaskCategories)
+        _workflowCategoryMappings.TryGetValue(
+            GetWorkflowCategoryMappingKey(row.WorkflowType, row.WorkflowStep),
+            out var currentMapping);
+        if (string.Equals(
+                currentMapping?.CategoryId ?? string.Empty,
+                option.CategoryId,
+                StringComparison.OrdinalIgnoreCase))
         {
-            TaskCategorySelections.Add(new TaskCategorySelection(
-                category,
-                TaskBelongsToCategory(SelectedTask, category.Id),
-                IsSelectableTaskCategory(category)));
+            return;
         }
+
+        if (string.IsNullOrWhiteSpace(option.CategoryId))
+        {
+            _repository.DeleteWorkflowCategoryMapping(row.WorkflowType, row.WorkflowStep);
+            StatusCategoryMappingMessage = $"Zuordnung für {row.DisplayName} entfernt.";
+        }
+        else if (option.IsInvalid)
+        {
+            StatusCategoryMappingMessage = "Die ungültige Kategorie kann nicht erneut gespeichert werden. Bitte eine sichtbare Kategorie wählen.";
+            RefreshStatusCategoryMappings();
+            return;
+        }
+        else
+        {
+            _repository.SaveWorkflowCategoryMapping(row.WorkflowType, row.WorkflowStep, option.CategoryId);
+            StatusCategoryMappingMessage = $"{row.DisplayName} ist jetzt „{option.DisplayPath}“ zugeordnet.";
+        }
+
+        RefreshStatusCategoryMappings();
+    }
+
+    private bool TryResolveMappedCategory(string workflowType, string workflowStep, out CategoryItem category)
+    {
+        category = null!;
+        if (!_workflowCategoryMappings.TryGetValue(
+                GetWorkflowCategoryMappingKey(workflowType, workflowStep),
+                out var mapping))
+        {
+            return false;
+        }
+
+        category = Categories.FirstOrDefault(item =>
+            string.Equals(item.Id, mapping.CategoryId, StringComparison.OrdinalIgnoreCase) &&
+            IsTaskCategoryChoiceVisible(item))!;
+        return category is not null;
     }
 
     private void RebuildCategoryTreeViews()
@@ -12179,10 +12211,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SidebarSettingsCategories.Clear();
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OverviewCategoryId));
         AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AllTasksNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OffersNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == OrdersNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == MaterialsNavigationId));
-        AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == AppointmentsNavigationId));
         if (ShowDesktopSetting)
             AddSidebarNavigationItem(Categories.FirstOrDefault(category => category.Id == DeskCategoryId));
 
@@ -12262,17 +12290,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static IEnumerable<CategoryItem> CreateSystemNavigationCategories(IReadOnlyCollection<CategoryItem> persistedCategories)
     {
-        var defaults = new[]
-        {
-            CreateNavigationCategory(OverviewCategoryId, OverviewCategoryName, int.MinValue),
-            CreateNavigationCategory(AllTasksNavigationId, "Alle Vorgänge", int.MinValue + 1),
-            CreateNavigationCategory(OffersNavigationId, "Angebote", int.MinValue + 2),
-            CreateNavigationCategory(OrdersNavigationId, "Aufträge", int.MinValue + 3),
-            CreateNavigationCategory(MaterialsNavigationId, "Material", int.MinValue + 4),
-            CreateNavigationCategory(AppointmentsNavigationId, "Termine", int.MinValue + 5),
-            CreateDeskCategory(),
-            CreateSettingsCategory()
-        };
+        var defaults = NavigationCategoryPolicy.PrimaryNavigation
+            .Select((definition, index) =>
+                CreateNavigationCategory(definition.Id, definition.Name, int.MinValue + index))
+            .Concat([CreateDeskCategory(), CreateSettingsCategory()])
+            .ToArray();
 
         foreach (var category in defaults)
         {
@@ -12410,12 +12432,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? GetDefaultStartupCategory()
     {
         return Categories.FirstOrDefault(category =>
-                IsSelectableTaskCategory(category) &&
-                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category =>
-                IsSelectableTaskCategory(category) &&
-                string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category =>
                 ShowDesktopSetting &&
                 category.Id == DeskCategoryId)
             ?? Categories.FirstOrDefault(category =>
@@ -12427,12 +12443,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CategoryItem? GetStartupTaskCategory()
     {
         return Categories.FirstOrDefault(category =>
-                IsSelectableTaskCategory(category) &&
-                string.Equals(category.Name, "Offene Aufgaben", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category =>
-                IsSelectableTaskCategory(category) &&
-                string.Equals(category.Name, "Offene Aufträge", StringComparison.OrdinalIgnoreCase))
-            ?? Categories.FirstOrDefault(category =>
                 IsSelectableTaskCategory(category) && category.IsVisible)
             ?? Categories.FirstOrDefault(IsSelectableTaskCategory);
     }
@@ -12661,24 +12671,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private static string NormalizeWorkflowStep(TaskItem task, string step)
-    {
-        var trimmed = step.Trim();
-        var sequence = IsOfferWorkflow(task) ? OfferWorkflowSteps : DirectWorkflowSteps;
-        var canonical = sequence.FirstOrDefault(candidate =>
-            string.Equals(candidate, trimmed, StringComparison.OrdinalIgnoreCase));
-        if (canonical is not null)
-        {
-            return canonical;
-        }
-
-        return trimmed.ToLowerInvariant() switch
-        {
-            "offen" => IsOfferWorkflow(task) ? "Angebot" : "Auftrag",
-            "material offen" => "Material",
-            "terminiert" => "Termin",
-            _ => trimmed
-        };
-    }
+        => WorkflowCategoryService.NormalizeStep(task.WorkflowType, step);
 
     private static bool IsOfferWorkflow(TaskItem task) =>
         string.Equals(task.WorkflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase);
@@ -12698,12 +12691,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             var unknownStep = SelectedTask.WorkflowStep?.Trim();
             if (!string.IsNullOrWhiteSpace(unknownStep))
             {
-                WorkflowSteps.Add(new WorkflowStepItem(unknownStep, false, true));
+                WorkflowSteps.Add(new WorkflowStepItem(unknownStep, 1, false, true));
             }
 
-            foreach (var step in steps)
+            for (var index = 0; index < steps.Length; index++)
             {
-                WorkflowSteps.Add(new WorkflowStepItem(step, false, false));
+                WorkflowSteps.Add(new WorkflowStepItem(steps[index], index + 2, false, false));
             }
 
             return;
@@ -12711,56 +12704,191 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         for (var index = 0; index < steps.Length; index++)
         {
-            WorkflowSteps.Add(new WorkflowStepItem(steps[index], index < activeIndex, index == activeIndex));
+            WorkflowSteps.Add(new WorkflowStepItem(steps[index], index + 1, index < activeIndex, index == activeIndex));
         }
     }
 
-    private void WorkflowStep_OnClick(object? sender, RoutedEventArgs e)
+    private async void WorkflowStep_OnClick(object? sender, RoutedEventArgs e)
     {
         if (SelectedTask is null || sender is not Button { Tag: string step } || string.IsNullOrWhiteSpace(step))
         {
             return;
         }
 
-        ApplySelectedWorkflowStep(step);
+        await ApplySelectedWorkflowStepAsync(step);
     }
 
-    private void ApplySelectedWorkflowStep(string step)
+    private async Task<bool> ApplySelectedWorkflowStepAsync(string step)
     {
         if (SelectedTask is null || string.IsNullOrWhiteSpace(step))
         {
-            return;
+            return false;
         }
 
         var normalizedStep = NormalizeWorkflowStep(SelectedTask, step);
+        if (!TryResolveMappedCategory(SelectedTask.WorkflowType, normalizedStep, out var mappedCategory))
+        {
+            await ShowMissingWorkflowCategoryMappingDialogAsync(SelectedTask.WorkflowType, normalizedStep);
+            SyncWorkflowStatusComboBox();
+            RefreshWorkflowSteps();
+            return false;
+        }
+
         if (string.Equals(SelectedTask.WorkflowStep, normalizedStep, StringComparison.Ordinal) &&
-            string.Equals(SelectedTask.Status, normalizedStep, StringComparison.Ordinal))
+            string.Equals(SelectedTask.Status, normalizedStep, StringComparison.Ordinal) &&
+            GetTaskCategoryIds(SelectedTask).Count == 1 &&
+            TaskBelongsToCategory(SelectedTask, mappedCategory.Id))
+        {
+            return true;
+        }
+
+        var task = SelectedTask;
+        CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+        task.WorkflowStep = normalizedStep;
+        task.Status = normalizedStep;
+        WorkflowCategoryService.ApplyCategory(task, mappedCategory.Id);
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
+        ApplySelectedTaskStatusRules();
+        SaveTaskAndQueueIpadSnapshot(task);
+        UpdateTaskCategoryPresentation(task);
+        OnPropertyChanged(nameof(SelectedWorkflowStatusOptions));
+        SyncWorkflowStatusComboBox();
+        RefreshWorkflowSteps();
+        SelectCategoryAndTask(mappedCategory, task);
+        UpdateCategoryCounts();
+        RefreshDashboard();
+        return true;
+    }
+
+    private async void ChangeWorkflowType_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedTask is null)
         {
             return;
         }
 
-        CaptureTaskUndoState(SelectedTask, preserveExistingSnapshot: true);
-        SelectedTask.WorkflowStep = normalizedStep;
-        SelectedTask.Status = normalizedStep;
+        var task = SelectedTask;
+        var targetType = IsOfferWorkflow(task) ? DirectWorkflowType : OfferWorkflowType;
+        var targetStep = await ShowWorkflowTypeChangeDialogAsync(task, targetType);
+        if (string.IsNullOrWhiteSpace(targetStep))
+        {
+            return;
+        }
+
+        if (!TryResolveMappedCategory(targetType, targetStep, out var mappedCategory))
+        {
+            await ShowMissingWorkflowCategoryMappingDialogAsync(targetType, targetStep);
+            return;
+        }
+
+        CaptureTaskUndoState(task, preserveExistingSnapshot: true);
+        task.WorkflowType = targetType;
+        task.WorkflowStep = targetStep;
+        task.Status = targetStep;
+        WorkflowCategoryService.ApplyCategory(task, mappedCategory.Id);
+        _tasksRequiringSingleCategoryPersistence.Add(task.Id);
         ApplySelectedTaskStatusRules();
-        SaveTaskAndQueueIpadSnapshot(SelectedTask);
+        SaveTaskAndQueueIpadSnapshot(task);
+        UpdateTaskCategoryPresentation(task);
         OnPropertyChanged(nameof(SelectedWorkflowStatusOptions));
         SyncWorkflowStatusComboBox();
         RefreshWorkflowSteps();
-        RefreshVisibleTasks();
+        SelectCategoryAndTask(mappedCategory, task);
         UpdateCategoryCounts();
         RefreshDashboard();
+    }
+
+    private async Task<string?> ShowWorkflowTypeChangeDialogAsync(TaskItem task, string targetType)
+    {
+        var compatible = WorkflowCategoryService.IsValidStep(targetType, task.WorkflowStep);
+        var statusOptions = WorkflowCategoryService.GetSteps(targetType).ToArray();
+        var selectedStatus = compatible
+            ? statusOptions.First(status => string.Equals(status, task.WorkflowStep, StringComparison.OrdinalIgnoreCase))
+            : WorkflowCategoryService.GetInitialStep(targetType);
+        var statusComboBox = new ComboBox
+        {
+            ItemsSource = statusOptions,
+            SelectedItem = selectedStatus,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+
+        var dialog = new Window
+        {
+            Title = "Vorgangstyp ändern",
+            Width = 500,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = ResourceBrush("WindowBackgroundBrush")
+        };
+        string? result = null;
+        var cancelButton = new Button { Content = "Abbrechen", IsCancel = true };
+        var changeButton = new Button { Content = "Typ ändern" };
+        changeButton.Classes.Add("Primary");
+        cancelButton.Click += (_, _) => dialog.Close();
+        changeButton.Click += (_, _) =>
+        {
+            result = statusComboBox.SelectedItem as string;
+            dialog.Close();
+        };
+
+        dialog.Content = new Border
+        {
+            Padding = new Thickness(18),
+            Child = new StackPanel
+            {
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = $"Vorgangstyp von „{task.WorkflowType}“ zu „{targetType}“ ändern?",
+                        FontSize = 17,
+                        FontWeight = FontWeight.SemiBold,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = compatible
+                            ? $"Der aktuelle Status „{task.WorkflowStep}“ ist kompatibel und wurde vorausgewählt."
+                            : $"Der aktuelle Status „{task.WorkflowStep}“ ist nicht kompatibel. Bitte einen Status für den neuen Typ wählen.",
+                        Foreground = ResourceBrush("TextSecondaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock { Text = "Workflowstatus" },
+                    statusComboBox,
+                    new TextBlock
+                    {
+                        Text = "Beim Bestätigen wird die konfigurierte Kategorie dieses Status übernommen.",
+                        Foreground = ResourceBrush("TextSecondaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 8,
+                        Children = { cancelButton, changeButton }
+                    }
+                }
+            }
+        };
+
+        await dialog.ShowDialog(this);
+        return result;
     }
 
     private static bool IsSpecialCategory(CategoryItem category)
     {
         return IsSystemNavigationCategory(category) ||
+               IsLegacyWorkNavigationCategory(category) ||
                IsLegacyMobileApprovalCategory(category.Name);
     }
 
     private static bool CanEditCategory(CategoryItem category)
     {
         return !IsSystemNavigationCategory(category) &&
+               !IsLegacyWorkNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
                !IsArchiveCategory(category);
     }
@@ -12777,22 +12905,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsCanonicalSystemNavigationCategory(CategoryItem category)
     {
-        return string.Equals(category.Id, OverviewCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, DeskCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, TrashCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, MobileInboxCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, AllTasksNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, OrdersNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, OffersNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, MaterialsNavigationId, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(category.Id, AppointmentsNavigationId, StringComparison.OrdinalIgnoreCase);
+        return NavigationCategoryPolicy.IsTechnicalId(category.Id);
     }
+
+    private static bool IsLegacyWorkNavigationCategory(CategoryItem category) =>
+        NavigationCategoryPolicy.IsLegacyWorkId(category.Id);
 
     private static bool IsUserCategory(CategoryItem category)
     {
         return !string.IsNullOrWhiteSpace(category.Name) &&
                !IsSystemNavigationCategory(category) &&
+               !IsLegacyWorkNavigationCategory(category) &&
                !IsLegacyMobileApprovalCategory(category.Name) &&
                !IsArchiveCategory(category);
     }
@@ -12805,7 +12928,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool IsSelectableTaskCategory(CategoryItem category)
     {
-        return IsTaskCategoryChoiceVisible(category) && !HasChildCategories(category);
+        return IsTaskCategoryChoiceVisible(category);
     }
 
     private bool HasChildCategories(CategoryItem category)
@@ -12982,7 +13105,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TaskItem? importedTask = null;
         try
         {
-            var targetCategory = ResolveMobileInboxImportCategory(entry);
+            if (!TryResolveMappedCategory(DirectWorkflowType, "Auftrag", out var targetCategory))
+            {
+                await ShowMissingWorkflowCategoryMappingDialogAsync(DirectWorkflowType, "Auftrag");
+                return;
+            }
+
             var categoryWasMatched = IsMatchingMobileInboxCategory(entry.Category, targetCategory.Name);
             importedTask = CreateTaskFromMobileInboxEntry(entry, targetCategory, categoryWasMatched);
             importedTask.SortPosition = _repository.GetTopTaskSortPosition(targetCategory.Id);
@@ -12995,6 +13123,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
+            _tasksRequiringSingleCategoryPersistence.Add(importedTask.Id);
             SaveTaskAndQueueIpadSnapshot(importedTask);
             if (!SaveNow("mobile-inbox-import"))
             {
@@ -13054,25 +13183,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectCategoryAndTask(category, task);
     }
 
-    private CategoryItem ResolveMobileInboxImportCategory(MobileInboxEntry entry)
-    {
-        if (!string.IsNullOrWhiteSpace(entry.Category) && !IsLegacyMobileApprovalCategory(entry.Category))
-        {
-            var existingCategory = Categories.FirstOrDefault(category =>
-                IsSelectableTaskCategory(category) &&
-                IsMatchingMobileInboxCategory(entry.Category, category.Name));
-            if (existingCategory is not null)
-            {
-                return existingCategory;
-            }
-        }
-
-        return Categories.FirstOrDefault(category =>
-                   IsSelectableTaskCategory(category) &&
-                   string.Equals(category.Name, "Offene Aufgaben", StringComparison.CurrentCultureIgnoreCase))
-               ?? Categories.First(IsSelectableTaskCategory);
-    }
-
     private static bool IsMatchingMobileInboxCategory(string? mobileCategoryName, string? categoryName)
     {
         var normalizedMobileCategory = NormalizeMobileInboxCategoryName(mobileCategoryName);
@@ -13121,7 +13231,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Description = string.Join(
                 Environment.NewLine + Environment.NewLine,
                 descriptionParts.Where(part => !string.IsNullOrWhiteSpace(part))),
-            Status = "Offen",
+            Status = "Auftrag",
             WorkflowType = DirectWorkflowType,
             WorkflowStep = "Auftrag",
             Priority = "Normal",
@@ -14577,25 +14687,38 @@ public sealed class TaskSearchResult
     public bool IsArchived { get; }
 }
 
-public sealed class TaskCategorySelection
+public sealed record StatusCategoryOption(string CategoryId, string DisplayPath, bool IsInvalid);
+
+public sealed record CategoryRemovalDecision(CategoryItem? ReplacementCategory);
+
+public sealed class StatusCategoryMappingRow
 {
-    public TaskCategorySelection(CategoryItem category, bool isSelected, bool isSelectable)
+    public StatusCategoryMappingRow(
+        string workflowType,
+        string workflowStep,
+        IReadOnlyList<StatusCategoryOption> categoryOptions,
+        StatusCategoryOption? selectedCategory,
+        string validationText)
     {
-        Category = category;
-        IsSelected = isSelected;
-        IsSelectable = isSelectable;
+        WorkflowType = workflowType;
+        WorkflowStep = workflowStep;
+        CategoryOptions = categoryOptions;
+        SelectedCategory = selectedCategory;
+        ValidationText = validationText;
     }
 
-    public CategoryItem Category { get; }
-    public string Name => Category.Name;
-    public bool IsSelected { get; set; }
-    public bool IsSelectable { get; }
+    public string WorkflowType { get; }
+    public string WorkflowStep { get; }
+    public string DisplayName => $"{WorkflowType} · {WorkflowStep}";
+    public IReadOnlyList<StatusCategoryOption> CategoryOptions { get; }
+    public StatusCategoryOption? SelectedCategory { get; }
+    public string ValidationText { get; }
+    public bool HasValidationText => !string.IsNullOrWhiteSpace(ValidationText);
 }
 
 public enum DuplicateTaskChoice
 {
     Cancel,
-    AddToCategory,
     MoveToCategory,
     CreateAnyway
 }
@@ -14652,9 +14775,6 @@ public sealed class DuplicateTaskDialog : Window
         buttonPanel.Children.Add(CreateChoiceButton(
             "Bestehenden Auftrag verschieben",
             DuplicateTaskChoice.MoveToCategory));
-        buttonPanel.Children.Add(CreateChoiceButton(
-            "Zusätzlich zuordnen",
-            DuplicateTaskChoice.AddToCategory));
         buttonPanel.Children.Add(CreateChoiceButton(
             "Neuen Auftrag trotzdem behalten",
             DuplicateTaskChoice.CreateAnyway));

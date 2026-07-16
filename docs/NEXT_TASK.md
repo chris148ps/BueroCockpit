@@ -2,20 +2,27 @@
 
 ## Ziel
 
-Den vollständigen sichtbaren Desktop-Funktionstest auf einer entsperrten macOS-Sitzung mit einem isolierten Testprofil abschließen.
+Das veröffentlichte Auto-Update sowie die neue Navigation, Kategorieverwaltung und Workflow-Detailansicht mit isolierten Daten real unter Windows abnehmen.
 
 ## Geplante Schritte
 
-1. Vor dem Start die fremde lokale Änderung an `scripts/run-macos-bundle.sh` klären oder einen nachweislich isolierten Bundle-Start verwenden, ohne den fremden Diff zu überschreiben.
-2. Angebots- und Direktauftragsstatus, vollständige Kategorieauswahl, Kategorie-Badges, Übersichtsnavigation, echten Vorgangs- und Kategorie-Maus-Drag sowie die Neustartpersistenz sichtbar prüfen.
-3. Sidebar vollständig per Pfeiltasten und Enter bedienen; Entf im normalen Vorgangskontext bestätigen und in Text-, Auswahl-, Datums- und Zahlenfeldern als wirkungslos prüfen.
-4. Den vollständigen Rundgang nach `docs/TESTRICHTLINIEN.md` einschließlich Kontextmenüs, Dialogen, Leerzuständen, Archiv, Papierkorb, Backup, Diagnose und manuellem Testdienst real abschließen.
+1. Auf dem Firmenrechner das veröffentlichte Update aus der vorherigen Version suchen, installieren und die angezeigte neue Version prüfen.
+2. Für die Funktionsabnahme temporäre Daten- und lokale Konfigurationspfade unter Windows setzen und die App sichtbar starten.
+3. Beide Vorgangstypen und alle Statuswechsel, genau eine Kategorie, Alle Vorgänge, Suche, Zähler sowie verschachtelte Zielnavigation bedienen.
+4. Kategoriezeilen-Drag, Vorgangs-Drop, Umbenennen, Löschen und Neustartpersistenz manuell prüfen.
+5. Detailkopf, Stepper, Termine, Wiedervorlagen, Tabellenlayout sowie Dark und Light prüfen.
+6. Angrenzende Desktopfunktionen einschließlich Papierkorb, Archiv, Schreibtisch, Anhänge, Backup und Diagnose regressiv bedienen und nur tatsächlich ausgeführte Ergebnisse dokumentieren.
 
 ## Vermutlich betroffene Dateien
 
-- keine Codeänderung bei erfolgreicher Abnahme
-- bei einem reproduzierbaren Fehler nur der unmittelbar betroffene Code und die Abschlussdokumentation
+- Keine Codeänderung bei erfolgreicher Abnahme.
+- docs/PROJEKTSTATUS.md
+- docs/codex_last_run.md
+- docs/NEXT_TASK.md
+- neuer Eintrag unter docs/codex_journal/
 
 ## Bereiche, die nicht verändert werden dürfen
 
-- Produktive Daten, Anhänge, Cloud-Dateien, iPad-Code, Netzwerk-/Sync-Architektur, Version, Release, Tags und `main`.
+- Keine Produktivdaten, produktiven Kategorien, Anhänge, Backups oder Cloud-Dateien verändern.
+- Keine Netzwerk-/Sync-Architektur erweitern.
+- Kein weiteres Release, Tag oder Versionswechsel ohne einen neuen ausdrücklichen Auftrag.

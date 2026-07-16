@@ -14,7 +14,9 @@ Was sollte erreicht werden?
 
 ## Umsetzung
 
-Welche fachlichen und technischen Änderungen wurden tatsächlich umgesetzt?
+Welche Regel- und Fachdateien wurden vorab geprüft? Welche Widersprüche wurden
+gefunden und ausdrücklich freigegeben? Welche fachlichen und technischen
+Änderungen wurden danach tatsächlich umgesetzt?
 
 ## Geänderte Dateien
 

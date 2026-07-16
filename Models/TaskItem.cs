@@ -107,6 +107,8 @@ public sealed class TaskItem : ObservableObject
                 OnPropertyChanged(nameof(FollowUpDateText));
                 OnPropertyChanged(nameof(HasFollowUpDate));
                 OnPropertyChanged(nameof(IsFollowUpOverdue));
+                OnPropertyChanged(nameof(FollowUpAlertText));
+                OnPropertyChanged(nameof(HasFollowUpAlert));
                 OnPropertyChanged(nameof(ReminderCardBackground));
                 OnPropertyChanged(nameof(ReminderCardBorderBrush));
             }
@@ -203,6 +205,14 @@ public sealed class TaskItem : ObservableObject
     public bool HasDueDate => DueDate.HasValue;
     public bool HasFollowUpDate => FollowUpDate.HasValue;
     public bool IsFollowUpOverdue => FollowUpDate.HasValue && FollowUpDate.Value.Date < DateTime.Today;
+    public string FollowUpAlertText => !FollowUpDate.HasValue
+        ? string.Empty
+        : IsFollowUpOverdue
+            ? "Überfällig"
+            : FollowUpDate.Value.Date == DateTime.Today
+                ? "Heute fällig"
+                : string.Empty;
+    public bool HasFollowUpAlert => !string.IsNullOrEmpty(FollowUpAlertText);
     public bool HasTechnician => !string.IsNullOrWhiteSpace(Technician);
     public bool HasCustomerAddress => !string.IsNullOrWhiteSpace(CustomerAddress);
     public bool HasSentAt => SentAt.HasValue;
