@@ -30,6 +30,10 @@ auf dem Firmenrechner über die bestehende Windows-Auto-Update-Funktion.
 - `AGENTS.md` und `docs/RELEASE_PROZESS.md` verlangen übereinstimmend frische
   Windows-/Velopack-Artefakte, Release-Commit auf `main`, Tag, Push, GitHub
   Release, Upload aller Pflichtdateien und abschließendes `gh release view`.
+- `scripts/check-release-artifacts.sh` behandelte den laut Releaseprozess
+  optionalen Inno-Installer noch als Pflichtdatei. Der Prüfer wurde vor der
+  Artefakterzeugung minimal korrigiert; die Velopack-Pflichtdateien bleiben
+  unverändert zwingend.
 - Eine veraltete Aussage in `docs/PROJEKTSTATUS.md` schrieb dem letzten Lauf
   einen sichtbaren Kategoriezeilen-Drag zu, obwohl `docs/codex_last_run.md`
   diese Geste ausdrücklich als nicht zuverlässig geprüft ausweist. Die

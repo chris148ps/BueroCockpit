@@ -21,6 +21,19 @@ check_file() {
   fi
 }
 
+check_optional_file() {
+  local label="$1"
+  local path="$2"
+
+  if [ -f "$path" ]; then
+    echo "OK (optional): $label"
+    echo "    $path"
+  else
+    echo "NICHT VORHANDEN (optional): $label"
+    echo "    $path"
+  fi
+}
+
 check_glob() {
   local label="$1"
   local pattern="$2"
@@ -63,7 +76,7 @@ check_velopack_runtime() {
 echo "Prüfe Release-Artefakte..."
 echo
 
-check_file "Inno-Setup-Installer" "$PUBLISH_ROOT/installer/BueroCockpitSetup.exe"
+check_optional_file "Inno-Setup-Installer" "$PUBLISH_ROOT/installer/BueroCockpitSetup.exe"
 
 check_velopack_runtime "win-x64"
 
