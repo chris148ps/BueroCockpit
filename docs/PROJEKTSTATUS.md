@@ -219,6 +219,13 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 - Die physische Übertragung eines Entwurfs mit Foto/Skizze, Wiederholung und
   echter Verbindungsabbruch wurden auf ausdrücklichen Nutzerwunsch auf morgen
   verschoben. Diese Fälle dürfen nicht als bereits ausgeführt gelten.
+- Der macOS-Absturz beim Öffnen von `Alle Vorgänge` mit einer in OneDrive
+  formal vorhandenen, aber lokal nicht lesbaren Anhang-Miniatur ist behoben.
+  Miniaturen werden vor der Übergabe an Skia vollständig in einen
+  Memory-Stream gelesen; Timeout oder beschädigte Datei führen nur noch zu
+  einer ausgelassenen Vorschau. Der Fehler wurde mit einer lesenden Kopie der
+  produktiven Datenbank und isolierter lokaler Konfiguration vor der Änderung
+  reproduziert und nach der Änderung im echten macOS-Bundle erneut geprüft.
 
 ## Verbindliche Projektentscheidungen
 

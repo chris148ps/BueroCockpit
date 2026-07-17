@@ -14,17 +14,22 @@ internal static class ThumbnailBitmapCache
             return null;
         }
 
-        var lastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
-        if (Cache.TryGetValue(path, out var cachedEntry) &&
-            cachedEntry.LastWriteTimeUtc == lastWriteTimeUtc &&
-            cachedEntry.BitmapReference.TryGetTarget(out var cachedBitmap))
-        {
-            return cachedBitmap;
-        }
-
         try
         {
-            var bitmap = new Bitmap(path);
+            var lastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
+            if (Cache.TryGetValue(path, out var cachedEntry) &&
+                cachedEntry.LastWriteTimeUtc == lastWriteTimeUtc &&
+                cachedEntry.BitmapReference.TryGetTarget(out var cachedBitmap))
+            {
+                return cachedBitmap;
+            }
+
+            // Cloud-Platzhalter können als vorhanden gemeldet werden, aber erst beim
+            // Lesen fehlschlagen. Skia darf deshalb keinen Dateistream erhalten:
+            // Ausnahmen aus seinem nativen Read-Callback würden den Prozess beenden.
+            var imageBytes = File.ReadAllBytes(path);
+            using var imageStream = new MemoryStream(imageBytes, writable: false);
+            var bitmap = new Bitmap(imageStream);
             Cache[path] = new CacheEntry(lastWriteTimeUtc, new WeakReference<Bitmap>(bitmap));
             return bitmap;
         }
