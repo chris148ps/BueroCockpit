@@ -1,537 +1,185 @@
 # Lokaler Netzwerk-Sync
 
-Stand: 2026-07-05.
+Stand: 2026-07-16.
 
-Dieses Dokument trennt drei Dinge sauber:
+## Aktueller verbindlicher Stand
 
-- aktueller Stand
-- verbindliche Regeln
-- spaeter geplante Zielrichtung
+BüroCockpit Desktop bleibt das führende System. Der aktuell implementierte Sync ist bewusst gerichtet und manuell:
 
-## Aktueller Stand
+```text
+iPad -> Desktop -> Sync/inbox
+```
 
-- Auf der Desktop-Seite ist ein manuell startbarer lokaler HTTP-Testdienst fuer Statusabfragen, lokale Geraete-Vormerkungen und harmlose Aenderungsmetadaten vorbereitet.
-- Solange der Testdienst manuell laeuft, kann er sich optional per Bonjour/mDNS als `_buerocockpit._tcp` ankuendigen. Wenn Bonjour nicht verfuegbar ist, bleibt die manuelle Desktop-Adresse/IP die Fallback.
-- Die iPad-App startet direkt in die Hauptansicht und prueft die Desktop-Verbindung im sichtbaren Betrieb automatisch.
-- Es wird keine produktive Synchronisation implementiert.
-- Auf dem iPad gibt es eine lokale `MobileChangeQueue` im App-Support-Verzeichnis. Sie ist nur eine lokale Warteschlange ohne Uebertragung.
-- Auf dem iPad gibt es zusaetzlich lokale `MobilePhotoDrafts` fuer den Foto-Modus.
-- Der Foto-Modus ist aktuell nur ein lokaler Entwurfsmodus auf dem iPad. Es gibt keinen produktiven Upload und keine Uebernahme in Produktivdaten.
+- Der Desktop-Sync-Dienst startet ausschließlich über `Lokalen Sync-Dienst starten` in den Einstellungen.
+- Nur Verbindungssuche und sichtbare Statusprüfung dürfen im vorhandenen begrenzten Umfang laufen.
+- Eine Datenübertragung beginnt ausschließlich durch `Jetzt synchronisieren` auf dem iPad.
+- Der aktuelle Transport übernimmt mobile Eingänge samt `aufgabe.json`, Originalfotos, Vorschauen, markierten Fassungen, Skizzen und Dateien.
+- Der Transport schreibt niemals direkt in die Desktop-Datenbank. Vollständig geprüfte Pakete werden zuerst unter `Sync/inbox/mobile-*` sichtbar.
+- Der bestehende Desktop-Mobile-Inbox-Loader liest diese Eingänge zusätzlich zur tolerierten alten Struktur `mobile-inbox/mobile-*`.
+- Desktop -> iPad über das lokale Netzwerk und eine bidirektionale Datenbankzusammenführung sind nicht implementiert.
+- Bestehende Snapshot-/Lesedatenwege bleiben davon getrennt; Cloud- oder Live-Dateien sind kein Sync-Transport.
 
-## Verbindliche Regeln
+## Dauerhafte Sicherheitsgrenzen
 
-- Mobile Eingänge ist technisch keine normale Kategorie mehr.
-- Falls der Eintrag technisch noch benoetigt wird, ist Mobile Eingänge nur ein interner bzw. systemischer Eingang oder eine technische Inbox.
-- Mobile Eingänge darf nicht dauerhaft links als normale Kategorie angezeigt werden.
-- Mobile Eingänge darf nicht als normale Zielkategorie in Kategorieauswahlen angeboten werden.
-- Lokaler Netzwerk-Sync bleibt der Zielweg.
-- Alte iCloud-/OneDrive-/Live-Datei-/Cloud-Live-Sync-Wege sind nicht der aktuelle Zielweg.
-- Mobile Änderungen auf iPad oder iPhone duerfen niemals ungefragt durch den Desktop-Stand ueberschrieben werden.
-- Wenn mobile Aenderungen und Desktop-Stand denselben Inhalt betreffen, muessen Konflikte sichtbar gemacht werden.
-- Foto-Modus bleibt lokal. Keine Uploads und kein echter Produktiv-Sync, bis das ausdruecklich umgesetzt wird.
+- kein automatischer Start des Desktop-Dienstes
+- keine automatische Hintergrund-Datenübertragung
+- kein Import allein durch Bonjour-Fund oder Statusprüfung
+- kein UDP-Broadcast, Portscan oder Durchprobieren von Portbereichen
+- keine Reaktivierung des alten Pairing-Codes
+- kein iCloud-, OneDrive- oder `live.bclive`-Transport
+- keine Übertragung einer vollständigen Datenbankdatei
+- keine stille Datenmigration oder stille Überschreibung von Desktopdaten
+- keine Löschung mobiler Originale in dieser Stufe
+- keine Secrets in zentralen Einstellungen, Produktivdaten oder Repository
 
-## Spaeter geplant
+Bonjour/mDNS kündigt nur den bewusst gestarteten Dienst als `_buerocockpit._tcp` an. Die manuelle Desktop-Adresse/IP auf Port `53941` bleibt der Fallback. Die Suche ersetzt einen vorgemerkten Desktop niemals automatisch durch einen anderen.
 
-- Lokaler Netzwerk-Sync soll spaeter der einzige kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App sein.
-- Mobile Aenderungen, Fotos, Skizzen, Notizen und Dateien sollen spaeter bewusst uebertragen werden.
-- Vor einem spaeteren echten Upload oder Abruf muss eine lokale Vertrauensbasis bewusst implementiert werden.
-- Fruehere dateibasierte Kopplungen bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen.
+## Bedienablauf
 
-## 1. Ziel
+1. Benutzer startet den lokalen Sync-Dienst am Desktop.
+2. Das iPad findet den Desktop per Bonjour oder verwendet die gespeicherte/manuell eingegebene Adresse.
+3. `Diesen Desktop verwenden` erzeugt beziehungsweise verwendet eine stabile iPad-Geräte-ID und einen zufälligen lokalen Vertrauensnachweis.
+4. `POST /local-sync/devices/remember` merkt das iPad am Desktop vor. Das ist noch keine Freigabe.
+5. Der Desktop zeigt das vorgemerkte iPad unter `Lokaler Netzwerk-Sync`; der Benutzer wählt `Für Uploads freigeben`.
+6. Erst `Jetzt synchronisieren` am iPad prüft Dienst und Kopplung und überträgt neue mobile Eingänge.
+7. Der Desktop bestätigt ein Paket erst nach Validierung, vollständiger Staging-Ablage, atomarer Sichtbarmachung, Beleg und Sync-Protokoll.
+8. Wiederholte manuelle Läufe vergleichen stabile IDs und Prüfsummen und erzeugen keine Duplikate.
 
-BueroCockpit Desktop bleibt das fuehrende System; Daten liegen lokal. Der lokale Netzwerk-Sync ist der kuenftige Weg fuer Aktualisierung und Synchronisation zwischen BueroCockpit Desktop und iPad-App. Das iPad wird als mobiler Erfassungsclient angebunden:
+Die iPad-Hauptansicht zeigt Ziel, Fortschrittsphase, Abschlusszahlen und den letzten erfolgreichen Zeitpunkt. Während eines Laufs ist die Schaltfläche gegen Mehrfachstart gesperrt.
 
-- Desktop stellt bei Bedarf einen aktuellen, iPad-lesbaren Snapshot oder Lesestand bereit.
-- iPad uebertraegt mobile Eingaenge, Fotos, Skizzen, Notizen und sonstige Dateien manuell an den Desktop.
-- Desktop speichert angenommene Uploads spaeter zunaechst kontrolliert lokal, bevor sie fachlich importiert werden.
-- Das iPad loescht lokale Originale erst nach bestaetigter Uebernahme.
-- Jeder Sync-Lauf wird vom Benutzer bewusst gestartet und zeigt Status, Fehler und Protokoll.
+## Fortschrittsphasen auf dem iPad
 
-## 2. Nicht-Ziele
+- Desktop wird gesucht
+- Verbindung wird hergestellt
+- Kopplung wird geprüft
+- Daten werden verglichen
+- Daten werden übertragen
+- Fotos werden übertragen
+- Übertragung wird bestätigt
+- Synchronisation abgeschlossen
 
-Nicht Bestandteil dieses Konzeptschritts:
+Nicht benötigte Übertragungsphasen dürfen übersprungen werden. Ein Lauf ohne neue Daten endet erfolgreich mit Nullwerten; lokale Dateien werden dabei nicht verändert.
 
-- kein ASP.NET-/Kestrel-Einbau
-- kein Bonjour-/mDNS-Paket; die aktuelle Testdienstphase nutzt nur systemische APIs und behandelt Bonjour als optional
-- kein automatisch gestarteter HTTP-Listener
-- kein Serverstart im App-Lifecycle
-- kein echter iPad-Sync und keine Produktivdatenuebertragung
-- keine Datenuebertragung
-- keine Uebertragung der iPad-`MobileChangeQueue`
-- kein Umbau des Snapshot-Exports
-- keine Datenmigration
-- kein unkontrolliertes Verschieben von Alt-, Benutzer- oder Produktivdateien
-- kein FileSystemWatcher, kein Polling, kein LiveReload
-- keine stille Hintergrundsynchronisation
+## Kopplung und lokale Gerätezustände
 
-## Phase 2: Desktop-Service-Geruest
+Die iPad-Seite speichert Desktop-Zuordnung, stabile iPad-Geräte-ID und Vertrauensnachweis ausschließlich lokal in `UserDefaults`. Der Desktop speichert ausschließlich lokal in `BueroCockpitLocal/local-network-devices.json`:
 
-Phase 2 legt nur ein Desktop-Service-Geruest an. Der Dienst ist standardmaessig deaktiviert und wird im App-Lifecycle nicht automatisch gestartet. Auch wenn lokale Einstellungen vorhanden sind, oeffnet BueroCockpit keinen Port und startet keinen HTTP-Server.
+- `deviceId`, Gerätename, Plattform und optionale App-Version
+- erster und letzter Kontakt sowie letzte Remote-Adresse
+- SHA-256-Hash des Vertrauensnachweises, niemals den offenen Nachweis
+- Zustand `pending`, `trusted` oder `revoked`
+- Zeitpunkt und Meldung des letzten bestätigten Uploads
 
-Vorbereitet sind:
+Ein neuer oder geänderter Nachweis setzt das Gerät auf `pending`. Nur die ausdrückliche Desktop-Aktion setzt `trusted`; der Benutzer kann die Freigabe widerrufen. Die Prüfung verwendet einen zeitkonstanten Hashvergleich. Ein unbekanntes, vorgemerktes, widerrufenes oder falsch authentisiertes Gerät darf keine Daten hochladen.
 
-- `LocalSyncService` als In-Memory-Service mit den Zustaenden `Disabled`, `Stopped`, `Starting`, `Running` und `Error`
-- `LocalSyncOptions` fuer lokale, geraetespezifische Konfiguration
-- lokale AppSettings fuer `LocalNetworkSyncEnabled`, `LocalNetworkSyncPort` und `LocalNetworkSyncDeviceName`
-- Platzhaltermethoden fuer Status, Snapshot-Manifest und Mobile-Inbox-Manifestpruefung
-- Platzhaltermethoden fuer Aenderungsmetadaten ohne Produktivdaten
-- ein Desktop-Einstellungsabschnitt, in dem Geraetename und Port lokal bearbeitet werden koennen
+## Implementierte Endpunkte
 
-Fuer Phase 2 galt:
-
-- kein automatischer Start
-- keine geoeffneten Ports
-- kein `HttpListener`
-- kein Kestrel oder ASP.NET
-- keine neuen NuGet-Abhaengigkeiten
-- keine echte Netzwerkkommunikation
-- keine Ablage von Geraetename oder Port in `Sync/live/settings.json`
-- keine iPad-Codeaenderung
-- keine Produktivdatenausgabe im Platzhaltermanifest
-
-Eine spaetere Aktivierung des lokalen Netzwerk-Syncs darf erst in einem separaten Auftrag erfolgen. Dann muessen Start/Stop-UI, Portwahl, Pairing-Sicherheit, Firewall-/macOS-Hinweise und die konkrete Transportimplementierung erneut bewusst entschieden werden.
-
-## Phase 3: Manueller lokaler Testdienst
-
-Phase 3 ergaenzt einen ersten echten Desktop-Testdienst. Er ist nur fuer einen technischen Verbindungstest gedacht und darf ausschliesslich durch den Button `Lokalen Testdienst starten` im Bereich `Lokaler Netzwerk-Sync` gestartet werden. Das Oeffnen der App, das Oeffnen der Einstellungen und vorhandene lokale Einstellungen starten keinen Dienst.
-
-Der Dienst lauscht nach manuellem Start im lokalen Netzwerk auf dem lokal gespeicherten Port. Wenn die native DNS-SD-/Bonjour-Bibliothek verfuegbar ist, kuendigt er sich fuer die Dauer des manuell gestarteten Testdienstes per Bonjour/mDNS als `_buerocockpit._tcp` an. Wenn Bonjour nicht verfuegbar ist, zeigt die Desktop-App einen Hinweis und der HTTP-Testdienst bleibt trotzdem aktiv. Fuer iPad-Tests kann die aktuelle LAN-IP verwendet werden, zum Beispiel `http://192.168.x.x:53941/local-sync/status`; `127.0.0.1` ist nur fuer Tests direkt auf dem Desktop geeignet. Ohne gueltigen gespeicherten Port startet der Dienst nicht. Er stellt nur Statusendpunkte bereit:
+### Harmlose Statusendpunkte
 
 ```text
 GET /health
 GET /local-sync/status
 GET /local-sync/changes/status
 GET /local-sync/state
-POST /local-sync/devices/remember
+GET /pairing/status              (tolerierter alter Statusalias)
 ```
 
-`/pairing/status` bleibt nur als tolerierter Alt-Endpunkt erhalten. Der aktuelle Bedienweg nutzt `/local-sync/status`.
-
-Die Antwort enthaelt keine Produktivdaten:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "version": "0.4.14"
-}
-```
-
-Weiterhin gilt:
-
-- keine iPad-Kopplung und kein Abschluss einer Vertrauensbeziehung
-- keine Aufgaben, Kategorien, Anhaenge oder Einstellungen in der Antwort
-- Bonjour/mDNS optional, nur waehrend des manuell gestarteten Testdienstes und nur fuer `_buerocockpit._tcp`
-- manueller IP-/Adresse-Fallback, wenn Bonjour nicht verfuegbar ist
-- keine automatische Hintergrund-Geraetesuche
-- kein UDP-Broadcast, keine Subnetzsuche und kein Portscan
-- kein dauerhaftes Polling
-- kein FileSystemWatcher
-- keine Datenuebertragung
-
-`/local-sync/changes/status` und `/local-sync/state` sind nur vorbereitete Metadaten-Endpunkte. Sie liefern keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstigen Produktivdaten:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "changeVersion": "placeholder-20260705120000000",
-  "lastChangedUtc": "2026-07-05T12:00:00Z",
-  "syncActive": false
-}
-```
-
-Die lokale `changeVersion` kann beim Speichern im laufenden Desktop-Prozess aktualisiert werden. Das ist nur ein Platzhalter fuer spaetere automatische Aenderungsbereitstellung; daraus entsteht noch kein echter Sync und keine Datenuebertragung.
-
-### iPad-Hauptansicht und Vormerkung in Phase 3
-
-Das iPad startet direkt in die Hauptansicht. Ein vorgeschalteter Assistent oder ein Startzwang ueber Alt-Kopplung gehoeren nicht mehr zum aktuellen Zielweg. Oben in der Hauptansicht zeigt nur ein kleiner kompakter Verbindungsindikator ohne sichtbaren Begleittext den lokalen Desktop-Status. Die Hauptansicht startet die begrenzte Verbindungspruefung selbst beim Erscheinen und bei Rueckkehr in den aktiven App-Zustand; die Sync-Einstellungen muessen dafuer nicht geoeffnet werden. Der Punkt haengt an der zentralen ViewModel-Statusquelle und aktualisiert sich auch ohne Einstellungsansicht. Detaillierte Statusmeldungen bleiben in den Sync-Einstellungen oder als Accessibility-/Tooltip-Text:
-
-- gruener Punkt: `Desktop verbunden`
-- roter Punkt: `Desktop nicht verbunden`
-- gelb nur waehrend einer laufenden Pruefung
-
-Wenn noch kein Desktop vorgemerkt ist, bleibt die Hauptansicht trotzdem sichtbar und weist dezent darauf hin, dass der Desktop-Testdienst in BueroCockpit manuell gestartet werden muss. Die App sucht den Desktop per Bonjour/mDNS, sofern verfuegbar. Die manuelle Desktop-Adresse/IP bleibt in den Sync-Einstellungen als Fallback erreichbar.
-
-Das iPad kann einen erfolgreich geprueften Desktop lokal als kuenftigen Sync-Partner vormerken. Gespeichert werden nur Desktop-Adresse/IP, Port, Zeitstempel der letzten erfolgreichen Pruefung, lokaler Status sowie vorbereitend die letzte bekannte `changeVersion` und die letzte erfolgreiche Aenderungsstatus-Pruefung. Diese Vormerkung ist der aktuelle iPad-Bedienweg fuer den lokalen Netzwerk-Sync.
-
-Beim Benutzerbefehl `Diesen Desktop verwenden` bleibt diese lokale iPad-Vormerkung die fuehrende lokale Quelle. Danach sendet das iPad einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Der Desktop speichert das iPad nur lokal in `BueroCockpitLocal/local-network-devices.json` und aktualisiert vorhandene Eintraege mit gleicher `deviceId`. Gespeichert werden `deviceId`, `deviceName`, `platform`, optional `appVersion`, `firstSeenUtc`, `lastSeenUtc`, optional `lastRemoteAddress` und `status = remembered`. Diese Geraetewerte werden nicht in die zentrale `settings.json` geschrieben und nicht in Produktivdaten uebernommen. Die Desktop-UI zeigt die vorgemerkte iPads / lokalen Geraete mit Status `vorgemerkt, Sync noch nicht aktiv`.
-
-Die automatische Bonjour-/Netzwerksuche ist davon getrennt. Sie darf die gespeicherte Vormerkung nicht loeschen, nicht herabstufen und nicht durch eine widerspruechliche Hauptmeldung ueberschreiben. Wenn die Suche bei bereits vorgemerktem Desktop gerade keinen weiteren Desktop findet, bleibt der vorgemerkte Desktop sichtbar und die Suchmeldung lautet sinngemaess `Automatische Suche: kein weiterer Desktop gefunden.`. Wenn noch kein Desktop verbunden oder vorgemerkt ist, darf die Suche weiterhin melden, dass aktuell kein Desktop gefunden wurde. Wenn dieselbe Maschine wiedergefunden wird, duerfen Adresse/IP und Port aktualisiert werden. Ein anderer gefundener Desktop ersetzt die Vormerkung nur nach Benutzeraktion.
-
-Wenn das iPad bereits einen Desktop vorgemerkt hat und Bonjour/mDNS einen anderen BueroCockpit-Desktop findet, zeigt der Bereich `Lokaler Netzwerk-Sync` diesen anderen Desktop getrennt als Alternative an. Angezeigt werden Geraetename, Host/IP und Port. Der Wechsel erfolgt nur ueber den Benutzerbefehl `Diesen Desktop verwenden`. Vor dem Speichern prueft das iPad den alternativen Desktop ueber `GET /local-sync/status`, speichert ihn erst bei erfolgreicher Antwort lokal als neuen vorgemerkten Desktop und sendet anschliessend, falls erreichbar, `POST /local-sync/devices/remember` an diesen Desktop. Ein Fehlschlag bei Suche, Pruefung oder optionaler Desktop-Registrierung loescht die bisherige Vormerkung nicht.
-
-IP-Wechsel und Geraetewechsel werden getrennt behandelt. Wenn moeglich vergleicht das iPad gefundene Desktops ueber `deviceId`, Bonjour-Service-Name oder Hostname; Host/IP plus Port ist nur der Fallback. Wird dieselbe Maschine mit anderer Adresse wiedergefunden, darf die lokale Adresse aktualisiert werden. Wird dagegen ein anderer Desktop gefunden, bleibt der bisher vorgemerkte Desktop stabil, bis der Benutzer den Wechsel ausdruecklich bestaetigt. Auch wenn der bisherige Desktop nicht erreichbar ist, gibt es keine automatische Ersetzung.
-
-Die automatische Pruefung laeuft begrenzt: beim Start, bei Rueckkehr in den aktiven App-Zustand und im sichtbaren Betrieb in einem ruhigen Intervall. Beim Start der Hauptansicht wird der vorgemerkte Desktop aus dem lokalen iPad-Speicher geladen und direkt ueber `http://<host>:<port>/local-sync/status` geprueft. Der Statuspunkt benoetigt die Einstellungsansicht nicht; die Hauptansicht startet die Statuspruefung selbst und aktualisiert dieselbe zentrale ViewModel-Statusquelle wie die Sync-Einstellungen. Sie stoppt oder pausiert, wenn die Hauptansicht nicht aktiv ist. Es gibt keinen UDP-Broadcast, keinen Portscan und keine aggressive Dauerschleife.
-
-Fruehere dateibasierte Kopplungen sind nicht mehr der aktuelle Kopplungsweg im iPad-Bereich `Lokaler Netzwerk-Sync`. Sie bleiben hoechstens Legacy/Fallback fuer bestehende Lesedaten oder tolerantes Lesen alter Einstellungen. Der manuelle IP-Fallback bleibt der verlaessliche Weg, wenn Bonjour/mDNS nicht verfuegbar ist.
-
-## 3. Rollen
-
-### Desktop als fuehrendes System
-
-BueroCockpit Desktop fuehrt Datenbank, Aufgaben, Kategorien, Anhaenge, Schreibtischdaten und Importentscheidungen. Der Desktop entscheidet, ob ein mobiler Eingang angenommen, abgelehnt, als Konflikt markiert oder spaeter importiert wird.
-
-Die lokalen BueroCockpit-Daten bleiben die fuehrende Datenquelle des Desktop. Der lokale Netzwerk-Sync ist spaeter eine Transport- und Uebergabeschicht zwischen iPad und einem laufenden Desktop im Firmennetz.
-
-### iPad als mobiler Client
-
-Das iPad liest nur freigegebene Snapshot-/Lesedaten und erfasst unterwegs neue Informationen. Es darf nicht direkt in die Desktop-Datenbank schreiben. Uploads sind mobile Eingangspakete, die der Desktop erst nach erfolgreicher Dateiablage, Pruefung und optionaler Benutzerfreigabe uebernimmt.
-
-## 4. Datenfluss
-
-### Desktop -> iPad: Lesestand
-
-Der Desktop liefert spaeter auf Anforderung einen kompakten Lesestand ueber den lokalen Netzwerk-Sync. Das konkrete Paketformat wird erst in einem separaten Schritt festgelegt.
-
-Fuer den Netzwerk-Lesestand gilt:
-
-- nur lesbare, optimierte Daten
-- keine Originalanhaenge ungefragt
-- Aufgaben, Kategorien, Metadaten und zentrale Lesesettings
-- Vorschauen nur dort, wo sie bereits fuer die iPad-Leseschicht vorgesehen sind
-- keine Desktop-Datenbankdatei
-- keine internen lokalen AppSettings
-- keine Backups oder produktiven Rohordner
-
-### iPad -> Desktop: mobile Eingaenge/Fotos/Skizzen
-
-Das iPad sendet mobile Eingangspakete. Ein Paket besteht aus einem Manifest und referenzierten Dateien:
-
-```text
-manifest.json oder aufgabe.json
-originals/
-previews/
-annotated/
-sketches/
-files/
-```
-
-Die bestehende mobile Inbox kennt bereits `mobile-*`-Eintraege mit `aufgabe.json`, Status `new`, Fotos, Vorschauen, markierten Versionen, Skizzen und Dateien. Der lokale Netzwerk-Sync soll dieses fachliche Format wiederverwenden oder explizit versioniert daraus ableiten.
-
-### MobileChangeQueue auf dem iPad
-
-Die `MobileChangeQueue` ist die vorbereitete lokale Sammelstelle fuer spaetere mobile Aenderungen. Sie liegt ausschliesslich im iPad-App-Support-Verzeichnis und wird nicht in zentrale Desktop-Einstellungen, Live-Dateien, Cloud-Dateien oder Produktivdaten geschrieben.
-
-Ein `MobileChange` enthaelt `id`, `type`, optional `entityId`, `createdAt`, `updatedAt`, `deviceId`, `status`, `retryCount`, optional `lastError` und ein freies JSON-`payload`. Vorbereitete Typen sind `createTask`, `updateTask`, `addPhoto`, `annotatePhoto`, `addNote` und `addAttachment`.
-
-Statuswerte:
-
-- `pending`: lokal erfasst, noch nicht uebertragen
-- `sending`: fuer spaeteren Versand vorgemerkt
-- `sent`: spaeter erfolgreich uebernommen
-- `failed`: spaeterer Versand fehlgeschlagen
-- `conflict`: Konflikt erkannt, keine stille Ueberschreibung erlaubt
-
-Aktueller Stand: Es gibt keinen echten Sync, keine Aufgaben-/Foto-/Anhang-Uebertragung und keine automatische Desktop-Uebernahme. Desktop-Aktualisierungen duerfen mobile Aenderungen nicht ungefragt ersetzen; spaetere Synchronisation muss zusammenfuehren und Konflikte sichtbar machen.
-
-## 5. Lokale Vertrauensbasis fuer spaeter
-
-Der aktuelle Bedienweg in `docs/LOCAL_NETWORK_PAIRING.md` ist ein lokaler Netzwerk-Testweg ohne Einmal-Code. Dieses Sync-Konzept beschreibt nur den geplanten Ablauf rund um den spaeteren Transport.
-
-Vor einem spaeteren echten Upload oder Abruf muss eine lokale Vertrauensbasis bewusst implementiert werden. Sie ist in diesem Stand nicht aktiv.
-
-Geplanter Ablauf, noch nicht implementiert:
-
-1. Benutzer startet auf dem Desktop bewusst eine neue Vertrauensfreigabe.
-2. Desktop zeigt Geraetename, Zeitpunkt und angeforderte Rechte.
-3. Benutzer bestaetigt die Gegenstelle am Desktop.
-4. iPad und Desktop speichern lokale Geraetekenndaten fuer spaetere manuelle Sync-Laeufe.
-
-Regeln:
-
-- Spaetere Wiedererkennung erfolgt ueber lokal gespeicherte Geraetekenndaten und einen widerrufbaren Vertrauenswert.
-- Der Vertrauenswert wird nicht dauerhaft offen angezeigt.
-- Der Vertrauenswert kann am Desktop widerrufen werden.
-- Unbekannte Geraete werden nie automatisch angenommen.
-- Eine Vertrauensfreigabe berechtigt nicht zum direkten Schreiben in Produktivdaten.
-
-## 6. Sicherheitsregeln
-
-- Dienst nur im lokalen LAN nutzen.
-- Keine externe Freigabe oder Umleitung ueber externe Transportwege.
-- Upload nur mit bewusst bestaetigter lokaler Vertrauensbasis.
-- Status- und Logdaten nur fuer freigegebene Geraete, soweit sie nicht fuer den technischen Verbindungstest noetig sind.
-- Keine automatische Annahme unbekannter Geraete.
-- Keine stille Loeschung mobiler Originale.
-- Desktop bestaetigt Uebernahme erst nach vollstaendiger Dateiablage und Pruefsumme.
-- Uploads werden zuerst in Staging/Inbox abgelegt, nicht direkt fachlich importiert.
-- Dateinamen und Pfade werden normalisiert; absolute iPad-Pfade werden nicht als Zielpfade verwendet.
-- Upload-Groessen, Dateitypen und Paketanzahl werden begrenzt.
-- ZIP-/Archiv-Inhalte duerfen keine Pfad traversal Eintraege enthalten.
-- Fehler und Uebernahmen werden protokolliert.
-- Konflikte werden sichtbar gemacht, nicht still ueberschrieben.
-
-## 7. Beispiel-Endpunkte
-
-Dies ist der aktuelle technische Testumfang plus spaetere Schnittstellenentwuerfe. Nur die ausdruecklich als aktuell implementiert markierten Endpunkte gehoeren zum jetzigen Testdienst.
-
-### `GET /local-sync/status`
-
-Aktuell implementierter technischer Verbindungstest. Liefert keine Produktivdaten.
-
-Beispielantwort:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "version": "0.4.14"
-}
-```
-
-### `GET /local-sync/changes/status`
-
-Aktuell implementierter Platzhalter fuer spaetere automatische Aenderungspruefung. Liefert nur Metadaten und keine Produktivdaten. `syncActive` bleibt in diesem Schritt `false`.
-
-Beispielantwort:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "changeVersion": "placeholder-20260705120000000",
-  "lastChangedUtc": "2026-07-05T12:00:00Z",
-  "syncActive": false
-}
-```
-
-### `GET /local-sync/state`
-
-Alias fuer den gleichen harmlosen Metadatenstatus wie `/local-sync/changes/status`.
+`/local-sync/status` liefert App, Status, Kompatibilitätsmodus `local-network-test`, Version, Desktopname, Desktop-Geräte-ID und `manualSyncAvailable`. Er liefert keine Aufgaben, Kategorien oder Anhänge. `changes/status` und `state` bleiben harmlose vorbereitete Metadatenendpunkte; `syncActive` bleibt `false`.
 
 ### `POST /local-sync/devices/remember`
 
-Aktuell implementierte lokale iPad-Geraetevormerkung. Der Endpunkt speichert nur lokale Geraete-Metadaten auf dem Desktop und uebertraegt keine Produktivdaten.
+Merkt ein iPad mit Geräte-ID, Anzeigename, Plattform, App-Version und lokalem Vertrauensnachweis vor. Die Antwort enthält `pairingStatus`; ein neues Gerät ist `pending` und benötigt die Desktop-Freigabe.
 
-Beispielrequest:
+### `GET /local-sync/pairing/status`
 
-```json
-{
-  "deviceId": "ipad-...",
-  "deviceName": "iPad",
-  "platform": "iPadOS",
-  "appVersion": "1.0",
-  "lastSeenUtc": "2026-07-05T12:00:00Z"
-}
-```
-
-Beispielantwort:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "message": "Gerät vorgemerkt"
-}
-```
-
-### `GET /status`
-
-Spaeterer Entwurf fuer freigegebene Geraete. Nicht implementiert.
-
-### `GET /snapshot`
-
-Liefert spaeter den aktuellen iPad-Lesestand in einem kompakten lokalen Netzwerkformat.
-
-Regeln:
-
-- nur gekoppelte Geraete
-- keine Originaldateien ungefragt
-- kleine/optimierte Daten bevorzugen
-- ETag, Exportzeit oder Checksumme fuer Wiederholungsabrufe vorsehen
-
-### `POST /mobile-inbox`
-
-Nimmt ein mobiles Eingangspaket entgegen. Der Desktop legt es zuerst unter einer definierten Inbox ab und bestaetigt erst danach die erfolgreiche Uebernahme.
-
-Mindestanforderungen:
-
-- Manifest mit `uploadId`, `deviceId`, `createdAt`, Dateiliste und Pruefsummen
-- Dateien vollstaendig empfangen
-- Pruefsummen stimmen
-- Paket liegt in Staging/Inbox
-- Sync-Protokoll wurde geschrieben
-
-### `GET /sync-log`
-
-Optionaler Endpunkt fuer die letzten Sync-Ereignisse. Er darf keine Tokens, lokalen Geheimnisse oder unnoetigen Produktivdaten ausgeben.
-
-## 8. Lokale Datenablage
-
-Bestehende lokale Struktur fuer spaetere Netzwerk-Uebergaben:
+Erwartet:
 
 ```text
-BueroCockpit_Daten/
-  buerocockpit.db
-  Tasks/
-  Backups/
-  Sync/
-    inbox/
-      changes/
+X-BueroCockpit-Device-Id
+X-BueroCockpit-Trust-Key
+```
+
+Nur `trusted` ergibt HTTP 200. `missing`, `invalid`, `pending` und `revoked` ergeben HTTP 403 mit verständlichem Status.
+
+### `POST /local-sync/mobile-inbox`
+
+Erwartet dieselben Authentisierungsheader und ein JSON-Paket nach Schema `local-sync-inbox-v1`. Binärdateien werden in diesem ersten klar begrenzten Transport Base64-kodiert im JSON übertragen. Begrenzungen:
+
+- höchstens 250 Dateien
+- höchstens 100 MiB pro Datei
+- höchstens 220 MiB dekodierte Paketdaten
+- höchstens 310 MiB HTTP-Request einschließlich Base64/JSON
+- nur `aufgabe.json` sowie Pfade unter `originals`, `previews`, `annotated`, `sketches` und `files`
+
+Absolute Pfade, Pfad-Traversal, doppelte Pfade, leere Dateien, Größenabweichungen, falsche SHA-256-Prüfsummen und unpassende Foto-/JSON-Signaturen werden abgelehnt. Chunked-HTTP-Anfragen werden unterstützt, aber beim Lesen tatsächlich begrenzt.
+
+Antwortstatus:
+
+- `accepted`: vollständig neu abgelegt
+- `skipped`: identische stabile ID und identischer Inhalt bereits bestätigt
+- `conflict`: gleiche stabile ID mit abweichendem Inhalt; Desktopbestand bleibt unverändert
+- `invalid`: unvollständiges oder ungültiges Paket
+- `failed`: sichere Ablage oder Protokollierung fehlgeschlagen
+
+## Paket- und Ablagestruktur
+
+```text
+BueroCockpit_Daten/Sync/
+  inbox/
+    mobile-<stabile-id>/
+      aufgabe.json
+      manifest.json
+      originals/
+      previews/
+      annotated/
+      sketches/
       files/
-    processed/
-    conflicts/
+  receipts/
+    <stabile-id>.json
+  conflicts/
+    mobile-<stabile-id>-conflict-.../
+  processed/
+  sync-log.jsonl
 ```
 
-Empfohlenes Ziel fuer spaetere Netzwerk-Uploads:
+Jeder Upload beginnt in einem `.staging-*`-Ordner unter `Sync/inbox`. Dateien werden mit `FileShare.None` geschrieben und auf den Datenträger gespült. Erst nach vollständiger Prüfung wird der Ordner atomar umbenannt. Der Beleg speichert ID, Inhaltsfingerprint und Ziel. Wenn ein Prozess zwischen atomarer Ablage und Beleg abbricht, erkennt ein Wiederholungsversuch das vollständige Manifest am Ziel, stellt den Beleg wieder her und erzeugt kein Duplikat.
 
-```text
-BueroCockpit_Daten/Sync/inbox/mobile-<yyyyMMdd-HHmmss>-<kurzid>/
-  aufgabe.json
-  manifest.json
-  originals/
-  previews/
-  annotated/
-  sketches/
-  files/
-```
+Die fachliche Übernahme eines sichtbaren mobilen Eingangs bleibt eine bewusste Desktop-Aktion. Danach verschiebt der vorhandene Ablauf neue Netzwerkeingänge nach `Sync/processed`; alte manuelle Eingänge behalten aus Kompatibilitätsgründen ihre alte Verarbeitungsstruktur.
 
-Verarbeitung:
+## Idempotenz und Konflikte
 
-- Upload startet in einem temporaren Staging-Ordner unter `Sync/inbox`.
-- Nach vollstaendiger Pruefung wird der Ordner atomar als `mobile-*` sichtbar gemacht.
-- Nach fachlicher Uebernahme verschiebt der Desktop den Eintrag nach `Sync/processed` oder markiert ihn in der bestehenden verarbeiteten Struktur.
-- Fehlerhafte oder widerspruechliche Pakete landen in `Sync/conflicts` oder bleiben mit Fehlerstatus sichtbar.
+- Mobile Entwürfe besitzen bereits eine stabile ID; diese ist Upload-ID und ID in `aufgabe.json`.
+- Der Inhaltsfingerprint wird deterministisch aus normalisiertem Pfad, Größe und SHA-256 aller Dateien gebildet.
+- Identische Wiederholungen werden bestätigt, aber nicht erneut angelegt.
+- Abweichender Inhalt unter derselben ID überschreibt weder den vorhandenen Inbox-Eingang noch eine Desktopaufgabe. Er wird vollständig unter `Sync/conflicts` erhalten und als Konflikt gemeldet.
+- Dateiname oder Anzeigename allein dienen nie als Identität.
+- Bereits erfolgreich abgelegte Pakete bleiben auch dann sicher, wenn ein späteres Paket fehlschlägt.
 
-Kompatibilitaet:
+## Fotos, Skizzen und Dateien
 
-- Die bestehende manuelle Mobile-Inbox-Struktur `mobile-inbox/mobile-*` bleibt Legacy/Kompatibilitaet.
-- Neue Netzwerk-Uploads sollen bevorzugt unter `BueroCockpit_Daten/Sync/inbox` landen, weil diese Struktur bereits vom Sync-Root vorbereitet wird.
-- Ein spaeterer Import darf beide Quellen bewusst lesen, aber nicht unkontrolliert mischen.
+Originalfotos werden zusammen mit vorhandenen Vorschauen übertragen. SHA-256, deklarierte Länge, Dateiendung und die grundlegende tatsächliche Signatur für JPEG, PNG, WebP und HEIC/HEIF werden geprüft. Skizzen einschließlich vorhandener `.pkdrawing`-Originale und sonstige Dateien bleiben als Dateien erhalten; sie werden nicht in die Datenbank oder eine Live-Datei eingebettet.
 
-## 9. Fehlerfaelle
+Die iPad-Implementierung löscht oder verschiebt nach einer Bestätigung noch keine lokalen Originale. Das ist absichtlich konservativer als eine automatische Bereinigung: bei Erfolg, Fehler, Konflikt oder Abbruch bleibt ein erneuter manueller Versuch möglich. Eine spätere sichtbare Bereinigungsfunktion ist ein eigener Auftrag.
 
-- Desktop nicht erreichbar: iPad zeigt Fehler und behaelt lokale Originale.
-- Lokale Vertrauensbasis fehlt oder ist widerrufen: kein Upload, keine Snapshot-Ausgabe.
-- Datenordner fehlt oder ist gesperrt: `/status` meldet Fehler, Upload wird abgelehnt.
-- Upload unvollstaendig: Desktop verwirft Staging oder markiert Fehler; iPad behaelt Originale.
-- Pruefsumme falsch: keine Uebernahmebestaetigung.
-- Datei zu gross: Upload wird kontrolliert abgelehnt.
-- Nicht erlaubter Dateityp: Datei oder Paket wird abgelehnt.
-- Konflikt oder Dublette: Desktop legt Paket in Inbox/Konfliktbereich ab und verlangt Benutzerentscheidung.
-- Import fachlich fehlgeschlagen: Dateiablage kann bestaetigt sein, fachliche Uebernahme aber nicht; iPad darf lokale Originale nur nach klarer Desktop-Bestaetigung loeschen.
-- Protokoll kann nicht geschrieben werden: Sync gilt nicht als vollstaendig bestaetigt.
+## Fehlerverhalten
 
-## 10. Offene technische Entscheidungen
+- Nicht erreichbarer oder nicht gefundener Desktop, Zeitüberschreitung und Verbindungsabbruch werden am iPad mit Handlungshinweis angezeigt.
+- Fehlende, ungültige, ausstehende oder widerrufene Kopplung blockiert vor der Datenübertragung.
+- Fehlende oder unlesbare iPad-Dateien führen zu keiner positiven Bestätigung.
+- Ein fehlender/gesperrter Desktop-Datenordner oder Speicherfehler führt zu HTTP 503/Fehlerstatus.
+- Ungültiges oder abgebrochenes JSON erzeugt keinen sichtbaren Teilimport.
+- Prüfsummenfehler und unpassende Dateisignaturen erzeugen keinen sichtbaren Teilimport.
+- Konflikte bleiben separat erhalten; der bestehende Desktopinhalt wird nicht überschrieben.
+- Nach jedem Fehler bleibt `Jetzt synchronisieren` erneut verfügbar.
 
-- bewusster Vertrauensaufbau nach Bonjour-Fund oder manueller IP-Pruefung
-- HTTP lokal oder andere Transportart
-- TLS im lokalen Netz ja/nein
-- Windows-Firewall-Freigabe und Benutzerfuehrung
-- macOS-Netzwerkberechtigungen
-- iPad-Dateigroessen und Chunking
-- Upload-Wiederaufnahme nach Abbruch
-- Pruefsummenalgorithmus, voraussichtlich SHA-256
-- Manifestformat und Versionsnummern
-- Konfliktbehandlung und Dublettenpruefung
-- Speicherort und Verschluesselung lokaler Vertrauenswerte
-- Sichtbarkeit und Rotation des Sync-Logs
-- Begrenzungen fuer Upload-Groesse, Dateianzahl und erlaubte Dateitypen
+## Noch nicht implementiert
 
-Neue Abhaengigkeiten waeren erst bei einer echten Implementierung zu pruefen. Denkbar waeren spaeter TLS-/Zertifikatsunterstuetzung und weitere Transporthaertung. In diesem Schritt werden keine Abhaengigkeiten hinzugefuegt.
+- lokaler Netzwerk-Lesestand Desktop -> iPad
+- automatische oder vollständige bidirektionale Zusammenführung
+- direkter fachlicher Import ohne Desktop-Benutzeraktion
+- Upload-Streaming/Chunk-Wiederaufnahme innerhalb einer einzelnen großen Datei
+- TLS für den lokalen HTTP-Transport
+- sichtbare Konfliktauflösung über Desktop-UI
+- sichtbare, bestätigte Bereinigung mobiler Originale
 
-## 11. Stufenplan
-
-### Phase 1: Konzept/DTOs
-
-- Architektur und Datenregeln dokumentieren.
-- Neutrale DTOs/Records fuer Status und Upload-Manifest vorbereiten.
-- Keine Laufzeitlogik aktivieren.
-
-### Phase 2: Desktop-Dienst optional hinter Schalter
-
-- Lokalen Dienst nur manuell oder hinter klarer Einstellung starten.
-- Statusanzeige, Firewall-Hinweise und Log vorbereiten.
-- Kein automatischer Hintergrundbetrieb ohne Benutzerentscheidung.
-
-### Phase 3: iPad als lokalen Sync-Partner vormerken
-
-- Erfolgreich geprueften Desktop auf dem iPad vormerken.
-- Bonjour-Suche und manuelle IP sauber getrennt anzeigen.
-- Noch keine Produktivdaten uebertragen.
-
-### Phase 4: Upload mobile Inbox
-
-- iPad sendet mobile Eingangspakete.
-- Desktop legt Pakete zuerst in `Sync/inbox` ab.
-- Desktop bestaetigt erst nach Dateiablage und Pruefsumme.
-
-### Phase 5: Snapshot abrufen
-
-- iPad ruft manuell aktuellen Lesestand ab.
-- Kleine/optimierte Daten bevorzugen.
-- Originale nur ausdruecklich und einzeln nachladen, falls spaeter freigegeben.
-
-### Phase 6: Bereinigung mobiler Originale nach Bestaetigung
-
-- iPad loescht lokale Originale erst nach bestaetigter Desktop-Uebernahme.
-- Loeschung bleibt sichtbar und darf nicht still nach einem Teilfehler erfolgen.
-
-## Verbindliche Regel: Mobile Änderungen niemals überschreiben
-
-Beim lokalen Netzwerk-Sync dürfen lokale Änderungen auf dem iPad oder iPhone niemals ungefragt durch den Desktop-Stand überschrieben werden.
-
-Wenn unterwegs auf dem iPad oder iPhone neue Inhalte entstehen, zum Beispiel:
-- neue Aufträge,
-- Fotos,
-- markierte Fotos,
-- Notizen,
-- Skizzen,
-- Anhänge,
-
-müssen diese mobilen Änderungen vor jeder Aktualisierung vom Desktop erkannt, gesichert und an den Desktop übertragen werden.
-
-Der Desktop-Stand darf nicht pauschal über den mobilen Stand geschrieben werden.
-
-### Grundsatz
-
-Synchronisation bedeutet Zusammenführen, nicht Ersetzen.
-
-### Erlaubtes Verhalten
-
-- Neue mobile Aufträge werden auf dem Desktop neu angelegt.
-- Neue mobile Fotos werden dem passenden Auftrag auf dem Desktop hinzugefügt.
-- Markierungen und Notizen werden als mobile Änderungen übertragen.
-- Nach erfolgreicher Desktop-Übernahme erhalten mobile Inhalte den Status „übertragen“.
-- Lokale mobile Originaldateien dürfen erst nach bestätigter Desktop-Übernahme später bereinigt werden.
-
-### Nicht erlaubtes Verhalten
-
-- Desktop-Snapshot ersetzt ungefragt den lokalen iPad-Stand.
-- Mobile Fotos verschwinden nach Desktop-Aktualisierung.
-- Mobile Aufträge werden verworfen, weil sie auf dem Desktop noch nicht existieren.
-- Lokale iPad-/iPhone-Änderungen werden ohne Konflikthinweis überschrieben.
-- Originalfotos werden gelöscht, bevor der Desktop den Empfang bestätigt hat.
-
-### Konflikte
-
-Wenn Desktop und mobiles Gerät denselben Inhalt geändert haben, darf nicht automatisch eine Seite gewinnen.
-
-Bei eindeutigen Ergänzungen soll zusammengeführt werden, zum Beispiel:
-- Desktop ändert Termin,
-- iPad fügt Foto hinzu.
-
-Wenn beide dasselbe Feld geändert haben, zum Beispiel Auftragstext oder Notiz, muss ein Konflikt erkannt und später sichtbar lösbar gemacht werden.
-
-Mögliche Konfliktlösung:
-- Desktop-Version behalten,
-- mobile Version übernehmen,
-- beide Inhalte zusammenführen.
-
-### Reihenfolge beim späteren Sync
-
-1. Mobile Änderungswarteschlange prüfen.
-2. Mobile Änderungen an den Desktop übertragen.
-3. Empfang durch Desktop bestätigen lassen.
-4. Mobile Einträge als übertragen markieren.
-5. Erst danach Desktop-Änderungen aufs mobile Gerät aktualisieren.
-6. Konflikte nicht automatisch überschreiben, sondern markieren.
-
-Diese Regel gilt dauerhaft für alle späteren Sync-Entwicklungen.
+Der nächste Ausbau muss diese Grenzen respektieren und darf den gerichteten, idempotenten Inbox-Transport nicht durch eine unkontrollierte Datenbank-Synchronisation ersetzen.

@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:BueroCockpit.Converters"
+        xmlns:controls="clr-namespace:BueroCockpit.Controls"
         x:Class="BueroCockpit.MainWindow"
         x:CompileBindings="False"
         Width="1280"
@@ -537,20 +538,27 @@
     </Style>
     <Style Selector="Border.WorkflowConnector">
       <Setter Property="Background" Value="{DynamicResource BorderBrushStrong}" />
-      <Setter Property="Width" Value="18" />
-      <Setter Property="Height" Value="2" />
+      <Setter Property="Width" Value="8" />
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Margin" Value="-11,0,0,0" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.WorkflowConnector.Active">
       <Setter Property="Background" Value="{DynamicResource ConfirmedBrush}" />
     </Style>
+    <Style Selector="ContentPresenter.WorkflowRowStart Border.WorkflowConnector">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
     <Style Selector="Button.WorkflowStepButton">
       <Setter Property="Background" Value="{DynamicResource ContentSecondaryBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
-      <Setter Property="Padding" Value="8,5" />
-      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="MinWidth" Value="86" />
+      <Setter Property="MaxWidth" Value="132" />
     </Style>
     <Style Selector="Button.WorkflowStepButton.Completed">
       <Setter Property="BorderBrush" Value="{DynamicResource ConfirmedBrush}" />
@@ -558,18 +566,17 @@
     <Style Selector="Button.WorkflowStepButton.Current">
       <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-      <Setter Property="BorderThickness" Value="2" />
     </Style>
     <Style Selector="Border.WorkflowStepMarker">
-      <Setter Property="Width" Value="20" />
-      <Setter Property="Height" Value="20" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+      <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushStrong}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.WorkflowStepButton.Completed Border.WorkflowStepMarker">
-      <Setter Property="Background" Value="{DynamicResource ConfirmedBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource ConfirmedBrush}" />
     </Style>
     <Style Selector="Button.WorkflowStepButton.Current Border.WorkflowStepMarker">
@@ -577,7 +584,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style Selector="Button.WorkflowStepButton.Completed TextBlock.WorkflowStepGlyph">
-      <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ConfirmedBrush}" />
     </Style>
     <Style Selector="Button.WorkflowStepButton.Current TextBlock.WorkflowStepGlyph">
       <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}" />
@@ -1615,7 +1622,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="14" IsVisible="{Binding IsSettingsDataSyncOpen}">
-                <TextBlock Text="BüroCockpit arbeitet mit lokalen Daten. iPad und Desktop werden künftig ausschließlich über den lokalen Netzwerk-Sync verbunden; aktuell ist noch kein echter Sync aktiv."
+                <TextBlock Text="BüroCockpit arbeitet mit lokalen Daten. Mobile Eingänge können nach bewusster Gerätefreigabe manuell vom iPad übertragen werden; ein automatischer Hintergrundsync findet nicht statt."
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" />
                 <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
@@ -1693,7 +1700,7 @@
                 </Grid>
               </Button>
               <StackPanel Spacing="8" IsVisible="{Binding IsSettingsLocalNetworkSyncOpen}">
-                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
+                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="18">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalNetworkSyncStatusText}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="Bonjour" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
@@ -1702,13 +1709,13 @@
                   <TextBlock Grid.Row="2" Grid.Column="1" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap">
                     <Run Text="1. BüroCockpit auf diesem Rechner geöffnet lassen." />
                     <LineBreak />
-                    <Run Text="2. Lokalen Testdienst manuell starten." />
+                    <Run Text="2. Lokalen Sync-Dienst manuell starten." />
                     <LineBreak />
                     <Run Text="3. iPad sucht den Desktop per Bonjour, falls verfügbar." />
                     <LineBreak />
                     <Run Text="4. Manuelle IP-Eingabe bleibt der Fallback." />
                     <LineBreak />
-                    <Run Text="5. Es werden noch keine Produktivdaten übertragen." />
+                    <Run Text="5. Vorgemerktes iPad am Desktop freigeben; Übertragung am iPad mit ‚Jetzt synchronisieren‘ starten." />
                   </TextBlock>
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="Gespeicherter Gerätename" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LocalNetworkSyncDeviceNameText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
@@ -1724,16 +1731,16 @@
                            Text="{Binding LocalNetworkSyncPortInput}"
                            TextChanged="LocalNetworkSyncPort_OnTextChanged"
                            PlaceholderText="nicht festgelegt" />
-                  <TextBlock Grid.Row="7" Grid.Column="0" Text="Testdienst" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="Sync-Dienst" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <WrapPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="Lokalen Testdienst starten"
+                    <Button Content="Lokalen Sync-Dienst starten"
                             Margin="0,0,10,8"
                             Click="StartLocalNetworkSyncTestService_OnClick" />
-                    <Button Content="Lokalen Testdienst stoppen"
+                    <Button Content="Lokalen Sync-Dienst stoppen"
                             Margin="0,0,0,8"
                             Click="StopLocalNetworkSyncTestService_OnClick" />
                   </WrapPanel>
-                  <TextBlock Grid.Row="8" Grid.Column="0" Text="Teststatus" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="8" Grid.Column="0" Text="Dienststatus" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding LocalNetworkSyncTestServiceStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="9" Grid.Column="0" Text="LAN-Adresse(n)" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding LocalNetworkSyncTestServiceAddressText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
@@ -1741,7 +1748,7 @@
                   <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding LocalNetworkSyncHintText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="11" Grid.Column="0" Text="Vorgemerkte iPads" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
                   <StackPanel Grid.Row="11" Grid.Column="1" Spacing="6">
-                    <TextBlock Text="Noch kein echter Sync aktiv." Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="Nur freigegebene Geräte dürfen mobile Eingänge manuell übertragen." Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="Noch kein iPad vorgemerkt."
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap"
@@ -1750,18 +1757,31 @@
                       <ItemsControl.ItemTemplate>
                         <DataTemplate>
                           <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,6">
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="3" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="3" ColumnSpacing="12">
                               <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DeviceName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Platform}" Foreground="{DynamicResource TextSecondaryBrush}" />
                               <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding LastSeenText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                               <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                              <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding LastSyncText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                              <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                <Button Content="Für Uploads freigeben"
+                                        Classes="Primary"
+                                        IsVisible="{Binding CanApprove}"
+                                        Click="ApproveLocalNetworkDevice_OnClick" />
+                                <Button Content="Freigabe widerrufen"
+                                        Classes="Danger"
+                                        IsVisible="{Binding CanRevoke}"
+                                        Click="RevokeLocalNetworkDevice_OnClick" />
+                              </StackPanel>
                             </Grid>
                           </Border>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
                   </StackPanel>
-                  <Button Grid.Row="12" Grid.Column="1"
+                  <TextBlock Grid.Row="12" Grid.Column="0" Text="Letzte Aktivität" Foreground="{DynamicResource TextTertiaryBrush}" FontSize="12" />
+                  <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding LocalNetworkSyncLastActivityText}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                  <Button Grid.Row="13" Grid.Column="1"
                           Content="Lokal speichern"
                           HorizontalAlignment="Left"
                           Click="SaveLocalNetworkSyncSettings_OnClick" />
@@ -2827,18 +2847,17 @@
                 </StackPanel>
               </Grid>
               <TextBlock Text="Ablauf" Classes="TaskDetailFieldLabel" />
-              <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                            VerticalScrollBarVisibility="Disabled"
-                            AutomationProperties.Name="Workflow-Ablauf">
+              <Border AutomationProperties.Name="Workflow-Ablauf"
+                      ClipToBounds="True">
                 <ItemsControl ItemsSource="{Binding WorkflowSteps}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                      <StackPanel Orientation="Horizontal" />
+                      <controls:WorkflowWrapPanel />
                     </ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Grid>
                         <Border Classes="WorkflowConnector"
                                 Classes.Active="{Binding IsConnectorActive}"
                                 IsVisible="{Binding HasLeadingConnector}" />
@@ -2850,26 +2869,33 @@
                                 Classes.Future="{Binding IsFuture}"
                                 AutomationProperties.Name="{Binding AutomationName}"
                                 ToolTip.Tip="{Binding AutomationName}">
-                          <StackPanel Orientation="Horizontal" Spacing="6">
+                          <StackPanel Orientation="Horizontal" Spacing="5">
                             <Border Classes="WorkflowStepMarker">
                               <TextBlock Classes="WorkflowStepGlyph"
                                          Text="{Binding Glyph}"
-                                         FontSize="10"
+                                         FontSize="9"
                                          FontWeight="SemiBold"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center" />
                             </Border>
                             <StackPanel Spacing="0" VerticalAlignment="Center">
-                              <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
-                              <TextBlock Text="{Binding StateText}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                              <TextBlock Text="{Binding Name}"
+                                         FontSize="11"
+                                         FontWeight="SemiBold"
+                                         TextWrapping="Wrap"
+                                         MaxWidth="92" />
+                              <TextBlock Text="{Binding StateText}"
+                                         FontSize="9"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         TextWrapping="Wrap" />
                             </StackPanel>
                           </StackPanel>
                         </Button>
-                      </StackPanel>
+                      </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-              </ScrollViewer>
+              </Border>
               <TextBlock Text="Ein Statuswechsel übernimmt automatisch die dafür konfigurierte Kategorie. Eine manuell verschobene Kategorie bleibt bis zum nächsten Statuswechsel bestehen."
                          Classes="TaskDetailSubtitle" />
             </StackPanel>

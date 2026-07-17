@@ -87,6 +87,18 @@ public sealed class MobileInboxLoader
             return;
         }
 
+        if (string.Equals(Path.GetFileName(baseDirectory), "inbox", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(Directory.GetParent(baseDirectory)?.Name, "Sync", StringComparison.OrdinalIgnoreCase))
+        {
+            AddCandidate(baseDirectory, candidates);
+            return;
+        }
+
+        AddCandidate(Path.Combine(baseDirectory, "Sync", "inbox"), candidates);
+        if (string.Equals(Path.GetFileName(baseDirectory), "Sync", StringComparison.OrdinalIgnoreCase))
+        {
+            AddCandidate(Path.Combine(baseDirectory, "inbox"), candidates);
+        }
         AddCandidate(Path.Combine(baseDirectory, "mobile-inbox"), candidates);
         AddCandidate(baseDirectory, candidates);
 

@@ -8,9 +8,18 @@ namespace BueroCockpit.Services.LocalSync;
 public sealed class LocalSyncService : ILocalSyncContracts
 {
     private const string ListenerHost = "*";
+    private const long MaximumRequestBodyBytes = 310L * 1024 * 1024;
+    private const string DeviceIdHeader = "X-BueroCockpit-Device-Id";
+    private const string TrustKeyHeader = "X-BueroCockpit-Trust-Key";
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
     private readonly object _gate = new();
     private readonly LocalSyncOptions _options;
     private readonly LocalNetworkDeviceStore _deviceStore;
+    private readonly LocalSyncInboxStore? _inboxStore;
     private LocalSyncState _state;
     private string? _lastMessage;
     private HttpListener? _listener;
@@ -21,11 +30,15 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private DateTimeOffset _lastChangedUtc = DateTimeOffset.UtcNow;
 
     public event EventHandler<LocalNetworkRememberedDevice>? DeviceRemembered;
+    public event EventHandler<LocalSyncUploadCompletedEventArgs>? UploadCompleted;
 
     public LocalSyncService(LocalSyncOptions options, LocalNetworkDeviceStore? deviceStore = null)
     {
         _options = options;
         _deviceStore = deviceStore ?? new LocalNetworkDeviceStore();
+        _inboxStore = string.IsNullOrWhiteSpace(options.DataFolderPath)
+            ? null
+            : new LocalSyncInboxStore(options.DataFolderPath);
         _state = options.Enabled ? LocalSyncState.Stopped : LocalSyncState.Disabled;
         _lastMessage = options.Enabled
             ? "Lokaler Netzwerk-Sync ist vorbereitet, aber nicht gestartet."
@@ -48,7 +61,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
         {
             if (_state == LocalSyncState.Running && _listener is not null)
             {
-                _lastMessage = $"Testdienst laeuft bereits im lokalen Netzwerk auf Port {_options.Port}.";
+                _lastMessage = $"Sync-Dienst laeuft bereits im lokalen Netzwerk auf Port {_options.Port}.";
                 return Task.FromResult(BuildStatusLocked());
             }
 
@@ -62,7 +75,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
             if (_options.Port < 1024 || _options.Port > 65535)
             {
                 _state = LocalSyncState.Error;
-                _lastMessage = "Testdienst kann nicht starten: Port nicht festgelegt oder ungueltig.";
+                _lastMessage = "Sync-Dienst kann nicht starten: Port nicht festgelegt oder ungueltig.";
                 return Task.FromResult(BuildStatusLocked());
             }
 
@@ -78,22 +91,27 @@ public sealed class LocalSyncService : ILocalSyncContracts
             {
                 listener.Close();
                 _state = LocalSyncState.Error;
-                _lastMessage = $"Testdienst konnte Port {_options.Port} nicht oeffnen: {ex.Message}";
+                _lastMessage = $"Sync-Dienst konnte Port {_options.Port} nicht oeffnen: {ex.Message}";
                 return Task.FromResult(BuildStatusLocked());
             }
 
             _listenerCts = new CancellationTokenSource();
             _listener = listener;
             _listenerTask = Task.Run(() => RunStatusListenerAsync(listener, _listenerCts.Token), CancellationToken.None);
-            var bonjourMessage = LocalBonjourService.GetAvailabilityStatus().DisplayText;
+            var bonjourMessage = _options.AnnounceBonjour
+                ? LocalBonjourService.GetAvailabilityStatus().DisplayText
+                : "Bonjour-Ankuendigung fuer diesen Lauf deaktiviert.";
             var bonjourStarted = false;
             try
             {
-                _bonjourService = new LocalBonjourService();
-                bonjourStarted = _bonjourService.Start(_options);
-                if (!bonjourStarted && !string.IsNullOrWhiteSpace(_bonjourService.LastError))
+                if (_options.AnnounceBonjour)
                 {
-                    bonjourMessage = _bonjourService.LastError;
+                    _bonjourService = new LocalBonjourService();
+                    bonjourStarted = _bonjourService.Start(_options);
+                    if (!bonjourStarted && !string.IsNullOrWhiteSpace(_bonjourService.LastError))
+                    {
+                        bonjourMessage = _bonjourService.LastError;
+                    }
                 }
             }
             catch (Exception ex) when (ex is DllNotFoundException
@@ -113,8 +131,8 @@ public sealed class LocalSyncService : ILocalSyncContracts
 
             _state = LocalSyncState.Running;
             _lastMessage = bonjourStarted
-                ? $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; Bonjour-Ankuendigung aktiv."
-                : $"Testdienst laeuft im lokalen Netzwerk auf Port {_options.Port}; {bonjourMessage}";
+                ? $"Sync-Dienst laeuft im lokalen Netzwerk auf Port {_options.Port}; Bonjour-Ankuendigung aktiv."
+                : $"Sync-Dienst laeuft im lokalen Netzwerk auf Port {_options.Port}; {bonjourMessage}";
             return Task.FromResult(BuildStatusLocked());
         }
     }
@@ -128,7 +146,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
             StopListenerLocked();
             _state = _options.Enabled ? LocalSyncState.Stopped : LocalSyncState.Disabled;
             _lastMessage = _options.Enabled
-                ? "Testdienst gestoppt."
+                ? "Sync-Dienst gestoppt."
                 : "Lokaler Netzwerk-Sync ist deaktiviert.";
             return Task.FromResult(BuildStatusLocked());
         }
@@ -206,7 +224,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
 
         if (messages.Count == 0)
         {
-            messages.Add("Manifest formal vorbereitet, aber Netzwerk-Upload ist noch nicht implementiert.");
+            messages.Add("Manifest formal gültig; Datenannahme erfolgt ausschließlich über den authentisierten Mobile-Inbox-Endpunkt.");
         }
 
         return new MobileInboxUploadResult(
@@ -262,6 +280,18 @@ public sealed class LocalSyncService : ILocalSyncContracts
             return;
         }
 
+        if (string.Equals(path, "/local-sync/pairing/status", StringComparison.OrdinalIgnoreCase))
+        {
+            await WritePairingStatusResponseAsync(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (string.Equals(path, "/local-sync/mobile-inbox", StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteMobileInboxResponseAsync(context).ConfigureAwait(false);
+            return;
+        }
+
         if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
             || (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(path, "/local-sync/status", StringComparison.OrdinalIgnoreCase)
@@ -289,7 +319,10 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 app = _options.AppName,
                 status = "ok",
                 mode = "local-network-test",
-                version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion
+                version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion,
+                serverName = GetServerName(),
+                deviceId = _options.DeviceId,
+                manualSyncAvailable = _inboxStore is not null
             }).ConfigureAwait(false);
     }
 
@@ -318,7 +351,7 @@ public sealed class LocalSyncService : ILocalSyncContracts
         {
             request = await JsonSerializer.DeserializeAsync<LocalNetworkDeviceRememberRequest>(
                 context.Request.InputStream,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }).ConfigureAwait(false);
+                JsonOptions).ConfigureAwait(false);
         }
         catch (JsonException)
         {
@@ -337,7 +370,17 @@ public sealed class LocalSyncService : ILocalSyncContracts
             return;
         }
 
-        var rememberedDevice = _deviceStore.Remember(request, context.Request.RemoteEndPoint?.Address.ToString());
+        LocalNetworkRememberedDevice rememberedDevice;
+        try
+        {
+            rememberedDevice = _deviceStore.Remember(request, context.Request.RemoteEndPoint?.Address.ToString());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            context.Response.StatusCode = 500;
+            await WriteJsonAsync(context.Response, new { error = "device-store-failed", message = ex.Message }).ConfigureAwait(false);
+            return;
+        }
         DeviceRemembered?.Invoke(this, rememberedDevice);
 
         context.Response.StatusCode = 200;
@@ -348,14 +391,177 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 app = _options.AppName,
                 status = "ok",
                 mode = "local-network-test",
-                message = "Gerät vorgemerkt"
+                pairingStatus = rememberedDevice.Status,
+                message = string.Equals(rememberedDevice.Status, "trusted", StringComparison.OrdinalIgnoreCase)
+                    ? "Gerät ist freigegeben"
+                    : "Gerät vorgemerkt; Freigabe am Desktop erforderlich"
             }).ConfigureAwait(false);
+    }
+
+    private async Task WritePairingStatusResponseAsync(HttpListenerContext context)
+    {
+        if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 405;
+            await WriteJsonAsync(context.Response, new { error = "method-not-allowed" }).ConfigureAwait(false);
+            return;
+        }
+
+        var state = GetPairingState(context.Request, out var device);
+        var status = state switch
+        {
+            LocalNetworkPairingState.Trusted => "trusted",
+            LocalNetworkPairingState.Pending => "pending",
+            LocalNetworkPairingState.Revoked => "revoked",
+            LocalNetworkPairingState.Invalid => "invalid",
+            _ => "missing"
+        };
+        context.Response.StatusCode = state == LocalNetworkPairingState.Trusted ? 200 : 403;
+        await WriteJsonAsync(
+            context.Response,
+            new LocalSyncPairingStatus(
+                _options.AppName,
+                status,
+                context.Request.Headers[DeviceIdHeader]?.Trim() ?? string.Empty,
+                device?.DeviceName,
+                state switch
+                {
+                    LocalNetworkPairingState.Trusted => "Kopplung gültig.",
+                    LocalNetworkPairingState.Pending => "Freigabe am Desktop steht noch aus.",
+                    LocalNetworkPairingState.Revoked => "Kopplung wurde am Desktop widerrufen.",
+                    LocalNetworkPairingState.Invalid => "Kopplungsnachweis ist ungültig.",
+                    _ => "Gerät ist am Desktop nicht vorgemerkt."
+                })).ConfigureAwait(false);
+    }
+
+    private async Task WriteMobileInboxResponseAsync(HttpListenerContext context)
+    {
+        if (!string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 405;
+            await WriteJsonAsync(context.Response, new { error = "method-not-allowed" }).ConfigureAwait(false);
+            return;
+        }
+
+        var pairingState = GetPairingState(context.Request, out var device);
+        if (pairingState != LocalNetworkPairingState.Trusted || device is null)
+        {
+            context.Response.StatusCode = 403;
+            await WriteJsonAsync(context.Response, new
+            {
+                error = "pairing-required",
+                pairingStatus = pairingState.ToString().ToLowerInvariant(),
+                message = "Upload ist nur für ein am Desktop freigegebenes Gerät erlaubt."
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        if (_inboxStore is null || string.IsNullOrWhiteSpace(_options.DataFolderPath) || !Directory.Exists(_options.DataFolderPath))
+        {
+            context.Response.StatusCode = 503;
+            await WriteJsonAsync(context.Response, new { error = "data-folder-unavailable" }).ConfigureAwait(false);
+            return;
+        }
+
+        if (context.Request.ContentLength64 == 0 || context.Request.ContentLength64 > MaximumRequestBodyBytes)
+        {
+            context.Response.StatusCode = 413;
+            await WriteJsonAsync(context.Response, new { error = "package-too-large" }).ConfigureAwait(false);
+            return;
+        }
+
+        MobileInboxUploadRequest? request;
+        try
+        {
+            var requestBody = await ReadBoundedRequestBodyAsync(
+                context.Request.InputStream,
+                MaximumRequestBodyBytes).ConfigureAwait(false);
+            request = JsonSerializer.Deserialize<MobileInboxUploadRequest>(requestBody, JsonOptions);
+        }
+        catch (InvalidDataException)
+        {
+            context.Response.StatusCode = 413;
+            await WriteJsonAsync(context.Response, new { error = "package-too-large" }).ConfigureAwait(false);
+            return;
+        }
+        catch (JsonException)
+        {
+            context.Response.StatusCode = 400;
+            await WriteJsonAsync(context.Response, new { error = "invalid-json" }).ConfigureAwait(false);
+            return;
+        }
+
+        if (request is null || !string.Equals(request.DeviceId?.Trim(), device.DeviceId, StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 400;
+            await WriteJsonAsync(context.Response, new { error = "device-id-mismatch" }).ConfigureAwait(false);
+            return;
+        }
+
+        MobileInboxTransferResult result;
+        try
+        {
+            result = _inboxStore.Accept(request);
+            _deviceStore.RecordSync(device.DeviceId, result);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            context.Response.StatusCode = 500;
+            await WriteJsonAsync(context.Response, new { error = "upload-failed", message = ex.Message }).ConfigureAwait(false);
+            return;
+        }
+
+        context.Response.StatusCode = result.Status switch
+        {
+            "accepted" or "skipped" => 200,
+            "conflict" => 409,
+            "invalid" => 400,
+            _ => 500
+        };
+        UploadCompleted?.Invoke(this, new LocalSyncUploadCompletedEventArgs(device.DeviceId, device.DeviceName, result));
+        await WriteJsonAsync(context.Response, result).ConfigureAwait(false);
+    }
+
+    private LocalNetworkPairingState GetPairingState(HttpListenerRequest request, out LocalNetworkRememberedDevice? device)
+    {
+        return _deviceStore.GetPairingState(
+            request.Headers[DeviceIdHeader],
+            request.Headers[TrustKeyHeader],
+            out device);
+    }
+
+    private static async Task<byte[]> ReadBoundedRequestBodyAsync(Stream input, long maximumBytes)
+    {
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        long totalBytes = 0;
+        while (true)
+        {
+            var bytesRead = await input.ReadAsync(chunk).ConfigureAwait(false);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            totalBytes += bytesRead;
+            if (totalBytes > maximumBytes)
+            {
+                throw new InvalidDataException("Request body exceeds the configured size limit.");
+            }
+            buffer.Write(chunk, 0, bytesRead);
+        }
+
+        if (totalBytes == 0)
+        {
+            throw new JsonException("Request body is empty.");
+        }
+        return buffer.ToArray();
     }
 
     private static async Task WriteJsonAsync(HttpListenerResponse response, object value)
     {
         response.ContentType = "application/json; charset=utf-8";
-        var json = JsonSerializer.Serialize(value);
+        var json = JsonSerializer.Serialize(value, JsonOptions);
         var buffer = Encoding.UTF8.GetBytes(json);
         response.ContentLength64 = buffer.Length;
 

@@ -39,6 +39,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
     @Published private(set) var mobileInboxEntries: [MobileInboxPendingEntry] = []
     @Published private(set) var pendingMobileChangeCount = 0
     @Published private(set) var openMobilePhotoDraftCount = 0
+    @Published private(set) var manualSyncPhase: LocalNetworkManualSyncPhase?
+    @Published private(set) var manualSyncProgress = 0.0
+    @Published private(set) var manualSyncSummary: LocalNetworkManualSyncSummary?
+    @Published private(set) var manualSyncErrorMessage: String?
     @Published private var groupedCategoryCache: [SnapshotCategoryGroup] = []
     @Published private var taskCountByCategoryID: [String: Int] = [:]
     @Published var selectedCategoryID: String = "__all_tasks__"
@@ -57,6 +61,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let mobileInboxReader: MobileInboxReader
     private let mobileChangeQueueStore: MobileChangeQueueStore
     private let mobilePhotoDraftStore: MobilePhotoDraftStore
+    private let localNetworkManualSyncClient: LocalNetworkManualSyncClient
     private var didAttemptStartupLoad = false
     private let localNetworkDesktopTestPort = 53941
     private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
@@ -75,7 +80,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettingsStore: SnapshotSyncSettingsStore = SnapshotSyncSettingsStore(),
         mobileInboxReader: MobileInboxReader = MobileInboxReader(),
         mobileChangeQueueStore: MobileChangeQueueStore = MobileChangeQueueStore(),
-        mobilePhotoDraftStore: MobilePhotoDraftStore = MobilePhotoDraftStore()
+        mobilePhotoDraftStore: MobilePhotoDraftStore = MobilePhotoDraftStore(),
+        localNetworkManualSyncClient: LocalNetworkManualSyncClient = LocalNetworkManualSyncClient()
     ) {
         self.reader = reader
         self.accessStore = accessStore
@@ -83,6 +89,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         self.mobileInboxReader = mobileInboxReader
         self.mobileChangeQueueStore = mobileChangeQueueStore
         self.mobilePhotoDraftStore = mobilePhotoDraftStore
+        self.localNetworkManualSyncClient = localNetworkManualSyncClient
         syncSettings = syncSettingsStore.load()
         setupRequired = false
         loadState = .idle
@@ -301,6 +308,87 @@ final class SnapshotBrowserViewModel: ObservableObject {
         syncSettings.localNetworkDesktop.localDesktopStatus
     }
 
+    var canStartManualLocalNetworkSync: Bool {
+        !isSyncing &&
+            !localNetworkDesktopAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            syncSettings.localNetworkDesktop.ipadDeviceId?.isEmpty == false &&
+            syncSettings.localNetworkDesktop.sharedSecret?.isEmpty == false
+    }
+
+    var manualLocalNetworkSyncTargetText: String {
+        let name = localNetworkDesktopName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? "BüroCockpit-Desktop" : name
+    }
+
+    var lastSuccessfulManualSyncText: String? {
+        guard let date = syncSettings.localNetworkDesktop.lastSuccessfulSyncAt else { return nil }
+        return Self.formatSyncDate(date)
+    }
+
+    func startManualLocalNetworkSync() {
+        guard !isSyncing else { return }
+        let desktop = syncSettings.localNetworkDesktop
+        guard let address = desktop.desktopAddress?.trimmingCharacters(in: .whitespacesAndNewlines), !address.isEmpty else {
+            manualSyncErrorMessage = LocalNetworkManualSyncError.desktopMissing.localizedDescription
+            return
+        }
+        guard let deviceId = desktop.ipadDeviceId, !deviceId.isEmpty,
+              let trustKey = desktop.sharedSecret, !trustKey.isEmpty else {
+            manualSyncErrorMessage = LocalNetworkManualSyncError.pairingMissing.localizedDescription
+            return
+        }
+
+        isSyncing = true
+        manualSyncSummary = nil
+        manualSyncErrorMessage = nil
+        manualSyncPhase = .searchingDesktop
+        manualSyncProgress = LocalNetworkManualSyncPhase.searchingDesktop.progress
+        let client = localNetworkManualSyncClient
+        let port = desktop.desktopPort ?? localNetworkDesktopTestPort
+
+        Task {
+            defer { isSyncing = false }
+            do {
+                let summary = try await client.synchronize(
+                    address: address,
+                    port: port,
+                    deviceId: deviceId,
+                    trustKey: trustKey
+                ) { [weak self] phase in
+                    await MainActor.run {
+                        self?.manualSyncPhase = phase
+                        self?.manualSyncProgress = phase.progress
+                    }
+                }
+                manualSyncSummary = summary
+                manualSyncPhase = .completed
+                manualSyncProgress = 1
+                if summary.failedObjects == 0 {
+                    var settings = syncSettings
+                    settings.localNetworkDesktop.lastSuccessfulSyncAt = Date()
+                    settings.localNetworkDesktop.lastTransferredObjectCount = summary.transferredObjects
+                    settings.localNetworkDesktop.lastTransferredPhotoCount = summary.transferredPhotos
+                    settings.localNetworkDesktop.lastSkippedObjectCount = summary.skippedObjects
+                    settings.localNetworkDesktop.lastFailedObjectCount = 0
+                    syncSettings = settings
+                    syncSettingsStore.save(settings)
+                    syncStatusMessage = summary.transferredObjects == 0 && summary.skippedObjects == 0
+                        ? "Synchronisation abgeschlossen: keine neuen mobilen Eingänge."
+                        : "Synchronisation abgeschlossen"
+                } else {
+                    manualSyncErrorMessage = summary.messages.last ?? "Mindestens ein mobiler Eingang konnte nicht übertragen werden."
+                    syncStatusMessage = "Synchronisation mit Fehlern beendet"
+                }
+            } catch is CancellationError {
+                manualSyncErrorMessage = "Synchronisation abgebrochen. Lokale Daten bleiben erhalten."
+                syncStatusMessage = "Synchronisation abgebrochen"
+            } catch {
+                manualSyncErrorMessage = error.localizedDescription
+                syncStatusMessage = "Synchronisation fehlgeschlagen"
+            }
+        }
+    }
+
     private var isLocalNetworkDesktopRemembered: Bool {
         Self.isRememberedLocalNetworkDesktop(syncSettings.localNetworkDesktop)
     }
@@ -332,7 +420,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         setupRequired = false
         setupMessage = nil
         if syncStatusMessage == nil {
-            syncStatusMessage = "Desktop-Testdienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich."
+            syncStatusMessage = "Desktop-Sync-Dienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich."
         }
         loadState = document == nil ? .idle : loadState
         SnapshotPerformanceLog.event(
@@ -395,7 +483,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         guard accessStore.hasLocalSnapshot else {
             setupRequired = false
             setupMessage = nil
-            syncStatusMessage = "Desktop-Testdienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich."
+            syncStatusMessage = "Desktop-Sync-Dienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich."
             loadState = .idle
             return
         }
@@ -445,16 +533,16 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     localNetworkDesktopConnectionState = .connected
                     syncStatusMessage = isLocalNetworkDesktopRemembered
                         ? "Lokaler Desktop vorgemerkt"
-                        : "Desktop-Testdienst erreichbar"
+                        : "Desktop-Sync-Dienst erreichbar"
                     print("Desktop-Statusprüfung erfolgreich")
                 } else {
                     localNetworkDesktopConnectionState = .disconnected
-                    syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
+                    syncStatusMessage = "Desktop-Sync-Dienst nicht erreichbar: unerwartete Antwort"
                     print("Desktop-Statusprüfung fehlgeschlagen: unerwartete Antwort")
                 }
             } catch {
                 localNetworkDesktopConnectionState = .disconnected
-                syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
+                syncStatusMessage = "Desktop-Sync-Dienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
                 print("Desktop-Statusprüfung fehlgeschlagen: \(Self.shortLocalNetworkDesktopError(error))")
             }
         }
@@ -635,6 +723,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
         let deviceId = ensureLocalNetworkIpadIdentity()
         let deviceName = Self.currentIpadDeviceName()
+        let trustKey = ensureLocalNetworkTrustKey()
 
         Task {
             defer {
@@ -672,7 +761,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     port: localNetworkDesktopTestPort,
                     deviceId: deviceId,
                     deviceName: deviceName,
-                    appVersion: Self.currentAppVersion()
+                    appVersion: Self.currentAppVersion(),
+                    sharedSecret: trustKey
                 )
                 syncStatusMessage = response.isExpectedRememberResponse
                     ? "Desktop vorgemerkt, iPad am Desktop registriert."
@@ -705,13 +795,15 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private func rememberCurrentIpadAtDesktop(address: String, port: Int) async {
         let deviceId = ensureLocalNetworkIpadIdentity()
         let deviceName = Self.currentIpadDeviceName()
+        let trustKey = ensureLocalNetworkTrustKey()
         do {
             let response = try await Self.rememberIpadAtDesktop(
                 address: address,
                 port: port,
                 deviceId: deviceId,
                 deviceName: deviceName,
-                appVersion: Self.currentAppVersion()
+                appVersion: Self.currentAppVersion(),
+                sharedSecret: trustKey
             )
             syncStatusMessage = response.isExpectedRememberResponse
                 ? "Desktop vorgemerkt, iPad am Desktop registriert."
@@ -1389,7 +1481,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         port: Int,
         deviceId: String,
         deviceName: String,
-        appVersion: String?
+        appVersion: String?,
+        sharedSecret: String
     ) async throws -> LocalNetworkDesktopRememberResponse {
         guard !address.contains("/"),
               !address.contains(":"),
@@ -1412,7 +1505,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
             deviceName: deviceName,
             platform: "iPadOS",
             appVersion: appVersion,
-            lastSeenUtc: Date()
+            lastSeenUtc: Date(),
+            sharedSecret: sharedSecret
         )
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -1448,6 +1542,23 @@ final class SnapshotBrowserViewModel: ObservableObject {
         return deviceId
     }
 
+    private func ensureLocalNetworkTrustKey() -> String {
+        if let existing = syncSettings.localNetworkDesktop.sharedSecret?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !existing.isEmpty {
+            return existing
+        }
+
+        var generator = SystemRandomNumberGenerator()
+        let bytes = (0..<32).map { _ in UInt8.random(in: UInt8.min...UInt8.max, using: &generator) }
+        let trustKey = Data(bytes).base64EncodedString()
+        var settings = syncSettings
+        settings.localNetworkDesktop.sharedSecret = trustKey
+        settings.localNetworkDesktop.trustKey = nil
+        syncSettings = settings
+        syncSettingsStore.save(settings)
+        return trustKey
+    }
+
     private static func currentIpadDeviceName() -> String {
         let name = UIDevice.current.name.trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? "iPad" : name
@@ -1480,10 +1591,10 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 localNetworkDesktopConnectionState = .connected
                 syncStatusMessage = isLocalNetworkDesktopRemembered
                     ? "Lokaler Desktop vorgemerkt"
-                    : "Desktop-Testdienst erreichbar"
+                    : "Desktop-Sync-Dienst erreichbar"
                 localNetworkDesktopAutoCheckMessage = isLocalNetworkDesktopRemembered
                     ? "Vorgemerkter Desktop erreichbar"
-                    : "Desktop-Testdienst erreichbar"
+                    : "Desktop-Sync-Dienst erreichbar"
                 print("/local-sync/status erfolgreich")
                 print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.connected.title)")
             } else {
@@ -1492,7 +1603,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                     syncStatusMessage = "Lokaler Desktop vorgemerkt"
                     localNetworkDesktopAutoCheckMessage = "Automatische Prüfung: unerwartete Antwort"
                 } else {
-                    syncStatusMessage = "Desktop-Testdienst nicht erreichbar: unerwartete Antwort"
+                    syncStatusMessage = "Desktop-Sync-Dienst nicht erreichbar: unerwartete Antwort"
                 }
                 print("/local-sync/status Fehler: unerwartete Antwort")
                 print("connectionState gesetzt: \(LocalNetworkDesktopConnectionState.disconnected.title)")
@@ -1503,7 +1614,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
                 syncStatusMessage = "Lokaler Desktop vorgemerkt"
                 localNetworkDesktopAutoCheckMessage = "Automatische Prüfung: Desktop aktuell nicht erreichbar."
             } else {
-                syncStatusMessage = "Desktop-Testdienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
+                syncStatusMessage = "Desktop-Sync-Dienst nicht erreichbar: \(Self.shortLocalNetworkDesktopError(error))"
             }
             adoptRememberedLocalNetworkDesktopIfFound(in: discoveredLocalNetworkDesktops)
             print("/local-sync/status Fehler: \(Self.shortLocalNetworkDesktopError(error))")
@@ -1640,8 +1751,9 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
     nonisolated private static func isRememberedLocalNetworkDesktop(_ desktop: LocalNetworkDesktopPairing) -> Bool {
         let status = desktop.localDesktopStatus?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return desktop.lastSuccessfulCheckAt != nil ||
-            status == "lokaler Desktop vorgemerkt" ||
+        // Eine erfolgreiche Erreichbarkeitspruefung ist noch keine bewusste Auswahl.
+        // Erst "Diesen Desktop verwenden" oder die explizite Bonjour-Auswahl merkt ihn vor.
+        return status == "lokaler Desktop vorgemerkt" ||
             status == "Lokaler Desktop vorgemerkt" ||
             status == "Desktop im lokalen Netzwerk gefunden"
     }
@@ -1786,12 +1898,14 @@ private struct LocalNetworkDeviceRememberPayload: Encodable, Sendable {
     let platform: String
     let appVersion: String?
     let lastSeenUtc: Date
+    let sharedSecret: String
 }
 
 private struct LocalNetworkDesktopRememberResponse: Decodable, Sendable {
     let app: String
     let status: String
     let mode: String
+    let pairingStatus: String?
     let message: String?
 
     var isExpectedRememberResponse: Bool {

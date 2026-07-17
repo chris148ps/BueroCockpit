@@ -100,6 +100,43 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 - Der Detailkopf bleibt beim Scrollen sichtbar, die Termine folgen direkt auf
   Aufgabe und der Workflow wird als verbundener, zugänglicher Stepper aus der
   gemeinsamen `WorkflowStep`-Quelle dargestellt.
+- Der Workflow-Stepper verwendet ein eigenes responsives Wrap-Panel. Vollständige
+  Schritte bleiben zusammen, Beschriftungen dürfen innerhalb des Schritts umbrechen,
+  und Verbindungslinien werden am Anfang jeder neuen Zeile ausgeblendet. Eine
+  horizontale Scrollleiste ist dafür nicht mehr erforderlich.
+- Die Sortierauswahl enthält nur noch eigenständige Sortierungen `Uhrzeit`, `Name`,
+  `Erstellt am`, `Wiedervorlage`, `Gesendet am`, `Geändert am` und `Manuell`.
+  Status, Kunde, Kategorie, Ort, Termin, Techniker und Titel bleiben ausschließlich
+  über ihre sichtbaren Tabellenköpfe direkt sortierbar. Alte gespeicherte Werte
+  werden weiterhin tolerant gelesen; unbekannte Werte fallen auf `Erstellt am`.
+- Header-Sortierungen, die absichtlich nicht mehr im Dropdown stehen, bleiben
+  nach einem Neustart erhalten; ein leerer ComboBox-Auswahlzustand überschreibt
+  sie nicht mit `Erstellt am`.
+
+## Lokaler Netzwerk-Sync
+
+- Der erste echte lokale Netzwerk-Sync ist gerichtet `iPad -> Desktop` und wird
+  ausschließlich auf dem iPad durch `Jetzt synchronisieren` gestartet.
+- Der Desktop-Dienst startet weiterhin nur manuell und kündigt nur während dieses
+  Laufs optional `_buerocockpit._tcp` per Bonjour an; die manuelle IP bleibt erhalten.
+- Ein iPad wird zunächst mit stabiler Geräte-ID und lokalem Vertrauensnachweis
+  vorgemerkt. Der Desktop speichert nur dessen SHA-256-Hash und verlangt eine
+  ausdrückliche Freigabe; Freigaben sind widerrufbar.
+- Authentisierte Uploads übernehmen versionierte Mobile-Inbox-Pakete mit
+  `aufgabe.json`, Originalfotos, Vorschauen, markierten Fassungen, Skizzen und
+  Dateien zunächst atomar nach `Sync/inbox` und niemals direkt in die Datenbank.
+- Stabile IDs, deterministische Inhaltsfingerprints und Belege verhindern
+  Duplikate. Abweichender Inhalt unter derselben ID wird vollständig unter
+  `Sync/conflicts` erhalten und überschreibt keinen Desktopbestand.
+- Pfade, Größen, SHA-256-Prüfsummen und grundlegende Dateisignaturen werden vor
+  der Bestätigung geprüft. Unterbrochene oder unvollständige Pakete erzeugen
+  keinen sichtbaren Teilimport; bereits atomar abgelegte Pakete werden nach einem
+  Bestätigungsabbruch bei Wiederholung erkannt.
+- Die iPad-App zeigt Ziel, konkrete Fortschrittsphase, Abschlusszahlen und letzten
+  erfolgreichen Zeitpunkt. Lokale Originale werden in dieser Stufe auch nach
+  Erfolg nicht automatisch gelöscht.
+- Desktop -> iPad über das lokale Netzwerk, automatische Bidirektionalität und
+  direkter Produktivimport bleiben ausdrücklich nicht implementiert.
 
 ## Übergang für bestehende Daten – Variante A
 
@@ -124,7 +161,7 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   `WorkflowStep` als gemeinsame Statusquelle.
 - Papierkorb steht im festen Navigationsfuß direkt über Einstellungen.
 - Speichern, Duplizieren, Löschen, Wiederherstellen, Archivieren, Material,
-  Anhänge, Schreibtisch, Backup, Diagnose und manueller lokaler Testdienst sind
+  Anhänge, Schreibtisch, Backup, Diagnose und manueller lokaler Sync-Dienst sind
   vorhandene Funktionen.
 - Produktive Tests dürfen ausschließlich mit explizit isolierten Testpfaden
   erfolgen.
@@ -148,6 +185,37 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   nach dem ausdrücklich freigegebenen Release auf dem Firmenrechner geprüft.
   Diese nachgelagerte Abnahme darf nicht als bereits ausgeführter Test
   dokumentiert werden.
+- Der lokale Inbox-Speicher und der HTTP-Dienst wurden mit ausschließlich
+  temporären Daten real automatisiert geprüft: fehlende/falsche/gültige Kopplung,
+  neuer Upload, Originalfoto, mehrere Fotos, Skizze, Datei, Wiederholung,
+  Prüfsummenfehler, unvollständiges JSON, Konflikt und Wiederaufnahme nach fehlendem
+  Beleg. Der iOS-Simulator-Build ist erfolgreich.
+- Die responsive Ablaufleiste wurde im echten macOS-Bundle in beiden Themes,
+  beiden Vorgangstypen, allen Status und von breiter bis minimaler Fensterbreite
+  sichtbar bedient. Alle Schritte blieben erreichbar und die Statuszuordnungen
+  führten in die isoliert konfigurierten Zielkategorien.
+- Der manuelle Sync wurde mit der echten iPad-App im iOS-Simulator und dem echten
+  macOS-Bundle sichtbar durchlaufen: Vormerken, Desktop-Freigabe, Ordnerwahl,
+  leerer Lauf, zwei Pakete mit drei Originalfotos sowie Markierung, Skizze und
+  Dateien, idempotente Wiederholung, Konflikterhalt, Widerruf, Dienststopp und
+  Neustartpersistenz waren erfolgreich. Die iPad-Quellen blieben bestehen; das
+  Desktop-Dashboard zeigte zwei neue Aufträge, vier Fotoobjekte und eine Skizze.
+- Dabei wurden drei reproduzierbare UI-/Persistenzfehler behoben und erneut real
+  geprüft: Header-Sortierpersistenz, bewusste Desktop-Vormerkung erst nach
+  `Diesen Desktop verwenden` und der zuvor nicht sichtbare Mobile-Inbox-Ordnerwähler.
+- Die iPad-Hauptansicht und Sync-Einstellungen wurden auch im Simulator-Dark-Mode
+  sichtbar geprüft. Das Xcode-Ziel ist iPad-only (`TARGETED_DEVICE_FAMILY = 2`);
+  eine iPhone-Simulatorgröße ist für dieses Target nicht anwendbar.
+- Auf dem physischen iPad Air 7 wurden vor dem ausdrücklich freigegebenen
+  Ersetzen der vorhandenen App `Documents` und `Library` nach `/private/tmp`
+  gesichert. Der signierte aktuelle Gerätebuild wurde installiert und vertraut.
+- Das physische iPad erreichte den isolierten Desktop real per manueller
+  LAN-Adresse `192.168.178.52:53941`, wurde vorgemerkt und freigegeben. Ein
+  bewusst gestarteter Leer-Sync war erfolgreich; danach wurde der Dienst
+  gestoppt und Port 53941 war geschlossen.
+- Die physische Übertragung eines Entwurfs mit Foto/Skizze, Wiederholung und
+  echter Verbindungsabbruch wurden auf ausdrücklichen Nutzerwunsch auf morgen
+  verschoben. Diese Fälle dürfen nicht als bereits ausgeführt gelten.
 
 ## Verbindliche Projektentscheidungen
 

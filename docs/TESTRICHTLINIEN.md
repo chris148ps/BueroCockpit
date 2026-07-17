@@ -92,7 +92,7 @@ Mindestens prüfen:
 4. Suche, Sortierung, Spaltenbreiten, Spaltenreihenfolge, Sichtbarkeit und gemeinsame beziehungsweise kategoriebewusste Layoutpersistenz ohne neue feste fachliche Ansichten
 5. Festen Detailkopf, Bereichsreihenfolge, verbundenen responsiven Workflow-Stepper, Detailfelder, Termine, Wiedervorlagen, Techniker, Material und Anhänge
 6. Schreibtischfunktionen und Neustartpersistenz
-7. Einstellungen, Backup, Diagnose und lokale Testdienste
+7. Einstellungen, Backup, Diagnose und lokale Sync-Dienste
 8. Konsolenausgaben, Exceptions, Binding-Fehler und widersprüchliche UI-Zustände
 
 Zusätzlich ist auf der Übersicht zu prüfen, dass überfällige Wiedervorlagen

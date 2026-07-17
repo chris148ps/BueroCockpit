@@ -283,6 +283,10 @@ unverändert.
 - Der Stepper reagiert auf die verfügbare Breite, bleibt per Tastatur bedienbar
   und vermittelt seinen Zustand zusätzlich durch Text, Symbol oder
   Zugänglichkeitsinformation, niemals ausschließlich durch Farbe.
+- Bei zu geringer Breite umbrechen ausschließlich vollständige Schritte. Eine
+  Verbindungslinie verbindet nur Schritte derselben Zeile; am Zeilenanfang ist
+  kein rückwärts laufender Verbinder sichtbar. Der Stepper benötigt keine
+  horizontale Scrollleiste.
 - Überfällige Wiedervorlagen auf der Übersicht verwenden eine neutrale
   Kartenfläche mit dünnem semantischem Fehlerrahmen oder schmalem Fehlerakzent.
   Eine vollflächig rote Karte ist unzulässig; Text und Symbol bleiben klar

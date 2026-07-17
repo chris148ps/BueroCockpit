@@ -21,6 +21,49 @@ public sealed record MobileInboxUploadManifest(
     string? CustomerName = null,
     string? Notes = null);
 
+public sealed record MobileInboxUploadRequest(
+    string UploadId,
+    string DeviceId,
+    string SchemaVersion,
+    DateTimeOffset CreatedAtUtc,
+    IReadOnlyList<MobileInboxUploadFile> Files);
+
+public sealed record MobileInboxUploadFile(
+    string RelativePath,
+    string ContentType,
+    long SizeBytes,
+    string Sha256,
+    string Purpose,
+    byte[] Data);
+
+public sealed record MobileInboxTransferResult(
+    string Status,
+    string UploadId,
+    string? InboxEntryId,
+    DateTimeOffset ReceivedAtUtc,
+    int TransferredObjects,
+    int TransferredPhotos,
+    int TransferredFiles,
+    int SkippedObjects,
+    int SkippedFiles,
+    int FailedObjects,
+    IReadOnlyList<string> Messages)
+{
+    public bool IsSuccess => Status is "accepted" or "skipped";
+}
+
+public sealed record LocalSyncPairingStatus(
+    string App,
+    string Status,
+    string DeviceId,
+    string? DeviceName,
+    string Message);
+
+public sealed record LocalSyncUploadCompletedEventArgs(
+    string DeviceId,
+    string DeviceName,
+    MobileInboxTransferResult Result);
+
 public sealed record MobileInboxFileEntry(
     string RelativePath,
     string ContentType,

@@ -18,6 +18,8 @@ public sealed class LocalSyncOptions
 
     public string? DataFolderPath { get; init; }
 
+    public bool AnnounceBonjour { get; init; } = true;
+
     public static LocalSyncOptions FromSettings(AppSettings settings, string? dataFolderPath = null)
     {
         return new LocalSyncOptions

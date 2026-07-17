@@ -150,7 +150,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _localNetworkSyncDeviceNameInput = string.Empty;
     private string _localNetworkSyncPortInput = string.Empty;
     private string _localNetworkSyncSettingsStatus = string.Empty;
-    private string _localNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+    private string _localNetworkSyncTestServiceStatus = "Sync-Dienst gestoppt";
+    private string _localNetworkSyncLastActivityText = "Noch keine lokale Übertragung in dieser Sitzung.";
     private string? _startupDatabaseErrorMessage;
     private LocalSyncService? _localNetworkSyncTestService;
     private string _appearanceMode = DarkMode;
@@ -358,15 +359,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string[] SortFieldOptions { get; } =
     [
-        SortFieldStatus,
-        SortFieldCustomer,
-        SortFieldLocation,
-        SortFieldTechnician,
-        SortFieldTitle,
-        SortFieldDate,
         SortFieldTime,
         SortFieldName,
-        SortFieldCategory,
         SortFieldCreatedAt,
         SortFieldFollowUp,
         SortFieldSentAt,
@@ -379,6 +373,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get => _selectedSortField;
         set
         {
+            // Kopf-Sortierungen sind bewusst nicht Teil des Dropdowns. Avalonia meldet
+            // deshalb beim Laden kurz eine leere Auswahl; diese darf den gespeicherten
+            // Kopfwert nicht auf den Dropdown-Standard zuruecksetzen.
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
             var normalized = NormalizeSortField(value);
             if (string.Equals(_selectedSortField, normalized, StringComparison.Ordinal))
             {
@@ -904,8 +906,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string NetworkSyncStatusText => _localNetworkSyncTestService is not null
         ? "aktiv"
         : "inaktiv";
-    public string LastSuccessfulSynchronizationText => "Noch keine erfolgreiche Synchronisation.";
-    public string ConnectedDeviceText => LocalNetworkRememberedDevices.FirstOrDefault()?.DeviceName ?? "Kein mobiles Gerät verbunden.";
+    public string LastSuccessfulSynchronizationText => LocalNetworkRememberedDevices
+        .Where(device => device.LastSyncUtc.HasValue)
+        .OrderByDescending(device => device.LastSyncUtc)
+        .FirstOrDefault()?.LastSyncText
+        ?? "Noch keine erfolgreiche Synchronisation.";
+    public string ConnectedDeviceText => LocalNetworkRememberedDevices
+        .FirstOrDefault(device => device.IsTrusted)?.DeviceName
+        ?? "Kein mobiles Gerät freigegeben.";
     public bool HasNewMobileInboxData => NewMobileInboxTaskCount > 0 || NewMobilePhotoCount > 0 || NewMobileSketchCount > 0;
     public bool HasNoNewMobileInboxData => !HasNewMobileInboxData;
     public int NewMobileInboxTaskCount => MobileInboxEntries.Count(IsNewMobileInboxEntry);
@@ -1014,6 +1022,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _localNetworkSyncTestServiceStatus = value;
                 OnPropertyChanged(nameof(LocalNetworkSyncTestServiceStatus));
             }
+        }
+    }
+
+    public string LocalNetworkSyncLastActivityText
+    {
+        get => _localNetworkSyncLastActivityText;
+        private set
+        {
+            if (_localNetworkSyncLastActivityText == value)
+            {
+                return;
+            }
+
+            _localNetworkSyncLastActivityText = value;
+            OnPropertyChanged(nameof(LocalNetworkSyncLastActivityText));
         }
     }
 
@@ -1709,7 +1732,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string IpadLiveFileTargetPath => BuildIpadLiveFileTargetPath(IpadLiveFileTargetFolder);
     public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
     public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
-    public string LocalNetworkSyncStatusText => "Lokaler Netzwerk-Sync vorbereitet. Testdienst startet nur manuell.";
+    public string LocalNetworkSyncStatusText => "Lokaler Netzwerk-Sync bereit. Dienst und Datenübertragung starten nur durch Benutzeraktionen.";
     public string LocalNetworkSyncBonjourStatusText => LocalBonjourService.GetAvailabilityStatus().DisplayText;
     public string LocalNetworkSyncDeviceNameText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceName)
         ? "nicht festgelegt"
@@ -1718,7 +1741,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ? _appSettings.LocalNetworkSyncPort.ToString(CultureInfo.InvariantCulture)
         : "nicht festgelegt";
     public string LocalNetworkSyncTestServiceAddressText => BuildLocalNetworkSyncTestServiceAddressText();
-    public string LocalNetworkSyncHintText => "Das iPad findet diesen Desktop automatisch per Bonjour, falls verfügbar. Auf Windows ist Bonjour/mDNS dafür erforderlich; ohne Bonjour die LAN-Adresse manuell auf dem iPad eintragen. Der Testdienst liefert nur Statusantworten; Sync und Datenübertragung bleiben deaktiviert.";
+    public string LocalNetworkSyncHintText => "Das iPad findet diesen Desktop per Bonjour oder manueller LAN-Adresse. Ein vorgemerktes iPad muss hier freigegeben sein; übertragen wird ausschließlich nach ‚Jetzt synchronisieren‘ auf dem iPad. Mobile Eingänge landen geprüft in Sync/inbox und werden nicht automatisch als produktive Vorgänge importiert.";
     public bool HasLocalNetworkRememberedDevices => LocalNetworkRememberedDevices.Count > 0;
     public bool HasNoLocalNetworkRememberedDevices => !HasLocalNetworkRememberedDevices;
     public bool IsSettingsGeneralOpen => _isSettingsGeneralOpen;
@@ -9544,7 +9567,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settingsService.Save(_appSettings);
         RefreshLocalNetworkSyncEditorFields();
         RefreshLocalNetworkSyncDisplayProperties();
-        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Der Testdienst startet nur manuell; es wird keine Datenübertragung aktiviert.";
+        LocalNetworkSyncSettingsStatus = "Lokale Netzwerk-Sync-Einstellungen gespeichert. Der Sync-Dienst und jede Übertragung starten weiterhin nur manuell.";
     }
 
     private async void StartLocalNetworkSyncTestService_OnClick(object? sender, RoutedEventArgs e)
@@ -9552,7 +9575,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var port = EnsureLocalNetworkSyncDefaultPort();
         if (port < 1024 || port > 65535)
         {
-            LocalNetworkSyncTestServiceStatus = "Testdienst kann nicht starten: Port ungültig.";
+            LocalNetworkSyncTestServiceStatus = "Sync-Dienst kann nicht starten: Port ungültig.";
             return;
         }
 
@@ -9564,9 +9587,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Port = port,
             DeviceName = _appSettings.LocalNetworkSyncDeviceName,
             DeviceId = _appSettings.LocalNetworkSyncDeviceId,
-            AppVersion = _updateService.GetCurrentVersion()
+            AppVersion = _updateService.GetCurrentVersion(),
+            DataFolderPath = AppPaths.AppDataDirectory
         }, _localNetworkDeviceStore);
         _localNetworkSyncTestService.DeviceRemembered += LocalNetworkSyncTestService_DeviceRemembered;
+        _localNetworkSyncTestService.UploadCompleted += LocalNetworkSyncTestService_UploadCompleted;
 
         var status = await _localNetworkSyncTestService.StartAsync();
         LocalNetworkSyncTestServiceStatus = status.Message?.StartsWith("Running:", StringComparison.Ordinal) == true
@@ -9607,22 +9632,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _localNetworkSyncTestService.StopAsync().GetAwaiter().GetResult();
         _localNetworkSyncTestService.DeviceRemembered -= LocalNetworkSyncTestService_DeviceRemembered;
+        _localNetworkSyncTestService.UploadCompleted -= LocalNetworkSyncTestService_UploadCompleted;
         _localNetworkSyncTestService = null;
-        LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+        LocalNetworkSyncTestServiceStatus = "Sync-Dienst gestoppt";
     }
 
     private async Task StopLocalNetworkSyncTestServiceAsync()
     {
         if (_localNetworkSyncTestService is null)
         {
-            LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+            LocalNetworkSyncTestServiceStatus = "Sync-Dienst gestoppt";
             return;
         }
 
         await _localNetworkSyncTestService.StopAsync();
         _localNetworkSyncTestService.DeviceRemembered -= LocalNetworkSyncTestService_DeviceRemembered;
+        _localNetworkSyncTestService.UploadCompleted -= LocalNetworkSyncTestService_UploadCompleted;
         _localNetworkSyncTestService = null;
-        LocalNetworkSyncTestServiceStatus = "Testdienst gestoppt";
+        LocalNetworkSyncTestServiceStatus = "Sync-Dienst gestoppt";
     }
 
     private static bool TryParseLocalNetworkSyncPort(string portText, out int port)
@@ -9688,6 +9715,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Dispatcher.UIThread.Post(LoadLocalNetworkRememberedDevices);
     }
 
+    private void LocalNetworkSyncTestService_UploadCompleted(object? sender, LocalSyncUploadCompletedEventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            LocalNetworkSyncLastActivityText = $"{e.Result.ReceivedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}: {e.DeviceName} – {e.Result.Messages.FirstOrDefault()}";
+            LoadLocalNetworkRememberedDevices();
+            LoadMobileInboxEntries();
+            if (IsMobileInboxSelected)
+            {
+                RefreshVisibleTasks();
+            }
+        });
+    }
+
+    private void ApproveLocalNetworkDevice_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: LocalNetworkRememberedDeviceListItem device })
+        {
+            return;
+        }
+
+        try
+        {
+            LocalNetworkSyncSettingsStatus = _localNetworkDeviceStore.SetTrusted(device.DeviceId, trusted: true)
+                ? $"„{device.DeviceName}“ ist für manuelle Uploads freigegeben."
+                : "Gerät konnte nicht freigegeben werden; bitte auf dem iPad erneut vormerken.";
+            LoadLocalNetworkRememberedDevices();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LocalNetworkSyncSettingsStatus = $"Gerätefreigabe konnte nicht gespeichert werden: {ex.Message}";
+        }
+    }
+
+    private void RevokeLocalNetworkDevice_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: LocalNetworkRememberedDeviceListItem device })
+        {
+            return;
+        }
+
+        try
+        {
+            LocalNetworkSyncSettingsStatus = _localNetworkDeviceStore.SetTrusted(device.DeviceId, trusted: false)
+                ? $"Freigabe für „{device.DeviceName}“ wurde widerrufen."
+                : "Gerätefreigabe konnte nicht widerrufen werden.";
+            LoadLocalNetworkRememberedDevices();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LocalNetworkSyncSettingsStatus = $"Widerruf konnte nicht gespeichert werden: {ex.Message}";
+        }
+    }
+
     private void LoadLocalNetworkRememberedDevices()
     {
         LocalNetworkRememberedDevices.Clear();
@@ -9698,6 +9779,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasLocalNetworkRememberedDevices));
         OnPropertyChanged(nameof(HasNoLocalNetworkRememberedDevices));
+        OnPropertyChanged(nameof(ConnectedDeviceText));
+        OnPropertyChanged(nameof(LastSuccessfulSynchronizationText));
     }
 
     private string BuildLocalNetworkSyncTestServiceAddressText()
@@ -13458,7 +13541,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var inboxDirectory = Directory.GetParent(entry.DirectoryPath)?.FullName
             ?? throw new InvalidOperationException("Mobile-Inbox-Ordner konnte nicht ermittelt werden.");
         var baseDirectory = Directory.GetParent(inboxDirectory)?.FullName ?? inboxDirectory;
-        var processedDirectory = Path.Combine(baseDirectory, "mobile-processed");
+        var processedDirectory = string.Equals(Path.GetFileName(baseDirectory), "Sync", StringComparison.OrdinalIgnoreCase) &&
+                                 string.Equals(Path.GetFileName(inboxDirectory), "inbox", StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(baseDirectory, "processed")
+            : Path.Combine(baseDirectory, "mobile-processed");
         Directory.CreateDirectory(processedDirectory);
 
         var targetDirectory = GetUniqueProcessedDirectoryPath(
@@ -14567,10 +14653,16 @@ public sealed class DashboardSection
 public sealed record TaskUndoSnapshot(TaskItem Task, IReadOnlyList<MaterialItem> Materials, IReadOnlyList<AttachmentItem> Attachments);
 
 public sealed record LocalNetworkRememberedDeviceListItem(
+    string DeviceId,
     string DeviceName,
     string Platform,
     string LastSeenText,
-    string StatusText)
+    string StatusText,
+    DateTimeOffset? LastSyncUtc,
+    string LastSyncText,
+    bool IsTrusted,
+    bool CanApprove,
+    bool CanRevoke)
 {
     public static LocalNetworkRememberedDeviceListItem FromDevice(LocalNetworkRememberedDevice device)
     {
@@ -14583,11 +14675,30 @@ public sealed record LocalNetworkRememberedDeviceListItem(
         var lastSeen = device.LastSeenUtc == default
             ? "zuletzt gesehen: unbekannt"
             : $"zuletzt gesehen: {device.LastSeenUtc.ToLocalTime():dd.MM.yyyy HH:mm}";
-        var status = string.Equals(device.Status, "remembered", StringComparison.OrdinalIgnoreCase)
-            ? "Status: vorgemerkt, Sync noch nicht aktiv"
-            : $"Status: {device.Status}";
+        var normalizedStatus = device.Status?.Trim().ToLowerInvariant() ?? "remembered";
+        var status = normalizedStatus switch
+        {
+            "trusted" => "Status: für manuelle Uploads freigegeben",
+            "revoked" => "Status: Freigabe widerrufen",
+            "pending" => "Status: vorgemerkt, Desktop-Freigabe erforderlich",
+            _ => "Status: erneut am iPad vormerken"
+        };
+        var lastSync = device.LastSyncUtc.HasValue
+            ? $"Letzter erfolgreicher Upload: {device.LastSyncUtc.Value.ToLocalTime():dd.MM.yyyy HH:mm}"
+            : "Noch kein erfolgreicher Upload.";
+        var isTrusted = normalizedStatus == "trusted";
 
-        return new LocalNetworkRememberedDeviceListItem(deviceName, platform, lastSeen, status);
+        return new LocalNetworkRememberedDeviceListItem(
+            device.DeviceId,
+            deviceName,
+            platform,
+            lastSeen,
+            status,
+            device.LastSyncUtc,
+            lastSync,
+            isTrusted,
+            !isTrusted && !string.IsNullOrWhiteSpace(device.TrustKeyHash),
+            isTrusted);
     }
 }
 

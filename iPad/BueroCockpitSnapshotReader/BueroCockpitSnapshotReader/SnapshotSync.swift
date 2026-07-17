@@ -65,6 +65,11 @@ struct LocalNetworkDesktopPairing: Codable, Equatable, Sendable {
     var lastSeenAt: Date?
     var trustKey: String?
     var sharedSecret: String?
+    var lastSuccessfulSyncAt: Date?
+    var lastTransferredObjectCount: Int?
+    var lastTransferredPhotoCount: Int?
+    var lastSkippedObjectCount: Int?
+    var lastFailedObjectCount: Int?
 }
 
 final class SnapshotSyncSettingsStore: @unchecked Sendable {

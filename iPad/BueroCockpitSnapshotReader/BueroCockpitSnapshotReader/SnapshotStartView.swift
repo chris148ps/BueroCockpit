@@ -54,7 +54,7 @@ struct SnapshotStartView: View {
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: 540)
 
-                            Text("Noch kein echter Sync aktiv. Der Desktop-Testdienst muss in BüroCockpit manuell gestartet sein.")
+                            Text("Mobile Eingänge werden nur über ‚Jetzt synchronisieren‘ übertragen. Der Desktop-Sync-Dienst muss in BüroCockpit manuell gestartet sein.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)

@@ -2,27 +2,20 @@
 
 ## Ziel
 
-Das veröffentlichte Auto-Update sowie die neue Navigation, Kategorieverwaltung und Workflow-Detailansicht mit isolierten Daten real unter Windows abnehmen.
+Morgen den veröffentlichten Windows-Auto-Update-Weg für Version `0.4.21` auf dem Firmenrechner und die noch offene physische iPad-Vollübertragung als eine gemeinsame Zielgeräte-Abnahme abschließen.
 
 ## Geplante Schritte
 
-1. Auf dem Firmenrechner das veröffentlichte Update aus der vorherigen Version suchen, installieren und die angezeigte neue Version prüfen.
-2. Für die Funktionsabnahme temporäre Daten- und lokale Konfigurationspfade unter Windows setzen und die App sichtbar starten.
-3. Beide Vorgangstypen und alle Statuswechsel, genau eine Kategorie, Alle Vorgänge, Suche, Zähler sowie verschachtelte Zielnavigation bedienen.
-4. Kategoriezeilen-Drag, Vorgangs-Drop, Umbenennen, Löschen und Neustartpersistenz manuell prüfen.
-5. Detailkopf, Stepper, Termine, Wiedervorlagen, Tabellenlayout sowie Dark und Light prüfen.
-6. Angrenzende Desktopfunktionen einschließlich Papierkorb, Archiv, Schreibtisch, Anhänge, Backup und Diagnose regressiv bedienen und nur tatsächlich ausgeführte Ergebnisse dokumentieren.
+1. Auf dem Windows-Firmenrechner BüroCockpit `0.4.20` starten, die Update-Prüfung ausführen und bestätigen, dass `0.4.21` gefunden, installiert und nach Neustart angezeigt wird.
+2. Grundfunktionen sowie den responsiven Stepper und die Sortierpersistenz unter Windows real bedienen.
+3. Ausschließlich isolierte Desktop- und iPad-Testdaten verwenden; den Desktop-Dienst bewusst manuell starten und das bereits vorgemerkte physische iPad freigeben.
+4. Einen Testentwurf mit neutralem Originalfoto und Skizze übertragen; sichtbare Abschlusszahlen, Quellen-Erhalt, Wiederholung ohne Duplikat und Neustartpersistenz bestätigen.
+5. Einen echten Verbindungsabbruch während einer größeren Fotoübertragung provozieren und bestätigen, dass kein Teilimport oder Duplikat entsteht.
+6. Dienst und Gerätefreigabe nach der Prüfung wieder deaktivieren und nur tatsächlich ausgeführte Ergebnisse dokumentieren.
 
-## Vermutlich betroffene Dateien
+## Grenzen
 
-- Keine Codeänderung bei erfolgreicher Abnahme.
-- docs/PROJEKTSTATUS.md
-- docs/codex_last_run.md
-- docs/NEXT_TASK.md
-- neuer Eintrag unter docs/codex_journal/
-
-## Bereiche, die nicht verändert werden dürfen
-
-- Keine Produktivdaten, produktiven Kategorien, Anhänge, Backups oder Cloud-Dateien verändern.
-- Keine Netzwerk-/Sync-Architektur erweitern.
-- Kein weiteres Release, Tag oder Versionswechsel ohne einen neuen ausdrücklichen Auftrag.
+- keine Produktivdaten, Kundenfotos, Cloud-Dateien oder produktiven Datenbanken
+- kein automatischer Hintergrundsync und kein automatischer Desktop-Dienststart
+- kein bidirektionaler Datenbankabgleich und keine stille Konfliktauflösung
+- keine der auf morgen verschobenen Prüfungen vorab als bestanden dokumentieren

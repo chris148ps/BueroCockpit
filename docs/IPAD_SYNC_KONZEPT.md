@@ -1,8 +1,8 @@
 # iPad-Sync-Konzept
 
-Stand: 2026-07-02.
+Stand: 2026-07-16.
 
-Dieses Dokument beschreibt nur die Zielrichtung fuer die kuenftige iPad-Anbindung. In diesem Stand wird kein Netzwerk-Sync implementiert, keine Migration ausgefuehrt und keine produktive Datei veraendert.
+Dieses Dokument beschreibt die Zielrichtung und die freigegebenen Grenzen der iPad-Anbindung. Der vorhandene manuell gestartete lokale Desktop-Dienst und die iPad-Verbindungssuche duerfen fuer einen bewusst per Schaltflaeche gestarteten, gerichteten Upload mobiler Eingaenge erweitert werden. Eine automatische Datenuebertragung, Datenmigration oder stille Aenderung produktiver Desktopdaten bleibt unzulaessig.
 
 Der detaillierte Architektur- und Schnittstellenentwurf fuer den geplanten manuellen lokalen Netzwerk-Sync steht in [LOCAL_NETWORK_SYNC.md](LOCAL_NETWORK_SYNC.md). Dieses Dokument bleibt die fachliche Kurzfassung fuer die iPad-Zielrichtung.
 
@@ -27,49 +27,46 @@ iCloud ist keine aktive Hauptdatenquelle mehr. Bestehende iCloud-Live-Pfade und 
 - Live-Dateien koennen mit wachsendem Datenbestand gross werden.
 - Originalfotos sollen nicht dauerhaft mobil herumliegen oder ueber iCloud-Live als Dauerbestand verteilt werden.
 
-## Zielbild: lokaler Netzwerk-Sync
+## Implementierter erster lokaler Netzwerk-Sync
 
-Der kuenftige Weg ist ein manueller lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
+Der aktuelle erste Nutzweg ist ein manueller, gerichteter lokaler Netzwerk-Sync zwischen iPad und BueroCockpit-Desktop im Firmennetz.
 
-- BueroCockpit Desktop startet spaeter optional einen lokalen Sync-Dienst.
-- Das iPad verbindet sich spaeter bewusst mit einem bekannten BueroCockpit-Desktop im gleichen Firmennetz.
-- Die Kopplung erfolgt per QR-Code oder Einmal-Code.
-- Das iPad kann den aktuellen Stand abrufen.
-- Das iPad kann mobile Eingaenge, Fotos, Skizzen und Daten uebertragen.
-- Der Desktop uebernimmt die Daten in den zentralen Datenordner.
+- BueroCockpit Desktop startet den lokalen Sync-Dienst ausschließlich nach Benutzeraktion.
+- Das iPad verbindet sich bewusst mit einem bekannten BueroCockpit-Desktop im gleichen Firmennetz.
+- Die Kopplung erfolgt durch ausdrueckliche Freigabe des vorgemerkten iPads am Desktop; der alte Pairing-Code-Weg wird nicht reaktiviert.
+- Das iPad kann mobile Eingaenge samt Originalfotos, Vorschauen, Skizzen und Dateien über `Jetzt synchronisieren` übertragen.
+- Der Desktop prüft und übernimmt die Pakete zunächst atomar nach `Sync/inbox`; ein direkter Produktivimport findet nicht statt.
 - Das iPad loescht lokale Originale erst nach bestaetigter Uebernahme.
 - Es gibt keine stille Dauer-Live-Aktualisierung.
 - Die Synchronisation erfolgt manuell ueber Button und Statusanzeige.
 
-## Technische Zielarchitektur
+## Technische Architektur
 
-Dies ist nur ein Konzept, keine Umsetzung.
-
-- Desktop-Dienst lokal im LAN, erst nach separater Freigabe.
-- Manuelle Desktop-Auswahl oder QR-Code; keine automatische Geraetesuche in diesem Stand.
-- Pairing mit Einmal-Code fuer die Erstkopplung, danach Wiedererkennung ueber gespeicherte DeviceId/TrustKey.
+- Desktop-Dienst lokal im LAN, nur manuell gestartet.
+- Bonjour/mDNS fuer die begrenzte automatische Desktop-Suche; manuelle IP-Auswahl bleibt der Fallback.
+- Ein erfolgreich geprueftes iPad wird am Desktop zunaechst nur vorgemerkt. Erst die bewusste Desktop-Freigabe schliesst die lokale Vertrauensbeziehung ab.
+- Die Wiedererkennung verwendet stabile DeviceId und einen lokal gespeicherten, widerrufbaren Vertrauensnachweis. Der Vertrauensnachweis wird nicht offen angezeigt und nicht zentral synchronisiert.
 - Status, Abruf und Uebergabe ueber klar begrenzte lokale Endpunkte.
 
 Das gemeinsame lokale Pairing-Datenformat ist in `docs/LOCAL_NETWORK_PAIRING.md` beschrieben.
 
-Beispielhafte Endpunkte:
+Aktuelle und fuer den gerichteten Upload vorgesehene Endpunkte:
 
 ```text
-GET /status
-GET /snapshot
-POST /mobile-inbox
-POST /pairing/start
-POST /pairing/confirm
-GET /sync-log
+GET /health
+GET /local-sync/status
+GET /local-sync/pairing/status
+POST /local-sync/devices/remember
+POST /local-sync/mobile-inbox
 ```
 
-Die Endpunkte sind nur Zielbild. Es gibt in diesem Stand keinen laufenden Dienst, keinen Serverstart und keine produktive Netzwerk-Synchronisation.
+Der Dienst startet weiterhin ausschliesslich manuell am Desktop. Status- und Erkennungspruefungen duerfen im vorhandenen begrenzten Umfang laufen; die eigentliche Uebertragung beginnt nur durch `Jetzt synchronisieren` auf dem iPad.
 
 ## Mobile Eingaenge
 
-Bestehende manuelle mobile Eingaenge nutzen historisch die Struktur `mobile-inbox/mobile-*` mit `aufgabe.json`, Fotos, Vorschauen, markierten Versionen, Skizzen und Dateien. Fuer den spaeteren lokalen Netzwerk-Sync soll der Desktop Uploads bevorzugt unter `BueroCockpit_Daten/Sync/inbox/mobile-*` annehmen und nach erfolgreicher Pruefung nach `Sync/processed` oder in eine klar definierte verarbeitete Struktur ueberfuehren.
+Bestehende manuelle mobile Eingaenge nutzen historisch die Struktur `mobile-inbox/mobile-*` mit `aufgabe.json`, Fotos, Vorschauen, markierten Versionen, Skizzen und Dateien. Neue Netzwerk-Uploads nimmt der Desktop unter `BueroCockpit_Daten/Sync/inbox/mobile-*` an; nach bewusster fachlicher Übernahme werden sie nach `Sync/processed` verschoben.
 
-Der Desktop bestaetigt dem iPad die Uebernahme erst, wenn Manifest, Dateien und Pruefsummen erfolgreich abgelegt wurden. Das iPad darf lokale Originale erst nach dieser Bestaetigung bereinigen.
+Der Desktop bestaetigt dem iPad die Uebernahme erst, wenn Manifest, Dateien und Pruefsummen erfolgreich abgelegt wurden. Die aktuelle iPad-Stufe bereinigt auch nach Bestätigung noch keine lokalen Originale; dadurch bleiben Wiederholungsversuche sicher möglich.
 
 ## Sicherheitsregeln
 
@@ -87,10 +84,12 @@ Der Desktop bestaetigt dem iPad die Uebernahme erst, wenn Manifest, Dateien und 
 - Mobile Originale werden erst nach bestaetigter Uebernahme bereinigt.
 - Es gibt keine automatische Loeschung ohne bestaetigten Sync.
 
-## Nicht in diesem Auftrag
+## Dauerhafte Nicht-Ziele
 
-- Kein Desktop-Sync-Dienst.
-- Keine iPad-Codeaenderung fuer Netzwerk.
+- Kein automatisch gestarteter Desktop-Sync-Dienst.
+- Keine automatische Hintergrund-Datenuebertragung.
+- Keine Reaktivierung von Pairing-Code, Live-Datei oder Cloud-Datei als Transportweg.
 - Keine Live-Dateien loeschen.
 - Keine iCloud- oder OneDrive-Dateien verschieben.
 - Keine Datenmigration.
+- Keine stille Uebernahme in oder Ueberschreibung von produktiven Desktopdaten.

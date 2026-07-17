@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using BueroCockpit.Data;
 
@@ -9,7 +11,8 @@ public sealed record LocalNetworkDeviceRememberRequest(
     string DeviceName,
     string Platform,
     string? AppVersion = null,
-    DateTimeOffset? LastSeenUtc = null);
+    DateTimeOffset? LastSeenUtc = null,
+    string? SharedSecret = null);
 
 public sealed class LocalNetworkRememberedDevice
 {
@@ -28,6 +31,23 @@ public sealed class LocalNetworkRememberedDevice
     public string? LastRemoteAddress { get; set; }
 
     public string Status { get; set; } = "remembered";
+
+    public string TrustKeyHash { get; set; } = string.Empty;
+
+    public DateTimeOffset? TrustedAtUtc { get; set; }
+
+    public DateTimeOffset? LastSyncUtc { get; set; }
+
+    public string? LastSyncMessage { get; set; }
+}
+
+public enum LocalNetworkPairingState
+{
+    Missing,
+    Invalid,
+    Pending,
+    Trusted,
+    Revoked
 }
 
 public sealed class LocalNetworkDeviceStore
@@ -39,6 +59,14 @@ public sealed class LocalNetworkDeviceStore
     };
 
     private readonly object _gate = new();
+    private readonly string _devicesPath;
+
+    public LocalNetworkDeviceStore(string? devicesPath = null)
+    {
+        _devicesPath = string.IsNullOrWhiteSpace(devicesPath)
+            ? AppPaths.LocalNetworkDevicesPath
+            : Path.GetFullPath(devicesPath);
+    }
 
     public IReadOnlyList<LocalNetworkRememberedDevice> Load()
     {
@@ -76,23 +104,111 @@ public sealed class LocalNetworkDeviceStore
                 : request.AppVersion.Trim();
             existing.LastSeenUtc = lastSeen;
             existing.LastRemoteAddress = string.IsNullOrWhiteSpace(remoteAddress) ? null : remoteAddress;
-            existing.Status = "remembered";
+
+            if (!string.IsNullOrWhiteSpace(request.SharedSecret))
+            {
+                var trustKeyHash = HashSecret(request.SharedSecret);
+                if (!string.IsNullOrWhiteSpace(existing.TrustKeyHash) &&
+                    !FixedTimeEquals(existing.TrustKeyHash, trustKeyHash))
+                {
+                    existing.Status = "pending";
+                    existing.TrustedAtUtc = null;
+                }
+                else if (string.Equals(existing.Status, "remembered", StringComparison.OrdinalIgnoreCase))
+                {
+                    existing.Status = "pending";
+                }
+
+                existing.TrustKeyHash = trustKeyHash;
+            }
+            else if (string.IsNullOrWhiteSpace(existing.Status))
+            {
+                existing.Status = "remembered";
+            }
 
             SaveUnsafe(devices);
             return existing;
         }
     }
 
-    private static List<LocalNetworkRememberedDevice> LoadUnsafe()
+    public LocalNetworkPairingState GetPairingState(
+        string? deviceId,
+        string? sharedSecret,
+        out LocalNetworkRememberedDevice? device)
+    {
+        lock (_gate)
+        {
+            device = LoadUnsafe().FirstOrDefault(item =>
+                string.Equals(item.DeviceId, deviceId?.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (device is null)
+            {
+                return LocalNetworkPairingState.Missing;
+            }
+
+            if (string.IsNullOrWhiteSpace(sharedSecret) ||
+                string.IsNullOrWhiteSpace(device.TrustKeyHash) ||
+                !FixedTimeEquals(device.TrustKeyHash, HashSecret(sharedSecret)))
+            {
+                return LocalNetworkPairingState.Invalid;
+            }
+
+            return device.Status.Trim().ToLowerInvariant() switch
+            {
+                "trusted" => LocalNetworkPairingState.Trusted,
+                "revoked" => LocalNetworkPairingState.Revoked,
+                _ => LocalNetworkPairingState.Pending
+            };
+        }
+    }
+
+    public bool SetTrusted(string deviceId, bool trusted)
+    {
+        lock (_gate)
+        {
+            var devices = LoadUnsafe().ToList();
+            var device = devices.FirstOrDefault(item =>
+                string.Equals(item.DeviceId, deviceId.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (device is null || (trusted && string.IsNullOrWhiteSpace(device.TrustKeyHash)))
+            {
+                return false;
+            }
+
+            device.Status = trusted ? "trusted" : "revoked";
+            device.TrustedAtUtc = trusted ? DateTimeOffset.UtcNow : null;
+            SaveUnsafe(devices);
+            return true;
+        }
+    }
+
+    public void RecordSync(string deviceId, MobileInboxTransferResult result)
+    {
+        lock (_gate)
+        {
+            var devices = LoadUnsafe().ToList();
+            var device = devices.FirstOrDefault(item =>
+                string.Equals(item.DeviceId, deviceId.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (device is null)
+            {
+                return;
+            }
+
+            device.LastSeenUtc = DateTimeOffset.UtcNow;
+            device.LastSyncUtc = result.IsSuccess ? result.ReceivedAtUtc : device.LastSyncUtc;
+            device.LastSyncMessage = result.Messages.FirstOrDefault();
+            SaveUnsafe(devices);
+        }
+    }
+
+    private List<LocalNetworkRememberedDevice> LoadUnsafe()
     {
         try
         {
-            if (!File.Exists(AppPaths.LocalNetworkDevicesPath))
+            if (!File.Exists(_devicesPath))
             {
                 return [];
             }
 
-            var json = File.ReadAllText(AppPaths.LocalNetworkDevicesPath);
+            var json = File.ReadAllText(_devicesPath);
             return JsonSerializer.Deserialize<List<LocalNetworkRememberedDevice>>(json, Options) ?? [];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -102,20 +218,34 @@ public sealed class LocalNetworkDeviceStore
         }
     }
 
-    private static void SaveUnsafe(List<LocalNetworkRememberedDevice> devices)
+    private void SaveUnsafe(List<LocalNetworkRememberedDevice> devices)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_devicesPath)!);
+        var orderedDevices = devices
+            .Where(device => !string.IsNullOrWhiteSpace(device.DeviceId))
+            .OrderByDescending(device => device.LastSeenUtc)
+            .ToList();
+        var temporaryPath = $"{_devicesPath}.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(orderedDevices, Options));
+        File.Move(temporaryPath, _devicesPath, overwrite: true);
+    }
+
+    private static string HashSecret(string secret)
+    {
+        return Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(secret.Trim())));
+    }
+
+    private static bool FixedTimeEquals(string first, string second)
     {
         try
         {
-            Directory.CreateDirectory(AppPaths.LocalConfigDirectory);
-            var orderedDevices = devices
-                .Where(device => !string.IsNullOrWhiteSpace(device.DeviceId))
-                .OrderByDescending(device => device.LastSeenUtc)
-                .ToList();
-            File.WriteAllText(AppPaths.LocalNetworkDevicesPath, JsonSerializer.Serialize(orderedDevices, Options));
+            return CryptographicOperations.FixedTimeEquals(
+                Convert.FromBase64String(first),
+                Convert.FromBase64String(second));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (FormatException)
         {
-            Debug.WriteLine($"Local network devices could not be saved: {ex}");
+            return false;
         }
     }
 }

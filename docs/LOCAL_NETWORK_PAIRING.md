@@ -1,176 +1,51 @@
-# Lokaler Netzwerk-Sync
+# Lokale Gerätefreigabe für Netzwerk-Sync
 
-Stand: 2026-07-05.
+Stand: 2026-07-16.
 
-Dieses Dokument beschreibt den aktuellen Bedien- und Zielweg fuer den lokalen Netzwerk-Sync zwischen BueroCockpit Desktop und iPad-App. Der Dateiname ist historisch; der aktuelle Bedienweg verwendet keinen Pairing-Code.
+Der Dateiname ist historisch. Der aktuelle Bedienweg verwendet keinen Pairing-Code und reaktiviert keinen alten Code- oder Cloud-Assistenten.
 
-## Aktueller Zielweg
+## Ablauf
 
-1. BueroCockpit Desktop bleibt das fuehrende System.
-2. Der lokale Testdienst startet ausschliesslich manuell im Desktop-Bereich `Lokaler Netzwerk-Sync`.
-3. Der Testdienst verwendet standardmaessig Port `53941`.
-4. Die iPad-App startet direkt in die Hauptansicht, nicht in einen Assistenten.
-5. Oben in der Hauptansicht zeigt ein kleiner Punkt den lokalen Desktop-Status: gruen = `Desktop verbunden`, rot = `Desktop nicht verbunden`.
-6. Das iPad sucht den Desktop per Bonjour/mDNS, falls verfuegbar.
-7. Das iPad kann den Desktop weiterhin manuell ueber Desktop-Adresse/IP pruefen.
-8. Ein erfolgreich gepruefter Desktop kann auf dem iPad als lokaler Sync-Partner vorgemerkt werden.
-9. Das iPad registriert sich danach beim Desktop-Testdienst als vorgemerktes lokales Geraet.
-10. Der Desktop zeigt vorgemerkte iPads im Bereich `Lokaler Netzwerk-Sync`.
+1. Der Benutzer startet den Desktop-Sync-Dienst manuell, standardmäßig auf Port `53941`.
+2. Das iPad findet den Desktop per Bonjour/mDNS oder prüft eine manuelle Adresse/IP.
+3. `Diesen Desktop verwenden` speichert den Desktop lokal, erzeugt eine stabile iPad-Geräte-ID und bei Bedarf einen zufälligen lokalen Vertrauensnachweis.
+4. Das iPad sendet Geräteinformationen und Nachweis an `POST /local-sync/devices/remember`.
+5. Der Desktop speichert nur Geräteinformationen und SHA-256-Hash lokal; Zustand ist zunächst `pending`.
+6. Der Benutzer gibt das angezeigte iPad am Desktop mit `Für Uploads freigeben` ausdrücklich frei.
+7. `GET /local-sync/pairing/status` bestätigt nur die Kombination aus stabiler Geräte-ID, passendem Nachweis und Zustand `trusted`.
+8. Der Benutzer kann die Freigabe am Desktop widerrufen; dann sind weitere Uploads blockiert.
 
-In diesem Stand gibt es noch keinen echten Sync, keinen Kopplungsabschluss und keine Produktivdatenuebertragung.
+## Speicherung
 
-## Desktop
+iPad, nur lokale `UserDefaults`:
 
-Der Desktop-Bereich `Lokaler Netzwerk-Sync` zeigt:
+- Desktop-Adresse, Port und stabile Desktop-Zuordnung
+- stabile iPad-Geräte-ID und Anzeigename
+- zufälliger Vertrauensnachweis
+- letzter Verbindungs- und erfolgreicher Sync-Zeitpunkt sowie Abschlusszahlen
 
-- Status des lokalen Netzwerk-Syncs.
-- Bonjour-Status.
-- lokalen Testdienst manuell starten/stoppen.
-- gespeicherten Port, standardmaessig `53941`.
-- LAN-Adresse(n) fuer die manuelle iPad-Eingabe.
-- Hinweis, dass Bonjour nur fuer die automatische Desktop-Suche benoetigt wird.
+Desktop, nur `BueroCockpitLocal/local-network-devices.json`:
 
-Der Testdienst stellt nur harmlose Statusendpunkte bereit:
+- Geräte-ID, Gerätename, Plattform, App-Version
+- Kontaktzeiten und letzte Remote-Adresse
+- SHA-256-Hash des Nachweises
+- `pending`, `trusted` oder `revoked`
+- letzter bestätigter Upload
 
-```text
-GET /health
-GET /local-sync/status
-GET /local-sync/changes/status
-GET /local-sync/state
-POST /local-sync/devices/remember
-```
+Diese Daten werden weder in `Sync/live/settings.json` noch in die Produktivdatenbank oder Cloud-Dateien geschrieben. Der offene Nachweis wird am Desktop nicht gespeichert oder angezeigt.
 
-`/pairing/status` bleibt nur als tolerierter Alt-Endpunkt erhalten, damit vorhandene Testclients nicht hart brechen. Der aktuelle iPad-Bedienweg nutzt `/local-sync/status`.
+## Regeln
 
-Beispielantwort:
+- Ein Bonjour-Fund oder eine erfolgreiche Statusprüfung ist keine Freigabe.
+- Unbekannte Geräte und falsche Nachweise werden abgelehnt.
+- Ein neuer Nachweis für dieselbe Geräte-ID setzt die Freigabe wieder auf `pending`.
+- Ein anderer gefundener Desktop ersetzt die gespeicherte Zuordnung nur nach Benutzeraktion.
+- Keine automatische Wiederfreigabe nach Widerruf.
+- Kopplung erlaubt nur die begrenzten authentisierten Endpunkte, keinen direkten Datenbankzugriff.
+- Der eigentliche Upload startet ausschließlich durch `Jetzt synchronisieren`.
 
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "version": "0.4.14"
-}
-```
+Endpunkte und Paketregeln stehen verbindlich in [LOCAL_NETWORK_SYNC.md](LOCAL_NETWORK_SYNC.md).
 
-Die Antwort enthaelt keine Aufgaben, Kategorien, Anhaenge, Einstellungen oder sonstige Produktivdaten.
+## Legacy
 
-`GET /local-sync/changes/status` und `GET /local-sync/state` sind vorbereitete Metadaten-Endpunkte fuer spaetere automatische Aenderungspruefung. Sie uebertragen keine Produktivdaten und behaupten keinen aktiven Sync:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "changeVersion": "placeholder-20260705120000000",
-  "lastChangedUtc": "2026-07-05T12:00:00Z",
-  "syncActive": false
-}
-```
-
-`POST /local-sync/devices/remember` nimmt nur lokale iPad-Metadaten entgegen:
-
-```json
-{
-  "deviceId": "...",
-  "deviceName": "...",
-  "platform": "iPadOS",
-  "appVersion": "...",
-  "lastSeenUtc": "..."
-}
-```
-
-Die Antwort lautet:
-
-```json
-{
-  "app": "BueroCockpit",
-  "status": "ok",
-  "mode": "local-network-test",
-  "message": "Gerät vorgemerkt"
-}
-```
-
-Die Speicherung erfolgt ausschliesslich lokal unter `BueroCockpitLocal/local-network-devices.json`. Eintraege mit gleicher `deviceId` werden aktualisiert statt dupliziert. Die zentrale `settings.json` und Produktivdaten bleiben unangetastet.
-
-Der Desktop-Bereich zeigt `vorgemerkte iPads / lokale Geraete`, den Geraetenamen, die Plattform, den letzten Kontakt und den Status `vorgemerkt, Sync noch nicht aktiv`. Wenn noch kein Geraet vorhanden ist, steht dort `Noch kein iPad vorgemerkt.`.
-
-## iPad
-
-Die iPad-App zeigt beim Start direkt die Hauptansicht. Es gibt keinen vorgeschalteten Assistenten und keinen Startzwang ueber Alt-Kopplung als aktuellen Hauptfluss.
-
-In der Hauptansicht zeigt die App oben einen kleinen Verbindungsindikator:
-
-- gruener Punkt: `Desktop verbunden`
-- roter Punkt: `Desktop nicht verbunden`
-- gelb nur waehrend einer laufenden Pruefung
-
-Wenn noch kein Desktop vorgemerkt ist, bleibt die Hauptansicht sichtbar. Der Inhalt darf dezent darauf hinweisen, dass der Desktop-Testdienst in BueroCockpit gestartet werden muss, der Desktop automatisch gesucht wird und die manuelle IP in den Einstellungen moeglich bleibt.
-
-Die automatische Verbindung prueft beim Start, bei Rueckkehr in den aktiven App-Zustand und im sichtbaren Betrieb in einem ruhigen Intervall. Sie stoppt oder pausiert, wenn die Hauptansicht nicht aktiv ist. Es gibt keinen UDP-Broadcast, keinen Portscan und keine aggressive Dauerschleife.
-
-Der optionale iPad-Bereich `Lokaler Netzwerk-Sync` in den Sync-Einstellungen zeigt:
-
-- automatische Desktop-Suche per Bonjour/mDNS.
-- manuelle Desktop-Adresse/IP.
-- Port `53941`.
-- Button zum Pruefen des Desktop-Testdienstes.
-- Button zum Vormerken eines erfolgreich geprueften Desktop.
-- Status `Lokaler Desktop vorgemerkt`.
-- letzte erfolgreiche Pruefung.
-- getrennte Meldungen fuer Bonjour-Suche und manuelle Verbindung.
-- Registrierungsstatus nach `Diesen Desktop verwenden`.
-
-Ein manuell oder ueber die sichtbare Desktop-Liste vorgemerkter Desktop wird lokal in den iPad-Settings gespeichert:
-
-- Desktop-Adresse/IP.
-- Port.
-- Zeitstempel der letzten erfolgreichen Pruefung.
-- Status `Lokaler Desktop vorgemerkt` oder `Desktop im lokalen Netzwerk gefunden`.
-- letzte bekannte `changeVersion`.
-- Zeitstempel der letzten erfolgreichen Aenderungsstatus-Pruefung.
-
-Die automatische Suche darf diesen gespeicherten Desktop nicht loeschen, nicht herabstufen und nicht visuell durch eine Meldung ersetzen, die wie eine fehlende Einrichtung wirkt. Wenn die automatische Suche bei bereits vorgemerktem Desktop keinen weiteren Desktop findet, bleibt der Hauptstatus `Lokaler Desktop vorgemerkt`; nur die Suchmeldung darf auf `Automatische Suche: kein weiterer Desktop gefunden.` wechseln. Findet die Suche denselben Desktop wieder, duerfen Adresse/IP und Port aktualisiert werden. Findet die Suche einen anderen Desktop, wird er nur als weiterer gefundener Desktop angezeigt und erst nach Benutzeraktion vorgemerkt.
-
-Wenn Bonjour keinen weiteren Desktop findet, aber bereits eine manuelle Adresse erfolgreich vorgemerkt ist, zeigt die App keine widerspruechliche Hauptmeldung. Stattdessen gilt sinngemaess:
-
-- `Automatische Suche: kein weiterer Desktop gefunden.`
-- oder bei fehlendem Bonjour: `Bonjour-Suche nicht verfuegbar; manuelle Adresse wird verwendet`
-
-Beim Tippen auf `Diesen Desktop verwenden` speichert das iPad zuerst lokal den vorgemerkten Desktop. Danach sendet es einmalig `POST /local-sync/devices/remember` an den Desktop-Testdienst. Bei Erfolg zeigt die App `Desktop vorgemerkt, iPad am Desktop registriert.`. Wenn der POST fehlschlaegt, bleibt der lokale Desktop vorgemerkt und die App zeigt `Desktop lokal vorgemerkt. Registrierung am Desktop noch nicht möglich.`. Es gibt keinen Hintergrund-Retry und keine Endlosschleife; ein neuer Versuch passiert nur durch erneute Benutzeraktion.
-
-Nach erfolgreicher Statuspruefung darf das iPad vorbereitend `/local-sync/changes/status` abrufen und `changeVersion` sowie die letzte erfolgreiche Pruefung lokal merken. Die UI darf `Verbunden` oder `Änderungsprüfung vorbereitet` anzeigen. Sie darf nicht behaupten, dass ein echter Sync aktiv ist.
-
-## Bonjour/mDNS
-
-Bonjour/mDNS ist ein optionaler Komfortweg fuer die automatische Desktop-Suche. Die manuelle IP-Eingabe bleibt immer der Fallback.
-
-Auf Windows muss Bonjour/mDNS vorhanden sein, damit das iPad den Desktop automatisch finden kann. BueroCockpit prueft dafuer vorbereitend:
-
-- Dienst `mDNSResponder` vorhanden.
-- Dienst `mDNSResponder` laeuft.
-- `dns_sd.dll` ist verfuegbar.
-
-Fehlt Bonjour, darf die App nicht abstuerzen. Der lokale Testdienst darf weiterhin laufen und das iPad kann den Desktop per manueller Adresse pruefen.
-
-Der Windows-Installer soll Bonjour kuenftig erkennen und optional installieren oder Benutzer zur Installation fuehren. Es werden keine fremden Bonjour-MSI/EXE-Dateien im Repository gebuendelt.
-
-## Legacy/Fallback
-
-Fruehere dateibasierte Kopplungen sind nicht der aktuelle Kopplungsweg fuer den lokalen Netzwerk-Sync.
-
-Bestehende lokale Settings duerfen alte Felder wie `LocalNetworkSyncPairingCode` oder `LocalNetworkSyncPairedDevices` weiterhin enthalten. Diese Felder werden tolerant gelesen, im aktuellen Netzwerk-Sync-Bedienweg aber ignoriert.
-
-Bestehende Lesedaten und bestehende Mobile-Eingaenge bleiben als Legacy/Fallback erhalten, solange sie fuer vorhandene Datenanzeige oder manuelle Lesedaten noetig sind. Sie werden nicht automatisch migriert, geloescht oder als neuer lokaler Netzwerk-Sync beschrieben.
-
-## Grenzen
-
-- kein Release, kein Tag, keine Versionserhoehung.
-- kein echter Sync in diesem Schritt.
-- keine Aufgaben, Kategorien, Anhaenge oder sonstigen Produktivdaten uebertragen.
-- kein Desktop-Autostart fuer den Testdienst.
-- kein UDP-Broadcast.
-- kein Portscan.
-- keine unkontrollierte Hintergrundsuche.
-- keine automatische Migration.
-- keine Aenderung an produktiven Benutzer- oder Altdateien.
+Alte Felder wie `LocalNetworkSyncPairingCode` oder alte dateibasierte Kopplungsdaten dürfen tolerant gelesen werden, sind aber nicht Teil des aktuellen Netzwerk-Syncs. Sie werden nicht automatisch migriert, gelöscht oder wieder aktiviert.

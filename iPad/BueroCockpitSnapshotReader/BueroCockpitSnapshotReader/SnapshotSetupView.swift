@@ -117,6 +117,14 @@ struct SnapshotSetupView: View {
                             .font(.headline)
                     }
 
+                    GroupBox {
+                        mobileInboxContent
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        Label("Lokale mobile Eingänge", systemImage: "tray.full")
+                            .font(.headline)
+                    }
+
                     if let message, !message.isEmpty {
                         Label(message, systemImage: "exclamationmark.triangle")
                             .font(.callout)
@@ -153,7 +161,7 @@ struct SnapshotSetupView: View {
                 .font(.headline)
                 .foregroundStyle(localNetworkDesktopStatusColor)
 
-            Text("Desktop im lokalen Netzwerk suchen oder IP manuell eingeben. Noch kein echter Sync aktiv.")
+            Text("Desktop im lokalen Netzwerk suchen oder IP manuell eingeben. Mobile Eingänge werden nur über ‚Jetzt synchronisieren‘ in der Hauptansicht übertragen.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -168,11 +176,11 @@ struct SnapshotSetupView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("1. Desktop-Testdienst in BüroCockpit manuell starten.")
+                Text("1. Lokalen Sync-Dienst in BüroCockpit manuell starten.")
                 Text("2. Bonjour findet den Desktop automatisch, manuelle IP bleibt Fallback.")
                 Text("3. Desktop prüfen.")
                 Text("4. Diesen Desktop verwenden.")
-                Text("5. iPad meldet sich am Desktop als vorgemerktes lokales Gerät.")
+                Text("5. iPad am Desktop freigeben und anschließend in der Hauptansicht ‚Jetzt synchronisieren‘ wählen.")
             }
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -311,7 +319,7 @@ struct SnapshotSetupView: View {
     }
 
     private var canUseLocalNetworkDesktop: Bool {
-        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
+        if localNetworkDesktopStatusText == "Desktop-Sync-Dienst erreichbar" {
             return true
         }
         if isLocalNetworkDesktopRemembered {
@@ -369,12 +377,12 @@ struct SnapshotSetupView: View {
         let trimmedStatus = localNetworkDesktopStatusMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if isLocalNetworkDesktopRemembered &&
             (trimmedStatus.isEmpty ||
-             trimmedStatus.hasPrefix("Desktop-Testdienst nicht erreichbar") ||
+             trimmedStatus.hasPrefix("Desktop-Sync-Dienst nicht erreichbar") ||
              trimmedStatus == "Desktop-Adresse fehlt" ||
              trimmedStatus == "Bereit zur Prüfung") {
             return "Lokaler Desktop vorgemerkt"
         }
-        if trimmedStatus.hasPrefix("Desktop-Testdienst") ||
+        if trimmedStatus.hasPrefix("Desktop-Sync-Dienst") ||
             trimmedStatus == "Desktop im lokalen Netzwerk gefunden" ||
             trimmedStatus == "Prüfung läuft …" ||
             trimmedStatus == "Bitte Desktop-Adresse oder IP eintragen." ||
@@ -392,7 +400,7 @@ struct SnapshotSetupView: View {
     }
 
     private var localNetworkDesktopStatusIcon: String {
-        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" {
+        if localNetworkDesktopStatusText == "Desktop-Sync-Dienst erreichbar" {
             return "checkmark.circle"
         }
         if localNetworkDesktopStatusText == "Desktop im lokalen Netzwerk gefunden" {
@@ -409,13 +417,13 @@ struct SnapshotSetupView: View {
     }
 
     private var localNetworkDesktopStatusColor: Color {
-        if localNetworkDesktopStatusText == "Desktop-Testdienst erreichbar" ||
+        if localNetworkDesktopStatusText == "Desktop-Sync-Dienst erreichbar" ||
             localNetworkDesktopStatusText == "Desktop im lokalen Netzwerk gefunden" ||
             localNetworkDesktopStatusText == "lokaler Desktop vorgemerkt" ||
             localNetworkDesktopStatusText == "Lokaler Desktop vorgemerkt" {
             return .green
         }
-        if localNetworkDesktopStatusText.hasPrefix("Desktop-Testdienst nicht erreichbar") ||
+        if localNetworkDesktopStatusText.hasPrefix("Desktop-Sync-Dienst nicht erreichbar") ||
             localNetworkDesktopStatusText == "Desktop-Adresse fehlt" ||
             localNetworkDesktopStatusText == "Bitte Desktop-Adresse oder IP eintragen." {
             return .orange

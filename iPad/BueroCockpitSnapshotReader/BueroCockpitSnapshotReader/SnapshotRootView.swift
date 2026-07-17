@@ -299,6 +299,13 @@ struct SnapshotRootView: View {
                 localNetworkConnectionIndicator
 
                 Button {
+                    viewModel.startManualLocalNetworkSync()
+                } label: {
+                    Label("Jetzt synchronisieren", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(!viewModel.canStartManualLocalNetworkSync)
+
+                Button {
                     presentedSheet = .mobilePhotoDrafts
                 } label: {
                     Label("Foto-Modus", systemImage: "camera")
@@ -332,8 +339,78 @@ struct SnapshotRootView: View {
 
     private var contentColumnView: some View {
         VStack(spacing: 0) {
+            manualLocalNetworkSyncPanel
             taskList
         }
+    }
+
+    private var manualLocalNetworkSyncPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    manualLocalNetworkSyncTarget
+                    Spacer()
+                    manualLocalNetworkSyncButton
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    manualLocalNetworkSyncTarget
+                    manualLocalNetworkSyncButton
+                }
+            }
+
+            if let phase = viewModel.manualSyncPhase, viewModel.isSyncing {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(phase.rawValue)
+                        .font(.callout.weight(.medium))
+                    ProgressView(value: viewModel.manualSyncProgress)
+                        .accessibilityLabel(phase.rawValue)
+                }
+            }
+
+            if let summary = viewModel.manualSyncSummary {
+                Label(summary.completionText, systemImage: summary.failedObjects == 0 ? "checkmark.circle" : "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(summary.failedObjects == 0 ? Color.secondary : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let error = viewModel.manualSyncErrorMessage, !error.isEmpty {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let lastSync = viewModel.lastSuccessfulManualSyncText {
+                Text("Letzte erfolgreiche Synchronisation: \(lastSync)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !viewModel.canStartManualLocalNetworkSync && !viewModel.isSyncing {
+                Text("Desktop zuerst in den Sync-Einstellungen auswählen und am Desktop freigeben.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.08))
+    }
+
+    private var manualLocalNetworkSyncTarget: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Lokaler Netzwerk-Sync")
+                .font(.callout.weight(.semibold))
+            Text("Ziel: \(viewModel.manualLocalNetworkSyncTargetText)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var manualLocalNetworkSyncButton: some View {
+        Button("Jetzt synchronisieren") {
+            viewModel.startManualLocalNetworkSync()
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!viewModel.canStartManualLocalNetworkSync)
+        .accessibilityHint("Überträgt mobile Eingänge bewusst an den freigegebenen BüroCockpit-Desktop.")
     }
 
     private var mainHeaderView: some View {
@@ -344,6 +421,14 @@ struct SnapshotRootView: View {
             Spacer()
 
             localNetworkConnectionIndicator
+
+            Button {
+                viewModel.startManualLocalNetworkSync()
+            } label: {
+                Label("Jetzt synchronisieren", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .disabled(!viewModel.canStartManualLocalNetworkSync)
+            .buttonStyle(.borderless)
 
             Button {
                 presentedSheet = .mobilePhotoDrafts
@@ -520,7 +605,7 @@ struct SnapshotRootView: View {
         case .idle:
             SnapshotEmptyStateView(
                 title: "Noch keine lokalen Daten geladen",
-                message: "Zum Laden aktualisieren. Desktop-Testdienst in BüroCockpit starten, falls lokale Netzwerkdaten genutzt werden sollen.",
+                message: "Zum Laden aktualisieren. Desktop-Sync-Dienst in BüroCockpit starten, falls lokale Netzwerkdaten genutzt werden sollen.",
                 systemImage: "folder",
                 primaryButtonTitle: "Sync-Einstellungen",
                 primaryAction: { presentedSheet = .settings }
@@ -616,7 +701,7 @@ struct SnapshotRootView: View {
         case .idle:
             SnapshotEmptyStateView(
                 title: "BüroCockpit",
-                message: "Lokaler Netzwerk-Sync ist in Vorbereitung. Noch kein echter Sync aktiv.",
+                message: "Mobile Eingänge können über ‚Jetzt synchronisieren‘ bewusst an einen freigegebenen BüroCockpit-Desktop übertragen werden.",
                 systemImage: "tray.full",
                 primaryButtonTitle: "Sync-Einstellungen",
                 primaryAction: { presentedSheet = .settings }

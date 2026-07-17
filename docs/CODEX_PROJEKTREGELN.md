@@ -71,7 +71,7 @@ Die vollstaendige Fachquelle ist `docs/ARBEITSKATEGORIEN.md`.
 - Kein Netzwerkdienst starten.
 - Kein TCP-Port oeffnen.
 - Kein `LocalSyncService.StartAsync` aktiv verdrahten.
-- Kein Bonjour/mDNS aktivieren, ausser ausdruecklich fuer den manuell gestarteten lokalen Testdienst.
+- Kein Bonjour/mDNS aktivieren, ausser ausdruecklich fuer den manuell gestarteten lokalen Sync-Dienst.
 - Keine automatische Geraetesuche.
 - Keine Datenuebertragung zwischen Desktop und iPad.
 
@@ -95,13 +95,15 @@ Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 
 ## Lokaler Netzwerk-Sync
 
-- Aktueller Zielweg ist der lokale Netzwerk-Sync mit manuell gestartetem Desktop-Testdienst.
+- Aktueller Zielweg ist der lokale Netzwerk-Sync mit manuell gestartetem Desktop-Sync-Dienst.
 - Der aktuelle Bedienweg zeigt keinen Pairing-Code und keine Live-Datei-/Cloud-/Datei-Kopplung.
 - Das iPad prueft den Desktop per lokaler Adresse oder findet ihn per Bonjour/mDNS, falls verfuegbar.
 - Manuelle IP-Eingabe bleibt der Fallback.
 - Der Statuspunkt in der iPad-Hauptansicht muss die lokale Desktop-Vormerkung selbst laden und ohne Oeffnen der Einstellungen automatisch aktualisieren.
-- Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Testdienst darf ohne Bonjour laufen.
-- Es gibt noch keinen echten Sync und keine Produktivdatenuebertragung, solange das nicht ausdruecklich beauftragt wird.
+- Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Sync-Dienst darf ohne Bonjour laufen.
+- Implementiert ist ausschließlich der bewusst am iPad gestartete, gerichtete Upload mobiler Eingänge nach `Sync/inbox`; er schreibt nicht direkt in die Desktop-Datenbank.
+- Jede Erweiterung auf Desktop -> iPad, automatische Übertragung oder bidirektionale Zusammenführung benötigt einen neuen ausdrücklichen Auftrag.
+- Geräte-ID, Vertrauensnachweis, Freigabestatus und letzter Geräte-Sync bleiben lokal; offene Nachweise dürfen am Desktop nur als Hash gespeichert werden.
 
 ## Release-Ablauf
 
