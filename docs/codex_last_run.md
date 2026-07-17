@@ -48,6 +48,9 @@ Die reale UI- und Netzwerk-Abnahme des responsiven Workflow-Steppers, der berein
 - `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `dotnet build -r osx-arm64`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `xcodebuild -project iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader.xcodeproj -scheme BueroCockpitSnapshotReader -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /private/tmp/BueroCockpitSnapshotReaderDerivedData CODE_SIGNING_ALLOWED=NO build`: erfolgreich.
+- Signierter Gerätebuild für das physische iPad Air 7 mit automatischer Entwicklungsbereitstellung: erfolgreich; Installation und realer manueller Leer-Sync erfolgreich.
+- `./scripts/release.sh 0.4.21`: erfolgreich; frische Windows-x64- und Velopack-Artefakte erzeugt.
+- `./scripts/check-release-artifacts.sh` sowie explizite Größen-, Versions- und SHA-256-Prüfung aller Auto-Update-Pflichtartefakte: erfolgreich. Der optionale Inno-Installer ist nicht vorhanden.
 - `git diff --check`: erfolgreich.
 
 ## Git
