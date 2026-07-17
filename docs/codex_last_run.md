@@ -55,18 +55,9 @@ Die reale UI- und Netzwerk-Abnahme des responsiven Workflow-Steppers, der berein
 
 ## Git
 
-- Branch: `codex/work`
-- HEAD: `6f75750721450cbf7a1b1cd08a132feac0ac983d`
-- Der Funktionsstand wird nach erfolgreicher Release-Vorprüfung veröffentlicht und anschließend als Version `0.4.21` vollständig für Windows-Auto-Update freigegeben.
-
-## Branch
-
-codex/work
-
-## Commit
-
-537b51bcb30d29052dae5ae942648b0466af5eda
-
-## Push erfolgreich
-
-Ja
+- Funktionscommit: `537b51bcb30d29052dae5ae942648b0466af5eda` auf `codex/work`, anschließend per Fast-Forward nach `main` übernommen.
+- Release-Commit und Tagziel: `40a3db3d89bd30835ea17550f03db1efb86dec53`.
+- Tag: `v0.4.21`.
+- `main` und Tag wurden erfolgreich zu GitHub gepusht.
+- GitHub Release: `https://github.com/chris148ps/BueroCockpit/releases/tag/v0.4.21`.
+- `gh release view` und die Latest-Release-API bestätigen den veröffentlichten, nicht als Draft oder Prerelease markierten Release mit allen sechs Pflicht-/Zusatzassets.

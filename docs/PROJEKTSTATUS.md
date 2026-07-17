@@ -182,9 +182,12 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   und die Parent-/ID-Persistenz wurden angrenzend geprüft; die reale Geste wird
   bei der Windows-Abnahme erneut bedient.
 - Die Windows-spezifischen Bedienwege und der praktische Auto-Update-Weg werden
-  nach dem ausdrücklich freigegebenen Release auf dem Firmenrechner geprüft.
+  nach dem veröffentlichten Release `v0.4.21` auf dem Firmenrechner geprüft.
   Diese nachgelagerte Abnahme darf nicht als bereits ausgeführter Test
   dokumentiert werden.
+- Version `0.4.21` ist als vollständiger GitHub-/Velopack-Release veröffentlicht.
+  Windows-ZIP, Velopack-Setup, Full-NuGet-Paket und alle drei Manifestdateien
+  wurden im Release als hochgeladen und größer als 0 Byte bestätigt.
 - Der lokale Inbox-Speicher und der HTTP-Dienst wurden mit ausschließlich
   temporären Daten real automatisiert geprüft: fehlende/falsche/gültige Kopplung,
   neuer Upload, Originalfoto, mehrere Fotos, Skizze, Datei, Wiederholung,
