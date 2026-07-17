@@ -48,3 +48,23 @@ die tatsächliche Implementierung einschließlich `UpdateService`,
 Damit ist die Release-Prüfung erfolgreich. Erst anschließend dürfen
 Fehlerkorrektur und Dokumentation übernommen, Version `0.4.22` gesetzt und
 frische Artefakte erzeugt werden.
+
+## Releaseergebnis
+
+- Der geprüfte Hotfix wurde per Fast-Forward nach `main` übernommen.
+- `./scripts/release.sh 0.4.22` erzeugte Windows-ZIP und sämtliche
+  Windows-x64-Velopack-Artefakte frisch.
+- `scripts/check-release-artifacts.sh`, explizite Größenprüfung,
+  Versionssuche, NUPKG-Metadatenprüfung und SHA-256-Prüfung waren erfolgreich.
+- Release-Commit und Tagziel:
+  `86f2d976109969d894febe01d716b00f10ec411a`.
+- Der annotierte Tag `v0.4.22` und `main` wurden erfolgreich gepusht.
+- Das vollständige GitHub Release wurde veröffentlicht:
+  `https://github.com/chris148ps/BueroCockpit/releases/tag/v0.4.22`.
+- `gh release view v0.4.22` und die GitHub-Latest-API bestätigen: nicht Draft,
+  nicht Prerelease, alle sechs Pflicht-/Zusatzassets im Status `uploaded` und
+  mit den lokal geprüften SHA-256-Werten.
+- Der optionale Inno-Installer wurde nicht erzeugt und blockiert den
+  Velopack-Auto-Update-Weg nicht.
+- Der praktische Windows-Auto-Update-Test bleibt bis zur Zielgeräte-Abnahme
+  offen.

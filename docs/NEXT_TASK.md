@@ -2,7 +2,7 @@
 
 ## Ziel
 
-Morgen den Windows-Auto-Update-Weg auf die neue Zielversion `0.4.22` auf dem Firmenrechner und die noch offene physische iPad-Vollübertragung als eine gemeinsame Zielgeräte-Abnahme abschließen.
+Morgen den veröffentlichten Windows-Auto-Update-Weg auf Version `0.4.22` auf dem Firmenrechner und die noch offene physische iPad-Vollübertragung als eine gemeinsame Zielgeräte-Abnahme abschließen.
 
 ## Geplante Schritte
 
