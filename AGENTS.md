@@ -8,6 +8,7 @@ Immer:
 
 - `docs/CODEX_PROJEKTREGELN.md`
 - `docs/CODEX_AUFTRAGSPRUEFUNG.md`
+- `docs/ENTWICKLUNGSSTAND.md`
 
 Zusätzlich je nach Thema:
 
@@ -94,6 +95,9 @@ Pflicht:
 - `docs/codex_last_run.md` aktualisieren
 - `docs/PROJEKTSTATUS.md` bei fachlichen Änderungen aktualisieren
 - `docs/NEXT_TASK.md` auf genau eine nächste Aufgabe setzen
+- `docs/ENTWICKLUNGSSTAND.md` auf den tatsächlich geprüften Gesamtstand aktualisieren
+
+`docs/ENTWICKLUNGSSTAND.md` ist die zentrale fortlaufende Übersicht über den tatsächlichen Entwicklungsstand. Sie muss unabhängig davon gepflegt werden, ob Änderungen bereits committed oder nach GitHub gepusht wurden. Mindestens festzuhalten sind aktuelle Version, Arbeitsbranch, letzte abgeschlossene Aufgabe, laufendes Ziel, maßgebliche Architekturentscheidungen, bekannte Risiken, Build- und Teststatus sowie die nächste geplante Version beziehungsweise Aufgabe.
 
 Die Dokumentation muss dem tatsächlich geprüften Stand entsprechen. Keine erfundenen Tests oder Ergebnisse.
-Einträge unter `docs/codex_journal/` sind historische Laufprotokolle und keine aktuelle Regelquelle; bei Abweichungen gelten die aktuellen Regeldateien und `docs/PROJEKTSTATUS.md`.
+Einträge unter `docs/codex_journal/` sind historische Laufprotokolle und keine aktuelle Regelquelle; bei Abweichungen gelten die aktuellen Regeldateien, `docs/ENTWICKLUNGSSTAND.md` und `docs/PROJEKTSTATUS.md`.
