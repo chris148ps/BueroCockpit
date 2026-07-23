@@ -62,6 +62,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
     private let mobileChangeQueueStore: MobileChangeQueueStore
     private let mobilePhotoDraftStore: MobilePhotoDraftStore
     private let localNetworkManualSyncClient: LocalNetworkManualSyncClient
+    private let localSyncSnapshotStore: LocalSyncSnapshotStore
     private var didAttemptStartupLoad = false
     private let localNetworkDesktopTestPort = 53941
     private let localNetworkDesktopAutoCheckIntervalNanoseconds: UInt64 = 30_000_000_000
@@ -81,7 +82,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
         mobileInboxReader: MobileInboxReader = MobileInboxReader(),
         mobileChangeQueueStore: MobileChangeQueueStore = MobileChangeQueueStore(),
         mobilePhotoDraftStore: MobilePhotoDraftStore = MobilePhotoDraftStore(),
-        localNetworkManualSyncClient: LocalNetworkManualSyncClient = LocalNetworkManualSyncClient()
+        localNetworkManualSyncClient: LocalNetworkManualSyncClient = LocalNetworkManualSyncClient(),
+        localSyncSnapshotStore: LocalSyncSnapshotStore? = nil
     ) {
         self.reader = reader
         self.accessStore = accessStore
@@ -90,6 +92,7 @@ final class SnapshotBrowserViewModel: ObservableObject {
         self.mobileChangeQueueStore = mobileChangeQueueStore
         self.mobilePhotoDraftStore = mobilePhotoDraftStore
         self.localNetworkManualSyncClient = localNetworkManualSyncClient
+        self.localSyncSnapshotStore = localSyncSnapshotStore ?? LocalSyncSnapshotStore(accessStore: accessStore)
         syncSettings = syncSettingsStore.load()
         setupRequired = false
         loadState = .idle
@@ -114,6 +117,8 @@ final class SnapshotBrowserViewModel: ObservableObject {
             SnapshotCategoryGroup(
                 id: Self.mobilePendingCategoryID,
                 name: "Mobile Eingänge",
+                displayName: "Mobile Eingänge",
+                parentID: nil,
                 categoryIDs: [Self.mobilePendingCategoryID],
                 order: Int.min
             )
@@ -121,10 +126,30 @@ final class SnapshotBrowserViewModel: ObservableObject {
     }
 
     var mobileInspectionCategoryNames: [String] {
+        mobileInspectionCategoryOptions.map(\.name)
+    }
+
+    var mobileInspectionCategoryOptions: [MobileInspectionCategoryOption] {
         groupedCategoryCache
             .filter { Self.isSelectableMobileInspectionCategory($0) }
-            .map(\.name)
-            .filter { !Self.isLegacyMobileApprovalCategory($0) }
+            .filter { !Self.isLegacyMobileApprovalCategory($0.name) }
+            .map { MobileInspectionCategoryOption(id: $0.id, name: $0.name) }
+    }
+
+    var mobileInspectionTechnicianNames: [String] {
+        var seen = Set<String>()
+        let configured = (document?.technicians ?? []).compactMap { technician -> String? in
+            guard let value = SnapshotDisplayFormatter.displayText(technician.name),
+                  seen.insert(value.lowercased()).inserted else { return nil }
+            return value
+        }
+        let assignedLegacyValues = tasks.compactMap { task -> String? in
+            guard let value = SnapshotDisplayFormatter.displayText(task.technician),
+                  seen.insert(value.lowercased()).inserted else { return nil }
+            return value
+        }
+        return (configured + assignedLegacyValues)
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     var tasks: [SnapshotTask] {
@@ -349,36 +374,109 @@ final class SnapshotBrowserViewModel: ObservableObject {
         Task {
             defer { isSyncing = false }
             do {
-                let summary = try await client.synchronize(
+                var summary = try await client.synchronize(
                     address: address,
                     port: port,
                     deviceId: deviceId,
-                    trustKey: trustKey
+                    trustKey: trustKey,
+                    confirmedServerRevision: desktop.confirmedServerRevision,
+                    nextClientSequence: desktop.nextClientSequence ?? 1
                 ) { [weak self] phase in
                     await MainActor.run {
                         self?.manualSyncPhase = phase
                         self?.manualSyncProgress = phase.progress
                     }
                 }
-                manualSyncSummary = summary
-                manualSyncPhase = .completed
-                manualSyncProgress = 1
+                if let downloadedSnapshotURL = summary.downloadedSnapshotURL {
+                    defer { try? FileManager.default.removeItem(at: downloadedSnapshotURL) }
+                    let existingTaskIDs = Set(document?.tasks.map(\.id) ?? [])
+                    let reader = self.reader
+                    let snapshotStore = self.localSyncSnapshotStore
+                    let prepared = try await Task.detached(priority: .userInitiated) {
+                        let downloaded = try reader.readCachedSnapshot(from: downloadedSnapshotURL)
+                        return Self.prepare(document: try snapshotStore.installFull(document: downloaded, reader: reader))
+                    }.value
+                    summary.receivedObjects = prepared.document.tasks.count
+                    summary.receivedNewObjects = prepared.document.tasks.filter {
+                        !existingTaskIDs.contains($0.id)
+                    }.count
+                    summary.receivedChangedObjects = prepared.document.tasks.count - summary.receivedNewObjects
+                    summary.receivedReferenceObjects =
+                        prepared.document.categories.count + prepared.document.technicians.count
+                    summary.receivedAttachments = prepared.document.attachments.count
+                    apply(prepared: prepared)
+                    summary.downloadedSnapshotURL = nil
+                } else if let delta = summary.delta,
+                          delta.counts.tasks + delta.counts.categories + delta.counts.technicians +
+                          delta.counts.attachments + delta.counts.tombstones + delta.counts.files > 0 {
+                    guard let currentDocument = document else {
+                        throw LocalNetworkManualSyncError.snapshotInvalid
+                    }
+                    let existingTaskIDs = Set(currentDocument.tasks.map(\.id))
+                    summary.receivedNewObjects = delta.tasks.filter {
+                        !existingTaskIDs.contains($0.id)
+                    }.count
+                    summary.receivedChangedObjects = delta.tasks.count - summary.receivedNewObjects
+                    let reader = self.reader
+                    let snapshotStore = self.localSyncSnapshotStore
+                    let prepared = try await Task.detached(priority: .userInitiated) {
+                        Self.prepare(document: try snapshotStore.apply(delta: delta, to: currentDocument, reader: reader))
+                    }.value
+                    apply(prepared: prepared)
+                }
                 if summary.failedObjects == 0 {
+                    manualSyncPhase = .confirming
+                    manualSyncProgress = LocalNetworkManualSyncPhase.confirming.progress
+                    var ackResponse: LocalNetworkAckResponse?
+                    if let ackToken = summary.ackToken,
+                       let serverRevision = summary.serverRevision {
+                        ackResponse = try await client.confirm(
+                            address: address,
+                            port: port,
+                            deviceId: deviceId,
+                            trustKey: trustKey,
+                            ackToken: ackToken,
+                            serverRevision: serverRevision,
+                            lastConfirmedClientSequence: summary.lastConfirmedClientSequence
+                        )
+                    }
                     var settings = syncSettings
                     settings.localNetworkDesktop.lastSuccessfulSyncAt = Date()
+                    if let ackResponse {
+                        settings.localNetworkDesktop.confirmedServerRevision = ackResponse.serverRevision
+                        settings.localNetworkDesktop.confirmedServerSequence = ackResponse.serverSequence
+                        settings.localNetworkDesktop.lastConfirmedClientSequence = ackResponse.lastConfirmedClientSequence
+                        settings.localNetworkDesktop.nextClientSequence = ackResponse.lastConfirmedClientSequence + 1
+                        settings.localNetworkDesktop.syncApiVersion = ackResponse.apiVersion
+                        settings.localNetworkDesktop.lastSyncStatus = ackResponse.status
+                    } else if let lastClientSequence = summary.lastConfirmedClientSequence {
+                        settings.localNetworkDesktop.lastConfirmedClientSequence = lastClientSequence
+                        settings.localNetworkDesktop.nextClientSequence = lastClientSequence + 1
+                    }
                     settings.localNetworkDesktop.lastTransferredObjectCount = summary.transferredObjects
                     settings.localNetworkDesktop.lastTransferredPhotoCount = summary.transferredPhotos
                     settings.localNetworkDesktop.lastSkippedObjectCount = summary.skippedObjects
                     settings.localNetworkDesktop.lastFailedObjectCount = 0
                     syncSettings = settings
                     syncSettingsStore.save(settings)
-                    syncStatusMessage = summary.transferredObjects == 0 && summary.skippedObjects == 0
-                        ? "Synchronisation abgeschlossen: keine neuen mobilen Eingänge."
+                    syncStatusMessage = summary.receivedObjects == 0 &&
+                        summary.receivedReferenceObjects == 0 &&
+                        summary.receivedAttachments == 0 &&
+                        summary.receivedTombstones == 0 &&
+                        summary.transferredObjects == 0 &&
+                        summary.skippedObjects == 0
+                        ? "Keine Änderungen vorhanden"
                         : "Synchronisation abgeschlossen"
+                    manualSyncPhase = .completed
+                    manualSyncProgress = LocalNetworkManualSyncPhase.completed.progress
                 } else {
                     manualSyncErrorMessage = summary.messages.last ?? "Mindestens ein mobiler Eingang konnte nicht übertragen werden."
                     syncStatusMessage = "Synchronisation mit Fehlern beendet"
                 }
+                summary.delta = nil
+                manualSyncSummary = summary
+                manualSyncPhase = .completed
+                manualSyncProgress = 1
             } catch is CancellationError {
                 manualSyncErrorMessage = "Synchronisation abgebrochen. Lokale Daten bleiben erhalten."
                 syncStatusMessage = "Synchronisation abgebrochen"
@@ -423,11 +521,13 @@ final class SnapshotBrowserViewModel: ObservableObject {
             syncStatusMessage = "Desktop-Sync-Dienst in BüroCockpit starten. Desktop wird automatisch gesucht. Manuelle IP in den Einstellungen möglich."
         }
         loadState = document == nil ? .idle : loadState
-        SnapshotPerformanceLog.event(
-            accessStore.hasLocalSnapshot
-                ? "Startup snapshot autoload skipped: local snapshot remains available for manual reload"
-                : "Startup snapshot autoload skipped: no imported live file"
-        )
+        if accessStore.hasLocalSnapshot {
+            SnapshotPerformanceLog.event("Startup local snapshot autoload requested")
+            loadLocalSnapshot(isLaunch: true)
+            return
+        }
+
+        SnapshotPerformanceLog.event("Startup without local snapshot")
     }
 
     func importSnapshot(from sourceURL: URL) {
@@ -1249,16 +1349,22 @@ final class SnapshotBrowserViewModel: ObservableObject {
             id: "mobile-inbox-\(entry.id)",
             title: entry.displayTitle,
             customerName: entry.customerName,
+            customerAddress: entry.address,
             customerEmail: entry.email,
             customerPhone: entry.phone,
+            currentCategoryId: Self.mobilePendingCategoryID,
             categoryIds: [Self.mobilePendingCategoryID],
             categoryNames: visibleMobileCategoryNames(from: entry),
             dueDate: nil,
             reminderDate: nil,
+            followUpReason: nil,
             createdAt: entry.createdAt,
             updatedAt: nil,
             materialOrderedAt: nil,
             status: displayMobileInboxStatus(entry.status),
+            technician: nil,
+            workflowType: nil,
+            workflowStep: nil,
             notes: ([
                 entry.notes,
                 entry.attachmentSummary,
@@ -1368,9 +1474,20 @@ final class SnapshotBrowserViewModel: ObservableObject {
 
                     return $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending
                 }
+            let parentID: String?
+            if let rawParentID = item.0.parentId,
+               !rawParentID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               byID[rawParentID] != nil {
+                parentID = rawParentID
+            } else {
+                parentID = nil
+            }
+
             result.append(SnapshotCategoryGroup(
                 id: item.0.id,
                 name: path,
+                displayName: item.1,
+                parentID: parentID,
                 categoryIDs: [item.0.id] + descendantIDs(for: item.0.id),
                 order: item.2
             ))

@@ -7,7 +7,9 @@ struct MobileInspectionFormView: View {
     let writer: MobileInboxWriter
     let draftStore: MobileInspectionDraftStore
     let editingEntryID: String?
-    let availableCategories: [String]
+    let initialDraft: MobileInspectionDraft?
+    let availableCategories: [MobileInspectionCategoryOption]
+    let availableTechnicians: [String]
     let onSaved: (MobileInspectionSaveResult) -> Void
     let onNeedsFolderSelection: () -> Void
     let onDraftStateChanged: (Bool) -> Void
@@ -41,13 +43,16 @@ struct MobileInspectionFormView: View {
         Form {
             customerSection
             categorySection
+            workflowSection
+            scheduleSection
+            technicianSection
             notesSection
             photosSection
             sketchesSection
             filesSection
             errorSection
         }
-        .navigationTitle(editingEntryID == nil ? "Neue Aufgabe" : "Eingang bearbeiten")
+        .navigationTitle(initialDraft?.isDesktopTaskUpdate == true ? "Desktopvorgang bearbeiten" : editingEntryID == nil ? "Neue Aufgabe" : "Eingang bearbeiten")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Abbrechen", action: cancel)
@@ -65,6 +70,13 @@ struct MobileInspectionFormView: View {
         }
         .onChange(of: selectedPhotoItems) { _, items in
             loadPhotosFromPickerItems(items)
+        }
+        .onChange(of: draft.workflowType) { _, _ in
+            guard !workflowSteps.contains(draft.workflowStep) else {
+                return
+            }
+            draft.workflowStep = draft.workflowType == "Angebotsvorgang" ? "Angebot" : "Auftrag"
+            persistCurrentDraft()
         }
         .onChange(of: scenePhase) { _, phase in
             handleScenePhaseChange(phase)
@@ -161,35 +173,45 @@ struct MobileInspectionFormView: View {
         return current
     }
 
-    private var categoryOptions: [String] {
+    private var categoryOptions: [MobileInspectionCategoryOption] {
         var seen = Set<String>()
         return availableCategories.compactMap { category in
-            let trimmed = category.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmed = category.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty,
                   !Self.isLegacyMobileApprovalCategory(trimmed) else {
                 return nil
             }
 
-            let key = trimmed.lowercased()
+            let key = category.id.lowercased()
             guard seen.insert(key).inserted else {
                 return nil
             }
 
-            return trimmed
+            return MobileInspectionCategoryOption(id: category.id, name: trimmed)
         }
     }
 
     private var customerSection: AnyView {
         AnyView(Section("Kunde / Auftrag") {
             TextField("Kunde / Name", text: draftTextBinding(\.customerName))
+                .disabled(draft.isDesktopTaskUpdate)
             TextField("Adresse", text: draftTextBinding(\.address), axis: .vertical)
+                .disabled(draft.isDesktopTaskUpdate)
             TextField("Telefon", text: draftTextBinding(\.phone))
                 .keyboardType(.phonePad)
+                .disabled(draft.isDesktopTaskUpdate)
             TextField("E-Mail", text: draftTextBinding(\.email))
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .disabled(draft.isDesktopTaskUpdate)
             TextField("Titel / Betreff", text: draftTextBinding(\.title))
+                .disabled(draft.isDesktopTaskUpdate)
+            if draft.isDesktopTaskUpdate {
+                Text("Kundendaten und Betreff bleiben in dieser Stufe desktopgeführt.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         })
     }
 
@@ -197,8 +219,47 @@ struct MobileInspectionFormView: View {
         AnyView(Section("Kategorie") {
             Picker("Kategorie", selection: categoryBinding) {
                 Text("Keine Kategorie").tag("")
-                ForEach(categoryOptions, id: \.self) { category in
-                    Text(category).tag(category)
+                ForEach(categoryOptions) { category in
+                    Text(category.name).tag(category.id)
+                }
+            }
+        })
+    }
+
+    private var workflowSection: AnyView {
+        AnyView(Section("Vorgang / Status") {
+            Picker("Vorgangstyp", selection: draftTextBinding(\.workflowType)) {
+                Text("Direktauftrag").tag("Direktauftrag")
+                Text("Angebotsvorgang").tag("Angebotsvorgang")
+            }
+            Picker("Status", selection: draftTextBinding(\.workflowStep)) {
+                ForEach(workflowSteps, id: \.self) { step in
+                    Text(step).tag(step)
+                }
+            }
+        })
+    }
+
+    private var scheduleSection: AnyView {
+        AnyView(Section("Termin / Wiedervorlage") {
+            Toggle("Termin setzen", isOn: optionalDateEnabledBinding(\.dueDate))
+            if draft.dueDate != nil {
+                DatePicker("Termin", selection: optionalDateBinding(\.dueDate), displayedComponents: .date)
+            }
+            Toggle("Wiedervorlage setzen", isOn: optionalDateEnabledBinding(\.followUpDate))
+            if draft.followUpDate != nil {
+                DatePicker("Wiedervorlage", selection: optionalDateBinding(\.followUpDate), displayedComponents: .date)
+                TextField("Wiedervorlagegrund", text: draftTextBinding(\.followUpReason), axis: .vertical)
+            }
+        })
+    }
+
+    private var technicianSection: AnyView {
+        AnyView(Section("Monteur") {
+            Picker("Monteur", selection: draftTextBinding(\.technician)) {
+                Text("Nicht zugeordnet").tag("")
+                ForEach(availableTechnicians, id: \.self) { technician in
+                    Text(technician).tag(technician)
                 }
             }
         })
@@ -395,14 +456,51 @@ struct MobileInspectionFormView: View {
     private var categoryBinding: Binding<String> {
         Binding(
             get: {
-                Self.isLegacyMobileApprovalCategory(draft.category) ? "" : draft.category
+                draft.categoryId
             },
             set: { value in
-                draft.category = Self.isLegacyMobileApprovalCategory(value) ? "" : value
+                draft.categoryId = value
+                draft.category = categoryOptions.first(where: { $0.id == value })?.name ?? ""
                 persistCurrentDraft()
             }
         )
     }
+
+    private var workflowSteps: [String] {
+        draft.workflowType == "Angebotsvorgang"
+            ? ["Ansicht", "Angebot", "Angebot gesendet", "Auftrag", "Material", "Termin", "Erledigt"]
+            : ["Auftrag", "Material", "Termin", "Erledigt"]
+    }
+
+    private func optionalDateEnabledBinding(_ keyPath: WritableKeyPath<MobileInspectionDraft, String?>) -> Binding<Bool> {
+        Binding(
+            get: { draft[keyPath: keyPath] != nil },
+            set: { enabled in
+                draft[keyPath: keyPath] = enabled ? Self.mobileDateFormatter.string(from: Date()) : nil
+                persistCurrentDraft()
+            }
+        )
+    }
+
+    private func optionalDateBinding(_ keyPath: WritableKeyPath<MobileInspectionDraft, String?>) -> Binding<Date> {
+        Binding(
+            get: {
+                draft[keyPath: keyPath].flatMap(Self.mobileDateFormatter.date) ?? Date()
+            },
+            set: { value in
+                draft[keyPath: keyPath] = Self.mobileDateFormatter.string(from: value)
+                persistCurrentDraft()
+            }
+        )
+    }
+
+    private static let mobileDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     private func previewButton(
         title: String,
@@ -487,14 +585,27 @@ struct MobileInspectionFormView: View {
             let storedDraft = try draftStore.load()
             let restoredDraft: MobileInspectionDraft
             if let storedDraft, storedDraft.editingEntryID == editingEntryID {
-                restoredDraft = storedDraft
+                if let desktopTaskId = initialDraft?.desktopTaskId {
+                    restoredDraft = storedDraft.desktopTaskId == desktopTaskId ? storedDraft : initialDraft!
+                } else if storedDraft.desktopTaskId == nil {
+                    restoredDraft = storedDraft
+                } else {
+                    restoredDraft = initialDraft ?? MobileInspectionDraft(
+                        workflowType: "Direktauftrag",
+                        workflowStep: "Auftrag"
+                    )
+                }
             } else if let editingEntryID {
                 restoredDraft = try writer.loadDraftForEditing(entryID: editingEntryID)
+            } else if let initialDraft {
+                restoredDraft = initialDraft
             } else if let storedDraft, storedDraft.editingEntryID == nil {
                 restoredDraft = storedDraft
             } else {
-                onDraftStateChanged(storedDraft != nil)
-                return
+                restoredDraft = MobileInspectionDraft(
+                    workflowType: "Direktauftrag",
+                    workflowStep: "Auftrag"
+                )
             }
 
             isRestoringDraft = true
@@ -502,12 +613,27 @@ struct MobileInspectionFormView: View {
                 editingEntryID: restoredDraft.editingEntryID,
                 editingEntryDirectoryName: restoredDraft.editingEntryDirectoryName,
                 originalCreatedAt: restoredDraft.originalCreatedAt,
+                desktopTaskId: restoredDraft.desktopTaskId,
+                baseRevision: restoredDraft.baseRevision,
+                confirmedRevision: restoredDraft.confirmedRevision,
+                baseValues: restoredDraft.baseValues,
                 customerName: restoredDraft.customerName,
                 address: restoredDraft.address,
                 phone: restoredDraft.phone,
                 email: restoredDraft.email,
                 title: restoredDraft.title,
                 category: Self.isLegacyMobileApprovalCategory(restoredDraft.category) ? "" : restoredDraft.category,
+                categoryId: restoredDraft.categoryId.isEmpty
+                    ? categoryOptions.first(where: {
+                        $0.name.localizedCaseInsensitiveCompare(restoredDraft.category) == .orderedSame
+                    })?.id ?? ""
+                    : restoredDraft.categoryId,
+                workflowType: restoredDraft.workflowType.isEmpty ? "Direktauftrag" : restoredDraft.workflowType,
+                workflowStep: restoredDraft.workflowStep.isEmpty ? "Auftrag" : restoredDraft.workflowStep,
+                dueDate: restoredDraft.dueDate,
+                followUpDate: restoredDraft.followUpDate,
+                followUpReason: restoredDraft.followUpReason,
+                technician: restoredDraft.technician,
                 notes: restoredDraft.notes
             )
             selectedPhotoItems = []

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace BueroCockpit.Services.LocalSync;
@@ -26,7 +27,8 @@ public sealed record MobileInboxUploadRequest(
     string DeviceId,
     string SchemaVersion,
     DateTimeOffset CreatedAtUtc,
-    IReadOnlyList<MobileInboxUploadFile> Files);
+    IReadOnlyList<MobileInboxUploadFile> Files,
+    long? ClientSequence = null);
 
 public sealed record MobileInboxUploadFile(
     string RelativePath,
@@ -106,6 +108,112 @@ public sealed record LocalSyncChangeStatus(
     DateTimeOffset LastChangedUtc,
     [property: JsonPropertyName("syncActive")]
     bool SyncActive);
+
+public sealed record LocalSyncSnapshotPackage(
+    string FilePath,
+    string FileName,
+    string ChangeVersion,
+    DateTimeOffset CreatedAtUtc,
+    string? CleanupDirectoryPath = null);
+
+public sealed record LocalSyncDeltaFile(
+    string RelativePath,
+    long SizeBytes,
+    string Sha256,
+    string DataBase64);
+
+public sealed record LocalSyncDeltaTombstones(
+    IReadOnlyList<string> TaskIds,
+    IReadOnlyList<string> CategoryIds,
+    IReadOnlyList<string> TechnicianIds,
+    IReadOnlyList<string> AttachmentIds)
+{
+    public int TotalCount => TaskIds.Count + CategoryIds.Count + TechnicianIds.Count + AttachmentIds.Count;
+}
+
+public sealed record LocalSyncDeltaCounts(
+    int Tasks,
+    int Categories,
+    int Technicians,
+    int Attachments,
+    int Files,
+    int Tombstones,
+    int UnchangedObjects,
+    int UnchangedFiles);
+
+public sealed record LocalSyncDeltaResponse(
+    string ApiVersion,
+    bool RequiresFullSync,
+    string? FromRevision,
+    string ToRevision,
+    long ServerSequence,
+    long LastConfirmedClientSequence,
+    string? AckToken,
+    IReadOnlyList<JsonElement> Tasks,
+    IReadOnlyList<JsonElement> Categories,
+    IReadOnlyList<JsonElement> Technicians,
+    IReadOnlyList<JsonElement> Attachments,
+    LocalSyncDeltaTombstones Tombstones,
+    IReadOnlyList<LocalSyncDeltaFile> Files,
+    LocalSyncDeltaCounts Counts)
+{
+    public static LocalSyncDeltaResponse RequiresFirstSync(string revision, long sequence) =>
+        new(
+            LocalSyncDeltaStore.ApiVersion,
+            true,
+            null,
+            revision,
+            sequence,
+            0,
+            null,
+            [],
+            [],
+            [],
+            [],
+            new LocalSyncDeltaTombstones([], [], [], []),
+            [],
+            new LocalSyncDeltaCounts(0, 0, 0, 0, 0, 0, 0, 0));
+
+    public static LocalSyncDeltaResponse NoChanges(
+        string revision,
+        long sequence,
+        long clientSequence,
+        int unchangedObjects,
+        int unchangedFiles) =>
+        new(
+            LocalSyncDeltaStore.ApiVersion,
+            false,
+            revision,
+            revision,
+            sequence,
+            clientSequence,
+            null,
+            [],
+            [],
+            [],
+            [],
+            new LocalSyncDeltaTombstones([], [], [], []),
+            [],
+            new LocalSyncDeltaCounts(0, 0, 0, 0, 0, 0, unchangedObjects, unchangedFiles));
+}
+
+public sealed record LocalSyncPreparedCheckpoint(
+    string AckToken,
+    string ServerRevision,
+    long ServerSequence);
+
+public sealed record LocalSyncAckRequest(
+    string AckToken,
+    string ServerRevision,
+    long? LastConfirmedClientSequence = null);
+
+public sealed record LocalSyncAckResponse(
+    string ApiVersion,
+    string Status,
+    string ServerRevision,
+    long ServerSequence,
+    long LastConfirmedClientSequence,
+    string Message);
 
 public interface ILocalSyncContracts
 {

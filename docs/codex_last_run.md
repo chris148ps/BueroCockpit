@@ -1,47 +1,77 @@
 # Letzter Codex-Lauf
 
+## Datum/Uhrzeit
+
+2026-07-23 20:12 +0200
+
 ## Auftrag
 
-BC-0032: Fehler beheben, durch den Vorgänge nach dem Workflowstatus `Erledigt` aus Kategorien, Zählern und Suche verschwanden.
+Den vollständigen aktuellen Mac-mini-Entwicklungsstand ohne Verlust sichern,
+die vier neueren GitHub-Dokumentationsstände selektiv integrieren und
+`codex/work` wieder in einen sauberen, nachvollziehbaren Zustand bringen.
 
 ## Ergebnis
 
-BC-0032 ist abgeschlossen.
+- Der ursprüngliche Arbeitsbaum mit 50 geänderten/gelöschten und 57
+  unversionierten Quelldateien wurde vollständig extern gesichert.
+- Ein geprüftes Git-Bundle, Binär-Patch, Originalstatus, Untracked-Archiv und
+  SHA-256-Inventar liegen außerhalb des Repositorys.
+- Der lokale Sicherungsbranch `backup/codex-work-2026-07-23` zeigt auf den
+  unveränderten Zustandscommit des ursprünglichen RC-Branches.
+- `codex/work` wurde per Fast-Forward auf `origin/main` aufgebaut.
+- Die lokalen Änderungen wurden wegen ihrer starken fachlichen Überlappung
+  bewusst als ein dokumentierter Entwicklungsstand-Commit übernommen.
+- Die vier GitHub-Dokumentationsdateien wurden inhaltlich zusammengeführt,
+  ohne den weiter fortgeschrittenen lokalen Stand zurückzusetzen.
+- Keine temporären `.backup-*`-, `.bak`- oder Editor-Sicherungsdateien wurden
+  gefunden oder entfernt.
 
-Ursache war der Filter `IsArchivedForSearch`: Er behandelte den Workflowstatus `Erledigt` fälschlich wie das technische Archiv. Status, Abschlusszeit und Zielkategorie wurden bereits korrekt gespeichert; der Auftrag wurde anschließend jedoch ausgeblendet.
+## Sicherungen
 
-## Geänderte Bereiche
+- Neue Sicherung:
+  `/Users/christian/AppProjekte/BueroCockpit-Worktree-Backups/20260723-codex-work-consolidation`
+- Frühere RC-Sicherung:
+  `/Users/christian/AppProjekte/BueroCockpit-RC-Backups/20260723-0.4.23-preparation`
+- Lokaler Sicherungsbranch: `backup/codex-work-2026-07-23`
 
-- `Services/CategoryHierarchyFilter.cs`: Nur Status oder Kategorie `Archiv` gelten als archiviert.
-- `MainWindow.axaml.cs`: Kategorien, Zähler, Suche und Archivdialog verwenden die korrigierte Prüfung.
-- `tests/BueroCockpit.WorkflowTests/Program.cs`: Regressionstest für Status, Kategorieverschiebung, Sichtbarkeit, Archivabgrenzung und Neustartpersistenz.
-- Auftragsarchiv, Journal, Projektstatus und Zeiger auf die nächste Aufgabe wurden aktualisiert.
+## Prüfungen
 
-## Prüfung
-
-- Reale macOS-Reproduktion vor der Korrektur: Kategorie `Erledigt` zeigte trotz gespeichertem Auftrag Zähler `0` und `0 Aufgaben`.
-- Nach der Korrektur mit demselben isolierten Datenstand: Zähler `1`, Auftrag sichtbar, Status und Kategoriepfad korrekt.
-- Nach vollständigem App-Neustart weiterhin sichtbar.
-- Workflow-, Kategorie- und Netzwerk-Integrationstests: erfolgreich.
 - `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `dotnet build -r osx-arm64`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
+- Workflow-, Kategorie- und Netzwerk-Integrationstests: erfolgreich.
+- Backup-Austauschtests: erfolgreich.
+- iPad-Simulator-Build per `xcodebuild`: erfolgreich.
+- Git-Bundle verifiziert; Anzahl archivierter und aufgelisteter unversionierter
+  Dateien stimmt überein.
+
+## Sicherheitsgrenzen
+
+- Keine produktiven Daten, Datenbanken, Anhänge, Backups oder Cloud-Dateien
+  verändert.
+- Keine Build- oder Publish-Artefakte in Git aufgenommen.
+- Keine Versionsänderung in diesem Lauf.
+- Kein Merge oder Push nach `main`, kein Force-Push, kein Tag und kein Release.
+- Nur `codex/work` darf nach erfolgreicher Prüfung zentral gesichert werden.
 
 ## Grenzen
 
-- Kein visueller Windows-Test; der Windows-Runtime-Build war erfolgreich.
-- Kein Commit, Push, Merge, Tag, Release oder Versionswechsel wurde im BC-0032-Lauf durchgeführt.
-- Der lokale Branch `codex/work` kann weiterhin umfangreiche uncommittete Änderungen enthalten; diese wurden erhalten.
-
-## Aktuelle Architekturentscheidung
-
-- Produktivbetrieb künftig auf dem Windows-Terminalserver.
-- Nur ein RDP-Benutzer; produktive Daten dürfen unter `%LOCALAPPDATA%\BueroCockpit` liegen.
-- Keine direkt in OneDrive geöffnete produktive SQLite-Datenbank.
-- OneDrive nur als Austauschort für geschlossene Backup-Archive.
-- iPad-Datenaustausch weiterhin per Direktübertragung im lokalen Netzwerk.
+- Kein realer Windows- oder Terminalserver-Bedienungstest.
+- Der lokale Releasekandidat `0.4.23` bleibt unveröffentlicht und
+  nicht codesigniert.
+- Die reale Ablösung der alten Installation und der Velopack-Updateweg bleiben
+  Aufgabe BC-0035.
 
 ## Nächster Schritt
 
-Den vollständigen Entwicklungsstand sicher in einen Windows-x64-Releasekandidaten für den Terminalserver überführen und einen Erstinstaller mit Velopack-fähiger Auto-Update-Basis vorbereiten. Kein Versionswechsel oder Release ohne ausdrückliche Freigabe.
+`BC-0035` – Terminalserver-Installation und lokalen Auto-Update-Weg abnehmen.
+
+## Branch
+codex/work
+
+## Commit
+5db9859fc6bd14d33e0794d4d2d2d27526417c61
+
+## Push erfolgreich
+Ja

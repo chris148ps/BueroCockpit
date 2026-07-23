@@ -14,6 +14,19 @@ public sealed class MobileInboxEntry
     public string Title { get; init; } = "Mobile Besichtigung";
     public string Category { get; init; } = string.Empty;
     public string Notes { get; init; } = string.Empty;
+    public int SchemaVersion { get; init; } = 1;
+    public string Operation { get; init; } = "create";
+    public string DesktopTaskId { get; init; } = string.Empty;
+    public string BaseRevision { get; init; } = string.Empty;
+    public string ConfirmedRevision { get; init; } = string.Empty;
+    public string CategoryId { get; init; } = string.Empty;
+    public string WorkflowType { get; init; } = string.Empty;
+    public string WorkflowStep { get; init; } = string.Empty;
+    public DateTime? DueDate { get; init; }
+    public DateTime? FollowUpDate { get; init; }
+    public string FollowUpReason { get; init; } = string.Empty;
+    public string Technician { get; init; } = string.Empty;
+    public MobileTaskRevisionValues? BaseValues { get; init; }
     public IReadOnlyList<MobileInboxPreviewItem> PhotoPreviews { get; init; } = Array.Empty<MobileInboxPreviewItem>();
     public IReadOnlyList<MobileInboxPreviewItem> SketchPreviews { get; init; } = Array.Empty<MobileInboxPreviewItem>();
     public IReadOnlyList<MobileInboxPreviewItem> FilePreviews { get; init; } = Array.Empty<MobileInboxPreviewItem>();
@@ -26,6 +39,13 @@ public sealed class MobileInboxEntry
     public bool HasPhone => !string.IsNullOrWhiteSpace(Phone);
     public bool HasEmail => !string.IsNullOrWhiteSpace(Email);
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
+    public bool IsDesktopUpdate =>
+        SchemaVersion >= 2 &&
+        string.Equals(Operation, "update", StringComparison.OrdinalIgnoreCase) &&
+        !string.IsNullOrWhiteSpace(DesktopTaskId) &&
+        BaseValues is not null;
+    public string MobileChangeKindText => IsDesktopUpdate ? "Änderung eines Desktopvorgangs" : "Neuer mobiler Eingang";
+    public string ImportActionText => IsDesktopUpdate ? "Änderungen prüfen" : "In BüroCockpit übernehmen";
     public bool HasPhotoPreviews => PhotoPreviews.Count > 0;
     public bool HasSketchPreviews => SketchPreviews.Count > 0;
     public bool HasFilePreviews => FilePreviews.Count > 0;
@@ -148,6 +168,18 @@ public sealed class MobileInboxEntry
         return normalized.Contains("/annotated/", StringComparison.OrdinalIgnoreCase) ||
                normalized.Contains("-markiert", StringComparison.OrdinalIgnoreCase);
     }
+}
+
+public sealed class MobileTaskRevisionValues
+{
+    public string Notes { get; init; } = string.Empty;
+    public string CategoryId { get; init; } = string.Empty;
+    public string WorkflowType { get; init; } = string.Empty;
+    public string WorkflowStep { get; init; } = string.Empty;
+    public DateTime? DueDate { get; init; }
+    public DateTime? FollowUpDate { get; init; }
+    public string FollowUpReason { get; init; } = string.Empty;
+    public string Technician { get; init; } = string.Empty;
 }
 
 public sealed class MobileInboxPreviewItem

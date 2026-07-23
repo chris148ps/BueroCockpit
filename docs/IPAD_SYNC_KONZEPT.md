@@ -8,22 +8,32 @@ Der detaillierte Architektur- und Schnittstellenentwurf fuer den geplanten manue
 
 ## Aktueller Grundsatz
 
-OneDrive/BueroCockpit_Daten ist die zentrale Datenquelle fuer BueroCockpit Desktop auf Windows und Mac.
+Jeder BueroCockpit-Desktop arbeitet ausschließlich mit seinem eigenen lokalen
+Datenordner:
 
 ```text
-OneDrive/BueroCockpit_Daten
-BueroCockpit_Daten/Sync/
+Windows: %LOCALAPPDATA%\BueroCockpit
+macOS:   ~/Library/Application Support/BueroCockpit
+<lokaler Standardordner>/Sync/
 ```
 
-iCloud ist keine aktive Hauptdatenquelle mehr. Bestehende iCloud-Live-Pfade und `IpadLiveFileTargetPath` duerfen als Legacy- oder Uebergangsinformation sichtbar bleiben, werden aber nicht als zentrale Hauptloesung weiterentwickelt.
+iCloud und OneDrive sind keine produktiven Datenquellen. Die früheren
+Desktop-Einstellungsfelder für Cloud-/Live-Dateipfade sind entfernt; alte
+JSON-Eigenschaften werden ignoriert und nicht angewendet. Vollständige Desktop-Datenstände
+werden zwischen Geräten nur über manuell exportierte und importierte
+Backup-Archive ausgetauscht. Der OneDrive-Austauschordner enthält keine
+geöffnete SQLite-Datenbank.
 
-`AppProjekte` ist nur Quellcode. GitHub ist nur Quellcode, Dokumentation und Releases, nicht Produktivdaten. Produktive Daten, Anhaenge, Backups und mobile Eingaenge gehoeren in `BueroCockpit_Daten`.
+`AppProjekte` ist nur Quellcode. GitHub ist nur Quellcode, Dokumentation und
+Releases, nicht Produktivdaten. Produktive Daten, Anhaenge, lokale Backups und
+mobile Eingaenge gehoeren in den lokalen Standarddatenordner.
 
 ## Warum iCloud-Live nicht weiter ausgebaut wird
 
 - iCloud-Live ist im praktischen Betrieb zu fehleranfaellig.
 - Die Dateiverfuegbarkeit auf dem iPad ist nicht immer eindeutig oder sofort garantiert.
-- Mischbetrieb aus OneDrive als Desktop-Datenquelle und iCloud als mobiler Live-Schicht ist nicht robust genug.
+- Gemeinsam geöffnete Cloud-Datenbanken und parallele Bearbeitung auf mehreren
+  Desktop-Geräten sind nicht robust genug.
 - Live-Dateien koennen mit wachsendem Datenbestand gross werden.
 - Originalfotos sollen nicht dauerhaft mobil herumliegen oder ueber iCloud-Live als Dauerbestand verteilt werden.
 
@@ -79,7 +89,8 @@ Der Desktop bestaetigt dem iPad die Uebernahme erst, wenn Manifest, Dateien und 
 ## Datenregeln
 
 - Der Desktop ist fuehrend.
-- Produktivdaten bleiben in `BueroCockpit_Daten`.
+- Produktivdaten bleiben im lokalen Standarddatenordner des jeweiligen
+  Desktops.
 - Das iPad ist Erfassungsclient.
 - Mobile Originale werden erst nach bestaetigter Uebernahme bereinigt.
 - Es gibt keine automatische Loeschung ohne bestaetigten Sync.

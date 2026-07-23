@@ -8,7 +8,6 @@ public sealed class BueroRepository
 {
     private readonly string _databasePath;
     private readonly string _connectionString;
-    public event Action<string>? DataWritten;
 
     public BueroRepository()
         : this(AppPaths.DatabasePath)
@@ -71,6 +70,7 @@ public sealed class BueroRepository
                 Priority TEXT NOT NULL,
                 DueDate TEXT NULL,
                 FollowUpDate TEXT NULL,
+                FollowUpReason TEXT NULL,
                 SentAt TEXT NULL,
                 MaterialOrderedAt TEXT NULL,
                 CustomerAddress TEXT NOT NULL DEFAULT '',
@@ -234,7 +234,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$workflowStep", workflowStep.Trim());
         command.Parameters.AddWithValue("$categoryId", categoryId.Trim());
         command.ExecuteNonQuery();
-        NotifyDataWritten("Workflow-Kategoriezuordnung gespeichert");
     }
 
     public void DeleteWorkflowCategoryMapping(string workflowType, string workflowStep)
@@ -248,7 +247,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$workflowType", workflowType.Trim());
         command.Parameters.AddWithValue("$workflowStep", workflowStep.Trim());
         command.ExecuteNonQuery();
-        NotifyDataWritten("Workflow-Kategoriezuordnung entfernt");
     }
 
     public int ReplaceWorkflowCategoryMappings(string categoryId, string replacementCategoryId)
@@ -262,13 +260,7 @@ public sealed class BueroRepository
             """;
         command.Parameters.AddWithValue("$categoryId", categoryId.Trim());
         command.Parameters.AddWithValue("$replacementCategoryId", replacementCategoryId.Trim());
-        var changed = command.ExecuteNonQuery();
-        if (changed > 0)
-        {
-            NotifyDataWritten("Workflow-Kategoriezuordnungen ersetzt");
-        }
-
-        return changed;
+        return command.ExecuteNonQuery();
     }
 
     public int DeleteWorkflowCategoryMappingsForCategory(string categoryId)
@@ -277,13 +269,7 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM WorkflowCategoryMappings WHERE CategoryId = $categoryId;";
         command.Parameters.AddWithValue("$categoryId", categoryId.Trim());
-        var changed = command.ExecuteNonQuery();
-        if (changed > 0)
-        {
-            NotifyDataWritten("Workflow-Kategoriezuordnungen entfernt");
-        }
-
-        return changed;
+        return command.ExecuteNonQuery();
     }
 
     public List<CategoryItem> GetCategories()
@@ -351,7 +337,7 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT Id, Title, CustomerName, Description, CategoryId, Status, WorkflowType, WorkflowStep, Priority,
-                   DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
+                   DueDate, FollowUpDate, FollowUpReason, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
                    AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt
             FROM Tasks
             ORDER BY UpdatedAt DESC;
@@ -374,19 +360,20 @@ public sealed class BueroRepository
                 Priority = reader.GetString(8),
                 DueDate = ReadNullableDate(reader, 9),
                 FollowUpDate = ReadNullableDate(reader, 10),
-                SentAt = ReadNullableDate(reader, 11),
-                MaterialOrderedAt = ReadNullableDate(reader, 12),
-                CustomerAddress = reader.GetString(13),
-                CustomerEmail = reader.GetString(14),
-                CustomerPhone = reader.GetString(15),
-                Technician = reader.GetString(16),
-                SortPosition = reader.GetDouble(17),
-                AssignedTo = reader.GetString(18),
-                CreatedAt = ReadDateOrFallback(reader.GetString(19), ReadDate(reader.GetString(20))),
-                UpdatedAt = ReadDate(reader.GetString(20)),
-                CompletedAt = ReadNullableDate(reader, 21),
-                IsDeleted = reader.GetInt32(22) == 1,
-                DeletedAt = ReadNullableDate(reader, 23)
+                FollowUpReason = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
+                SentAt = ReadNullableDate(reader, 12),
+                MaterialOrderedAt = ReadNullableDate(reader, 13),
+                CustomerAddress = reader.GetString(14),
+                CustomerEmail = reader.GetString(15),
+                CustomerPhone = reader.GetString(16),
+                Technician = reader.GetString(17),
+                SortPosition = reader.GetDouble(18),
+                AssignedTo = reader.GetString(19),
+                CreatedAt = ReadDateOrFallback(reader.GetString(20), ReadDate(reader.GetString(21))),
+                UpdatedAt = ReadDate(reader.GetString(21)),
+                CompletedAt = ReadNullableDate(reader, 22),
+                IsDeleted = reader.GetInt32(23) == 1,
+                DeletedAt = ReadNullableDate(reader, 24)
             });
         }
 
@@ -424,7 +411,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$color", category.Color);
         command.Parameters.AddWithValue("$isVisible", category.IsVisible ? 1 : 0);
         command.ExecuteNonQuery();
-        NotifyDataWritten("Kategorie gespeichert");
     }
 
     public void HideCategory(string categoryId)
@@ -434,7 +420,6 @@ public sealed class BueroRepository
         command.CommandText = "UPDATE Categories SET IsVisible = 0 WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", categoryId);
         command.ExecuteNonQuery();
-        NotifyDataWritten("Kategorie ausgeblendet");
     }
 
     public int GetTaskCountForCategory(string categoryId)
@@ -603,10 +588,10 @@ public sealed class BueroRepository
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO Tasks (Id, Title, CustomerName, Description, CategoryId, Status, WorkflowType, WorkflowStep, Priority,
-                               DueDate, FollowUpDate, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
+                               DueDate, FollowUpDate, FollowUpReason, SentAt, MaterialOrderedAt, CustomerAddress, CustomerEmail, CustomerPhone, Technician, SortPosition,
                                AssignedTo, CreatedAt, UpdatedAt, CompletedAt, IsDeleted, DeletedAt)
             VALUES ($id, $title, $customerName, $description, $categoryId, $status, $workflowType, $workflowStep, $priority,
-                    $dueDate, $followUpDate, $sentAt, $materialOrderedAt, $customerAddress, $customerEmail, $customerPhone, $technician, $sortPosition,
+                    $dueDate, $followUpDate, $followUpReason, $sentAt, $materialOrderedAt, $customerAddress, $customerEmail, $customerPhone, $technician, $sortPosition,
                     $assignedTo, $createdAt, $updatedAt, $completedAt, $isDeleted, $deletedAt)
             ON CONFLICT(Id) DO UPDATE SET
                 Title = excluded.Title,
@@ -622,6 +607,7 @@ public sealed class BueroRepository
                 Priority = excluded.Priority,
                 DueDate = excluded.DueDate,
                 FollowUpDate = excluded.FollowUpDate,
+                FollowUpReason = excluded.FollowUpReason,
                 SentAt = excluded.SentAt,
                 MaterialOrderedAt = excluded.MaterialOrderedAt,
                 Technician = excluded.Technician,
@@ -636,7 +622,6 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
 
         SaveTaskCategories(task, validCategoryIds);
-        NotifyDataWritten("Aufgabe gespeichert");
     }
 
     public void DeleteTask(string taskId)
@@ -659,7 +644,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$deletedAt", DateTime.Now.ToString("O"));
         command.Parameters.AddWithValue("$updatedAt", DateTime.Now.ToString("O"));
         command.ExecuteNonQuery();
-        NotifyDataWritten("Aufgabe geloescht");
     }
 
     public void EmptyTrash()
@@ -709,7 +693,6 @@ public sealed class BueroRepository
             """);
 
         transaction.Commit();
-        NotifyDataWritten("Papierkorb geleert");
     }
 
     public void SaveMaterial(MaterialItem item)
@@ -738,7 +721,6 @@ public sealed class BueroRepository
         AddParameter(command, "$orderedAt", ToDb(item.OrderedAt));
         AddParameter(command, "$note", item.Note ?? string.Empty);
         command.ExecuteNonQuery();
-        NotifyDataWritten("Material gespeichert");
     }
 
     public void DeleteMaterial(string materialId)
@@ -748,7 +730,6 @@ public sealed class BueroRepository
         command.CommandText = "DELETE FROM Materials WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", materialId);
         command.ExecuteNonQuery();
-        NotifyDataWritten("Material geloescht");
     }
 
     public void DeleteAttachment(string attachmentId)
@@ -771,7 +752,6 @@ public sealed class BueroRepository
         command.ExecuteNonQuery();
 
         transaction.Commit();
-        NotifyDataWritten("Anhang geloescht");
     }
 
     public bool HasAttachmentPathReference(string path)
@@ -837,7 +817,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$contentHash", item.ContentHash);
         command.Parameters.AddWithValue("$addedAt", ToDb(item.AddedAt));
         command.ExecuteNonQuery();
-        NotifyDataWritten("Anhang gespeichert");
     }
 
     public void SaveDeskItem(DeskItem item)
@@ -886,7 +865,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$createdAt", ToDb(item.CreatedAt));
         command.Parameters.AddWithValue("$updatedAt", ToDb(item.UpdatedAt));
         command.ExecuteNonQuery();
-        NotifyDataWritten("Schreibtisch gespeichert");
     }
 
     public void DeleteDeskItem(string deskItemId)
@@ -899,7 +877,6 @@ public sealed class BueroRepository
             """;
         command.Parameters.AddWithValue("$id", deskItemId);
         command.ExecuteNonQuery();
-        NotifyDataWritten("Schreibtisch geloescht");
     }
 
     public void UpdateAttachmentThumbnail(string attachmentId, string thumbnailPath)
@@ -935,7 +912,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$storedPath", storedPath);
         command.Parameters.AddWithValue("$thumbnailPath", AppPaths.ToStoredPath(thumbnailPath));
         command.ExecuteNonQuery();
-        NotifyDataWritten("Anhang-Thumbnail gespeichert");
     }
 
     public AttachmentEditSession? GetLatestEditSessionForAttachment(string attachmentId)
@@ -989,7 +965,6 @@ public sealed class BueroRepository
         command.Parameters.AddWithValue("$status", session.Status);
         command.Parameters.AddWithValue("$importedAt", ToDb(session.ImportedAt));
         command.ExecuteNonQuery();
-        NotifyDataWritten("Anhang-Bearbeitungssitzung gespeichert");
     }
 
     private SqliteConnection OpenConnection()
@@ -1136,11 +1111,6 @@ public sealed class BueroRepository
         }
     }
 
-    private void NotifyDataWritten(string reason)
-    {
-        DataWritten?.Invoke(reason);
-    }
-
     private static void ExecuteNonQuery(SqliteConnection connection, string sql)
     {
         using var command = connection.CreateCommand();
@@ -1161,6 +1131,7 @@ public sealed class BueroRepository
         AddColumnIfMissing(connection, "Categories", "SortMode", "TEXT NOT NULL DEFAULT 'Erstellt am'");
         AddColumnIfMissing(connection, "Categories", "ParentId", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "SentAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Tasks", "FollowUpReason", "TEXT NULL");
         AddColumnIfMissing(connection, "Tasks", "WorkflowType", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "WorkflowStep", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing(connection, "Tasks", "MaterialOrderedAt", "TEXT NULL");
@@ -1429,6 +1400,7 @@ public sealed class BueroRepository
         AddParameter(command, "$priority", task.Priority ?? string.Empty);
         AddParameter(command, "$dueDate", ToDb(task.DueDate));
         AddParameter(command, "$followUpDate", ToDb(task.FollowUpDate));
+        AddParameter(command, "$followUpReason", string.IsNullOrEmpty(task.FollowUpReason) ? null : task.FollowUpReason);
         AddParameter(command, "$sentAt", ToDb(task.SentAt));
         AddParameter(command, "$materialOrderedAt", ToDb(task.MaterialOrderedAt));
         AddParameter(command, "$customerAddress", task.CustomerAddress ?? string.Empty);

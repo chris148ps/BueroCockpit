@@ -13,14 +13,11 @@ namespace BueroCockpit.Services;
 public sealed class IpadSnapshotExportService
 {
     private const int FormatVersion = 1;
-    private const string SnapshotPackageFileName = "latest.bcsnapshot";
-    private const string LegacySnapshotPackageTempFileName = "latest.bcsnapshot.tmp";
-    private const string LivePackageFileName = "live.bclive";
+    private const string NetworkSnapshotPackageFileName = "current.bcsnapshot";
     private const int LivePreviewMaxLongSide = 1600;
     private const int LivePreviewJpegQuality = 74;
     private const string LiveOriginalDownloadMode = "onDemandPlanned";
     private const string LiveOriginalReason = "Original wird zur Speicherersparnis nicht automatisch synchronisiert.";
-    private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(700);
     private static readonly object LogLock = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -30,223 +27,27 @@ public sealed class IpadSnapshotExportService
     };
 
     private readonly SemaphoreSlim _exportGate = new(1, 1);
-    private CancellationTokenSource? _debounceCts;
-    private readonly object _debounceLock = new();
 
-    public void RequestExport(
-        BueroRepository repository,
-        string sharedDirectory,
-        string? appVersion = null,
-        string? deviceName = null,
-        Action<string>? onError = null)
-    {
-        if (string.IsNullOrWhiteSpace(sharedDirectory))
-        {
-            LogExportMessage("iPad snapshot export request skipped: no shared directory configured.");
-            return;
-        }
-
-        LogExportMessage($"iPad snapshot export queued: {sharedDirectory}");
-
-        CancellationTokenSource? previousCts;
-        var currentCts = new CancellationTokenSource();
-        lock (_debounceLock)
-        {
-            previousCts = _debounceCts;
-            _debounceCts = currentCts;
-        }
-
-        previousCts?.Cancel();
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(DebounceDelay, currentCts.Token).ConfigureAwait(false);
-                LogExportMessage($"iPad snapshot export started (debounced): {sharedDirectory}");
-                var result = await ExportLiveNowAsync(repository, sharedDirectory, appVersion, deviceName, currentCts.Token).ConfigureAwait(false);
-                if (!result.Success && !string.IsNullOrWhiteSpace(result.ErrorMessage))
-                {
-                    LogExportMessage($"iPad snapshot export failed (debounced): {result.ErrorMessage}");
-                    onError?.Invoke(result.ErrorMessage);
-                }
-                else if (result.Success)
-                {
-                    LogExportMessage($"iPad snapshot export completed (debounced): {result.OutputDirectory}");
-                    onError?.Invoke(string.Empty);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Neue Änderungen haben den Export ersetzt.
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"iPad snapshot export request failed: {ex}");
-                onError?.Invoke("iPad-Snapshot konnte nicht aktualisiert werden.");
-            }
-            finally
-            {
-                if (ReferenceEquals(_debounceCts, currentCts))
-                {
-                    lock (_debounceLock)
-                    {
-                        if (ReferenceEquals(_debounceCts, currentCts))
-                        {
-                            _debounceCts = null;
-                        }
-                    }
-                }
-
-                currentCts.Dispose();
-            }
-        });
-    }
-
-    public void LogDiagnostic(string message)
-    {
-        LogExportMessage(message);
-    }
-
-    public static string ResolveSyncRootDirectory(string sharedDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(sharedDirectory))
-        {
-            return string.Empty;
-        }
-
-        var candidate = NormalizeDirectoryPath(sharedDirectory);
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return string.Empty;
-        }
-
-        if (IsLivePackageFilePath(candidate))
-        {
-            var parentDirectory = GetDirectoryNamePortable(candidate);
-            return string.IsNullOrWhiteSpace(parentDirectory)
-                ? string.Empty
-                : NormalizeDirectoryPath(parentDirectory);
-        }
-
-        if (LooksLikeSyncRoot(candidate))
-        {
-            return candidate;
-        }
-
-        return Path.Combine(candidate, "Sync");
-    }
-
-    public static string ResolveLivePackagePath(string sharedDirectory)
-    {
-        var syncDirectory = ResolveSyncRootDirectory(sharedDirectory);
-        return string.IsNullOrWhiteSpace(syncDirectory)
-            ? string.Empty
-            : Path.Combine(syncDirectory, LivePackageFileName);
-    }
-
-    public async Task<SnapshotExportResult> ExportNowAsync(
-        BueroRepository repository,
-        string sharedDirectory,
-        string? appVersion = null,
-        string? deviceName = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(sharedDirectory))
-        {
-            LogExportMessage("iPad snapshot export skipped: no shared directory configured.");
-            return SnapshotExportResult.CreateFailure("Kein gemeinsamer Datenordner ausgewählt.");
-        }
-
-        LogExportMessage($"iPad snapshot export started: {sharedDirectory}");
-
-        await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var result = await Task.Run(
-                () => ExportCore(repository, sharedDirectory, appVersion, deviceName, includeFullSnapshot: true),
-                cancellationToken).ConfigureAwait(false);
-            if (result.Success)
-            {
-                LogExportMessage($"iPad snapshot export completed: {result.OutputDirectory}");
-            }
-            else
-            {
-                LogExportMessage($"iPad snapshot export failed: {result.ErrorMessage}");
-            }
-
-            return result;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"iPad snapshot export failed: {ex}");
-            LogExportMessage($"iPad snapshot export failed: {ex}");
-            return SnapshotExportResult.CreateFailure("iPad-Snapshot konnte nicht aktualisiert werden.");
-        }
-        finally
-        {
-            _exportGate.Release();
-        }
-    }
-
-    public async Task<SnapshotExportResult> ExportLiveNowAsync(
-        BueroRepository repository,
-        string sharedDirectory,
-        string? appVersion = null,
-        string? deviceName = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(sharedDirectory))
-        {
-            LogExportMessage("iPad live sync skipped: no shared directory configured.");
-            return SnapshotExportResult.CreateFailure("Kein gemeinsamer Datenordner ausgewählt.");
-        }
-
-        await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return await Task.Run(
-                () => ExportCore(repository, sharedDirectory, appVersion, deviceName, includeFullSnapshot: false),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            LogExportMessage($"iPad live sync failed: {ex}");
-            return SnapshotExportResult.CreateFailure("iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.");
-        }
-        finally
-        {
-            _exportGate.Release();
-        }
-    }
-
-    public async Task<SnapshotExportResult> ExportLivePackageToFileAsync(
+    public async Task<SnapshotExportResult> ExportNetworkSnapshotToFileAsync(
         BueroRepository repository,
         string targetFilePath,
         string? appVersion = null,
         string? deviceName = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyCollection<TechnicianProfile>? technicians = null)
     {
         if (string.IsNullOrWhiteSpace(targetFilePath))
         {
-            LogExportMessage("iPad live file export skipped: no target file configured.");
+            LogExportMessage("Local network snapshot export skipped: no target file configured.");
             return SnapshotExportResult.CreateFailure("Kein Zielpfad eingerichtet.");
         }
 
         await _exportGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        var stagingDirectory = Path.Combine(Path.GetTempPath(), "BueroCockpit", "ipad-live-file", Guid.NewGuid().ToString("N"));
+        var stagingDirectory = Path.Combine(Path.GetTempPath(), "BueroCockpit", "local-network-snapshot", Guid.NewGuid().ToString("N"));
         try
         {
             return await Task.Run(
-                () => ExportLivePackageToFileCore(repository, stagingDirectory, targetFilePath, appVersion, deviceName),
+                () => ExportNetworkSnapshotToFileCore(repository, stagingDirectory, targetFilePath, appVersion, deviceName, technicians),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -255,8 +56,8 @@ public sealed class IpadSnapshotExportService
         }
         catch (Exception ex)
         {
-            LogExportMessage($"iPad live file export failed: {targetFilePath} | {ex}");
-            return SnapshotExportResult.CreateFailure("iPad-Live-Datei konnte nicht geschrieben werden. Details siehe Log.");
+            LogExportMessage($"Local network snapshot export failed: {targetFilePath} | {ex}");
+            return SnapshotExportResult.CreateFailure("Netzwerk-Snapshot konnte nicht erstellt werden. Details siehe Log.");
         }
         finally
         {
@@ -265,12 +66,13 @@ public sealed class IpadSnapshotExportService
         }
     }
 
-    private static SnapshotExportResult ExportLivePackageToFileCore(
+    private static SnapshotExportResult ExportNetworkSnapshotToFileCore(
         BueroRepository repository,
         string stagingDirectory,
         string targetFilePath,
         string? appVersion,
-        string? deviceName)
+        string? deviceName,
+        IReadOnlyCollection<TechnicianProfile>? technicians)
     {
         var targetDirectory = Path.GetDirectoryName(targetFilePath);
         if (string.IsNullOrWhiteSpace(targetDirectory))
@@ -285,13 +87,13 @@ public sealed class IpadSnapshotExportService
 
         Directory.CreateDirectory(stagingDirectory);
 
-        var exportResult = ExportCore(repository, stagingDirectory, appVersion, deviceName, includeFullSnapshot: false);
+        var exportResult = ExportNetworkSnapshotCore(repository, stagingDirectory, appVersion, deviceName);
         if (!exportResult.Success)
         {
             return exportResult;
         }
 
-        var sourcePackagePath = Path.Combine(stagingDirectory, "Sync", LivePackageFileName);
+        var sourcePackagePath = Path.Combine(stagingDirectory, NetworkSnapshotPackageFileName);
         ValidateSnapshotPackage(sourcePackagePath);
 
         var tempTargetPath = Path.Combine(
@@ -300,9 +102,10 @@ public sealed class IpadSnapshotExportService
         try
         {
             File.Copy(sourcePackagePath, tempTargetPath, overwrite: true);
+            AddTechniciansToPackage(tempTargetPath, technicians);
             ValidateSnapshotPackage(tempTargetPath);
             PromoteSnapshotPackage(tempTargetPath, targetFilePath);
-            LogExportMessage($"iPad live file export completed: {targetFilePath}");
+            LogExportMessage($"Local network snapshot export completed: {targetFilePath}");
             return SnapshotExportResult.CreateSuccess(targetFilePath);
         }
         catch
@@ -312,41 +115,45 @@ public sealed class IpadSnapshotExportService
         }
     }
 
-    private static SnapshotExportResult ExportCore(
+    private static void AddTechniciansToPackage(
+        string packagePath,
+        IReadOnlyCollection<TechnicianProfile>? technicians)
+    {
+        var normalized = (technicians ?? Array.Empty<TechnicianProfile>())
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.Name))
+            .Select(profile => new TechnicianProfile
+            {
+                Id = string.IsNullOrWhiteSpace(profile.Id) ? Guid.NewGuid().ToString("N") : profile.Id.Trim(),
+                Name = profile.Name.Trim(),
+                Abbreviation = profile.Abbreviation?.Trim() ?? string.Empty,
+                Email = profile.Email?.Trim() ?? string.Empty,
+                Phone = profile.Phone?.Trim() ?? string.Empty
+            })
+            .GroupBy(profile => profile.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        using var fileStream = new FileStream(packagePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        using var archive = new ZipArchive(fileStream, ZipArchiveMode.Update, leaveOpen: false);
+        archive.GetEntry("technicians.json")?.Delete();
+        WriteZipJsonEntry(archive, "technicians.json", normalized);
+    }
+
+    private static SnapshotExportResult ExportNetworkSnapshotCore(
         BueroRepository repository,
-        string sharedDirectory,
+        string stagingDirectory,
         string? appVersion,
-        string? deviceName,
-        bool includeFullSnapshot)
+        string? deviceName)
     {
         var stopwatch = Stopwatch.StartNew();
-        var syncDirectory = ResolveSyncRootDirectory(sharedDirectory);
-        if (string.IsNullOrWhiteSpace(syncDirectory))
-        {
-            LogExportMessage("iPad live sync failed: no valid sync root could be resolved.");
-            return SnapshotExportResult.CreateFailure("iPad-Sync-Zielordner konnte nicht ermittelt werden.");
-        }
-
-        LogExportMessage($"iPad live sync target syncRoot={syncDirectory}");
-        var liveDirectory = Path.Combine(syncDirectory, "live");
+        var liveDirectory = Path.Combine(stagingDirectory, "live");
         var previewsDirectory = Path.Combine(liveDirectory, "previews");
         var attachmentsDirectory = Path.Combine(liveDirectory, "attachments");
-        var snapshotsDirectory = Path.Combine(syncDirectory, "snapshots");
-        var inboxDirectory = Path.Combine(syncDirectory, "inbox");
-        var inboxChangesDirectory = Path.Combine(inboxDirectory, "changes");
-        var inboxFilesDirectory = Path.Combine(inboxDirectory, "files");
-        var processedDirectory = Path.Combine(syncDirectory, "processed");
-        var conflictsDirectory = Path.Combine(syncDirectory, "conflicts");
 
-        Directory.CreateDirectory(syncDirectory);
+        Directory.CreateDirectory(stagingDirectory);
         Directory.CreateDirectory(liveDirectory);
         Directory.CreateDirectory(previewsDirectory);
-        Directory.CreateDirectory(snapshotsDirectory);
-        Directory.CreateDirectory(inboxDirectory);
-        Directory.CreateDirectory(inboxChangesDirectory);
-        Directory.CreateDirectory(inboxFilesDirectory);
-        Directory.CreateDirectory(processedDirectory);
-        Directory.CreateDirectory(conflictsDirectory);
 
         var categories = GetCategoriesForSnapshot(repository);
         var categoryLookup = categories.ToDictionary(category => category.Id, category => category.Name, StringComparer.OrdinalIgnoreCase);
@@ -376,25 +183,25 @@ public sealed class IpadSnapshotExportService
         var removedOriginals = CleanupLiveOriginals(attachmentsDirectory);
         var liveSizeBytes = GetLiveDirectorySize(liveDirectory, previewsDirectory);
 
-        var livePackagePath = Path.Combine(syncDirectory, LivePackageFileName);
-        var tempLivePackagePath = Path.Combine(
-            syncDirectory,
-            $"{LivePackageFileName}.{Guid.NewGuid():N}.tmp");
+        var packagePath = Path.Combine(stagingDirectory, NetworkSnapshotPackageFileName);
+        var tempPackagePath = Path.Combine(
+            stagingDirectory,
+            $"{NetworkSnapshotPackageFileName}.{Guid.NewGuid():N}.tmp");
         try
         {
-            CleanupLivePackageTempFiles(syncDirectory);
-            LogExportMessage($"live package export started: {livePackagePath}");
-            WriteLivePackage(tempLivePackagePath, livePackagePath, liveDirectory, previewsDirectory);
-            var livePackageSizeBytes = TryGetFileSize(livePackagePath) ?? 0L;
+            CleanupNetworkSnapshotTempFiles(stagingDirectory);
+            LogExportMessage($"Local network snapshot package export started: {packagePath}");
+            WriteNetworkSnapshotPackage(tempPackagePath, packagePath, liveDirectory, previewsDirectory);
+            var packageSizeBytes = TryGetFileSize(packagePath) ?? 0L;
             LogExportMessage(
-                $"live package export completed: {livePackagePath} | size={livePackageSizeBytes / 1024d / 1024d:F1}MB");
-            CleanupLivePackageTempFiles(syncDirectory);
+                $"Local network snapshot package export completed: {packagePath} | size={packageSizeBytes / 1024d / 1024d:F1}MB");
+            CleanupNetworkSnapshotTempFiles(stagingDirectory);
         }
         catch (Exception ex)
         {
-            TryDeleteFile(tempLivePackagePath);
-            LogExportMessage($"live package export failed: {livePackagePath} | {ex}");
-            return SnapshotExportResult.CreateFailure("iPad-Live-Datei konnte nicht exportiert werden. Details siehe Log.");
+            TryDeleteFile(tempPackagePath);
+            LogExportMessage($"Local network snapshot package export failed: {packagePath} | {ex}");
+            return SnapshotExportResult.CreateFailure("Netzwerk-Snapshot konnte nicht erstellt werden. Details siehe Log.");
         }
 
         stopwatch.Stop();
@@ -404,112 +211,7 @@ public sealed class IpadSnapshotExportService
             $"removed originals={removedOriginals}, originals copied=0, duration={stopwatch.Elapsed.TotalSeconds:F1}s, " +
             $"live size={liveSizeBytes / 1024d / 1024d:F1}MB");
 
-        if (!includeFullSnapshot)
-        {
-            CleanupSnapshotTempFiles(snapshotsDirectory);
-            return SnapshotExportResult.CreateSuccess(liveDirectory);
-        }
-
-        WriteJson(Path.Combine(snapshotsDirectory, "metadata.json"), metadata);
-        WriteJson(Path.Combine(snapshotsDirectory, "tasks.json"), tasks);
-        WriteJson(Path.Combine(snapshotsDirectory, "categories.json"), categories);
-        var fullSnapshotAttachments = PrepareFullSnapshotAttachments(attachments);
-        WriteJson(Path.Combine(snapshotsDirectory, "attachments-index.json"), fullSnapshotAttachments);
-
-        var packagePath = Path.Combine(snapshotsDirectory, SnapshotPackageFileName);
-        var legacyTempPackagePath = Path.Combine(snapshotsDirectory, LegacySnapshotPackageTempFileName);
-        var tempPackagePath = Path.Combine(
-            snapshotsDirectory,
-            $"{SnapshotPackageFileName}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            if (File.Exists(legacyTempPackagePath))
-            {
-                File.Delete(legacyTempPackagePath);
-                LogExportMessage($"iPad snapshot legacy temp file deleted: {legacyTempPackagePath}");
-            }
-
-            LogExportMessage($"iPad snapshot package export started: {packagePath}");
-            WriteSnapshotPackage(
-                tempPackagePath,
-                packagePath,
-                metadata,
-                categories,
-                tasks,
-                fullSnapshotAttachments);
-            LogExportMessage($"iPad snapshot package export completed: {packagePath}");
-            CleanupSnapshotTempFiles(snapshotsDirectory);
-        }
-        catch (Exception ex)
-        {
-            LogExportMessage($"iPad snapshot package export failed: {packagePath} | {ex}");
-            return SnapshotExportResult.CreateFailure("iPad-Snapshot konnte nicht exportiert werden. Details siehe Log.");
-        }
-
-        return SnapshotExportResult.CreateSuccess(liveDirectory);
-    }
-
-    private static string NormalizeDirectoryPath(string path)
-    {
-        var expandedPath = Environment.ExpandEnvironmentVariables(path.Trim());
-        try
-        {
-            return Path.GetFullPath(expandedPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch
-        {
-            return expandedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-    }
-
-    private static bool LooksLikeSyncRoot(string directory)
-    {
-        if (IsNamedSyncDirectory(directory))
-        {
-            return true;
-        }
-
-        if (File.Exists(Path.Combine(directory, LivePackageFileName)))
-        {
-            return true;
-        }
-
-        var liveDirectory = Path.Combine(directory, "live");
-        return Directory.Exists(liveDirectory) &&
-               (File.Exists(Path.Combine(liveDirectory, "tasks.json")) ||
-                File.Exists(Path.Combine(liveDirectory, "categories.json")) ||
-                File.Exists(Path.Combine(liveDirectory, "metadata.json")));
-    }
-
-    private static bool IsNamedSyncDirectory(string path)
-    {
-        var normalized = path.Replace('\\', '/').TrimEnd('/');
-        return string.Equals(GetPortableFileName(normalized), "Sync", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsLivePackageFilePath(string path)
-    {
-        var normalized = path.Replace('\\', '/').TrimEnd('/');
-        return string.Equals(GetPortableFileName(normalized), LivePackageFileName, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetDirectoryNamePortable(string path)
-    {
-        if (path.Contains('\\', StringComparison.Ordinal) && !path.Contains('/', StringComparison.Ordinal))
-        {
-            var separatorIndex = path.LastIndexOf('\\');
-            return separatorIndex > 0 ? path[..separatorIndex] : string.Empty;
-        }
-
-        return Path.GetDirectoryName(path) ?? string.Empty;
-    }
-
-    private static string GetPortableFileName(string path)
-    {
-        var normalized = path.Replace('\\', '/').TrimEnd('/');
-        var separatorIndex = normalized.LastIndexOf('/');
-        return separatorIndex >= 0 ? normalized[(separatorIndex + 1)..] : normalized;
+        return SnapshotExportResult.CreateSuccess(packagePath);
     }
 
     private static SnapshotTask CreateTaskSnapshot(TaskItem task, IReadOnlyDictionary<string, string> categoryLookup, BueroRepository repository)
@@ -526,6 +228,7 @@ public sealed class IpadSnapshotExportService
             task.Id,
             task.Title,
             task.CustomerName,
+            string.IsNullOrWhiteSpace(task.CustomerAddress) ? null : task.CustomerAddress,
             string.IsNullOrWhiteSpace(task.CustomerEmail) ? null : task.CustomerEmail,
             string.IsNullOrWhiteSpace(task.CustomerPhone) ? null : task.CustomerPhone,
             string.IsNullOrWhiteSpace(task.CategoryId) ? null : task.CategoryId,
@@ -533,10 +236,12 @@ public sealed class IpadSnapshotExportService
             categoryNames,
             task.DueDate,
             task.FollowUpDate,
+            string.IsNullOrWhiteSpace(task.FollowUpReason) ? null : task.FollowUpReason,
             task.CreatedAt,
             task.UpdatedAt,
             task.MaterialOrderedAt,
             string.IsNullOrWhiteSpace(task.Status) ? null : task.Status,
+            string.IsNullOrWhiteSpace(task.Technician) ? null : task.Technician,
             string.IsNullOrWhiteSpace(task.WorkflowType) ? null : task.WorkflowType,
             string.IsNullOrWhiteSpace(task.WorkflowStep) ? null : task.WorkflowStep,
             string.IsNullOrWhiteSpace(task.Description) ? null : task.Description,
@@ -678,39 +383,6 @@ public sealed class IpadSnapshotExportService
             skippedPreviews);
     }
 
-    private static List<SnapshotAttachmentIndex> PrepareFullSnapshotAttachments(
-        IReadOnlyCollection<SnapshotAttachmentIndex> attachments)
-    {
-        var packagePathByHash = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var usedPackagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var result = new List<SnapshotAttachmentIndex>(attachments.Count);
-
-        foreach (var attachment in attachments)
-        {
-            string? packagePath = null;
-            if (attachment.FileExists && !string.IsNullOrWhiteSpace(attachment.ResolvedPath))
-            {
-                if (!string.IsNullOrWhiteSpace(attachment.ContentHash) &&
-                    packagePathByHash.TryGetValue(attachment.ContentHash, out var existingPath))
-                {
-                    packagePath = existingPath;
-                }
-                else
-                {
-                    packagePath = CreateAttachmentPackagePath(attachment.TaskId, attachment.FileName, usedPackagePaths);
-                    if (!string.IsNullOrWhiteSpace(attachment.ContentHash))
-                    {
-                        packagePathByHash[attachment.ContentHash] = packagePath;
-                    }
-                }
-            }
-
-            result.Add(attachment with { PackagePath = packagePath, PreviewPath = null });
-        }
-
-        return result;
-    }
-
     private static void CleanupLivePreviews(
         string previewsDirectory,
         IReadOnlyCollection<SnapshotAttachmentIndex> attachments)
@@ -807,27 +479,14 @@ public sealed class IpadSnapshotExportService
         }
     }
 
-    private static void CleanupSnapshotTempFiles(string snapshotsDirectory)
+    private static void CleanupNetworkSnapshotTempFiles(string stagingDirectory)
     {
-        if (!Directory.Exists(snapshotsDirectory))
+        if (!Directory.Exists(stagingDirectory))
         {
             return;
         }
 
-        foreach (var tempFile in Directory.EnumerateFiles(snapshotsDirectory, "latest.bcsnapshot*.tmp"))
-        {
-            TryDeleteFile(tempFile);
-        }
-    }
-
-    private static void CleanupLivePackageTempFiles(string syncDirectory)
-    {
-        if (!Directory.Exists(syncDirectory))
-        {
-            return;
-        }
-
-        foreach (var tempFile in Directory.EnumerateFiles(syncDirectory, $"{LivePackageFileName}.*.tmp"))
+        foreach (var tempFile in Directory.EnumerateFiles(stagingDirectory, $"{NetworkSnapshotPackageFileName}.*.tmp"))
         {
             TryDeleteFile(tempFile);
         }
@@ -1020,78 +679,7 @@ public sealed class IpadSnapshotExportService
         }
     }
 
-    private static void WriteSnapshotPackage<TMetadata, TCategory, TTask>(
-        string tempPackagePath,
-        string finalPackagePath,
-        TMetadata metadata,
-        IReadOnlyCollection<TCategory> categories,
-        IReadOnlyCollection<TTask> tasks,
-        IReadOnlyCollection<SnapshotAttachmentIndex> attachments)
-    {
-        if (File.Exists(tempPackagePath))
-        {
-            File.Delete(tempPackagePath);
-        }
-
-        try
-        {
-            using (var fileStream = new FileStream(tempPackagePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
-            using (var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
-            {
-                WriteZipJsonEntry(archive, "metadata.json", metadata);
-                WriteZipJsonEntry(archive, "categories.json", categories);
-                WriteZipJsonEntry(archive, "tasks.json", tasks);
-                var attachmentsForIndex = new List<SnapshotAttachmentIndex>(attachments.Count);
-                var writtenAttachmentEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var attachment in attachments)
-                {
-                    if (!string.IsNullOrWhiteSpace(attachment.PackagePath) &&
-                        !string.IsNullOrWhiteSpace(attachment.ResolvedPath) &&
-                        File.Exists(attachment.ResolvedPath))
-                    {
-                        string? exportHint = null;
-                        var copied = writtenAttachmentEntries.Contains(attachment.PackagePath) ||
-                            TryWriteZipFileEntry(archive, attachment.PackagePath, attachment.ResolvedPath, out exportHint);
-                        if (copied)
-                        {
-                            writtenAttachmentEntries.Add(attachment.PackagePath);
-                        }
-                        attachmentsForIndex.Add(attachment with
-                        {
-                            ExistsInSnapshot = copied,
-                            PackagePath = copied ? attachment.PackagePath : null,
-                            ExportHint = copied ? null : exportHint ?? "Datei konnte nicht ins Snapshot-Paket kopiert werden."
-                        });
-                    }
-                    else if (!string.IsNullOrWhiteSpace(attachment.ResolvedPath))
-                    {
-                        attachmentsForIndex.Add(attachment with
-                        {
-                            PackagePath = null,
-                            ExistsInSnapshot = false,
-                            ExportHint = "Datei nicht im Snapshot enthalten: Quelldatei wurde nicht gefunden."
-                        });
-                    }
-                    else
-                    {
-                        attachmentsForIndex.Add(attachment);
-                    }
-                }
-                WriteZipJsonEntry(archive, "attachments-index.json", attachmentsForIndex);
-            }
-
-            ValidateSnapshotPackage(tempPackagePath);
-
-            PromoteSnapshotPackage(tempPackagePath, finalPackagePath);
-        }
-        catch
-        {
-            TryDeleteFile(tempPackagePath);
-            throw;
-        }
-    }
-
-    private static void WriteLivePackage(
+    private static void WriteNetworkSnapshotPackage(
         string tempPackagePath,
         string finalPackagePath,
         string liveDirectory,
@@ -1205,76 +793,12 @@ public sealed class IpadSnapshotExportService
         }
     }
 
-    private static bool TryWriteZipFileEntry(ZipArchive archive, string entryName, string sourcePath, out string? exportHint)
-    {
-        try
-        {
-            WriteZipFileEntry(archive, entryName, sourcePath);
-            exportHint = null;
-            return true;
-        }
-        catch (Exception ex)
-        {
-            LogExportMessage($"iPad snapshot attachment skipped: {sourcePath} | {ex.Message}");
-            exportHint = $"Datei konnte nicht ins Snapshot-Paket kopiert werden: {ex.Message}";
-            return false;
-        }
-    }
-
     private static void WriteZipFileEntry(ZipArchive archive, string entryName, string sourcePath)
     {
         using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         var entry = archive.CreateEntry(entryName, CompressionLevel.NoCompression);
         using var entryStream = entry.Open();
         sourceStream.CopyTo(entryStream);
-    }
-
-    private static string CreateAttachmentPackagePath(string taskId, string fileName, ISet<string> usedPackagePaths)
-    {
-        var safeTaskId = SanitizeZipPathSegment(taskId);
-        var safeFileName = SanitizeZipPathSegment(Path.GetFileName(fileName));
-        if (string.IsNullOrWhiteSpace(safeTaskId))
-        {
-            safeTaskId = "Aufgabe";
-        }
-
-        if (string.IsNullOrWhiteSpace(safeFileName))
-        {
-            safeFileName = "Anhang";
-        }
-
-        var extension = Path.GetExtension(safeFileName);
-        var stem = string.IsNullOrWhiteSpace(extension)
-            ? safeFileName
-            : safeFileName[..^extension.Length];
-        var candidate = $"attachments/{safeTaskId}/{safeFileName}";
-        var counter = 2;
-        while (!usedPackagePaths.Add(candidate))
-        {
-            candidate = $"attachments/{safeTaskId}/{stem}-{counter}{extension}";
-            counter++;
-        }
-
-        return candidate;
-    }
-
-    private static string SanitizeZipPathSegment(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var invalidChars = Path.GetInvalidFileNameChars()
-            .Concat(new[] { '/', '\\', ':', '*', '?', '"', '<', '>', '|' })
-            .ToHashSet();
-        var builder = new StringBuilder(value.Trim().Length);
-        foreach (var character in value.Trim())
-        {
-            builder.Append(invalidChars.Contains(character) || char.IsControl(character) ? '_' : character);
-        }
-
-        return builder.ToString().Trim('_');
     }
 
     private static bool TryDeleteFile(string path)
@@ -1330,9 +854,9 @@ public sealed class IpadSnapshotExportService
         Debug.WriteLine(message);
     }
 
-    public sealed record SnapshotExportResult(bool Success, string? OutputDirectory, string? ErrorMessage)
+    public sealed record SnapshotExportResult(bool Success, string? OutputPath, string? ErrorMessage)
     {
-        public static SnapshotExportResult CreateSuccess(string outputDirectory) => new(true, outputDirectory, null);
+        public static SnapshotExportResult CreateSuccess(string outputPath) => new(true, outputPath, null);
         public static SnapshotExportResult CreateFailure(string errorMessage) => new(false, null, errorMessage);
     }
 
@@ -1348,6 +872,7 @@ public sealed class IpadSnapshotExportService
         string Id,
         string Title,
         string CustomerName,
+        string? CustomerAddress,
         string? CustomerEmail,
         string? CustomerPhone,
         string? CurrentCategoryId,
@@ -1355,10 +880,12 @@ public sealed class IpadSnapshotExportService
         IReadOnlyCollection<string> CategoryNames,
         DateTime? DueDate,
         DateTime? ReminderDate,
+        string? FollowUpReason,
         DateTime CreatedAt,
         DateTime UpdatedAt,
         DateTime? MaterialOrderedAt,
         string? Status,
+        string? Technician,
         string? WorkflowType,
         string? WorkflowStep,
         string? Notes,

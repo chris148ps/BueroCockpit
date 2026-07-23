@@ -1,6 +1,6 @@
 import Foundation
 
-struct SnapshotMetadata: Equatable, Sendable {
+struct SnapshotMetadata: Codable, Equatable, Sendable {
     let formatVersion: Int?
     let exportedAt: String?
     let appName: String?
@@ -16,10 +16,33 @@ struct SnapshotCategory: Identifiable, Equatable, Sendable {
     let parentId: String?
 }
 
-struct SnapshotCategoryGroup: Identifiable, Equatable, Sendable {
+struct SnapshotTechnician: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
+    let abbreviation: String?
+    let email: String?
+    let phone: String?
+}
+
+struct SnapshotCategoryGroup: Identifiable, Equatable, Sendable {
+    let id: String
+
+    /// Vollständiger Kategorienpfad, z. B. „Angebot / erstellen“.
+    /// Wird weiterhin für Auswahlfelder und interne Anzeige verwendet.
+    let name: String
+
+    /// Nur der sichtbare Name dieser Ebene, z. B. „erstellen“.
+    let displayName: String
+
+    /// ID der übergeordneten Desktop-Kategorie.
+    /// nil kennzeichnet eine Oberkategorie.
+    let parentID: String?
+
+    /// Eigene Kategorie-ID einschließlich aller Nachfahren.
+    /// Dadurch zeigt ein Klick auf eine Oberkategorie auch deren Unterkategorien.
     let categoryIDs: [String]
+
+    /// Vom Desktop übernommene Sortierreihenfolge.
     let order: Int
 }
 
@@ -27,16 +50,22 @@ struct SnapshotTask: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let customerName: String?
+    let customerAddress: String?
     let customerEmail: String?
     let customerPhone: String?
+    let currentCategoryId: String?
     let categoryIds: [String]
     let categoryNames: [String]
     let dueDate: String?
     let reminderDate: String?
+    let followUpReason: String?
     let createdAt: String?
     let updatedAt: String?
     let materialOrderedAt: String?
     let status: String?
+    let technician: String?
+    let workflowType: String?
+    let workflowStep: String?
     let notes: String?
     let shortText: String?
     let attachmentRefs: [String]
@@ -71,12 +100,14 @@ extension SnapshotTask {
         SnapshotDisplayFormatter.joinedMetadata([
             displayStatus,
             displayCategoryNames.first,
-            displayCreatedAt.map { "Erstellt \($0)" }
+            displayDueDate.map { "Termin \($0)" },
+            displayReminderDate.map { "Wiedervorlage \($0)" },
+            SnapshotDisplayFormatter.displayText(technician).map { "Monteur \($0)" }
         ])
     }
 
     var searchableText: String {
-        ([title, customerName, customerEmail, customerPhone, shortText, notes, status].compactMap { $0 } + categoryNames)
+        ([title, customerName, customerAddress, customerEmail, customerPhone, shortText, notes, status, technician, followUpReason].compactMap { $0 } + categoryNames)
             .joined(separator: "\n")
     }
 
@@ -122,6 +153,7 @@ struct SnapshotAttachmentIndex: Identifiable, Equatable, Sendable {
     let originalDownloadMode: String?
     let reason: String?
     let contentType: String?
+    let contentHash: String?
     let sizeBytes: Int64?
     let isImportant: Bool
     let fileExists: Bool
@@ -214,6 +246,7 @@ enum SnapshotAttachmentError: LocalizedError, Sendable {
 struct SnapshotDocument: Equatable, Sendable {
     let metadata: SnapshotMetadata
     let categories: [SnapshotCategory]
+    let technicians: [SnapshotTechnician]
     let tasks: [SnapshotTask]
     let attachments: [SnapshotAttachmentIndex]
     let sourceURL: URL

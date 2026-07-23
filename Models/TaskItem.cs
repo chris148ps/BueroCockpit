@@ -17,6 +17,7 @@ public sealed class TaskItem : ObservableObject
     private string _priority = "Normal";
     private DateTime? _dueDate;
     private DateTime? _followUpDate;
+    private string _followUpReason = string.Empty;
     private DateTime? _sentAt;
     private DateTime? _materialOrderedAt;
     private string _assignedTo = string.Empty;
@@ -92,7 +93,11 @@ public sealed class TaskItem : ObservableObject
                 OnPropertyChanged(nameof(DueDateText));
                 OnPropertyChanged(nameof(DueDateCompactText));
                 OnPropertyChanged(nameof(DueDateOverviewText));
+                OnPropertyChanged(nameof(DueDateFollowUpOverviewText));
                 OnPropertyChanged(nameof(HasDueDate));
+                OnPropertyChanged(nameof(IsDueDateOverdue));
+                OnPropertyChanged(nameof(IsDueDateToday));
+                OnPropertyChanged(nameof(IsDueDateFuture));
             }
         }
     }
@@ -111,6 +116,17 @@ public sealed class TaskItem : ObservableObject
                 OnPropertyChanged(nameof(HasFollowUpAlert));
                 OnPropertyChanged(nameof(ReminderCardBackground));
                 OnPropertyChanged(nameof(ReminderCardBorderBrush));
+            }
+        }
+    }
+    public string FollowUpReason
+    {
+        get => _followUpReason;
+        set
+        {
+            if (SetProperty(ref _followUpReason, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(HasFollowUpReason));
             }
         }
     }
@@ -199,11 +215,53 @@ public sealed class TaskItem : ObservableObject
         : DueDate.Value.TimeOfDay == TimeSpan.Zero
             ? DueDate.Value.ToString("dddd, dd.MM.yyyy", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))
             : DueDate.Value.ToString("dddd, dd.MM.yyyy, HH:mm 'Uhr'", System.Globalization.CultureInfo.GetCultureInfo("de-DE"));
+    public string DueDateFollowUpOverviewText
+    {
+        get
+        {
+            if (!DueDate.HasValue)
+            {
+                return string.Empty;
+            }
+
+            var value = DueDate.Value;
+            var date = value.Date;
+            var today = DateTime.Today;
+            string dateText;
+            if (date == today)
+            {
+                dateText = "Heute";
+            }
+            else if (date == today.AddDays(1))
+            {
+                dateText = "Morgen";
+            }
+            else if (date > today.AddDays(1) && date <= today.AddDays(6))
+            {
+                dateText = value.ToString("dddd", System.Globalization.CultureInfo.GetCultureInfo("de-DE"));
+            }
+            else
+            {
+                var weekday = value
+                    .ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))
+                    .TrimEnd('.');
+                dateText = $"{weekday}., {value:dd.MM.yyyy}";
+            }
+
+            return value.TimeOfDay == TimeSpan.Zero
+                ? dateText
+                : $"{dateText}, {value:HH:mm} Uhr";
+        }
+    }
     public string FollowUpDateText => FollowUpDate?.ToString("dd.MM.yyyy") ?? "-";
     public string SentAtText => SentAt?.ToString("dd.MM.yyyy") ?? "-";
     public string MaterialOrderedAtText => MaterialOrderedAt?.ToString("dd.MM.yyyy") ?? "-";
     public bool HasDueDate => DueDate.HasValue;
+    public bool IsDueDateOverdue => DueDate.HasValue && DueDate.Value.Date < DateTime.Today;
+    public bool IsDueDateToday => DueDate.HasValue && DueDate.Value.Date == DateTime.Today;
+    public bool IsDueDateFuture => DueDate.HasValue && DueDate.Value.Date > DateTime.Today;
     public bool HasFollowUpDate => FollowUpDate.HasValue;
+    public bool HasFollowUpReason => !string.IsNullOrWhiteSpace(FollowUpReason);
     public bool IsFollowUpOverdue => FollowUpDate.HasValue && FollowUpDate.Value.Date < DateTime.Today;
     public string FollowUpAlertText => !FollowUpDate.HasValue
         ? string.Empty
@@ -269,6 +327,7 @@ public sealed class TaskItem : ObservableObject
             Priority = Priority,
             DueDate = DueDate,
             FollowUpDate = FollowUpDate,
+            FollowUpReason = FollowUpReason,
             SentAt = SentAt,
             MaterialOrderedAt = MaterialOrderedAt,
             AssignedTo = AssignedTo,

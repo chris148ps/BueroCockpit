@@ -22,6 +22,7 @@ package_runtime() {
   echo "Erstelle ZIP für Windows-$arch..."
   cd "$publish_dir"
   zip -r "$zip_path" . \
+    -x "*.pdb" \
     -x "*.db" "*.db-shm" "*.db-wal" \
     -x "Backups/*" "Tasks/*" "AppData/*" "Daten/*" "Testdaten/*"
 

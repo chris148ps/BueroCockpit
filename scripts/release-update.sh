@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UPDATE_REPO="chris148ps/BueroCockpit-Updates"
+UPDATE_REPO="chris148ps/BueroCockpit"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -85,9 +85,9 @@ gh release create "$TAG" \
 
 Hinweis:
 Dieses Release enthält nur fertige Updatepakete. Der Quellcode liegt weiterhin im privaten Repository." \
-  publish/velopack/win-x64/BueroCockpit-win-x64-Setup.exe \
-  publish/velopack/win-x64/BueroCockpit-win-x64-Portable.zip \
-  publish/velopack/win-x64/BueroCockpit-"$VERSION"-win-x64-full.nupkg \
+  publish/velopack/win-x64/BueroCockpitApp-win-x64-Setup.exe \
+  publish/velopack/win-x64/BueroCockpitApp-win-x64-Portable.zip \
+  publish/velopack/win-x64/BueroCockpitApp-"$VERSION"-win-x64-full.nupkg \
   publish/velopack/win-x64/RELEASES-win-x64 \
   publish/velopack/win-x64/releases.win-x64.json \
   publish/velopack/win-x64/assets.win-x64.json
@@ -98,7 +98,7 @@ gh release view "$TAG" --repo "$UPDATE_REPO"
 
 echo
 echo "=== Erreichbarkeit x64 Setup prüfen ==="
-curl -I -L "https://github.com/$UPDATE_REPO/releases/download/$TAG/BueroCockpit-win-x64-Setup.exe" | head
+curl -I -L "https://github.com/$UPDATE_REPO/releases/download/$TAG/BueroCockpitApp-win-x64-Setup.exe" | head
 
 echo
 echo "=== Git Status ==="
@@ -107,4 +107,4 @@ git status --short
 echo
 echo "Release $VERSION wurde veröffentlicht."
 echo "Download:"
-echo "https://github.com/$UPDATE_REPO/releases/download/$TAG/BueroCockpit-win-x64-Setup.exe"
+echo "https://github.com/$UPDATE_REPO/releases/download/$TAG/BueroCockpitApp-win-x64-Setup.exe"

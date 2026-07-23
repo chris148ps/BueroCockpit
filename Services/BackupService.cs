@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using BueroCockpit.Data;
+using Microsoft.Data.Sqlite;
 
 namespace BueroCockpit.Services;
 
@@ -19,7 +20,7 @@ public sealed class BackupService
 
         try
         {
-            CopyDatabaseFile(tempPath);
+            BackupDatabase(tempPath);
             File.Move(tempPath, backupPath);
             TrimOldBackups();
             return new BackupResult(backupPath, 0);
@@ -47,17 +48,32 @@ public sealed class BackupService
         return backupPath;
     }
 
-    private static void CopyDatabaseFile(string targetPath)
+    public static void BackupDatabase(string targetPath)
     {
         if (!File.Exists(AppPaths.DatabasePath))
         {
             throw new FileNotFoundException("Die Datenbank konnte nicht gesichert werden, weil sie nicht gefunden wurde.", AppPaths.DatabasePath);
         }
 
-        using var source = new FileStream(AppPaths.DatabasePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        using var target = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        source.CopyTo(target);
-        target.Flush(flushToDisk: true);
+        BackupDatabase(AppPaths.DatabasePath, targetPath);
+    }
+
+    public static void BackupDatabase(string sourcePath, string targetPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(targetPath))!);
+        using var source = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = sourcePath,
+            Mode = SqliteOpenMode.ReadOnly
+        }.ToString());
+        using var target = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = targetPath,
+            Mode = SqliteOpenMode.ReadWriteCreate
+        }.ToString());
+        source.Open();
+        target.Open();
+        source.BackupDatabase(target);
     }
 
     private static void TrimOldBackups()

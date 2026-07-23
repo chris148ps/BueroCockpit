@@ -6,9 +6,14 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_FILE="$PROJECT_ROOT/BueroCockpit.csproj"
 PUBLISH_ROOT="$PROJECT_ROOT/publish"
 VELOPACK_ROOT="$PUBLISH_ROOT/velopack"
-APP_ID="BueroCockpit"
+# Der Installationsordner muss vom produktiven Datenordner
+# %LOCALAPPDATA%\BueroCockpit getrennt bleiben. Velopack verwendet den
+# packId standardmäßig als Ordnernamen unter %LOCALAPPDATA%.
+APP_ID="BueroCockpitApp"
 APP_TITLE="BüroCockpit"
+APP_AUTHOR="Christian Stange"
 MAIN_EXE="BueroCockpit.exe"
+APP_ICON="$PROJECT_ROOT/Assets/BueroCockpit.ico"
 
 cd "$PROJECT_ROOT"
 
@@ -49,9 +54,11 @@ pack_runtime() {
   vpk '[win]' pack \
     --packId "$APP_ID" \
     --packTitle "$APP_TITLE" \
+    --packAuthors "$APP_AUTHOR" \
     --packVersion "$VERSION" \
     --packDir "$pack_dir" \
     --mainExe "$MAIN_EXE" \
+    --icon "$APP_ICON" \
     --runtime "$runtime" \
     --channel "$runtime" \
     --outputDir "$output_dir"

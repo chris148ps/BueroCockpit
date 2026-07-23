@@ -23,7 +23,11 @@ publish_runtime() {
     --self-contained true \
     -p:PublishSingleFile=true \
     -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:DebugType=None \
+    -p:DebugSymbols=false \
     -o "$output_dir"
+
+  find "$output_dir" -type f -name "*.pdb" -delete
 
   echo "Windows-Publish erstellt: $output_dir"
   echo

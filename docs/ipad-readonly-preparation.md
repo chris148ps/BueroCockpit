@@ -3,7 +3,10 @@
 Stand: 2026-06-20
 
 > Historischer Vorbereitungsstand: Diese Datei beschreibt ein altes
-> Snapshot-Format und ist keine aktuelle Fachregel. Für Vorgangstyp,
+> Snapshot-Format einschließlich des inzwischen entfernten
+> Desktop-OneDrive-/Dateiexports und ist keine aktuelle Fachregel oder
+> Implementierungsbeschreibung. Für den aktuellen Transport gilt
+> `docs/LOCAL_NETWORK_SYNC.md`. Für Vorgangstyp,
 > Workflowstatus, aktuelle normale Kategorie und Statuszuordnungen gilt ausschließlich
 > `docs/ARBEITSKATEGORIEN.md`.
 
