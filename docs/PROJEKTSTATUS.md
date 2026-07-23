@@ -285,11 +285,14 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 
 ## Prüfstand und nachgelagerte Abnahme
 
-- Der vollständige uncommittete Stand von `codex/work` wurde vor der lokalen
-  Releasevorbereitung als verifiziertes Git-Bundle, Quellarchiv, Binär-Diff
-  und SHA-256-Inventar außerhalb des Repositorys gesichert. Der lokale
-  Releasekandidaten-Branch `codex/release-0.4.23-rc` enthält weiterhin alle
-  Änderungen; es wurde nichts verworfen.
+- Der vollständige frühere Arbeitsstand wurde vor der lokalen
+  Releasevorbereitung und erneut vor der Git-Konsolidierung als verifiziertes
+  Git-Bundle, Quellarchiv, Binär-Patch und SHA-256-Inventar außerhalb des
+  Repositorys gesichert. `codex/work` enthält den vollständigen
+  Entwicklungsstand nun nachvollziehbar auf Basis des aktuellen
+  Dokumentationsstands aus `origin/main`; der lokale Sicherungsbranch
+  `backup/codex-work-2026-07-23` erhält zusätzlich den ursprünglichen
+  RC-Zustandscommit.
 - Version `0.4.23` liegt als lokaler, nicht veröffentlichter
   Windows-x64-Releasekandidat vor. Windows-Publish, portable ZIP,
   Velopack-Setup, Full-NuGet-Paket, Portable-Paket und Manifestdateien wurden
@@ -305,15 +308,16 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   `0.4.22` aus demselben geprüften Quellstand und den Ziel-Feed `0.4.23`.
   Dieser Kanal prüft ausschließlich den Update-Mechanismus und ist keine
   historische Binärkopie des veröffentlichten Release `v0.4.22`.
-- Desktop-Build, Windows-x64-Build, Workflow-/Kategorie-/Netzwerk-
-  Integrationstests, Backup-Austauschtests und iPad-Simulator-Build sind
-  erfolgreich. Die erzeugten Archive enthalten keine Datenbank, Produktiv-,
-  Test- oder PDB-Dateien.
+- Desktop-Build, macOS-ARM64-Build, Windows-x64-Build,
+  Workflow-/Kategorie-/Netzwerk-Integrationstests, Backup-Austauschtests und
+  iPad-Simulator-Build wurden nach der Konsolidierung auf `codex/work`
+  erfolgreich wiederholt. Die erzeugten Archive enthalten keine Datenbank,
+  Produktiv-, Test- oder PDB-Dateien.
 - Ein realer Windows-Start, die Ablösung der alten Inno-Installation, die
   Datenbestandserhaltung, Verknüpfungen, Apps-&-Features-Eintrag und der
   lokale Velopack-Updateweg sind noch auf dem Terminalserver zu prüfen. Die
   Artefakte sind nicht codesigniert; SmartScreen kann warnen. Es wurde kein
-  Commit, Push, Tag oder GitHub-Release erstellt.
+  Merge nach `main`, kein Tag und kein GitHub-Release erstellt.
 - Der frühere macOS-Fehler, bei dem ein korrekt gespeicherter Status
   `Erledigt` und seine normale Zielkategorie anschließend durch den
   Archivfilter ausgeblendet wurden, ist behoben. Der Fehler wurde im echten

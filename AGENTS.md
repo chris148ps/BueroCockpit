@@ -134,7 +134,14 @@ Pflicht:
 - `docs/NEXT_TASK.md` auf genau eine nächste Aufgabe setzen
 - `docs/ENTWICKLUNGSSTAND.md` auf den tatsächlich geprüften Gesamtstand aktualisieren
 
-`docs/ENTWICKLUNGSSTAND.md` ist die zentrale fortlaufende Übersicht über den tatsächlichen Entwicklungsstand. Sie muss unabhängig davon gepflegt werden, ob Änderungen bereits committed oder nach GitHub gepusht wurden. Mindestens festzuhalten sind aktuelle Version, Arbeitsbranch, letzte abgeschlossene Aufgabe, laufendes Ziel, maßgebliche Architekturentscheidungen, bekannte Risiken, Build- und Teststatus sowie die nächste geplante Version beziehungsweise Aufgabe.
+`docs/ENTWICKLUNGSSTAND.md` ist die zentrale fortlaufende Übersicht über den
+tatsächlichen Entwicklungsstand. Sie muss unabhängig davon gepflegt werden, ob
+Änderungen bereits committed oder nach GitHub gepusht wurden. Mindestens
+festzuhalten sind aktuelle Version, Arbeitsbranch, letzte abgeschlossene
+Aufgabe, laufendes Ziel, maßgebliche Architekturentscheidungen, bekannte
+Risiken, Build- und Teststatus sowie die nächste geplante Version
+beziehungsweise Aufgabe. Sie ergänzt die dauerhaften Entscheidungen aus
+`docs/PROJEKTREGISTER.md`, ersetzt sie aber nicht.
 
 Die Dokumentation muss dem tatsächlich geprüften Stand entsprechen. Keine erfundenen Tests oder Ergebnisse.
 Einträge unter `docs/codex_journal/` sind historische Laufprotokolle und keine
@@ -147,10 +154,6 @@ Architekturentscheidungen. Dauerhafte Entscheidungen nicht zusätzlich als
 zweite maßgebliche Regel in Status-, Auftrags- oder Journaldateien festlegen;
 diese Dateien dürfen nur den erreichten Stand beziehungsweise den historischen
 Arbeitsnachweis beschreiben.
-
-`docs/ENTWICKLUNGSSTAND.md` ist die zentrale fortlaufende Übersicht über den
-tatsächlich erreichten Gesamtstand. Sie ergänzt die dauerhaften Entscheidungen
-aus `docs/PROJEKTREGISTER.md`, ersetzt sie aber nicht.
 
 ## Codex-Auftragssystem
 

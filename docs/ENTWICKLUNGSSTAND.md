@@ -1,99 +1,99 @@
 # BüroCockpit – Entwicklungsstand
 
-Diese Datei ist die zentrale, fortlaufend zu pflegende Übersicht über den tatsächlichen Entwicklungsstand. Sie ergänzt `docs/PROJEKTSTATUS.md`, `docs/codex_last_run.md` und `docs/NEXT_TASK.md`.
+Diese Datei ist die zentrale fortlaufende Übersicht über den tatsächlich
+erreichten Entwicklungsstand. Dauerhafte Architekturentscheidungen stehen in
+`docs/PROJEKTREGISTER.md`.
 
 ## Aktuelle Basis
 
 - Letzte veröffentlichte Version: `0.4.22`
+- Lokaler Entwicklungs- und Releasekandidatenstand: `0.4.23`
 - Hauptentwicklungsrechner: Mac mini
-- Üblicher Arbeitsbranch für größere Arbeiten: `codex/work`
-- GitHub dient ausschließlich für Quellcode, Dokumentation, Releases und Update-Artefakte.
-- Lokale, noch nicht veröffentlichte Änderungen können dem Stand auf GitHub voraus sein. Vor jeder Arbeit sind Branch, Commit und Arbeitsbaum zu prüfen.
+- Arbeitsbranch: `codex/work`
+- Basis aus GitHub `main`: `cd99edb`
+- Gesicherter Entwicklungsstand-Commit: `082bab4`
+- Der Arbeitsstand wurde am 2026-07-23 vollständig gesichert, auf den aktuellen
+  Dokumentationsstand aus `main` aufgebaut und ohne Force-Push für
+  `origin/codex/work` vorbereitet.
 
-## Produktivarchitektur
+## Sicherung und Nachvollziehbarkeit
 
-### Windows-Terminalserver
+- Externe Sicherung:
+  `/Users/christian/AppProjekte/BueroCockpit-Worktree-Backups/20260723-codex-work-consolidation`
+- Inhalt: vollständiges Git-Bundle, Binär-Patch, Originalstatus, Liste und
+  Archiv aller unversionierten Quelldateien sowie SHA-256-Prüfsummen.
+- Lokaler Sicherungsbranch: `backup/codex-work-2026-07-23`
+- Zusätzlich bleibt die frühere RC-Ausgangssicherung unter
+  `/Users/christian/AppProjekte/BueroCockpit-RC-Backups/20260723-0.4.23-preparation`
+  erhalten.
+- Produktive Daten, Datenbanken, Anhänge, Backups sowie `bin`, `obj` und
+  `publish` wurden nicht in Git aufgenommen.
 
-- BüroCockpit soll dauerhaft auf dem Firmen-Terminalserver laufen.
-- Nur ein RDP-Benutzer verwendet die Anwendung.
-- Interner Zugriff erfolgt direkt per RDP.
-- Externer Zugriff erfolgt per VPN und anschließend RDP.
-- Der produktive Windows-Datenordner darf deshalb benutzerbezogen unter `%LOCALAPPDATA%\BueroCockpit` liegen.
-- Die produktive Datenbank darf nicht im Installationsordner und nicht direkt in OneDrive liegen.
+## Implementierter Stand
 
-### iPad
+- Desktop-Fachlogik, freie Kategorien, Workflowstatus, BC-0032-Korrektur,
+  Datenpfade und UI liegen vollständig im gesicherten Stand.
+- Produktive Daten bleiben unter Windows benutzerbezogen in
+  `%LOCALAPPDATA%\BueroCockpit`; ein Wechsel zu
+  `C:\ProgramData\BueroCockpit` ist nicht vorgesehen.
+- Die Velopack-Installationswurzel `%LOCALAPPDATA%\BueroCockpitApp` bleibt vom
+  produktiven Datenordner getrennt.
+- Manueller Backup-Austausch, sichere Importprüfung und lokaler Rückfallstand
+  sind implementiert.
+- Der lokale Netzwerk-Sync bleibt bewusst gestartet und manuell durch
+  `Jetzt synchronisieren`; gerätebezogene Checkpoints, Deltaübertragung,
+  atomare Mobile-Inbox-Ablage und sichtbare Konflikte sind implementiert.
+- Die iPad-App unterstützt den manuellen inkrementellen Austausch und behält
+  lokale Originale.
+- Der lokale Windows-x64-Releasekandidat `0.4.23` einschließlich
+  Velopack-Setup liegt unter `publish/terminalserver-0.4.23-rc`. Diese
+  ignorierten lokalen Artefakte sind kein Git-Inhalt und noch nicht
+  veröffentlicht.
 
-- Das iPad erhält seinen Datenstand per Direktübertragung im selben lokalen Netzwerk.
-- Der Terminalserver ist künftig die führende produktive Desktop-Instanz.
-- Alte OneDrive-, Cloud- oder Live-Datei-Wege dürfen nicht wieder aktiviert werden.
+## Übernommene GitHub-Dokumentation
 
-## Datenhaltung und Datenaustausch
+- `AGENTS.md`: Pflegepflicht für diese zentrale Übersicht in das neuere lokale
+  Agenten- und Auftragssystem integriert.
+- `docs/ENTWICKLUNGSSTAND.md`: aus `main` übernommen und auf den tatsächlich
+  weiter fortgeschrittenen lokalen Stand aktualisiert.
+- `docs/NEXT_TASK.md`: das ältere GitHub-Ziel der RC-Vorbereitung nicht blind
+  übernommen; der bereits erreichte RC-Stand führt korrekt zu BC-0035.
+- `docs/codex_last_run.md`: ältere BC-0032-Fassung aus GitHub berücksichtigt,
+  aber durch den tatsächlich späteren Sicherungs- und Konsolidierungslauf
+  fortgeschrieben.
 
-- Keine gemeinsam geöffnete SQLite-Datenbank in OneDrive.
-- Jedes Entwicklungsgerät arbeitet mit einem lokalen Datenordner.
-- Datenaustausch erfolgt kontrolliert über manuelle Backup-/Import-Archive.
-- OneDrive darf nur als zentraler Austauschordner für geschlossene Backup-ZIP-Dateien verwendet werden.
-- Ein Import ersetzt den vollständigen lokalen Datenstand; parallele Änderungen werden nicht automatisch zusammengeführt.
-- Vor jedem Import ist ein automatisches lokales Rückfall-Backup Pflicht.
+## Aktueller Prüfstand
 
-## Letzte abgeschlossene fachliche Korrektur
+Am 2026-07-23 auf `codex/work` erfolgreich ausgeführt:
 
-### BC-0032 – Erledigte Aufträge blieben unsichtbar
+- `git diff --check`
+- `dotnet build` – 0 Warnungen, 0 Fehler
+- `dotnet build -r osx-arm64` – 0 Warnungen, 0 Fehler
+- `dotnet build -r win-x64` – 0 Warnungen, 0 Fehler
+- Workflow-, Kategorie- und Netzwerk-Integrationstests
+- Backup-Austauschtests
+- iPad-Simulator-Build per `xcodebuild`
 
-- Ursache war `IsArchivedForSearch`.
-- Der Workflowstatus `Erledigt` wurde fälschlich wie das technische Archiv behandelt.
-- Status, Abschlusszeit und Zielkategorie waren bereits korrekt gespeichert; der Auftrag wurde anschließend nur ausgeblendet.
-- Nur Status oder Kategorie `Archiv` gelten nun als archiviert.
-- Regressionstest für Status, Kategorieverschiebung, Sichtbarkeit, Archivabgrenzung und Neustartpersistenz wurde ergänzt.
-- macOS-, Windows-Runtime- und allgemeine Builds waren erfolgreich.
+Die automatisierten Prüfungen verwendeten isolierte temporäre Daten. Produktive
+Daten wurden nicht geöffnet, migriert, gelöscht oder überschrieben.
 
-## Aktuell laufendes Ziel
+## Bekannte Grenzen und Risiken
 
-Eine aktuelle Windows-x64-Installer-Version für den Terminalserver vorbereiten, damit:
+- Der Windows-x64-Build ersetzt keinen realen Terminalserver-Test.
+- Die alte Inno-Installation wurde noch nicht durch das Velopack-Setup ersetzt.
+- Datenbestand, Anhänge, Neustartpersistenz, Updatekomponenten und
+  Auto-Update-Weg müssen auf dem Terminalserver sichtbar geprüft werden.
+- Der lokale Releasekandidat ist nicht codesigniert.
+- Noch kein Tag, kein Release und kein GitHub-Release für `0.4.23`.
+- Die noch offenen physischen iPad-Fälle bleiben von den erfolgreichen
+  Simulator- und isolierten Integrationstests getrennt.
 
-- die alte Installation ersetzt beziehungsweise aktualisiert werden kann,
-- die aktuelle Programmlogik aus dem vollständigen Entwicklungsstand enthalten ist,
-- spätere Updates über Velopack/Auto-Update möglich werden,
-- bestehende produktive Daten unangetastet bleiben.
+## Nächste Aufgabe
 
-## Release- und Installer-Vorgaben
+Genau eine nächste Aufgabe ist geplant:
 
-- Keine Versionsänderung, kein Tag und kein Release ohne ausdrückliche Freigabe.
-- Die nächste sinnvolle Patch-Version nach `0.4.22` ist `0.4.23`.
-- Release-Arbeiten müssen die verbindlichen Prüfungen aus `docs/RELEASE_PROZESS.md` und `docs/CODEX_AUFTRAGSPRUEFUNG.md` erfüllen.
-- Ein lokaler Releasekandidat darf nicht still auf einem unsauberen Arbeitsbaum veröffentlicht werden.
-- Vor Veröffentlichung muss der vollständige lokale Entwicklungsstand gesichert, geprüft und nachvollziehbar in einen sauberen Release-Stand überführt werden.
-- Der Installer und spätere Updates dürfen `%LOCALAPPDATA%\BueroCockpit` niemals löschen oder überschreiben.
+`BC-0035` – Terminalserver-Installation und lokalen Auto-Update-Weg abnehmen.
 
-## Bekannte Risiken
-
-- Der lokale Stand auf dem Mac mini kann umfangreiche uncommittete Änderungen enthalten, die auf GitHub noch nicht sichtbar sind.
-- Ein neuer Chat oder ein anderer Rechner sieht nur veröffentlichte GitHub-Inhalte und die Projektdokumentation, nicht automatisch den lokalen Arbeitsbaum.
-- Vor Release oder Branchwechsel dürfen keine bestehenden Änderungen verworfen, zurückgesetzt oder überschrieben werden.
-- Die alte Terminalserver-Installation besitzt noch keine verlässlich nutzbare Auto-Update-Basis; der erste aktuelle Installer muss die Velopack-fähige Installation herstellen.
-
-## Verbindliche Prüfung vor jeder neuen Aufgabe
-
-1. `AGENTS.md` lesen.
-2. Diese Datei vollständig lesen.
-3. `docs/PROJEKTSTATUS.md` lesen.
-4. `docs/codex_last_run.md` lesen.
-5. `docs/NEXT_TASK.md` lesen.
-6. `git status --short --branch` prüfen.
-7. Branch, Commit, Versionsstand und Abweichung zu GitHub prüfen.
-8. Widersprüche zwischen Auftrag, Regeldateien und tatsächlichem Projektstand vor jeder Änderung melden.
-
-## Pflegepflicht
-
-Nach jedem größeren Codex-Auftrag muss diese Datei aktualisiert werden. Sie muss mindestens enthalten:
-
-- aktuelle Version,
-- aktueller Arbeitsbranch,
-- letzte abgeschlossene Aufgabe,
-- laufendes Ziel,
-- maßgebliche Architekturentscheidungen,
-- bekannte Risiken,
-- Build- und Teststatus,
-- nächste geplante Version beziehungsweise nächste sinnvolle Aufgabe.
-
-Die Angaben müssen dem tatsächlich geprüften Stand entsprechen. Keine Vermutungen als Tatsachen dokumentieren.
+Der Ablauf steht in `docs/NEXT_TASK.md`,
+`docs/codex_auftraege/AKTUELL.md` und
+`docs/TERMINALSERVER_RELEASEKANDIDAT.md`.

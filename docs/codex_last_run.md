@@ -2,54 +2,79 @@
 
 ## Datum/Uhrzeit
 
-2026-07-23 20:02 +0200
+2026-07-23 20:12 +0200
 
 ## Auftrag
 
-BC-0034 – Vollständigen Arbeitsstand sichern und Windows-x64-
-Releasekandidaten `0.4.23` für den Terminalserver vorbereiten.
+Den vollständigen aktuellen Mac-mini-Entwicklungsstand ohne Verlust sichern,
+die vier neueren GitHub-Dokumentationsstände selektiv integrieren und
+`codex/work` wieder in einen sauberen, nachvollziehbaren Zustand bringen.
 
 ## Ergebnis
 
-- Der vollständige uncommittete Ausgangsstand wurde außerhalb des Repositorys
-  als verifiziertes Git-Bundle, Quellarchiv, Binär-Diff und SHA-256-Inventar
-  gesichert.
-- Lokaler Branch `codex/release-0.4.23-rc` wurde ohne Verlust vorhandener
-  Änderungen angelegt.
-- Version `0.4.23`, Windows-Publish, portable ZIP, Velopack-Setup,
-  Full-NuGet-Paket, Portable-Paket und Update-Manifeste wurden frisch erzeugt.
-- Die Installationswurzel `%LOCALAPPDATA%\BueroCockpitApp` ist vom produktiven
-  Datenpfad `%LOCALAPPDATA%\BueroCockpit` getrennt.
-- Ein lokaler Update-Test `0.4.22 → 0.4.23` und der vollständige
-  Terminalserver-Testablauf wurden vorbereitet.
+- Der ursprüngliche Arbeitsbaum mit 50 geänderten/gelöschten und 57
+  unversionierten Quelldateien wurde vollständig extern gesichert.
+- Ein geprüftes Git-Bundle, Binär-Patch, Originalstatus, Untracked-Archiv und
+  SHA-256-Inventar liegen außerhalb des Repositorys.
+- Der lokale Sicherungsbranch `backup/codex-work-2026-07-23` zeigt auf den
+  unveränderten Zustandscommit des ursprünglichen RC-Branches.
+- `codex/work` wurde per Fast-Forward auf `origin/main` aufgebaut.
+- Die lokalen Änderungen wurden wegen ihrer starken fachlichen Überlappung
+  bewusst als ein dokumentierter Entwicklungsstand-Commit übernommen.
+- Die vier GitHub-Dokumentationsdateien wurden inhaltlich zusammengeführt,
+  ohne den weiter fortgeschrittenen lokalen Stand zurückzusetzen.
+- Keine temporären `.backup-*`-, `.bak`- oder Editor-Sicherungsdateien wurden
+  gefunden oder entfernt.
+
+## Sicherungen
+
+- Neue Sicherung:
+  `/Users/christian/AppProjekte/BueroCockpit-Worktree-Backups/20260723-codex-work-consolidation`
+- Frühere RC-Sicherung:
+  `/Users/christian/AppProjekte/BueroCockpit-RC-Backups/20260723-0.4.23-preparation`
+- Lokaler Sicherungsbranch: `backup/codex-work-2026-07-23`
 
 ## Prüfungen
 
+- `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
+- `dotnet build -r osx-arm64`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
-- Workflow-/Kategorie-/Netzwerk-Integrationstests: erfolgreich.
+- Workflow-, Kategorie- und Netzwerk-Integrationstests: erfolgreich.
 - Backup-Austauschtests: erfolgreich.
-- iPad-Simulator-Build: erfolgreich.
-- Windows-Publish, Velopack-Paketierung, Manifest-, PE-, Archivinhalt- und
-  SHA-256-Prüfung: erfolgreich.
-- Auslieferungsarchive enthalten keine Datenbanken, Produktiv-, Test- oder
-  PDB-Dateien.
+- iPad-Simulator-Build per `xcodebuild`: erfolgreich.
+- Git-Bundle verifiziert; Anzahl archivierter und aufgelisteter unversionierter
+  Dateien stimmt überein.
 
-## Artefakte
+## Sicherheitsgrenzen
 
-- Übergabe:
-  `/Users/christian/AppProjekte/BueroCockpit/publish/terminalserver-0.4.23-rc`
-- Installer:
-  `/Users/christian/AppProjekte/BueroCockpit/publish/terminalserver-0.4.23-rc/BueroCockpitApp-win-x64-Setup.exe`
-- Windows-Publish:
-  `/Users/christian/AppProjekte/BueroCockpit/publish/windows-x64`
-- Externe Ausgangssicherung:
-  `/Users/christian/AppProjekte/BueroCockpit-RC-Backups/20260723-0.4.23-preparation`
+- Keine produktiven Daten, Datenbanken, Anhänge, Backups oder Cloud-Dateien
+  verändert.
+- Keine Build- oder Publish-Artefakte in Git aufgenommen.
+- Keine Versionsänderung in diesem Lauf.
+- Kein Merge oder Push nach `main`, kein Force-Push, kein Tag und kein Release.
+- Nur `codex/work` darf nach erfolgreicher Prüfung zentral gesichert werden.
 
 ## Grenzen
 
-- Kein Commit, Push, Merge, Tag oder GitHub-Release.
-- Keine produktiven Daten oder Cloud-Dateien verändert.
-- Kein realer Windows-Start auf macOS möglich.
-- Artefakte nicht codesigniert.
-- Terminalserver-Abnahme ist BC-0035.
+- Kein realer Windows- oder Terminalserver-Bedienungstest.
+- Der lokale Releasekandidat `0.4.23` bleibt unveröffentlicht und
+  nicht codesigniert.
+- Die reale Ablösung der alten Installation und der Velopack-Updateweg bleiben
+  Aufgabe BC-0035.
+
+## Nächster Schritt
+
+`BC-0035` – Terminalserver-Installation und lokalen Auto-Update-Weg abnehmen.
+
+## Branch
+
+codex/work
+
+## Commit
+
+Noch nicht final
+
+## Push erfolgreich
+
+Noch nicht ausgeführt
