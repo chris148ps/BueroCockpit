@@ -1,74 +1,47 @@
 # Letzter Codex-Lauf
 
-## Datum/Uhrzeit
-
-2026-07-17 16:11 +0200
-
 ## Auftrag
 
-Den behobenen macOS-Absturz bei nicht verfügbaren Cloud-Miniaturen als neues
-vollständiges Windows-Auto-Update veröffentlichen.
+BC-0032: Fehler beheben, durch den Vorgänge nach dem Workflowstatus `Erledigt` aus Kategorien, Zählern und Suche verschwanden.
 
-## Konsistenzprüfung
+## Ergebnis
 
-- Geprüft wurden `AGENTS.md`, `CODEX_PROJEKTREGELN.md`,
-  `CODEX_AUFTRAGSPRUEFUNG.md`, `TESTRICHTLINIEN.md`,
-  `DESIGN_RICHTLINIEN.md`, `RELEASE_PROZESS.md`, `PROJEKTSTATUS.md`,
-  `NEXT_TASK.md` und die tatsächliche Implementierung.
-- Releaseprozess, Agentenregeln, Designrichtlinien, Updatequelle und
-  Artefaktprüfung stimmen überein.
-- Der separate Inno-Installer bleibt optional; alle Velopack-Pflichtdateien
-  sind verbindlich.
-- Die offene praktische Windows-/iPad-Zielgeräte-Abnahme bleibt offen und
-  wurde nicht als bestanden dokumentiert.
-- Es bestand kein ungeklärter Regel-, Fach-, Design-, Sicherheits- oder
-  Releasewiderspruch.
+BC-0032 ist abgeschlossen.
 
-## Enthaltener Hotfix
+Ursache war der Filter `IsArchivedForSearch`: Er behandelte den Workflowstatus `Erledigt` fälschlich wie das technische Archiv. Status, Abschlusszeit und Zielkategorie wurden bereits korrekt gespeichert; der Auftrag wurde anschließend jedoch ausgeblendet.
 
-- Ursache war eine in OneDrive formal vorhandene, aber lokal nicht lesbare
-  Anhang-Miniatur.
-- Skia erhielt zuvor einen Dateistream und beendete den Prozess bei einem
-  späteren `System.IO.IOException: Operation timed out`.
-- `ThumbnailBitmapCache` liest Miniaturen jetzt vollständig innerhalb des
-  geschützten .NET-Blocks in einen Memory-Stream.
-- Nicht verfügbare oder beschädigte Miniaturen werden ausgelassen, ohne die
-  App zu beenden.
-- Der Fehler wurde mit einer lesenden Datenbankkopie und isolierter lokaler
-  Konfiguration vor der Änderung reproduziert und nach der Änderung im echten
-  macOS-Bundle erfolgreich erneut geprüft.
+## Geänderte Bereiche
 
-## Builds und Artefakte
+- `Services/CategoryHierarchyFilter.cs`: Nur Status oder Kategorie `Archiv` gelten als archiviert.
+- `MainWindow.axaml.cs`: Kategorien, Zähler, Suche und Archivdialog verwenden die korrigierte Prüfung.
+- `tests/BueroCockpit.WorkflowTests/Program.cs`: Regressionstest für Status, Kategorieverschiebung, Sichtbarkeit, Archivabgrenzung und Neustartpersistenz.
+- Auftragsarchiv, Journal, Projektstatus und Zeiger auf die nächste Aufgabe wurden aktualisiert.
 
-- Workflow-/Kategorie-Integrationstest: erfolgreich.
+## Prüfung
+
+- Reale macOS-Reproduktion vor der Korrektur: Kategorie `Erledigt` zeigte trotz gespeichertem Auftrag Zähler `0` und `0 Aufgaben`.
+- Nach der Korrektur mit demselben isolierten Datenstand: Zähler `1`, Auftrag sichtbar, Status und Kategoriepfad korrekt.
+- Nach vollständigem App-Neustart weiterhin sichtbar.
+- Workflow-, Kategorie- und Netzwerk-Integrationstests: erfolgreich.
+- `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
-- `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `dotnet build -r osx-arm64`: erfolgreich, 0 Warnungen, 0 Fehler.
-- `./scripts/release.sh 0.4.22`: erfolgreich.
-- Windows-ZIP, Velopack-Setup, Full-NuGet-Paket und alle drei
-  Manifestdateien wurden im aktuellen Lauf frisch erzeugt.
-- Alle sechs Dateien sind größer als 0 Byte und enthalten beziehungsweise
-  referenzieren Version `0.4.22`.
-- Lokale und von GitHub gemeldete SHA-256-Prüfsummen stimmen für alle sechs
-  Releaseassets überein.
-- Der optionale Inno-Installer wurde nicht erzeugt und nicht hochgeladen.
+- `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
 
-## Veröffentlichung
+## Grenzen
 
-- Hotfix-Commit: `b859494`.
-- Release-Commit und Tagziel: `86f2d976109969d894febe01d716b00f10ec411a`.
-- Annotierter Tag: `v0.4.22`.
-- `main` und Tag wurden erfolgreich zu GitHub gepusht.
-- GitHub Release:
-  `https://github.com/chris148ps/BueroCockpit/releases/tag/v0.4.22`.
-- `gh release view v0.4.22` und die GitHub-Latest-API bestätigen ein
-  veröffentlichtes Release, weder Draft noch Prerelease, mit allen sechs
-  Assets im Status `uploaded`.
+- Kein visueller Windows-Test; der Windows-Runtime-Build war erfolgreich.
+- Kein Commit, Push, Merge, Tag, Release oder Versionswechsel wurde im BC-0032-Lauf durchgeführt.
+- Der lokale Branch `codex/work` kann weiterhin umfangreiche uncommittete Änderungen enthalten; diese wurden erhalten.
 
-## Grenzen und nächster Schritt
+## Aktuelle Architekturentscheidung
 
-- Produktive Daten, OneDrive-Dateien und Sync-Daten wurden nicht verändert.
-- Port `53941` blieb geschlossen.
-- Der praktische Auto-Update-Test auf dem Windows-Firmenrechner und die
-  physische iPad-Vollübertragung bleiben die genau eine nächste
-  Zielgeräte-Abnahme in `docs/NEXT_TASK.md`.
+- Produktivbetrieb künftig auf dem Windows-Terminalserver.
+- Nur ein RDP-Benutzer; produktive Daten dürfen unter `%LOCALAPPDATA%\BueroCockpit` liegen.
+- Keine direkt in OneDrive geöffnete produktive SQLite-Datenbank.
+- OneDrive nur als Austauschort für geschlossene Backup-Archive.
+- iPad-Datenaustausch weiterhin per Direktübertragung im lokalen Netzwerk.
+
+## Nächster Schritt
+
+Den vollständigen Entwicklungsstand sicher in einen Windows-x64-Releasekandidaten für den Terminalserver überführen und einen Erstinstaller mit Velopack-fähiger Auto-Update-Basis vorbereiten. Kein Versionswechsel oder Release ohne ausdrückliche Freigabe.
