@@ -10,7 +10,9 @@ Diese Datei ist die zentrale Regelquelle fuer Codex- und Agentenarbeit im Projek
 - Erst Terminalbefehle, gezielte Suche mit `grep`/`sed`, kleine Patch-Skripte oder einzelne ueberschaubare Dateiaenderungen nutzen, wenn das sicher reicht.
 - Codex nur bei groesseren oder zusammenhaengenden Aenderungen, komplexem UI, Architekturarbeit, schwer nachvollziehbaren Fehlern oder mehreren betroffenen Dateien verwenden.
 - Das Codex-Modell abhaengig vom Aufgabentyp waehlen: Fuer kleine und mittlere Aufgaben ein effizientes Modell, fuer komplexe Architektur-, Refactoring- oder schwierige Fehlersuchaufgaben ein leistungsfaehigeres Modell. Eine deutliche Abweichung vom ueblichen Modellstandard kurz begruenden.
-- Vor jeder Codex-Aufgabe `AGENTS.md`, `docs/CODEX_AUFTRAGSPRUEFUNG.md` und diese Datei lesen.
+- Der verbindliche reduzierte Standard-Lesestapel steht ausschließlich in
+  `AGENTS.md`. Diese Datei und `docs/CODEX_AUFTRAGSPRUEFUNG.md` nur lesen, wenn
+  `AGENTS.md` oder das konkrete Thema sie verlangt.
 - Wenn sich Projektregeln, Codex-Regeln, Sperren, Modellvorgaben, Arbeitsweise oder wiederkehrende Pruefpflichten aendern, muessen `AGENTS.md` und/oder `docs/CODEX_PROJEKTREGELN.md` automatisch mit angepasst werden.
 
 Codex-Startbefehl:
@@ -101,8 +103,21 @@ Diese Werte duerfen nicht in `Sync/live/settings.json` geschrieben werden.
 - Manuelle IP-Eingabe bleibt der Fallback.
 - Der Statuspunkt in der iPad-Hauptansicht muss die lokale Desktop-Vormerkung selbst laden und ohne Oeffnen der Einstellungen automatisch aktualisieren.
 - Windows benoetigt Bonjour/mDNS nur fuer die automatische Desktop-Suche; der lokale Sync-Dienst darf ohne Bonjour laufen.
-- Implementiert ist ausschließlich der bewusst am iPad gestartete, gerichtete Upload mobiler Eingänge nach `Sync/inbox`; er schreibt nicht direkt in die Desktop-Datenbank.
-- Jede Erweiterung auf Desktop -> iPad, automatische Übertragung oder bidirektionale Zusammenführung benötigt einen neuen ausdrücklichen Auftrag.
+- Implementiert ist der bewusst am iPad gestartete, gerätebezogene
+  inkrementelle Sync. Ein vollständiger Desktop-Snapshot ist ausschließlich
+  Erstabgleich und Kompatibilitätspfad; normale Folgeläufe übertragen nur
+  Änderungen seit dem bestätigten Geräte-Checkpoint.
+- Nach Authentisierung, vollständiger Validierung und Konfliktprüfung dürfen
+  eindeutig konfliktfreie Änderungen innerhalb dieses manuellen Laufs
+  idempotent per Upsert übernommen werden.
+- Ein automatischer Upsert darf keine parallele Änderung, Löschung oder
+  ungültige Fachzuordnung still überschreiben. Konfliktstände müssen vollständig
+  erhalten und sichtbar entscheidbar bleiben.
+- Checkpoints dürfen erst nach bestätigter vollständiger Übernahme fortgeschrieben
+  werden. Bei Abbruch bleibt der vorherige bestätigte Stand gültig.
+- Jede weitere Erweiterung auf Hintergrundübertragung, automatischen
+  Dienststart oder unkontrollierte bidirektionale Zusammenführung benötigt
+  einen neuen ausdrücklichen Auftrag.
 - Geräte-ID, Vertrauensnachweis, Freigabestatus und letzter Geräte-Sync bleiben lokal; offene Nachweise dürfen am Desktop nur als Hash gespeichert werden.
 
 ## Release-Ablauf

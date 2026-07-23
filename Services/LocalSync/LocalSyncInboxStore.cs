@@ -133,7 +133,8 @@ public sealed class LocalSyncInboxStore
         {
             messages.Add("Geräte-ID fehlt.");
         }
-        if (!string.Equals(request.SchemaVersion, "local-sync-inbox-v1", StringComparison.Ordinal))
+        if (!string.Equals(request.SchemaVersion, "local-sync-inbox-v1", StringComparison.Ordinal) &&
+            !string.Equals(request.SchemaVersion, "local-sync-inbox-v2", StringComparison.Ordinal))
         {
             messages.Add("Nicht unterstützte Upload-Schemaversion.");
         }
@@ -195,6 +196,43 @@ public sealed class LocalSyncInboxStore
                 if (!string.Equals(taskId?.Trim(), (request.UploadId ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase))
                 {
                     messages.Add("Stabile Objekt-ID in aufgabe.json stimmt nicht mit der Upload-ID überein.");
+                }
+
+                if (string.Equals(request.SchemaVersion, "local-sync-inbox-v2", StringComparison.Ordinal))
+                {
+                    var schemaVersion = root.TryGetProperty("schemaVersion", out var schemaElement) &&
+                                        schemaElement.TryGetInt32(out var parsedSchema)
+                        ? parsedSchema
+                        : 0;
+                    var operation = root.TryGetProperty("operation", out var operationElement)
+                        ? operationElement.GetString()?.Trim()
+                        : null;
+                    if (schemaVersion < 2 ||
+                        (!string.Equals(operation, "create", StringComparison.OrdinalIgnoreCase) &&
+                         !string.Equals(operation, "update", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        messages.Add("Versioniertes Aufgabenpaket enthält keine gültige Operation.");
+                    }
+
+                    if (string.Equals(operation, "update", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var desktopTaskId = root.TryGetProperty("desktopTaskId", out var desktopTaskElement)
+                            ? desktopTaskElement.GetString()?.Trim()
+                            : null;
+                        var baseRevision = root.TryGetProperty("baseRevision", out var revisionElement)
+                            ? revisionElement.GetString()?.Trim()
+                            : null;
+                        if (!StableIdPattern.IsMatch(desktopTaskId ?? string.Empty))
+                        {
+                            messages.Add("Desktopvorgangs-ID der mobilen Änderung ist ungültig.");
+                        }
+                        if (string.IsNullOrWhiteSpace(baseRevision) ||
+                            !root.TryGetProperty("baseValues", out var baseValuesElement) ||
+                            baseValuesElement.ValueKind != JsonValueKind.Object)
+                        {
+                            messages.Add("Basisrevision oder Basiswerte der mobilen Änderung fehlen.");
+                        }
+                    }
                 }
             }
             catch (JsonException)

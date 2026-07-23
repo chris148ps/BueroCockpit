@@ -491,6 +491,11 @@ Tasks/
 AppData/
 Daten/
 Testdaten/
+BueroCockpit_Backup_*.zip
+BueroCockpit_Rueckfall_*.zip
+backup-exchange-state.local.json
+backup-exchange-journal.local.jsonl
+*.backup-before-*
 
 # Xcode user/workspace files
 iPad/BueroCockpitSnapshotReader/BueroCockpitSnapshotReader.xcodeproj/project.xcworkspace/

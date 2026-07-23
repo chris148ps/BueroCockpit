@@ -21,8 +21,8 @@ Der zusätzliche Inno-Setup-Installer `publish/installer/BueroCockpitSetup.exe` 
 
 Für ein funktionierendes Windows-x64-Auto-Update müssen im GitHub Release mindestens diese Velopack-Dateien enthalten sein:
 
-- `BueroCockpit-win-x64-Setup.exe`
-- `BueroCockpit-<VERSION>-win-x64-full.nupkg`
+- `BueroCockpitApp-win-x64-Setup.exe`
+- `BueroCockpitApp-<VERSION>-win-x64-full.nupkg`
 - `RELEASES-win-x64`
 - `releases.win-x64.json`
 - `assets.win-x64.json`
@@ -31,9 +31,17 @@ Zusätzlich soll die portable Datei hochgeladen werden:
 
 - `BueroCockpit-windows-x64.zip`
 
-Optional kann auch `BueroCockpit-win-x64-Portable.zip` hochgeladen werden.
+Optional kann auch `BueroCockpitApp-win-x64-Portable.zip` hochgeladen werden.
 
-Wichtig: `BueroCockpit-win-x64-Setup.exe` ist das von Velopack erzeugte Setup und gehört zum Auto-Update-System. Es ist nicht mit dem optionalen Inno-Installer `BueroCockpitSetup.exe` zu verwechseln.
+Wichtig: `BueroCockpitApp-win-x64-Setup.exe` ist das von Velopack erzeugte
+Setup und gehört zum Auto-Update-System. Es ist nicht mit dem optionalen
+Inno-Installer `BueroCockpitSetup.exe` zu verwechseln.
+
+Der Velopack-`packId` lautet bewusst `BueroCockpitApp`. Dadurch liegt die
+per-user installierte Anwendung unter `%LOCALAPPDATA%\BueroCockpitApp`,
+während produktive Daten ausschließlich unter
+`%LOCALAPPDATA%\BueroCockpit` liegen. Installation, Update und Deinstallation
+dürfen den produktiven Datenordner nicht als Installationswurzel verwenden.
 
 ## Vorbereitung
 
@@ -102,8 +110,8 @@ dotnet build -r win-x64
 VELOPACK="publish/velopack/win-x64"
 
 test -s "publish/BueroCockpit-windows-x64.zip"
-test -s "$VELOPACK/BueroCockpit-win-x64-Setup.exe"
-test -s "$VELOPACK/BueroCockpit-${VERSION}-win-x64-full.nupkg"
+test -s "$VELOPACK/BueroCockpitApp-win-x64-Setup.exe"
+test -s "$VELOPACK/BueroCockpitApp-${VERSION}-win-x64-full.nupkg"
 test -s "$VELOPACK/RELEASES-win-x64"
 test -s "$VELOPACK/releases.win-x64.json"
 test -s "$VELOPACK/assets.win-x64.json"
@@ -138,8 +146,8 @@ gh release create "v$VERSION" \
   --title "BüroCockpit $VERSION" \
   --notes "<Release Notes>" \
   "publish/BueroCockpit-windows-x64.zip" \
-  "$VELOPACK/BueroCockpit-win-x64-Setup.exe" \
-  "$VELOPACK/BueroCockpit-${VERSION}-win-x64-full.nupkg" \
+  "$VELOPACK/BueroCockpitApp-win-x64-Setup.exe" \
+  "$VELOPACK/BueroCockpitApp-${VERSION}-win-x64-full.nupkg" \
   "$VELOPACK/RELEASES-win-x64" \
   "$VELOPACK/releases.win-x64.json" \
   "$VELOPACK/assets.win-x64.json"

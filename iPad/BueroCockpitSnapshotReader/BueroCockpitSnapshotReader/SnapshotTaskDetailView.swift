@@ -8,6 +8,7 @@ struct SnapshotTaskDetailView: View {
     let attachmentLoader: (SnapshotAttachmentIndex) async throws -> URL
     var onEditMobileInbox: (() -> Void)?
     var onDeleteMobileInbox: (() -> Void)?
+    var onEditDesktopTask: (() -> Void)?
     @State private var previewItem: SnapshotPreviewItem?
     @State private var attachmentNotice: String?
     @State private var loadingAttachmentID: String?
@@ -21,13 +22,17 @@ struct SnapshotTaskDetailView: View {
                         header(task)
                         if isMobileInboxTask(task) {
                             mobileInboxActions
+                        } else {
+                            desktopTaskActions
                         }
                         section(title: "Kunde / Auftrag") {
                             keyValue("Kunde", task.customerName)
+                            keyValue("Adresse / Ort", task.customerAddress)
                             keyValue("E-Mail", task.customerEmail)
                             keyValue("Telefon", task.customerPhone)
                             keyValue("Auftrag / Betreff", task.title)
                             keyValue("Status", task.displayStatus)
+                            keyValue("Monteur", task.technician)
                         }
                         if task.notes?.isEmpty == false || task.shortText?.isEmpty == false {
                             section(title: "Beschreibung / Notiz") {
@@ -41,6 +46,7 @@ struct SnapshotTaskDetailView: View {
                             section(title: "Termine / Datum") {
                             keyValue("Fällig am", task.displayDueDate)
                             keyValue("Wiedervorlage", task.displayReminderDate)
+                            keyValue("Grund", task.followUpReason)
                             keyValue("Erstellt am", task.displayCreatedAt)
                             keyValue("Aktualisiert am", task.displayUpdatedAt)
                             keyValue("Material bestellt am", task.displayMaterialOrderedAt)
@@ -158,6 +164,15 @@ struct SnapshotTaskDetailView: View {
         }
     }
 
+    private var desktopTaskActions: some View {
+        Button {
+            onEditDesktopTask?()
+        } label: {
+            Label("Offline bearbeiten", systemImage: "square.and.pencil")
+        }
+        .buttonStyle(.borderedProminent)
+    }
+
     private func isMobileInboxTask(_ task: SnapshotTask) -> Bool {
         task.categoryIds.contains(SnapshotBrowserViewModel.mobilePendingCategoryID)
     }
@@ -198,6 +213,7 @@ struct SnapshotTaskDetailView: View {
         [
             task.displayDueDate,
             task.displayReminderDate,
+            SnapshotDisplayFormatter.displayText(task.followUpReason),
             task.displayCreatedAt,
             task.displayUpdatedAt,
             task.displayMaterialOrderedAt

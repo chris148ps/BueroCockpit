@@ -4,6 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PUBLISH_ROOT="$PROJECT_ROOT/publish"
+PROJECT_FILE="$PROJECT_ROOT/BueroCockpit.csproj"
+APP_ID="BueroCockpitApp"
+
+VERSION="$(perl -ne 'if (/<Version>([^<]+)<\/Version>/) { print $1; exit }' "$PROJECT_FILE")"
+if [ -z "$VERSION" ]; then
+  echo "Projektversion konnte nicht aus $PROJECT_FILE gelesen werden."
+  exit 1
+fi
 
 missing=0
 
@@ -67,10 +75,11 @@ check_velopack_runtime() {
     return
   fi
 
-  check_glob "RELEASES-Datei" "$dir/RELEASES*"
-  check_glob "Release-JSON" "$dir/releases*.json"
-  check_glob "Full-NuGet-Paket" "$dir/*-full.nupkg"
-  check_glob "Setup-EXE" "$dir/*Setup.exe"
+  check_file "RELEASES-Datei" "$dir/RELEASES-$runtime"
+  check_file "Release-JSON" "$dir/releases.$runtime.json"
+  check_file "Asset-JSON" "$dir/assets.$runtime.json"
+  check_file "Full-NuGet-Paket" "$dir/$APP_ID-$VERSION-$runtime-full.nupkg"
+  check_file "Setup-EXE" "$dir/$APP_ID-$runtime-Setup.exe"
 }
 
 echo "Prüfe Release-Artefakte..."

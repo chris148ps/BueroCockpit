@@ -1,47 +1,55 @@
 # Letzter Codex-Lauf
 
+## Datum/Uhrzeit
+
+2026-07-23 20:02 +0200
+
 ## Auftrag
 
-BC-0032: Fehler beheben, durch den Vorgänge nach dem Workflowstatus `Erledigt` aus Kategorien, Zählern und Suche verschwanden.
+BC-0034 – Vollständigen Arbeitsstand sichern und Windows-x64-
+Releasekandidaten `0.4.23` für den Terminalserver vorbereiten.
 
 ## Ergebnis
 
-BC-0032 ist abgeschlossen.
+- Der vollständige uncommittete Ausgangsstand wurde außerhalb des Repositorys
+  als verifiziertes Git-Bundle, Quellarchiv, Binär-Diff und SHA-256-Inventar
+  gesichert.
+- Lokaler Branch `codex/release-0.4.23-rc` wurde ohne Verlust vorhandener
+  Änderungen angelegt.
+- Version `0.4.23`, Windows-Publish, portable ZIP, Velopack-Setup,
+  Full-NuGet-Paket, Portable-Paket und Update-Manifeste wurden frisch erzeugt.
+- Die Installationswurzel `%LOCALAPPDATA%\BueroCockpitApp` ist vom produktiven
+  Datenpfad `%LOCALAPPDATA%\BueroCockpit` getrennt.
+- Ein lokaler Update-Test `0.4.22 → 0.4.23` und der vollständige
+  Terminalserver-Testablauf wurden vorbereitet.
 
-Ursache war der Filter `IsArchivedForSearch`: Er behandelte den Workflowstatus `Erledigt` fälschlich wie das technische Archiv. Status, Abschlusszeit und Zielkategorie wurden bereits korrekt gespeichert; der Auftrag wurde anschließend jedoch ausgeblendet.
+## Prüfungen
 
-## Geänderte Bereiche
-
-- `Services/CategoryHierarchyFilter.cs`: Nur Status oder Kategorie `Archiv` gelten als archiviert.
-- `MainWindow.axaml.cs`: Kategorien, Zähler, Suche und Archivdialog verwenden die korrigierte Prüfung.
-- `tests/BueroCockpit.WorkflowTests/Program.cs`: Regressionstest für Status, Kategorieverschiebung, Sichtbarkeit, Archivabgrenzung und Neustartpersistenz.
-- Auftragsarchiv, Journal, Projektstatus und Zeiger auf die nächste Aufgabe wurden aktualisiert.
-
-## Prüfung
-
-- Reale macOS-Reproduktion vor der Korrektur: Kategorie `Erledigt` zeigte trotz gespeichertem Auftrag Zähler `0` und `0 Aufgaben`.
-- Nach der Korrektur mit demselben isolierten Datenstand: Zähler `1`, Auftrag sichtbar, Status und Kategoriepfad korrekt.
-- Nach vollständigem App-Neustart weiterhin sichtbar.
-- Workflow-, Kategorie- und Netzwerk-Integrationstests: erfolgreich.
-- `git diff --check`: erfolgreich.
 - `dotnet build`: erfolgreich, 0 Warnungen, 0 Fehler.
-- `dotnet build -r osx-arm64`: erfolgreich, 0 Warnungen, 0 Fehler.
 - `dotnet build -r win-x64`: erfolgreich, 0 Warnungen, 0 Fehler.
+- Workflow-/Kategorie-/Netzwerk-Integrationstests: erfolgreich.
+- Backup-Austauschtests: erfolgreich.
+- iPad-Simulator-Build: erfolgreich.
+- Windows-Publish, Velopack-Paketierung, Manifest-, PE-, Archivinhalt- und
+  SHA-256-Prüfung: erfolgreich.
+- Auslieferungsarchive enthalten keine Datenbanken, Produktiv-, Test- oder
+  PDB-Dateien.
+
+## Artefakte
+
+- Übergabe:
+  `/Users/christian/AppProjekte/BueroCockpit/publish/terminalserver-0.4.23-rc`
+- Installer:
+  `/Users/christian/AppProjekte/BueroCockpit/publish/terminalserver-0.4.23-rc/BueroCockpitApp-win-x64-Setup.exe`
+- Windows-Publish:
+  `/Users/christian/AppProjekte/BueroCockpit/publish/windows-x64`
+- Externe Ausgangssicherung:
+  `/Users/christian/AppProjekte/BueroCockpit-RC-Backups/20260723-0.4.23-preparation`
 
 ## Grenzen
 
-- Kein visueller Windows-Test; der Windows-Runtime-Build war erfolgreich.
-- Kein Commit, Push, Merge, Tag, Release oder Versionswechsel wurde im BC-0032-Lauf durchgeführt.
-- Der lokale Branch `codex/work` kann weiterhin umfangreiche uncommittete Änderungen enthalten; diese wurden erhalten.
-
-## Aktuelle Architekturentscheidung
-
-- Produktivbetrieb künftig auf dem Windows-Terminalserver.
-- Nur ein RDP-Benutzer; produktive Daten dürfen unter `%LOCALAPPDATA%\BueroCockpit` liegen.
-- Keine direkt in OneDrive geöffnete produktive SQLite-Datenbank.
-- OneDrive nur als Austauschort für geschlossene Backup-Archive.
-- iPad-Datenaustausch weiterhin per Direktübertragung im lokalen Netzwerk.
-
-## Nächster Schritt
-
-Den vollständigen Entwicklungsstand sicher in einen Windows-x64-Releasekandidaten für den Terminalserver überführen und einen Erstinstaller mit Velopack-fähiger Auto-Update-Basis vorbereiten. Kein Versionswechsel oder Release ohne ausdrückliche Freigabe.
+- Kein Commit, Push, Merge, Tag oder GitHub-Release.
+- Keine produktiven Daten oder Cloud-Dateien verändert.
+- Kein realer Windows-Start auf macOS möglich.
+- Artefakte nicht codesigniert.
+- Terminalserver-Abnahme ist BC-0035.

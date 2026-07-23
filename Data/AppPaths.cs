@@ -10,41 +10,28 @@ public static class AppPaths
     private const string DeskFilesRelativeDirectory = "DeskItems/Files";
 
     public static string DefaultAppDataDirectory { get; } = GetDirectoryOverride(DataDirectoryOverrideVariable) ??
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolderName);
+        GetDefaultAppDataDirectory();
 
     public static string LocalConfigDirectory { get; } = GetDirectoryOverride(LocalConfigDirectoryOverrideVariable) ??
         GetLocalConfigDirectory();
 
     public static string AppDataDirectory { get; private set; } = DefaultAppDataDirectory;
-    public static string BootstrapSettingsPath => Path.Combine(LocalConfigDirectory, "storage-location.local.json");
-    public static string LegacyBootstrapSettingsPath => Path.Combine(DefaultAppDataDirectory, "storage-location.json");
     public static string DatabasePath => Path.Combine(AppDataDirectory, "buerocockpit.db");
     public static string SettingsPath => Path.Combine(AppDataDirectory, "settings.json");
     public static string LocalSettingsPath => Path.Combine(LocalConfigDirectory, "settings.local.json");
     public static string LocalNetworkDevicesPath => Path.Combine(LocalConfigDirectory, "local-network-devices.json");
+    public static string LocalNetworkSyncStatePath => Path.Combine(LocalConfigDirectory, "local-network-sync-state.json");
+    public static string BackupExchangeStatePath => Path.Combine(LocalConfigDirectory, "backup-exchange-state.local.json");
+    public static string BackupExchangeJournalPath => Path.Combine(LocalConfigDirectory, "backup-exchange-journal.local.jsonl");
     public static string LockPath => Path.Combine(AppDataDirectory, "buerocockpit.lock");
     public static string TasksDirectory => Path.Combine(AppDataDirectory, "Tasks");
     public static string BackupDirectory => Path.Combine(AppDataDirectory, "Backups");
     public static string DeskItemsDirectory => Path.Combine(AppDataDirectory, "DeskItems");
     public static string DeskFilesDirectory => Path.Combine(DeskItemsDirectory, "Files");
 
-    public static bool IsUsingCustomDataDirectory =>
-        !string.Equals(AppDataDirectory, DefaultAppDataDirectory, StringComparison.Ordinal);
-
     public static void UseDefaultAppDataDirectory()
     {
         AppDataDirectory = DefaultAppDataDirectory;
-    }
-
-    public static void UseAppDataDirectory(string? directory)
-    {
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            UseDefaultAppDataDirectory();
-            return;
-        }
-
-        AppDataDirectory = Path.GetFullPath(ExpandHomeDirectory(Environment.ExpandEnvironmentVariables(directory.Trim())));
     }
 
     private static string? GetDirectoryOverride(string variableName)
@@ -73,15 +60,6 @@ public static class AppPaths
         }
 
         var trimmedPath = path.Trim();
-
-        // Wichtig für macOS/Linux:
-        // Windows-Pfade wie "C:\Users\Installation\AppData\Roaming\BueroCockpit\Tasks\..."
-        // gelten dort nicht als rooted path. Deshalb zuerst auf Tasks/...,
-        // DeskItems/... usw. kürzen und dann relativ zum aktuellen Datenordner auflösen.
-        if (TryGetRelativeLegacyBueroCockpitPath(trimmedPath, out var legacyRelativePath))
-        {
-            return GetAbsolutePathFromRelative(legacyRelativePath);
-        }
 
         if (!Path.IsPathRooted(trimmedPath))
         {
@@ -120,11 +98,6 @@ public static class AppPaths
         }
 
         var trimmedPath = path.Trim();
-
-        if (TryGetRelativeLegacyBueroCockpitPath(trimmedPath, out var legacyRelativePath))
-        {
-            return GetAbsolutePathFromRelative(legacyRelativePath);
-        }
 
         if (Path.IsPathRooted(trimmedPath))
         {
@@ -249,11 +222,6 @@ public static class AppPaths
 
         var trimmedPath = path.Trim();
 
-        if (TryGetRelativeLegacyBueroCockpitPath(trimmedPath, out var legacyRelativePath))
-        {
-            return NormalizeRelativePath(legacyRelativePath).Replace('\\', '/');
-        }
-
         if (!Path.IsPathRooted(trimmedPath))
         {
             return NormalizeRelativePath(trimmedPath).Replace('\\', '/');
@@ -345,6 +313,23 @@ public static class AppPaths
         return Path.Combine(localApplicationData, folderName);
     }
 
+    private static string GetDefaultAppDataDirectory()
+    {
+        return GetDefaultAppDataDirectoryForPlatform(
+            OperatingSystem.IsWindows(),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+    }
+
+    public static string GetDefaultAppDataDirectoryForPlatform(
+        bool isWindows,
+        string localApplicationData,
+        string applicationData)
+    {
+        var baseDirectory = isWindows ? localApplicationData : applicationData;
+        return Path.Combine(baseDirectory, AppFolderName);
+    }
+
     private static string GetAbsolutePathFromRelative(string relativePath)
     {
         var normalizedRelativePath = NormalizeRelativePath(relativePath).Replace('/', Path.DirectorySeparatorChar);
@@ -421,80 +406,7 @@ public static class AppPaths
             return true;
         }
 
-        return TryGetRelativeLegacyBueroCockpitPath(normalizedAbsolutePath, out relativePath);
-    }
-
-    private static bool TryGetRelativeLegacyBueroCockpitPath(string path, out string relativePath)
-    {
         relativePath = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        var normalized = path.Trim().Replace('\\', '/');
-
-        // Plattformwechsel-Fix:
-        // Alte absolute Windows-/Mac-Pfade sollen direkt ab den bekannten
-        // Daten-Unterordnern gekürzt werden. Damit ist es egal, ob davor
-        // "C:/Users/Installation/AppData/Roaming/BueroCockpit" oder ein
-        // OneDrive-/macOS-Stammordner steht.
-        var knownRelativeRoots = new[]
-        {
-            "Tasks/",
-            "DeskItems/",
-            "Backups/"
-        };
-
-        foreach (var knownRoot in knownRelativeRoots)
-        {
-            var marker = "/" + knownRoot;
-            var markerIndex = normalized.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-
-            if (markerIndex >= 0)
-            {
-                var suffix = normalized[(markerIndex + 1)..];
-                if (!string.IsNullOrWhiteSpace(suffix))
-                {
-                    relativePath = NormalizeRelativePath(suffix);
-                    return true;
-                }
-            }
-
-            if (normalized.StartsWith(knownRoot, StringComparison.OrdinalIgnoreCase))
-            {
-                relativePath = NormalizeRelativePath(normalized);
-                return true;
-            }
-        }
-
-        var markerByAppFolder = $"/{AppFolderName}/";
-        var markerByAppFolderIndex = normalized.IndexOf(markerByAppFolder, StringComparison.OrdinalIgnoreCase);
-
-        if (markerByAppFolderIndex >= 0)
-        {
-            var suffix = normalized[(markerByAppFolderIndex + markerByAppFolder.Length)..];
-            if (!string.IsNullOrWhiteSpace(suffix))
-            {
-                relativePath = NormalizeRelativePath(suffix);
-                return true;
-            }
-        }
-
-        var oldAppFolderPrefix = "BueroCockpit/";
-        var oldAppFolderIndex = normalized.IndexOf(oldAppFolderPrefix, StringComparison.OrdinalIgnoreCase);
-
-        if (oldAppFolderIndex >= 0)
-        {
-            var suffix = normalized[(oldAppFolderIndex + oldAppFolderPrefix.Length)..];
-            if (!string.IsNullOrWhiteSpace(suffix))
-            {
-                relativePath = NormalizeRelativePath(suffix);
-                return true;
-            }
-        }
-
         return false;
     }
 

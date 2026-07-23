@@ -84,9 +84,19 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 - Neue und bewusst geänderte Vorgänge schreiben genau eine Kategorie fort.
   Unveränderte Legacy-Mehrfachzuordnungen bleiben beim Laden und bei reinen
   Konfigurationsänderungen unverändert.
-- Navigation, Zähler, Suche, Übersicht und Detail verwenden die aktuelle
-  Kategorie-ID; Status- und Kategorie-Badges bleiben getrennt und zeigen beim
-  Kategorie-Badge den Pfad.
+- Navigation, Zähler und Suche verwenden für eine gewählte normale Kategorie
+  dieselbe rekursive Menge aus eigener ID und allen Nachfolger-IDs. Eine
+  Oberkategorie zeigt damit direkte und beliebig tief untergeordnete Vorgänge
+  ohne Doppelungen; Status- und Kategorie-Badges bleiben getrennt.
+- Der Workflowstatus `Erledigt` bleibt in seiner frei konfigurierten normalen
+  Zielkategorie sichtbar. Nur Status `Archiv` oder die tatsächliche Kategorie
+  `Archiv` werden vom normalen Kategorien-, Zähler- und Suchfilter
+  ausgeschlossen.
+- Vorgänge besitzen den optionalen, additiv migrierten `FollowUpReason`.
+  Detailansicht, Speichern, Duplizieren und Desktop-iPad-Snapshot erhalten den
+  Wert. Die Wiedervorlagenübersicht zeigt Kunde, Titel, tatsächlichen
+  Auftragstermin, Wiedervorlagedatum, optionalen Grund und Monteur; nur der
+  Auftragstermin steuert die farbliche Terminmarkierung.
 - Neue mobile Eingänge und Duplikate verwenden die Statuszuordnung. Der
   additive Snapshot-Export enthält `currentCategoryId`, `workflowType`,
   `workflowStep` und `status`; alte Leser tolerieren die zusätzlichen Felder.
@@ -113,30 +123,137 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   nach einem Neustart erhalten; ein leerer ComboBox-Auswahlzustand überschreibt
   sie nicht mit `Erstellt am`.
 
+## Lokale Datenhaltung und manueller Desktop-Austausch
+
+- Windows verwendet ausschließlich `%LOCALAPPDATA%\BueroCockpit`, macOS
+  ausschließlich `~/Library/Application Support/BueroCockpit`. Der
+  Test-Override `BUEROCOCKPIT_DATA_DIRECTORY` bleibt nur für isolierte
+  automatisierte Prüfungen erhalten.
+- Frühere `storage-location.json`- und
+  `storage-location.local.json`-Konfigurationen werden weder gelesen noch
+  automatisch migriert. Die frühere OneDrive-Erkennung,
+  Windows-/macOS-Pfadübersetzung und das Migrationsskript sind aus dem aktiven
+  Produktivweg entfernt.
+- `OneDriveEditDirectory` und `IpadLiveFileTargetPath` sind nicht mehr Teil des
+  aktiven Desktop-Einstellungsmodells. Alte JSON-Eigenschaften werden ignoriert.
+  Die Desktop-App erzeugt weder beim Speichern noch manuell eine
+  `live.bclive`-Datei.
+- Der lokale Netzwerkdienst erzeugt seinen `.bcsnapshot` ausschließlich in
+  einem isolierten temporären Ordner und liefert ihn über den freigegebenen
+  lokalen Netzwerkendpunkt aus. Der Paketgenerator enthält weiterhin die
+  vollständige zentrale Monteurliste.
+- Alte absolute Windows-, macOS- oder Cloudpfade werden nicht mehr automatisch
+  anhand von `Tasks`, `DeskItems` oder `BueroCockpit` auf den aktuellen lokalen
+  Datenordner umgeschrieben. Neue verwaltete Pfade bleiben relativ zum lokalen
+  Datenordner.
+- Ein Symlink oder eine Verzeichnisverknüpfung im produktiven Standardpfad
+  blockiert den Start, bevor eine SQLite-Datenbank geöffnet wird. Vorhandene
+  Cloud-Ordner werden dabei nicht verändert.
+- Fehlt lokal eine Datenbank, bietet ein Startdialog den bewussten Importweg
+  unter `Daten & Pfade` an; eine alte Cloudquelle wird nicht automatisch
+  erkannt oder übernommen.
+- Der lokal konfigurierte `BackupExchangeDirectory` darf auf OneDrive liegen,
+  enthält aber ausschließlich vollständig geschlossene ZIP-Archive. Laufende
+  SQLite-, WAL- oder Lock-Dateien werden dort nie geöffnet.
+- Der zusätzliche Austausch-Export verwendet die SQLite-Backup-API, erstellt
+  ein vollständiges Produktivdaten-ZIP zunächst lokal, versieht jede Datei mit
+  Größe und SHA-256 in `manifest.json` und veröffentlicht das Archiv erst nach
+  vollständigem Schreiben über eine atomare Umbenennung im Austauschordner.
+- Der Austausch-Import validiert ZIP-Pfade, Manifest, vollständige Dateiliste,
+  SHA-256, Datenbankgröße, `PRAGMA integrity_check` und Schema-Version, erzeugt
+  zwingend ein vollständiges lokales Rückfall-ZIP und aktiviert den geprüften
+  Stand über lokalen Verzeichnistausch mit automatischer Rückstellung bei
+  Fehlern. Danach werden die App-Daten neu geladen.
+- Backup-ID, Parent-ID, Datenbankrevision, letzte Import-/Exportwerte und
+  Gerätebezug bleiben unter Windows in
+  `%LOCALAPPDATA%\BueroCockpit\backup-exchange-state.local.json` und unter
+  macOS in
+  `~/Library/Application Support/BueroCockpitLocal/backup-exchange-state.local.json`;
+  der lokale Verlauf liegt jeweils daneben als
+  `backup-exchange-journal.local.jsonl`.
+- Gerätelokale Einstellungen, Gerätefreigaben, Netzwerk-Checkpoints,
+  Austauschzustand und -journal werden nicht exportiert und bleiben beim
+  vollständigen Import auf dem jeweiligen Zielgerät erhalten. Das gilt
+  ausdrücklich auch unter Windows, wo lokale Konfiguration und Produktivdaten
+  denselben OS-Stammordner verwenden.
+- Lokale Änderungen, abweichende Parent-ID, unabhängige Abstammung, ältere
+  Archive und offenbar veraltete Backups desselben Geräts erzeugen eine
+  Konfliktwarnung. Ein erzwungener Import benötigt nach der normalen
+  Ersetzungsbestätigung eine zweite eindeutige Bestätigung. Es gibt keine
+  automatische Zusammenführung.
+- Die bestehenden lokalen `.db`-Sicherungen bleiben erhalten und verwenden
+  nun ebenfalls die SQLite-Backup-API.
+- Auf dem aktuellen Mac zeigt der Sollpfad noch als Symlink auf
+  `~/Library/CloudStorage/OneDrive-ElektroSchweim/Dokumente/BueroCockpit_gemeinsame_Daten`.
+  Die App blockiert diesen Zustand. Der Symlink und der OneDrive-Altbestand
+  wurden nicht verändert; die bewusste lokale Einrichtung und der erste echte
+  Import stehen noch aus.
+
 ## Lokaler Netzwerk-Sync
 
-- Der erste echte lokale Netzwerk-Sync ist gerichtet `iPad -> Desktop` und wird
-  ausschließlich auf dem iPad durch `Jetzt synchronisieren` gestartet.
+- Der lokale Netzwerk-Sync bleibt ausschließlich manuell und wird auf dem iPad
+  durch `Jetzt synchronisieren` gestartet. Der normale Lauf verwendet
+  `local-sync-delta-v1` und überträgt nach dem bestätigten Erstabgleich nur
+  geänderte Objekte und Dateien.
 - Der Desktop-Dienst startet weiterhin nur manuell und kündigt nur während dieses
   Laufs optional `_buerocockpit._tcp` per Bonjour an; die manuelle IP bleibt erhalten.
 - Ein iPad wird zunächst mit stabiler Geräte-ID und lokalem Vertrauensnachweis
   vorgemerkt. Der Desktop speichert nur dessen SHA-256-Hash und verlangt eine
-  ausdrückliche Freigabe; Freigaben sind widerrufbar.
+  ausdrückliche Freigabe; Freigaben sind widerrufbar. Ein Gerät kann nach
+  Bestätigung vollständig aus den Desktop-Einstellungen gelöscht werden.
+  Dabei werden nur lokale Freigabe und gerätespezifischer Checkpoint entfernt;
+  Nutzdaten bleiben erhalten und eine erneute Kopplung benötigt einen
+  Erstabgleich.
+- Jedes Gerät besitzt einen lokalen bestätigten Checkpoint mit Serverrevision,
+  Server- und Clientsequenz, API-Version, Zeitpunkt und Status. Der ausführliche
+  Fingerprintstand liegt in
+  `BueroCockpitLocal/local-network-sync-state.json`; ein Ack verschiebt ihn erst
+  nach vollständiger iPad-Übernahme.
+- `GET /local-sync/changes` liefert nur geänderte Aufträge, Kategorien,
+  Monteure, Anhangsmetadaten und Dateien sowie unterstützte Tombstones.
+  `GET /local-sync/snapshot` bleibt für Erstabgleich, verlorenen Checkpoint und
+  alte iPad-Clients kompatibel. Die SQLite-Datenbank wird niemals übertragen.
+- Das iPad prüft SHA-256 und Länge jeder Deltadatei, schreibt den neuen lokalen
+  Stand über Staging und atomaren Verzeichnistausch und bestätigt ihn erst
+  danach über `POST /local-sync/ack`. Fehler lassen Offline-Stand und alten
+  Checkpoint erhalten.
 - Authentisierte Uploads übernehmen versionierte Mobile-Inbox-Pakete mit
   `aufgabe.json`, Originalfotos, Vorschauen, markierten Fassungen, Skizzen und
-  Dateien zunächst atomar nach `Sync/inbox` und niemals direkt in die Datenbank.
+  Dateien zunächst atomar nach `Sync/inbox`.
+- Konfliktfreie Neuanlagen und Änderungen werden danach idempotent per Upsert
+  gespeichert. Mobile Aufgaben-IDs bleiben stabil; Anhangs-IDs werden aus
+  Paket-ID und relativem Pfad deterministisch gebildet. Erst der erfolgreiche
+  fachliche Desktopstand wird am iPad als übertragen markiert.
+- Basis-, Desktop- und iPad-Wert werden feldweise verglichen. Unabhängige
+  Änderungen werden automatisch zusammengeführt; gleichzeitige Änderungen
+  desselben Felds bleiben im mobilen Eingang und sind im bestehenden
+  Prüfdialog manuell entscheidbar.
 - Stabile IDs, deterministische Inhaltsfingerprints und Belege verhindern
-  Duplikate. Abweichender Inhalt unter derselben ID wird vollständig unter
+  Duplikate. Abweichender Paketinhalt unter derselben ID wird vollständig unter
   `Sync/conflicts` erhalten und überschreibt keinen Desktopbestand.
 - Pfade, Größen, SHA-256-Prüfsummen und grundlegende Dateisignaturen werden vor
   der Bestätigung geprüft. Unterbrochene oder unvollständige Pakete erzeugen
   keinen sichtbaren Teilimport; bereits atomar abgelegte Pakete werden nach einem
   Bestätigungsabbruch bei Wiederholung erkannt.
-- Die iPad-App zeigt Ziel, konkrete Fortschrittsphase, Abschlusszahlen und letzten
-  erfolgreichen Zeitpunkt. Lokale Originale werden in dieser Stufe auch nach
-  Erfolg nicht automatisch gelöscht.
-- Desktop -> iPad über das lokale Netzwerk, automatische Bidirektionalität und
-  direkter Produktivimport bleiben ausdrücklich nicht implementiert.
+- Die iPad-App zeigt Ziel, konkrete Fortschrittsphase, neue/geänderte
+  Empfangs- und Sendezahlen, Anhänge, Referenzdaten, übersprungene unveränderte
+  Objekte, Konflikte und Fehler. Ein Leerlauf zeigt `Keine Änderungen
+  vorhanden`. Lokale Originale werden auch nach Erfolg nicht automatisch
+  gelöscht.
+- Bestehende Desktopaufträge sind auf dem iPad offline für Notiz, stabile
+  Kategorie-ID, Vorgangstyp/Status, Termin, Wiedervorlage samt Grund und
+  Monteur bearbeitbar. Kundendaten und Betreff bleiben in dieser Stufe
+  desktopgeführt.
+- `local-sync-inbox-v2` trennt Paket-ID und Desktopvorgangs-ID und erhält
+  Basisrevision sowie Basiswerte. Nach bestätigtem Upsert wird das lokale Paket
+  als übertragen markiert, aber nicht gelöscht.
+- Die zentrale Monteurliste wird im lokalen Sync-Paket vollständig mit stabilen
+  IDs übertragen. Die Offline-Monteurauswahl enthält deshalb alle
+  konfigurierten Monteure und zusätzlich tolerierte, nur in Altaufträgen
+  vorkommende Namen.
+- Hintergrundzusammenführung, automatischer Dienststart und stille
+  Konfliktüberschreibungen bleiben ausgeschlossen. Eine sichtbare
+  Reparaturfunktion und iPad-seitige Löschbefehle sind noch nicht implementiert.
 
 ## Übergang für bestehende Daten – Variante A
 
@@ -168,6 +285,43 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
 
 ## Prüfstand und nachgelagerte Abnahme
 
+- Der vollständige uncommittete Stand von `codex/work` wurde vor der lokalen
+  Releasevorbereitung als verifiziertes Git-Bundle, Quellarchiv, Binär-Diff
+  und SHA-256-Inventar außerhalb des Repositorys gesichert. Der lokale
+  Releasekandidaten-Branch `codex/release-0.4.23-rc` enthält weiterhin alle
+  Änderungen; es wurde nichts verworfen.
+- Version `0.4.23` liegt als lokaler, nicht veröffentlichter
+  Windows-x64-Releasekandidat vor. Windows-Publish, portable ZIP,
+  Velopack-Setup, Full-NuGet-Paket, Portable-Paket und Manifestdateien wurden
+  frisch erzeugt und per SHA-256 geprüft.
+- Der Velopack-`packId` lautet ab diesem Releasekandidaten
+  `BueroCockpitApp`. Dadurch liegt die Programm- und Updatewurzel unter
+  `%LOCALAPPDATA%\BueroCockpitApp` und der produktive Datenordner bleibt
+  getrennt unter `%LOCALAPPDATA%\BueroCockpit`. Bestehende veröffentlichte
+  Velopack-Installationen mit dem früheren `packId` benötigen deshalb einen
+  einmaligen manuellen Installerwechsel; der alte Terminalserverstand besitzt
+  noch keine Auto-Update-Funktion und wird ohnehin manuell abgelöst.
+- Ein lokaler Update-Testkanal enthält eine synthetische Velopack-Basis
+  `0.4.22` aus demselben geprüften Quellstand und den Ziel-Feed `0.4.23`.
+  Dieser Kanal prüft ausschließlich den Update-Mechanismus und ist keine
+  historische Binärkopie des veröffentlichten Release `v0.4.22`.
+- Desktop-Build, Windows-x64-Build, Workflow-/Kategorie-/Netzwerk-
+  Integrationstests, Backup-Austauschtests und iPad-Simulator-Build sind
+  erfolgreich. Die erzeugten Archive enthalten keine Datenbank, Produktiv-,
+  Test- oder PDB-Dateien.
+- Ein realer Windows-Start, die Ablösung der alten Inno-Installation, die
+  Datenbestandserhaltung, Verknüpfungen, Apps-&-Features-Eintrag und der
+  lokale Velopack-Updateweg sind noch auf dem Terminalserver zu prüfen. Die
+  Artefakte sind nicht codesigniert; SmartScreen kann warnen. Es wurde kein
+  Commit, Push, Tag oder GitHub-Release erstellt.
+- Der frühere macOS-Fehler, bei dem ein korrekt gespeicherter Status
+  `Erledigt` und seine normale Zielkategorie anschließend durch den
+  Archivfilter ausgeblendet wurden, ist behoben. Der Fehler wurde im echten
+  macOS-Bundle mit isolierten Pfaden als Zähler 0 und `0 Aufgaben`
+  reproduziert. Nach der Korrektur zeigte derselbe Datenstand Zähler 1 und den
+  Auftrag; nach vollständigem App-Neustart blieb er sichtbar. Ein
+  automatisierter Regressionstest deckt Status, Abschlusszeit, stabile
+  Zielkategorie, Sichtbarkeit, Archivabgrenzung und Repository-Neustart ab.
 - Die isolierten Repository-, Workflow-, Legacy- und Snapshot-Exporttests sind
   erfolgreich. Das reale macOS-Bundle wurde mit isolierten Pfaden sichtbar
   bedient; Neuanlage, Statuswechsel, Haupt- und Unterkategorieauswahl,
@@ -194,6 +348,38 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   neuer Upload, Originalfoto, mehrere Fotos, Skizze, Datei, Wiederholung,
   Prüfsummenfehler, unvollständiges JSON, Konflikt und Wiederaufnahme nach fehlendem
   Beleg. Der iOS-Simulator-Build ist erfolgreich.
+- Der inkrementelle Store wurde zusätzlich mit 100 isolierten Aufgaben,
+  gerätebezogenem Erstabgleich, falschem und richtigem Ack, Neustart, Leerlauf,
+  Einzeländerung, geänderter Datei, Wiederholung nach Abbruch, Referenzdaten,
+  Tombstones, mehreren Geräten und verlorenem Checkpoint geprüft. Im
+  reproduzierbaren Test wurden von 100 vorhandenen Aufgaben genau 1 und von 1
+  Anhang genau 1 übertragen; das Vollpaket hatte 2758 Byte, die Deltaantwort
+  1213 Byte.
+- Im isolierten HTTP-Loopback hatte der vollständige Erstabgleich 1357 Byte und
+  benötigte 1,90 ms; die anschließend unveränderte Deltaantwort hatte 481 Byte
+  und benötigte 2,86 ms. Diese Zeiten sind lokale Einzelmessungen und keine
+  Aussage zur Geschwindigkeit eines realen WLANs.
+- Ein isoliertes lokales Netzwerkpaket mit vier zentral konfigurierten
+  Monteuren enthielt alle vier unterschiedlichen stabilen IDs. Der aktuelle
+  signierte Gerätebuild wurde anschließend als getrennte Test-App mit eigener
+  Bundle-ID auf dem physischen iPad Air 7 installiert. Über reales WLAN
+  `192.168.178.52:53942` lud und las der echte iPad-Sync-Client einen isolierten
+  Erstabgleich mit einem Auftrag und allen vier Monteuren, bestätigte
+  `server-1` und erhielt beim zweiten Lauf 0 Aufträge, 0 Dateien sowie
+  `Keine Änderungen vorhanden`. Test-App und Testdienst wurden danach
+  entfernt. Die reguläre iPad-App und ihr Datencontainer blieben unverändert.
+- Das Entfernen einer Gerätekopplung wurde isoliert geprüft: Freigabe und
+  Checkpoint verschwinden, das Gerät erhält bei laufendem Dienst sofort HTTP
+  403, andere Geräte-Checkpoints und bereits empfangene Inbox-Daten bleiben
+  erhalten. Die sichtbare Bestätigungsbedienung in der Desktop-App ist noch
+  Teil der nachgelagerten Windows-Abnahme.
+- Die vollständige Firmen-Windows-Abnahme sowie physische iPad-Neuanlage,
+  Rückänderung, Foto-/Dateiübertragung, sichtbare Konfliktentscheidung und
+  echter Abbruch wurden in diesem Lauf nicht ausgeführt.
+- Der neue Desktop-Snapshot-Endpunkt wurde ebenfalls mit temporären Daten
+  geprüft: ohne Kopplung HTTP 403, mit freigegebenem Nachweis unveränderte
+  versionierte Nutzlast. Die reale Snapshot-Erzeugung enthält Adresse, Monteur
+  und Wiedervorlagegrund; der iPad-Simulator-Build ist erfolgreich.
 - Die responsive Ablaufleiste wurde im echten macOS-Bundle in beiden Themes,
   beiden Vorgangstypen, allen Status und von breiter bis minimaler Fensterbreite
   sichtbar bedient. Alle Schritte blieben erreichbar und die Statuszuordnungen
@@ -227,16 +413,18 @@ Die Desktop-App setzt die konfigurierbare Fachlogik um:
   einer ausgelassenen Vorschau. Der Fehler wurde mit einer lesenden Kopie der
   produktiven Datenbank und isolierter lokaler Konfiguration vor der Änderung
   reproduziert und nach der Änderung im echten macOS-Bundle erneut geprüft.
+- Die sichtbare Abnahme des neuen Wiedervorlagenlayouts wurde nicht als
+  bestanden dokumentiert: Die Computer-Use-Appauflösung startete das alte
+  macOS-Bundle außerhalb der isolierten Testumgebung. Der Prozess wurde sofort
+  beendet. Die produktive Datenbank blieb nach read-only Prüfung unverändert;
+  lediglich `buerocockpit.lock` im zentralen Ordner erhielt einen neuen
+  Zeitstempel und wurde wegen des Verbots von Cloud-Dateiänderungen nicht
+  eigenmächtig gelöscht.
 
-## Verbindliche Projektentscheidungen
+## Quellen für verbindliche Entscheidungen
 
-- `docs/ARBEITSKATEGORIEN.md` ist die Fachquelle für Vorgangstyp,
-  Workflowstatus, benutzerdefinierte Kategorien und Statuszuordnungen.
-- Historische Journal-Einträge beschreiben frühere Stände und setzen das neue
-  Zielbild nicht außer Kraft.
-- Vor jedem Codex-Auftrag und jedem Release ist die Konsistenzprüfung aus
-  `docs/CODEX_AUFTRAGSPRUEFUNG.md` Pflicht.
-- Jeder ungeklärte Widerspruch zwischen Regeln, Dokumentation, Design und App
-  stoppt einen Release.
-- Kein Release, Tag, Versionswechsel oder Eingriff in Produktivdaten ohne
-  ausdrückliche Freigabe.
+Dieser Projektstatus beschreibt den tatsächlich erreichten Stand, ist aber
+keine zweite Architekturquelle. Dauerhafte Architekturentscheidungen stehen in
+`docs/PROJEKTREGISTER.md`; Arbeits- und Leseregeln stehen in `AGENTS.md`.
+Thematische Fach- und Releasequellen werden von dort gezielt verwiesen.
+Historische Aufträge und Journale bleiben reine Verlaufsnachweise.

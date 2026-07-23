@@ -66,6 +66,12 @@ struct LocalNetworkDesktopPairing: Codable, Equatable, Sendable {
     var trustKey: String?
     var sharedSecret: String?
     var lastSuccessfulSyncAt: Date?
+    var confirmedServerRevision: String?
+    var confirmedServerSequence: Int64?
+    var lastConfirmedClientSequence: Int64?
+    var nextClientSequence: Int64?
+    var syncApiVersion: String?
+    var lastSyncStatus: String?
     var lastTransferredObjectCount: Int?
     var lastTransferredPhotoCount: Int?
     var lastSkippedObjectCount: Int?

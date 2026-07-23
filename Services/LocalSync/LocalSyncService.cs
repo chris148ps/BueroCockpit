@@ -20,6 +20,9 @@ public sealed class LocalSyncService : ILocalSyncContracts
     private readonly LocalSyncOptions _options;
     private readonly LocalNetworkDeviceStore _deviceStore;
     private readonly LocalSyncInboxStore? _inboxStore;
+    private readonly Func<CancellationToken, Task<LocalSyncSnapshotPackage>>? _snapshotProvider;
+    private readonly Func<LocalSyncUploadCompletedEventArgs, Task<MobileInboxTransferResult>>? _uploadProcessor;
+    private readonly LocalSyncDeltaStore _deltaStore;
     private LocalSyncState _state;
     private string? _lastMessage;
     private HttpListener? _listener;
@@ -32,10 +35,18 @@ public sealed class LocalSyncService : ILocalSyncContracts
     public event EventHandler<LocalNetworkRememberedDevice>? DeviceRemembered;
     public event EventHandler<LocalSyncUploadCompletedEventArgs>? UploadCompleted;
 
-    public LocalSyncService(LocalSyncOptions options, LocalNetworkDeviceStore? deviceStore = null)
+    public LocalSyncService(
+        LocalSyncOptions options,
+        LocalNetworkDeviceStore? deviceStore = null,
+        Func<CancellationToken, Task<LocalSyncSnapshotPackage>>? snapshotProvider = null,
+        LocalSyncDeltaStore? deltaStore = null,
+        Func<LocalSyncUploadCompletedEventArgs, Task<MobileInboxTransferResult>>? uploadProcessor = null)
     {
         _options = options;
         _deviceStore = deviceStore ?? new LocalNetworkDeviceStore();
+        _snapshotProvider = snapshotProvider;
+        _uploadProcessor = uploadProcessor;
+        _deltaStore = deltaStore ?? new LocalSyncDeltaStore();
         _inboxStore = string.IsNullOrWhiteSpace(options.DataFolderPath)
             ? null
             : new LocalSyncInboxStore(options.DataFolderPath);
@@ -292,6 +303,24 @@ public sealed class LocalSyncService : ILocalSyncContracts
             return;
         }
 
+        if (string.Equals(path, "/local-sync/snapshot", StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteSnapshotResponseAsync(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (string.Equals(path, "/local-sync/changes", StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteDeltaResponseAsync(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (string.Equals(path, "/local-sync/ack", StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteAckResponseAsync(context).ConfigureAwait(false);
+            return;
+        }
+
         if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
             || (!string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(path, "/local-sync/status", StringComparison.OrdinalIgnoreCase)
@@ -322,7 +351,9 @@ public sealed class LocalSyncService : ILocalSyncContracts
                 version = string.IsNullOrWhiteSpace(_options.AppVersion) ? "unknown" : _options.AppVersion,
                 serverName = GetServerName(),
                 deviceId = _options.DeviceId,
-                manualSyncAvailable = _inboxStore is not null
+                manualSyncAvailable = _inboxStore is not null,
+                snapshotDownloadAvailable = _snapshotProvider is not null,
+                snapshotSchemaVersion = "local-sync-snapshot-v1"
             }).ConfigureAwait(false);
     }
 
@@ -502,12 +533,28 @@ public sealed class LocalSyncService : ILocalSyncContracts
         try
         {
             result = _inboxStore.Accept(request);
-            _deviceStore.RecordSync(device.DeviceId, result);
+            if (result.IsSuccess && _uploadProcessor is not null)
+            {
+                result = await _uploadProcessor(
+                    new LocalSyncUploadCompletedEventArgs(device.DeviceId, device.DeviceName, result)).ConfigureAwait(false);
+            }
+
+            if (result.IsSuccess)
+            {
+                _deltaStore.RecordClientSequence(device.DeviceId, request.ClientSequence);
+                _deviceStore.RecordSync(device.DeviceId, result);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             context.Response.StatusCode = 500;
             await WriteJsonAsync(context.Response, new { error = "upload-failed", message = ex.Message }).ConfigureAwait(false);
+            return;
+        }
+        catch (Exception ex)
+        {
+            context.Response.StatusCode = 500;
+            await WriteJsonAsync(context.Response, new { error = "desktop-apply-failed", message = ex.Message }).ConfigureAwait(false);
             return;
         }
 
@@ -520,6 +567,231 @@ public sealed class LocalSyncService : ILocalSyncContracts
         };
         UploadCompleted?.Invoke(this, new LocalSyncUploadCompletedEventArgs(device.DeviceId, device.DeviceName, result));
         await WriteJsonAsync(context.Response, result).ConfigureAwait(false);
+    }
+
+    private async Task WriteSnapshotResponseAsync(HttpListenerContext context)
+    {
+        if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 405;
+            await WriteJsonAsync(context.Response, new { error = "method-not-allowed" }).ConfigureAwait(false);
+            return;
+        }
+
+        var pairingState = GetPairingState(context.Request, out var device);
+        if (pairingState != LocalNetworkPairingState.Trusted || device is null)
+        {
+            context.Response.StatusCode = 403;
+            await WriteJsonAsync(context.Response, new
+            {
+                error = "pairing-required",
+                pairingStatus = pairingState.ToString().ToLowerInvariant(),
+                message = "Desktopdaten sind nur für ein am Desktop freigegebenes Gerät abrufbar."
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        if (_snapshotProvider is null)
+        {
+            context.Response.StatusCode = 503;
+            await WriteJsonAsync(context.Response, new { error = "snapshot-unavailable" }).ConfigureAwait(false);
+            return;
+        }
+
+        LocalSyncSnapshotPackage package;
+        try
+        {
+            package = await _snapshotProvider(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            context.Response.StatusCode = 500;
+            await WriteJsonAsync(context.Response, new { error = "snapshot-failed", message = ex.Message }).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(package.FilePath) || !File.Exists(package.FilePath))
+            {
+                context.Response.StatusCode = 500;
+                await WriteJsonAsync(context.Response, new { error = "snapshot-file-missing" }).ConfigureAwait(false);
+                return;
+            }
+
+            var checkpoint = _deltaStore.PrepareFullSync(device.DeviceId, package);
+            await using var stream = new FileStream(
+                package.FilePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 81920,
+                useAsync: true);
+            context.Response.StatusCode = 200;
+            context.Response.ContentType = "application/vnd.buerocockpit.snapshot+zip";
+            context.Response.ContentLength64 = stream.Length;
+            context.Response.Headers["X-BueroCockpit-Snapshot-Schema"] = "local-sync-snapshot-v1";
+            context.Response.Headers["X-BueroCockpit-Change-Version"] = checkpoint.ServerRevision;
+            context.Response.Headers["X-BueroCockpit-Server-Sequence"] = checkpoint.ServerSequence.ToString();
+            context.Response.Headers["X-BueroCockpit-Ack-Token"] = checkpoint.AckToken;
+            context.Response.Headers["X-BueroCockpit-Created-At"] = package.CreatedAtUtc.ToString("O");
+            context.Response.AddHeader(
+                "Content-Disposition",
+                $"attachment; filename=\"{Path.GetFileName(package.FileName)}\"");
+            await stream.CopyToAsync(context.Response.OutputStream).ConfigureAwait(false);
+            try
+            {
+                _deviceStore.RecordSnapshotDownload(device.DeviceId, package.CreatedAtUtc);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Der vollständig übertragene Snapshot bleibt gültig; nur die lokale Statusnotiz fehlt.
+            }
+        }
+        catch (Exception ex) when (ex is IOException or HttpListenerException or ObjectDisposedException)
+        {
+            try
+            {
+                context.Response.Abort();
+            }
+            catch
+            {
+                // Die Gegenstelle hat die Verbindung bereits vollständig geschlossen.
+            }
+        }
+        finally
+        {
+            try
+            {
+                context.Response.OutputStream.Close();
+            }
+            catch
+            {
+                // Die Gegenstelle kann die Verbindung während des Downloads schließen.
+            }
+
+            if (!string.IsNullOrWhiteSpace(package.CleanupDirectoryPath))
+            {
+                try
+                {
+                    Directory.Delete(package.CleanupDirectoryPath, recursive: true);
+                }
+                catch
+                {
+                    // Temporäre Exportdaten werden beim nächsten Betriebssystem-Cleanup entfernt.
+                }
+            }
+        }
+    }
+
+    private async Task WriteDeltaResponseAsync(HttpListenerContext context)
+    {
+        if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 405;
+            await WriteJsonAsync(context.Response, new { error = "method-not-allowed" }).ConfigureAwait(false);
+            return;
+        }
+
+        var pairingState = GetPairingState(context.Request, out var device);
+        if (pairingState != LocalNetworkPairingState.Trusted || device is null)
+        {
+            context.Response.StatusCode = 403;
+            await WriteJsonAsync(context.Response, new { error = "pairing-required" }).ConfigureAwait(false);
+            return;
+        }
+
+        if (_snapshotProvider is null)
+        {
+            context.Response.StatusCode = 503;
+            await WriteJsonAsync(context.Response, new { error = "delta-unavailable" }).ConfigureAwait(false);
+            return;
+        }
+
+        LocalSyncSnapshotPackage? package = null;
+        try
+        {
+            package = await _snapshotProvider(CancellationToken.None).ConfigureAwait(false);
+            var response = _deltaStore.BuildDelta(
+                device.DeviceId,
+                context.Request.QueryString["since"],
+                package);
+            context.Response.StatusCode = 200;
+            await WriteJsonAsync(context.Response, response).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+        {
+            context.Response.StatusCode = 500;
+            await WriteJsonAsync(context.Response, new { error = "delta-failed", message = ex.Message }).ConfigureAwait(false);
+        }
+        finally
+        {
+            TryCleanupSnapshotPackage(package);
+        }
+    }
+
+    private async Task WriteAckResponseAsync(HttpListenerContext context)
+    {
+        if (!string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = 405;
+            await WriteJsonAsync(context.Response, new { error = "method-not-allowed" }).ConfigureAwait(false);
+            return;
+        }
+
+        var pairingState = GetPairingState(context.Request, out var device);
+        if (pairingState != LocalNetworkPairingState.Trusted || device is null)
+        {
+            context.Response.StatusCode = 403;
+            await WriteJsonAsync(context.Response, new { error = "pairing-required" }).ConfigureAwait(false);
+            return;
+        }
+
+        LocalSyncAckRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync<LocalSyncAckRequest>(
+                context.Request.InputStream,
+                JsonOptions).ConfigureAwait(false);
+        }
+        catch (JsonException)
+        {
+            context.Response.StatusCode = 400;
+            await WriteJsonAsync(context.Response, new { error = "invalid-json" }).ConfigureAwait(false);
+            return;
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.AckToken) || string.IsNullOrWhiteSpace(request.ServerRevision))
+        {
+            context.Response.StatusCode = 400;
+            await WriteJsonAsync(context.Response, new { error = "invalid-ack" }).ConfigureAwait(false);
+            return;
+        }
+
+        var response = _deltaStore.Confirm(device.DeviceId, request);
+        context.Response.StatusCode = response.Status == "confirmed" ? 200 : 409;
+        if (response.Status == "confirmed")
+        {
+            _deviceStore.RecordCheckpoint(device.DeviceId, response);
+        }
+        await WriteJsonAsync(context.Response, response).ConfigureAwait(false);
+    }
+
+    private static void TryCleanupSnapshotPackage(LocalSyncSnapshotPackage? package)
+    {
+        if (string.IsNullOrWhiteSpace(package?.CleanupDirectoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(package.CleanupDirectoryPath, recursive: true);
+        }
+        catch
+        {
+            // Temporäre Exportdaten werden beim nächsten Betriebssystem-Cleanup entfernt.
+        }
     }
 
     private LocalNetworkPairingState GetPairingState(HttpListenerRequest request, out LocalNetworkRememberedDevice? device)

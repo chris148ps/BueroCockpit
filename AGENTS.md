@@ -2,21 +2,55 @@
 
 Diese Datei ist der verbindliche Einstieg für Codex und andere Agenten.
 
-## Vor jeder Aufgabe lesen
+## Standard-Lesestapel vor jeder Aufgabe
 
-Immer:
+Bei jedem normalen neuen oder fortgesetzten Codex-Auftrag zuerst nur diese
+Dateien lesen:
 
-- `docs/CODEX_PROJEKTREGELN.md`
-- `docs/CODEX_AUFTRAGSPRUEFUNG.md`
-- `docs/ENTWICKLUNGSSTAND.md`
+1. `AGENTS.md`
+2. `docs/PROJEKTREGISTER.md`
+3. `docs/ENTWICKLUNGSSTAND.md`
+4. `docs/PROJEKTSTATUS.md`
+5. `docs/codex_last_run.md`
+6. `docs/NEXT_TASK.md`
+7. `docs/codex_auftraege/LETZTER_AUFTRAG.md`
+8. `docs/codex_auftraege/AKTUELL.md`
 
-Zusätzlich je nach Thema:
+Weitere Regel- und Fachdateien nur lesen, wenn das Thema oder `AGENTS.md` sie
+konkret verlangt.
+
+
+Informationen, die bereits in einer der acht Standarddateien enthalten sind,
+dürfen nicht dauerhaft zusätzlich in anderen Regel-, Status-, Auftrags- oder
+Journaldateien geführt werden. Stattdessen ist die bestehende maßgebliche
+Quelle zu aktualisieren.
+
+Zusätzlich je nach Thema lesen:
 
 - Vorgangstyp, Workflowstatus, Kategorien, Navigation oder Statuszuordnungen: `docs/ARBEITSKATEGORIEN.md`
 - UI/Design: `docs/DESIGN_RICHTLINIEN.md`
 - iPad, iPhone, Fotos, Netzwerk oder Sync: `docs/LOCAL_NETWORK_SYNC.md`
 - vollständige Funktionsprüfung oder Release: `docs/TESTRICHTLINIEN.md`
 - Release, Version, Tag, GitHub Upload oder Auto-Update: `docs/RELEASE_PROZESS.md`
+- Änderung von Projekt-, Codex-, Sicherheits- oder Arbeitsregeln:
+  `docs/CODEX_PROJEKTREGELN.md`
+- Auftragsprüfung oder Release:
+  `docs/CODEX_AUFTRAGSPRUEFUNG.md`
+
+
+Es dürfen nicht routinemäßig alle Dateien unter `docs/` durchsucht oder
+eingelesen werden. Standardmäßig werden ausschließlich die Dateien des
+Standard-Lesestapels gelesen. Weitere Dokumente dürfen nur geöffnet werden,
+wenn sie durch diese Datei ausdrücklich gefordert werden oder für den
+konkreten Auftrag fachlich erforderlich sind.
+
+
+`docs/codex_auftraege/INDEX.md` nur lesen, wenn der Auftragszeiger unklar ist
+oder ein historischer Bezug benötigt wird.
+
+Dateien unter `docs/codex_auftraege/ARCHIV/` und `docs/codex_journal/` niemals
+pauschal einlesen. Sie dürfen nur gezielt gelesen werden, wenn
+`AKTUELL.md`, `INDEX.md` oder eine konkrete fachliche Prüfung darauf verweist.
 
 Vor jedem Codex-Auftrag und zusätzlich vor jedem Release müssen alle relevanten Regel- und Fachdateien automatisch als erster Arbeitsschritt auf widersprüchliche Aussagen, Verbote und veraltete Vorgaben geprüft werden. Dabei ist außerdem zu prüfen, ob die Dokumentation der tatsächlichen App entspricht und ob Releaseprozess, Agentenregeln und Designrichtlinien noch mit der Implementierung übereinstimmen. Bei einem Widerspruch darf der Auftrag beziehungsweise Release nicht gestartet werden. Der Widerspruch ist dem Nutzer konkret mit Datei, Regel, notwendiger Änderung und Auswirkung zu nennen. Der Nutzer entscheidet, ob zuerst die Regeldateien oder die Implementierung angepasst werden. Eine betroffene Regeldatei darf erst nach ausdrücklicher Freigabe angepasst werden.
 
@@ -91,6 +125,9 @@ Bei iPad-Code zusätzlich `xcodebuild`; bei Windows-Code mindestens `dotnet buil
 
 Pflicht:
 
+- `docs/codex_auftraege/AKTUELL.md` aktualisieren
+- `docs/codex_auftraege/LETZTER_AUFTRAG.md` aktualisieren
+- `docs/codex_auftraege/INDEX.md` aktualisieren
 - neuer Eintrag unter `docs/codex_journal/`
 - `docs/codex_last_run.md` aktualisieren
 - `docs/PROJEKTSTATUS.md` bei fachlichen Änderungen aktualisieren
@@ -100,4 +137,45 @@ Pflicht:
 `docs/ENTWICKLUNGSSTAND.md` ist die zentrale fortlaufende Übersicht über den tatsächlichen Entwicklungsstand. Sie muss unabhängig davon gepflegt werden, ob Änderungen bereits committed oder nach GitHub gepusht wurden. Mindestens festzuhalten sind aktuelle Version, Arbeitsbranch, letzte abgeschlossene Aufgabe, laufendes Ziel, maßgebliche Architekturentscheidungen, bekannte Risiken, Build- und Teststatus sowie die nächste geplante Version beziehungsweise Aufgabe.
 
 Die Dokumentation muss dem tatsächlich geprüften Stand entsprechen. Keine erfundenen Tests oder Ergebnisse.
-Einträge unter `docs/codex_journal/` sind historische Laufprotokolle und keine aktuelle Regelquelle; bei Abweichungen gelten die aktuellen Regeldateien, `docs/ENTWICKLUNGSSTAND.md` und `docs/PROJEKTSTATUS.md`.
+Einträge unter `docs/codex_journal/` sind historische Laufprotokolle und keine
+aktuelle Regelquelle; bei Abweichungen gelten `AGENTS.md`,
+`docs/PROJEKTREGISTER.md` und die gezielt einschlägigen aktuellen Fach- und
+Regeldateien.
+
+`docs/PROJEKTREGISTER.md` ist die maßgebliche Quelle für dauerhafte
+Architekturentscheidungen. Dauerhafte Entscheidungen nicht zusätzlich als
+zweite maßgebliche Regel in Status-, Auftrags- oder Journaldateien festlegen;
+diese Dateien dürfen nur den erreichten Stand beziehungsweise den historischen
+Arbeitsnachweis beschreiben.
+
+`docs/ENTWICKLUNGSSTAND.md` ist die zentrale fortlaufende Übersicht über den
+tatsächlich erreichten Gesamtstand. Sie ergänzt die dauerhaften Entscheidungen
+aus `docs/PROJEKTREGISTER.md`, ersetzt sie aber nicht.
+
+## Codex-Auftragssystem
+
+Aktuelle und historische Arbeitsaufträge liegen unter `docs/codex_auftraege/`.
+
+Historische Aufträge und Journale sind keine aktuelle Regelquelle.
+
+Zulässige Auftragsstatus:
+
+- `GEPLANT`
+- `OFFEN`
+- `IN_ARBEIT`
+- `ABGESCHLOSSEN`
+- `ERSETZT`
+- `ABGEBROCHEN`
+
+Nach erfolgreichem Abschluss eines größeren Auftrags:
+
+1. Status des aktuellen Auftrags auf `ABGESCHLOSSEN` setzen.
+2. Auftrag mit BC-ID und kurzem Titel nach `docs/codex_auftraege/ARCHIV/` verschieben.
+3. `INDEX.md` und `LETZTER_AUFTRAG.md` aktualisieren.
+4. `AKTUELL.md` aus `VORLAGE.md` mit der nächsten freien BC-ID und Status `GEPLANT` vorbereiten.
+5. Neuen Eintrag unter `docs/codex_journal/` erstellen.
+6. `docs/codex_last_run.md` aktualisieren.
+7. `docs/PROJEKTSTATUS.md` nur bei tatsächlichen fachlichen oder technischen Änderungen aktualisieren.
+8. `docs/NEXT_TASK.md` auf genau eine nächste sinnvolle Aufgabe setzen.
+
+Bei Teilabschluss bleibt der Auftrag in `AKTUELL.md`. Ein offener Auftrag darf niemals still überschrieben werden.

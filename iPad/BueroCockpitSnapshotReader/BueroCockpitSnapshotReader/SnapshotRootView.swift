@@ -8,6 +8,7 @@ struct SnapshotRootView: View {
         case mobilePhotoDrafts
         case mobileInspectionNew
         case mobileInspectionEdit(String)
+        case desktopTaskEdit(String)
 
         var id: String {
             switch self {
@@ -16,6 +17,7 @@ struct SnapshotRootView: View {
             case .mobilePhotoDrafts: "mobilePhotoDrafts"
             case .mobileInspectionNew: "mobileInspectionNew"
             case .mobileInspectionEdit(let entryID): "mobileInspectionEdit-\(entryID)"
+            case .desktopTaskEdit(let taskID): "desktopTaskEdit-\(taskID)"
             }
         }
     }
@@ -115,7 +117,9 @@ struct SnapshotRootView: View {
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
                     editingEntryID: nil,
-                    availableCategories: viewModel.mobileInspectionCategoryNames,
+                    initialDraft: nil,
+                    availableCategories: viewModel.mobileInspectionCategoryOptions,
+                    availableTechnicians: viewModel.mobileInspectionTechnicianNames,
                     onSaved: { result in
                         hasMobileInspectionDraft = false
                         mobileInboxMessage = "Gespeichert in \(result.entryURL.lastPathComponent)"
@@ -136,11 +140,36 @@ struct SnapshotRootView: View {
                     writer: mobileInboxWriter,
                     draftStore: mobileInspectionDraftStore,
                     editingEntryID: entryID,
-                    availableCategories: viewModel.mobileInspectionCategoryNames,
+                    initialDraft: nil,
+                    availableCategories: viewModel.mobileInspectionCategoryOptions,
+                    availableTechnicians: viewModel.mobileInspectionTechnicianNames,
                     onSaved: { result in
                         hasMobileInspectionDraft = false
                         mobileInboxMessage = "Aktualisiert: \(result.entryURL.lastPathComponent)"
                         refreshNoticeMessage = "Mobiler Eingang aktualisiert:\n\(result.entryURL.path)"
+                        viewModel.loadMobileInboxEntries(selectCategory: true)
+                    },
+                    onNeedsFolderSelection: {
+                        importModeAfterSheetDismissal = .mobileInboxFolder
+                        presentedSheet = nil
+                    },
+                    onDraftStateChanged: { hasDraft in
+                        hasMobileInspectionDraft = hasDraft
+                    },
+                    onDismiss: { presentedSheet = nil }
+                )
+            case .desktopTaskEdit(let taskID):
+                MobileInspectionFormView(
+                    writer: mobileInboxWriter,
+                    draftStore: mobileInspectionDraftStore,
+                    editingEntryID: nil,
+                    initialDraft: viewModel.tasks.first(where: { $0.id == taskID }).flatMap(makeDesktopTaskDraft),
+                    availableCategories: viewModel.mobileInspectionCategoryOptions,
+                    availableTechnicians: viewModel.mobileInspectionTechnicianNames,
+                    onSaved: { result in
+                        hasMobileInspectionDraft = false
+                        mobileInboxMessage = "Änderung vorgemerkt: \(result.entryURL.lastPathComponent)"
+                        refreshNoticeMessage = "Die Änderung wurde lokal gespeichert und wird erst mit „Jetzt synchronisieren“ an den Desktop übertragen."
                         viewModel.loadMobileInboxEntries(selectCategory: true)
                     },
                     onNeedsFolderSelection: {
@@ -299,13 +328,6 @@ struct SnapshotRootView: View {
                 localNetworkConnectionIndicator
 
                 Button {
-                    viewModel.startManualLocalNetworkSync()
-                } label: {
-                    Label("Jetzt synchronisieren", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .disabled(!viewModel.canStartManualLocalNetworkSync)
-
-                Button {
                     presentedSheet = .mobilePhotoDrafts
                 } label: {
                     Label("Foto-Modus", systemImage: "camera")
@@ -338,10 +360,30 @@ struct SnapshotRootView: View {
     }
 
     private var contentColumnView: some View {
-        VStack(spacing: 0) {
-            manualLocalNetworkSyncPanel
-            taskList
-        }
+        taskList
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        viewModel.startManualLocalNetworkSync()
+                    } label: {
+                        if viewModel.isSyncing {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                    }
+                    .disabled(
+                        !viewModel.canStartManualLocalNetworkSync
+                        || viewModel.isSyncing
+                    )
+                    .accessibilityLabel("Jetzt synchronisieren")
+                    .accessibilityHint(
+                        "Synchronisiert die Daten mit dem vorgemerkten BüroCockpit-Desktop."
+                    )
+                    .help("Jetzt synchronisieren")
+                }
+            }
     }
 
     private var manualLocalNetworkSyncPanel: some View {
@@ -539,9 +581,6 @@ struct SnapshotRootView: View {
             categories: viewModel.categories,
             selectedCategoryID: viewModel.selectedCategoryID,
             allTaskCount: viewModel.taskCount(in: SnapshotBrowserViewModel.allTasksCategoryID),
-            categoryCount: viewModel.document?.categories.count ?? 0,
-            loadedFileName: viewModel.loadedFileName,
-            snapshotDate: viewModel.metadata?.displayExportedAt,
             taskCountForCategory: { categoryID in
                 viewModel.taskCount(in: categoryID)
             },
@@ -696,7 +735,8 @@ struct SnapshotRootView: View {
                 attachments: viewModel.selectedTask.map(viewModel.attachments(for:)) ?? [],
                 attachmentLoader: viewModel.prepareAttachment,
                 onEditMobileInbox: editSelectedMobileEntry,
-                onDeleteMobileInbox: requestDeleteSelectedMobileEntry
+                onDeleteMobileInbox: requestDeleteSelectedMobileEntry,
+                onEditDesktopTask: editSelectedDesktopTask
             )
         case .idle:
             SnapshotEmptyStateView(
@@ -822,6 +862,8 @@ struct SnapshotRootView: View {
             }
             if let entryID = draft.editingEntryID {
                 presentedSheet = .mobileInspectionEdit(entryID)
+            } else if let desktopTaskID = draft.desktopTaskId {
+                presentedSheet = .desktopTaskEdit(desktopTaskID)
             } else {
                 presentedSheet = .mobileInspectionNew
             }
@@ -839,6 +881,69 @@ struct SnapshotRootView: View {
         }
 
         presentedSheet = .mobileInspectionEdit(entry.id)
+    }
+
+    private func editSelectedDesktopTask() {
+        guard let task = viewModel.selectedTask,
+              !task.categoryIds.contains(SnapshotBrowserViewModel.mobilePendingCategoryID) else {
+            return
+        }
+        guard SnapshotDisplayFormatter.displayText(task.updatedAt) != nil else {
+            refreshNoticeMessage = "Dieser Desktopvorgang besitzt keine sichere Basisrevision und kann deshalb mobil nicht geändert werden."
+            return
+        }
+        presentedSheet = .desktopTaskEdit(task.id)
+    }
+
+    private func makeDesktopTaskDraft(_ task: SnapshotTask) -> MobileInspectionDraft? {
+        guard let baseRevision = SnapshotDisplayFormatter.displayText(task.updatedAt) else {
+            return nil
+        }
+        let categoryID = task.currentCategoryId ?? task.categoryIds.first ?? ""
+        let categoryName = viewModel.mobileInspectionCategoryOptions.first(where: { $0.id == categoryID })?.name
+            ?? task.displayCategoryNames.first
+            ?? ""
+        let workflowType = SnapshotDisplayFormatter.displayText(task.workflowType) ?? "Direktauftrag"
+        let workflowStep = SnapshotDisplayFormatter.displayText(task.workflowStep)
+            ?? SnapshotDisplayFormatter.displayText(task.status)
+            ?? "Auftrag"
+        let baseValues = MobileInspectionRevisionValues(
+            notes: task.notes ?? "",
+            categoryId: categoryID,
+            workflowType: workflowType,
+            workflowStep: workflowStep,
+            dueDate: task.dueDate,
+            followUpDate: task.reminderDate,
+            followUpReason: task.followUpReason ?? "",
+            technician: task.technician ?? ""
+        )
+        return MobileInspectionDraft(
+            desktopTaskId: task.id,
+            baseRevision: baseRevision,
+            confirmedRevision: baseRevision,
+            baseValues: baseValues,
+            customerName: task.customerName ?? "",
+            address: task.customerAddress ?? "",
+            phone: task.customerPhone ?? "",
+            email: task.customerEmail ?? "",
+            title: task.title,
+            category: categoryName,
+            categoryId: categoryID,
+            workflowType: workflowType,
+            workflowStep: workflowStep,
+            dueDate: editableDate(task.dueDate),
+            followUpDate: editableDate(task.reminderDate),
+            followUpReason: task.followUpReason ?? "",
+            technician: task.technician ?? "",
+            notes: task.notes ?? ""
+        )
+    }
+
+    private func editableDate(_ value: String?) -> String? {
+        guard let value = SnapshotDisplayFormatter.displayText(value), value.count >= 10 else {
+            return nil
+        }
+        return String(value.prefix(10))
     }
 
     private func requestDeleteSelectedMobileEntry() {

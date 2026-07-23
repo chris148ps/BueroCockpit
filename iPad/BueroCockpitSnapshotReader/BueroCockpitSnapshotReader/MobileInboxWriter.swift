@@ -144,14 +144,27 @@ final class MobileInboxStore: @unchecked Sendable {
 final class MobileInboxWriter: @unchecked Sendable {
     private struct EditableTask: Decodable {
         let id: String?
+        let schemaVersion: Int?
         let createdAt: String?
         let status: String?
+        let operation: String?
+        let desktopTaskId: String?
+        let baseRevision: String?
+        let confirmedRevision: String?
+        let baseValues: MobileInspectionRevisionValues?
         let customerName: String?
         let address: String?
         let phone: String?
         let email: String?
         let title: String?
         let category: String?
+        let categoryId: String?
+        let workflowType: String?
+        let workflowStep: String?
+        let dueDate: String?
+        let followUpDate: String?
+        let followUpReason: String?
+        let technician: String?
         let notes: String?
         let photos: [EditablePhoto]?
         let sketches: [EditableSketch]?
@@ -256,16 +269,28 @@ final class MobileInboxWriter: @unchecked Sendable {
 
         let task = MobileInspectionTask(
             id: entryID,
-            schemaVersion: 1,
+            schemaVersion: 2,
             createdAt: isoFormatter.string(from: now),
             source: "ios",
             status: "new",
+            operation: draft.isDesktopTaskUpdate ? "update" : "create",
+            desktopTaskId: draft.desktopTaskId,
+            baseRevision: draft.baseRevision,
+            confirmedRevision: draft.confirmedRevision,
+            baseValues: draft.baseValues,
             customerName: draft.customerName.trimmedForMobileInbox,
             address: draft.address.trimmedForMobileInbox,
             phone: draft.phone.trimmedForMobileInbox,
             email: draft.email.trimmedForMobileInbox,
             title: draft.title.trimmedForMobileInbox,
             category: draft.category.trimmedForMobileInbox,
+            categoryId: draft.categoryId.trimmedForMobileInbox,
+            workflowType: draft.workflowType.trimmedForMobileInbox,
+            workflowStep: draft.workflowStep.trimmedForMobileInbox,
+            dueDate: draft.dueDate,
+            followUpDate: draft.followUpDate,
+            followUpReason: draft.followUpReason.trimmedForMobileInbox,
+            technician: draft.technician.trimmedForMobileInbox,
             notes: draft.notes.trimmedForMobileInbox,
             photos: savedPhotos,
             sketches: savedSketches.isEmpty ? nil : savedSketches,
@@ -329,12 +354,23 @@ final class MobileInboxWriter: @unchecked Sendable {
             editingEntryID: located.entryID,
             editingEntryDirectoryName: located.entryURL.lastPathComponent,
             originalCreatedAt: raw.createdAt,
+            desktopTaskId: raw.desktopTaskId,
+            baseRevision: raw.baseRevision,
+            confirmedRevision: raw.confirmedRevision,
+            baseValues: raw.baseValues,
             customerName: raw.customerName ?? "",
             address: raw.address ?? "",
             phone: raw.phone ?? "",
             email: raw.email ?? "",
             title: raw.title ?? "",
             category: raw.category ?? "",
+            categoryId: raw.categoryId ?? "",
+            workflowType: raw.workflowType ?? "",
+            workflowStep: raw.workflowStep ?? "",
+            dueDate: raw.dueDate,
+            followUpDate: raw.followUpDate,
+            followUpReason: raw.followUpReason ?? "",
+            technician: raw.technician ?? "",
             notes: raw.notes ?? "",
             photos: photos,
             sketches: sketches,
@@ -394,16 +430,28 @@ final class MobileInboxWriter: @unchecked Sendable {
         }
         let task = MobileInspectionTask(
             id: located.entryID,
-            schemaVersion: 1,
+            schemaVersion: located.task.schemaVersion ?? (draft.isDesktopTaskUpdate ? 2 : 1),
             createdAt: createdAt,
             source: "ios",
             status: "new",
+            operation: draft.isDesktopTaskUpdate ? "update" : located.task.operation,
+            desktopTaskId: draft.desktopTaskId,
+            baseRevision: draft.baseRevision,
+            confirmedRevision: draft.confirmedRevision,
+            baseValues: draft.baseValues,
             customerName: draft.customerName.trimmedForMobileInbox,
             address: draft.address.trimmedForMobileInbox,
             phone: draft.phone.trimmedForMobileInbox,
             email: draft.email.trimmedForMobileInbox,
             title: draft.title.trimmedForMobileInbox,
             category: draft.category.trimmedForMobileInbox,
+            categoryId: draft.categoryId.trimmedForMobileInbox,
+            workflowType: draft.workflowType.trimmedForMobileInbox,
+            workflowStep: draft.workflowStep.trimmedForMobileInbox,
+            dueDate: draft.dueDate,
+            followUpDate: draft.followUpDate,
+            followUpReason: draft.followUpReason.trimmedForMobileInbox,
+            technician: draft.technician.trimmedForMobileInbox,
             notes: draft.notes.trimmedForMobileInbox,
             photos: savedPhotos,
             sketches: savedSketches.isEmpty ? nil : savedSketches,
@@ -826,12 +874,23 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
         let editingEntryID: String?
         let editingEntryDirectoryName: String?
         let originalCreatedAt: String?
+        let desktopTaskId: String?
+        let baseRevision: String?
+        let confirmedRevision: String?
+        let baseValues: MobileInspectionRevisionValues?
         let customerName: String
         let address: String
         let phone: String
         let email: String
         let title: String
         let category: String
+        let categoryId: String?
+        let workflowType: String?
+        let workflowStep: String?
+        let dueDate: String?
+        let followUpDate: String?
+        let followUpReason: String?
+        let technician: String?
         let notes: String
         let photos: [StoredPhoto]
         let sketches: [StoredSketch]
@@ -891,12 +950,23 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
             editingEntryID: storedDraft.editingEntryID,
             editingEntryDirectoryName: storedDraft.editingEntryDirectoryName,
             originalCreatedAt: storedDraft.originalCreatedAt,
+            desktopTaskId: storedDraft.desktopTaskId,
+            baseRevision: storedDraft.baseRevision,
+            confirmedRevision: storedDraft.confirmedRevision,
+            baseValues: storedDraft.baseValues,
             customerName: storedDraft.customerName,
             address: storedDraft.address,
             phone: storedDraft.phone,
             email: storedDraft.email,
             title: storedDraft.title,
             category: storedDraft.category,
+            categoryId: storedDraft.categoryId ?? "",
+            workflowType: storedDraft.workflowType ?? "",
+            workflowStep: storedDraft.workflowStep ?? "",
+            dueDate: storedDraft.dueDate,
+            followUpDate: storedDraft.followUpDate,
+            followUpReason: storedDraft.followUpReason ?? "",
+            technician: storedDraft.technician ?? "",
             notes: storedDraft.notes,
             photos: photos,
             sketches: sketches,
@@ -940,12 +1010,23 @@ final class MobileInspectionDraftStore: @unchecked Sendable {
             editingEntryID: draft.editingEntryID,
             editingEntryDirectoryName: draft.editingEntryDirectoryName,
             originalCreatedAt: draft.originalCreatedAt,
+            desktopTaskId: draft.desktopTaskId,
+            baseRevision: draft.baseRevision,
+            confirmedRevision: draft.confirmedRevision,
+            baseValues: draft.baseValues,
             customerName: draft.customerName,
             address: draft.address,
             phone: draft.phone,
             email: draft.email,
             title: draft.title,
             category: draft.category,
+            categoryId: draft.categoryId,
+            workflowType: draft.workflowType,
+            workflowStep: draft.workflowStep,
+            dueDate: draft.dueDate,
+            followUpDate: draft.followUpDate,
+            followUpReason: draft.followUpReason,
+            technician: draft.technician,
             notes: draft.notes,
             photos: storedPhotos,
             sketches: storedSketches,

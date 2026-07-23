@@ -1,5 +1,6 @@
 import Foundation
 import Compression
+import CryptoKit
 
 final class SnapshotReader: @unchecked Sendable {
     func prepareAttachment(_ attachment: SnapshotAttachmentIndex, from sourceURL: URL) throws -> URL {
@@ -57,6 +58,7 @@ final class SnapshotReader: @unchecked Sendable {
 
         let rawMetadata: RawMetadata = try decodeRequiredFile(named: "metadata.json", at: resolvedSnapshotURL)
         let rawCategories: [RawCategory] = try decodeRequiredArray(named: "categories.json", at: resolvedSnapshotURL)
+        let rawTechnicians: [RawTechnician] = decodeOptionalArray(named: "technicians.json", at: resolvedSnapshotURL)
         let rawTasks: [RawTask] = try decodeRequiredArray(named: "tasks.json", at: resolvedSnapshotURL)
         let attachments: [RawAttachment]
         if resolvedSnapshotURL.lastPathComponent.caseInsensitiveCompare("live") == .orderedSame {
@@ -82,6 +84,7 @@ final class SnapshotReader: @unchecked Sendable {
 
             return SnapshotCategory(id: id, name: name, order: raw.order ?? index, parentId: raw.parentId)
         }
+        let technicians = normalizeTechnicians(rawTechnicians)
 
         let tasks: [SnapshotTask] = rawTasks.enumerated().compactMap { index, raw -> SnapshotTask? in
             guard let id = raw.id, let title = raw.title else {
@@ -92,16 +95,22 @@ final class SnapshotReader: @unchecked Sendable {
                 id: id,
                 title: title,
                 customerName: raw.customerName,
+                customerAddress: raw.customerAddress,
                 customerEmail: raw.customerEmail,
                 customerPhone: raw.customerPhone,
+                currentCategoryId: raw.currentCategoryId,
                 categoryIds: raw.categoryIds ?? [],
                 categoryNames: raw.categoryNames ?? [],
                 dueDate: raw.dueDate,
                 reminderDate: raw.reminderDate,
+                followUpReason: raw.followUpReason,
                 createdAt: raw.createdAt,
                 updatedAt: raw.updatedAt,
                 materialOrderedAt: raw.materialOrderedAt,
                 status: raw.status,
+                technician: raw.technician,
+                workflowType: raw.workflowType,
+                workflowStep: raw.workflowStep,
                 notes: raw.notes,
                 shortText: raw.shortText,
                 attachmentRefs: raw.attachmentRefs ?? [],
@@ -114,6 +123,7 @@ final class SnapshotReader: @unchecked Sendable {
         return SnapshotDocument(
             metadata: metadata,
             categories: categories,
+            technicians: technicians,
             tasks: tasks,
             attachments: normalizedAttachments,
             sourceURL: resolvedSnapshotURL
@@ -121,12 +131,25 @@ final class SnapshotReader: @unchecked Sendable {
     }
 
     func readCachedSnapshot(from sourceURL: URL) throws -> SnapshotDocument {
-        SnapshotPerformanceLog.event("Cached package read started")
-        guard isSnapshotPackage(sourceURL) else {
+        SnapshotPerformanceLog.event("Cached snapshot read started")
+
+        if isSnapshotPackage(sourceURL) {
+            return try readSnapshotPackage(from: sourceURL)
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(
+            atPath: sourceURL.path,
+            isDirectory: &isDirectory
+        ) else {
+            throw SnapshotReaderError.unreadableFolder(sourceURL.lastPathComponent)
+        }
+
+        guard isDirectory.boolValue else {
             throw SnapshotReaderError.invalidPackageSelection
         }
 
-        return try readSnapshotPackage(from: sourceURL)
+        return try readSnapshot(from: sourceURL)
     }
 
     private func readSnapshotPackage(from sourceURL: URL) throws -> SnapshotDocument {
@@ -136,6 +159,7 @@ final class SnapshotReader: @unchecked Sendable {
 
             let rawMetadata: RawMetadata = try decodeRequiredPackageFile(named: "metadata.json", in: archive)
             let rawCategories: [RawCategory] = try decodeRequiredPackageArray(named: "categories.json", in: archive)
+            let rawTechnicians: [RawTechnician] = decodeOptionalPackageArray(named: "technicians.json", in: archive)
             let rawTasks: [RawTask] = try decodeRequiredPackageArray(named: "tasks.json", in: archive)
             let attachments: [RawAttachment]
             if sourceURL.pathExtension.caseInsensitiveCompare("bclive") == .orderedSame {
@@ -161,6 +185,7 @@ final class SnapshotReader: @unchecked Sendable {
 
                 return SnapshotCategory(id: id, name: name, order: raw.order ?? index, parentId: raw.parentId)
             }
+            let technicians = normalizeTechnicians(rawTechnicians)
 
             let tasks: [SnapshotTask] = rawTasks.enumerated().compactMap { index, raw -> SnapshotTask? in
                 guard let id = raw.id, let title = raw.title else {
@@ -171,16 +196,22 @@ final class SnapshotReader: @unchecked Sendable {
                     id: id,
                     title: title,
                     customerName: raw.customerName,
+                    customerAddress: raw.customerAddress,
                     customerEmail: raw.customerEmail,
                     customerPhone: raw.customerPhone,
+                    currentCategoryId: raw.currentCategoryId,
                     categoryIds: raw.categoryIds ?? [],
                     categoryNames: raw.categoryNames ?? [],
                     dueDate: raw.dueDate,
                     reminderDate: raw.reminderDate,
+                    followUpReason: raw.followUpReason,
                     createdAt: raw.createdAt,
                     updatedAt: raw.updatedAt,
                     materialOrderedAt: raw.materialOrderedAt,
                     status: raw.status,
+                    technician: raw.technician,
+                    workflowType: raw.workflowType,
+                    workflowStep: raw.workflowStep,
                     notes: raw.notes,
                     shortText: raw.shortText,
                     attachmentRefs: raw.attachmentRefs ?? [],
@@ -193,6 +224,7 @@ final class SnapshotReader: @unchecked Sendable {
             return SnapshotDocument(
                 metadata: metadata,
                 categories: categories,
+                technicians: technicians,
                 tasks: tasks,
                 attachments: normalizedAttachments,
                 sourceURL: sourceURL
@@ -372,6 +404,16 @@ final class SnapshotReader: @unchecked Sendable {
         }
     }
 
+    private func decodeOptionalArray<T: Decodable>(named fileName: String, at folderURL: URL) -> [T] {
+        let fileURL = folderURL.appendingPathComponent(fileName)
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+              let data = try? Data(contentsOf: fileURL, options: [.mappedIfSafe]),
+              let values = try? JSONDecoder.snapshotDecoder.decode([T].self, from: data) else {
+            return []
+        }
+        return values
+    }
+
     private func decodeRequiredPackageFile<T: Decodable>(named fileName: String, in archive: SnapshotPackageArchive) throws -> T {
         guard let data = archive.data(named: fileName) else {
             throw SnapshotReaderError.missingRequiredFile(fileName, archive.diagnostics(forMissingFile: fileName))
@@ -402,6 +444,30 @@ final class SnapshotReader: @unchecked Sendable {
         }
     }
 
+    private func decodeOptionalPackageArray<T: Decodable>(named fileName: String, in archive: SnapshotPackageArchive) -> [T] {
+        guard let data = archive.data(named: fileName),
+              let values = try? JSONDecoder.snapshotDecoder.decode([T].self, from: data) else {
+            return []
+        }
+        return values
+    }
+
+    private func normalizeTechnicians(_ values: [RawTechnician]) -> [SnapshotTechnician] {
+        values.compactMap { raw in
+            guard let id = SnapshotDisplayFormatter.displayText(raw.id),
+                  let name = SnapshotDisplayFormatter.displayText(raw.name) else {
+                return nil
+            }
+            return SnapshotTechnician(
+                id: id,
+                name: name,
+                abbreviation: SnapshotDisplayFormatter.displayText(raw.abbreviation),
+                email: SnapshotDisplayFormatter.displayText(raw.email),
+                phone: SnapshotDisplayFormatter.displayText(raw.phone)
+            )
+        }
+    }
+
     private func normalizeAttachments(_ attachments: [RawAttachment], folderURL: URL) -> [SnapshotAttachmentIndex] {
         attachments.enumerated().compactMap { index, raw -> SnapshotAttachmentIndex? in
             guard let id = raw.id, let taskId = raw.taskId, let fileName = raw.fileName, let relativePath = raw.relativePath else {
@@ -427,6 +493,7 @@ final class SnapshotReader: @unchecked Sendable {
                 originalDownloadMode: raw.originalDownloadMode,
                 reason: raw.reason,
                 contentType: raw.contentType,
+                contentHash: raw.contentHash,
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
                 fileExists: raw.fileExists ?? false,
@@ -472,6 +539,7 @@ final class SnapshotReader: @unchecked Sendable {
                 originalDownloadMode: raw.originalDownloadMode,
                 reason: raw.reason,
                 contentType: raw.contentType,
+                contentHash: raw.contentHash,
                 sizeBytes: raw.sizeBytes,
                 isImportant: raw.isImportant ?? false,
                 fileExists: raw.fileExists ?? false,
@@ -552,6 +620,260 @@ private extension JSONDecoder {
     }
 }
 
+final class LocalSyncSnapshotStore: @unchecked Sendable {
+    private let fileManager: FileManager
+    private let accessStore: SnapshotAccessStore
+
+    init(fileManager: FileManager = .default, accessStore: SnapshotAccessStore = SnapshotAccessStore()) {
+        self.fileManager = fileManager
+        self.accessStore = accessStore
+    }
+
+    func installFull(document: SnapshotDocument, reader: SnapshotReader) throws -> SnapshotDocument {
+        try persist(
+            metadata: document.metadata,
+            categories: document.categories.map(Self.categoryDTO),
+            technicians: document.technicians.map(Self.technicianDTO),
+            tasks: document.tasks.map(Self.taskDTO),
+            attachments: document.attachments.map(Self.attachmentDTO),
+            existingAttachments: Dictionary(uniqueKeysWithValues: document.attachments.map { ($0.id, $0) }),
+            deltaFiles: [:],
+            sourceURL: document.sourceURL,
+            reader: reader
+        )
+    }
+
+    func apply(
+        delta: LocalNetworkDeltaResponse,
+        to document: SnapshotDocument,
+        reader: SnapshotReader
+    ) throws -> SnapshotDocument {
+        var categories = Dictionary(uniqueKeysWithValues: document.categories.map { ($0.id, Self.categoryDTO($0)) })
+        var technicians = Dictionary(uniqueKeysWithValues: document.technicians.map { ($0.id, Self.technicianDTO($0)) })
+        var tasks = Dictionary(uniqueKeysWithValues: document.tasks.map { ($0.id, Self.taskDTO($0)) })
+        var attachments = Dictionary(uniqueKeysWithValues: document.attachments.map { ($0.id, Self.attachmentDTO($0)) })
+
+        delta.categories.forEach { categories[$0.id] = $0 }
+        delta.technicians.forEach { technicians[$0.id] = $0 }
+        delta.tasks.forEach { tasks[$0.id] = $0 }
+        delta.attachments.forEach { attachments[$0.id] = $0 }
+        delta.tombstones.categoryIds.forEach { categories.removeValue(forKey: $0) }
+        delta.tombstones.technicianIds.forEach { technicians.removeValue(forKey: $0) }
+        delta.tombstones.taskIds.forEach { tasks.removeValue(forKey: $0) }
+        delta.tombstones.attachmentIds.forEach { attachments.removeValue(forKey: $0) }
+
+        var verifiedFiles: [String: Data] = [:]
+        for file in delta.files {
+            guard let data = Data(base64Encoded: file.dataBase64),
+                  data.count == file.sizeBytes,
+                  SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == file.sha256.lowercased() else {
+                throw LocalNetworkManualSyncError.snapshotInvalid
+            }
+            verifiedFiles[file.relativePath] = data
+        }
+
+        return try persist(
+            metadata: SnapshotMetadata(
+                formatVersion: document.metadata.formatVersion,
+                exportedAt: ISO8601DateFormatter().string(from: Date()),
+                appName: document.metadata.appName,
+                appVersion: document.metadata.appVersion,
+                deviceName: document.metadata.deviceName,
+                source: document.metadata.source
+            ),
+            categories: categories.values.sorted {
+                ($0.order ?? 0, $0.name, $0.id) < ($1.order ?? 0, $1.name, $1.id)
+            },
+            technicians: technicians.values.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            },
+            tasks: tasks.values.sorted { $0.id < $1.id },
+            attachments: attachments.values.sorted { $0.id < $1.id },
+            existingAttachments: Dictionary(uniqueKeysWithValues: document.attachments.map { ($0.id, $0) }),
+            deltaFiles: verifiedFiles,
+            sourceURL: document.sourceURL,
+            reader: reader
+        )
+    }
+
+    private func persist(
+        metadata: SnapshotMetadata,
+        categories: [LocalNetworkDeltaCategory],
+        technicians: [LocalNetworkDeltaTechnician],
+        tasks: [LocalNetworkDeltaTask],
+        attachments: [LocalNetworkDeltaAttachment],
+        existingAttachments: [String: SnapshotAttachmentIndex],
+        deltaFiles: [String: Data],
+        sourceURL: URL,
+        reader: SnapshotReader
+    ) throws -> SnapshotDocument {
+        let root = try SnapshotLocalStorage.importedSnapshotsDirectory()
+        let target = root.appendingPathComponent("current-local-sync", isDirectory: true)
+        let staging = root.appendingPathComponent(".local-sync-\(UUID().uuidString)", isDirectory: true)
+        let backup = root.appendingPathComponent(".local-sync-backup-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+        var installedAttachments: [LocalNetworkDeltaAttachment] = []
+
+        do {
+            for attachment in attachments {
+                var data = [attachment.packagePath, attachment.previewPath]
+                    .compactMap { $0 }
+                    .compactMap { deltaFiles[$0] }
+                    .first
+                if data == nil, let existing = existingAttachments[attachment.id] {
+                    if let localURL = existing.localURL {
+                        data = try? Data(contentsOf: localURL, options: [.mappedIfSafe])
+                    } else if existing.canPreview,
+                              let preparedURL = try? reader.prepareAttachment(existing, from: sourceURL) {
+                        data = try? Data(contentsOf: preparedURL, options: [.mappedIfSafe])
+                    }
+                }
+
+                var localPackagePath: String?
+                if let data {
+                    let safeId = Self.safePathComponent(attachment.id)
+                    let safeName = Self.safePathComponent(attachment.fileName)
+                    let relative = "attachments/\(safeId)/\(safeName)"
+                    let destination = staging.appendingPathComponent(relative, isDirectory: false)
+                    try fileManager.createDirectory(
+                        at: destination.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try data.write(to: destination, options: .atomic)
+                    localPackagePath = relative
+                }
+
+                installedAttachments.append(LocalNetworkDeltaAttachment(
+                    id: attachment.id,
+                    taskId: attachment.taskId,
+                    fileName: attachment.fileName,
+                    originalFileName: attachment.originalFileName,
+                    displayName: attachment.displayName,
+                    relativePath: attachment.relativePath,
+                    packagePath: localPackagePath,
+                    previewPath: nil,
+                    contentHash: attachment.contentHash,
+                    contentType: attachment.contentType,
+                    sizeBytes: attachment.sizeBytes,
+                    isImportant: attachment.isImportant,
+                    fileExists: attachment.fileExists,
+                    existsInSnapshot: localPackagePath != nil,
+                    previewAvailable: attachment.previewAvailable,
+                    originalAvailableInLiveSync: attachment.originalAvailableInLiveSync,
+                    originalDownloadMode: attachment.originalDownloadMode,
+                    reason: attachment.reason,
+                    exportHint: localPackagePath == nil ? attachment.exportHint : nil
+                ))
+            }
+
+            try write(metadata, named: "metadata.json", to: staging)
+            try write(categories, named: "categories.json", to: staging)
+            try write(technicians, named: "technicians.json", to: staging)
+            try write(tasks, named: "tasks.json", to: staging)
+            try write(installedAttachments, named: "attachments-index.json", to: staging)
+
+            if fileManager.fileExists(atPath: target.path) {
+                try fileManager.moveItem(at: target, to: backup)
+            }
+            do {
+                try fileManager.moveItem(at: staging, to: target)
+                try? fileManager.removeItem(at: backup)
+            } catch {
+                if fileManager.fileExists(atPath: backup.path) {
+                    try? fileManager.moveItem(at: backup, to: target)
+                }
+                throw error
+            }
+            accessStore.saveLocalSnapshot(fileName: target.lastPathComponent)
+            return try reader.readSnapshot(from: target)
+        } catch {
+            try? fileManager.removeItem(at: staging)
+            throw error
+        }
+    }
+
+    private func write<T: Encodable>(_ value: T, named fileName: String, to directory: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(value).write(
+            to: directory.appendingPathComponent(fileName, isDirectory: false),
+            options: .atomic
+        )
+    }
+
+    private static func safePathComponent(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        let result = value.unicodeScalars.map { allowed.contains($0) ? Character(String($0)) : "_" }
+        let normalized = String(result)
+        return normalized.isEmpty ? UUID().uuidString : normalized
+    }
+
+    private static func categoryDTO(_ value: SnapshotCategory) -> LocalNetworkDeltaCategory {
+        LocalNetworkDeltaCategory(id: value.id, name: value.name, order: value.order, parentId: value.parentId)
+    }
+
+    private static func technicianDTO(_ value: SnapshotTechnician) -> LocalNetworkDeltaTechnician {
+        LocalNetworkDeltaTechnician(
+            id: value.id,
+            name: value.name,
+            abbreviation: value.abbreviation,
+            email: value.email,
+            phone: value.phone
+        )
+    }
+
+    private static func taskDTO(_ value: SnapshotTask) -> LocalNetworkDeltaTask {
+        LocalNetworkDeltaTask(
+            id: value.id,
+            title: value.title,
+            customerName: value.customerName,
+            customerAddress: value.customerAddress,
+            customerEmail: value.customerEmail,
+            customerPhone: value.customerPhone,
+            currentCategoryId: value.currentCategoryId,
+            categoryIds: value.categoryIds,
+            categoryNames: value.categoryNames,
+            dueDate: value.dueDate,
+            reminderDate: value.reminderDate,
+            followUpReason: value.followUpReason,
+            createdAt: value.createdAt,
+            updatedAt: value.updatedAt,
+            materialOrderedAt: value.materialOrderedAt,
+            status: value.status,
+            technician: value.technician,
+            workflowType: value.workflowType,
+            workflowStep: value.workflowStep,
+            notes: value.notes,
+            shortText: value.shortText,
+            attachmentRefs: value.attachmentRefs
+        )
+    }
+
+    private static func attachmentDTO(_ value: SnapshotAttachmentIndex) -> LocalNetworkDeltaAttachment {
+        LocalNetworkDeltaAttachment(
+            id: value.id,
+            taskId: value.taskId,
+            fileName: value.fileName,
+            originalFileName: value.originalFileName,
+            displayName: value.displayName,
+            relativePath: value.relativePath,
+            packagePath: value.packagePath,
+            previewPath: nil,
+            contentHash: value.contentHash,
+            contentType: value.contentType,
+            sizeBytes: value.sizeBytes,
+            isImportant: value.isImportant,
+            fileExists: value.fileExists,
+            existsInSnapshot: value.existsInSnapshot,
+            previewAvailable: value.previewAvailable,
+            originalAvailableInLiveSync: value.originalAvailableInLiveSync,
+            originalDownloadMode: value.originalDownloadMode,
+            reason: value.reason,
+            exportHint: value.exportHint
+        )
+    }
+}
+
 private struct RawMetadata: Decodable {
     let formatVersion: Int?
     let exportedAt: String?
@@ -568,20 +890,34 @@ private struct RawCategory: Decodable {
     let parentId: String?
 }
 
+private struct RawTechnician: Decodable {
+    let id: String?
+    let name: String?
+    let abbreviation: String?
+    let email: String?
+    let phone: String?
+}
+
 private struct RawTask: Decodable {
     let id: String?
     let title: String?
     let customerName: String?
+    let customerAddress: String?
     let customerEmail: String?
     let customerPhone: String?
+    let currentCategoryId: String?
     let categoryIds: [String]?
     let categoryNames: [String]?
     let dueDate: String?
     let reminderDate: String?
+    let followUpReason: String?
     let createdAt: String?
     let updatedAt: String?
     let materialOrderedAt: String?
     let status: String?
+    let technician: String?
+    let workflowType: String?
+    let workflowStep: String?
     let notes: String?
     let shortText: String?
     let attachmentRefs: [String]?
@@ -601,6 +937,7 @@ private struct RawAttachment: Decodable {
     let originalDownloadMode: String?
     let reason: String?
     let contentType: String?
+    let contentHash: String?
     let sizeBytes: Int64?
     let isImportant: Bool?
     let fileExists: Bool?

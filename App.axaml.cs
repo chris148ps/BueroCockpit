@@ -1,5 +1,7 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Markup.Xaml;
@@ -21,7 +23,20 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         var storageLocationService = new StorageLocationService();
-        storageLocationService.ApplyConfiguredDataDirectory();
+        try
+        {
+            storageLocationService.ApplyConfiguredDataDirectory();
+        }
+        catch (LocalDataDirectoryRedirectException ex)
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime blockedDesktop)
+            {
+                blockedDesktop.MainWindow = CreateLocalDataDirectoryErrorWindow(ex.Message);
+            }
+
+            base.OnFrameworkInitializationCompleted();
+            return;
+        }
 
         var settingsService = new AppSettingsService();
         var settings = settingsService.Load();
@@ -33,6 +48,51 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static Window CreateLocalDataDirectoryErrorWindow(string message)
+    {
+        var closeButton = new Button
+        {
+            Content = "BüroCockpit schließen",
+            HorizontalAlignment = HorizontalAlignment.Right,
+            MinWidth = 150
+        };
+        var window = new Window
+        {
+            Title = "Lokaler Datenordner erforderlich",
+            Width = 720,
+            MinWidth = 560,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = new Border
+            {
+                Padding = new Thickness(24),
+                Child = new StackPanel
+                {
+                    Spacing = 14,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "BüroCockpit hat keine Produktivdaten geöffnet.",
+                            FontSize = 20,
+                            FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        closeButton
+                    }
+                }
+            }
+        };
+        closeButton.Click += (_, _) => window.Close();
+        return window;
     }
 
     public void ApplyAppearanceMode(string? appearanceMode)

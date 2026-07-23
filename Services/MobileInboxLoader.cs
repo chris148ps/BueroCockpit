@@ -73,7 +73,7 @@ public sealed class MobileInboxLoader
     private static void AddCandidates(string path, List<string> candidates)
     {
         var fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
-        var baseDirectory = IsBcliveFilePath(fullPath) || File.Exists(fullPath)
+        var baseDirectory = File.Exists(fullPath)
             ? Path.GetDirectoryName(fullPath)
             : fullPath;
         if (string.IsNullOrWhiteSpace(baseDirectory))
@@ -117,12 +117,6 @@ public sealed class MobileInboxLoader
                 AddCandidate(Path.Combine(syncParent.FullName, "mobile-inbox"), candidates);
             }
         }
-    }
-
-    private static bool IsBcliveFilePath(string path)
-    {
-        return string.Equals(Path.GetFileName(path), "live.bclive", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(Path.GetExtension(path), ".bclive", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUsableInboxDirectory(string path)
@@ -171,6 +165,19 @@ public sealed class MobileInboxLoader
             Title = ReadFirstString(root, "title", "titel", "Mobile Besichtigung"),
             Category = ReadFirstString(root, "category", "kategorie", "categoryName", "Kategorie"),
             Notes = ReadFirstString(root, "notes", "notiz"),
+            SchemaVersion = ReadInt(root, "schemaVersion", 1),
+            Operation = ReadString(root, "operation", "create"),
+            DesktopTaskId = ReadString(root, "desktopTaskId"),
+            BaseRevision = ReadString(root, "baseRevision"),
+            ConfirmedRevision = ReadString(root, "confirmedRevision"),
+            CategoryId = ReadString(root, "categoryId"),
+            WorkflowType = ReadString(root, "workflowType"),
+            WorkflowStep = ReadFirstString(root, "workflowStep", "status"),
+            DueDate = ReadDateTime(root, "dueDate"),
+            FollowUpDate = ReadDateTime(root, "followUpDate"),
+            FollowUpReason = ReadString(root, "followUpReason"),
+            Technician = ReadString(root, "technician"),
+            BaseValues = ReadRevisionValues(root),
             PhotoPreviews = ReadPhotoPreviewItems(entryDirectory, root),
             SketchPreviews = ReadSketchPreviewItems(entryDirectory, root),
             FilePreviews = ReadFilePreviewItems(entryDirectory, root),
@@ -221,6 +228,40 @@ public sealed class MobileInboxLoader
         return DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var parsed)
             ? parsed
             : null;
+    }
+
+    private static int ReadInt(JsonElement root, string propertyName, int defaultValue)
+    {
+        if (!TryGetProperty(root, propertyName, out var element))
+        {
+            return defaultValue;
+        }
+
+        return element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var value)
+            ? value
+            : int.TryParse(ConvertToString(element), NumberStyles.Integer, CultureInfo.InvariantCulture, out value)
+                ? value
+                : defaultValue;
+    }
+
+    private static MobileTaskRevisionValues? ReadRevisionValues(JsonElement root)
+    {
+        if (!TryGetProperty(root, "baseValues", out var values) || values.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return new MobileTaskRevisionValues
+        {
+            Notes = ReadString(values, "notes"),
+            CategoryId = ReadString(values, "categoryId"),
+            WorkflowType = ReadString(values, "workflowType"),
+            WorkflowStep = ReadString(values, "workflowStep"),
+            DueDate = ReadDateTime(values, "dueDate"),
+            FollowUpDate = ReadDateTime(values, "followUpDate"),
+            FollowUpReason = ReadString(values, "followUpReason"),
+            Technician = ReadString(values, "technician")
+        };
     }
 
     private static List<MobileInboxPreviewItem> ReadSketchPreviewItems(string entryDirectory, JsonElement root)

@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -39,10 +40,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const string MobileInboxCategoryName = "Mobile Eingänge";
     private const string MobileInboxImportMarkerPrefix = "MobileInboxId:";
     private const int MobileProcessedRetentionDays = 30;
-    private const string OneDriveDataFolderName = "BueroCockpit_Daten";
-    private const string LegacyOneDriveDataFolderName = "BueroCockpit_iPad_Bearbeitung";
-    private const string CompanyOneDriveMacFolderName = "OneDrive-ElektroSchweim";
-    private const string CompanyOneDriveWindowsFolderName = "OneDrive - Elektro Schweim";
     private const string SettingsCategoryId = NavigationCategoryPolicy.SettingsId;
     private const string SettingsCategoryName = "Einstellungen";
     private const string AllTasksNavigationId = NavigationCategoryPolicy.AllTasksId;
@@ -90,10 +87,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly BueroRepository _repository;
     private readonly ThumbnailService _thumbnailService;
     private readonly BackupService _backupService;
+    private readonly BackupExchangeService _backupExchangeService;
     private readonly UpdateService _updateService;
     private readonly AppSettingsService _settingsService;
     private readonly LiveSettingsService _liveSettingsService;
     private readonly LocalNetworkDeviceStore _localNetworkDeviceStore = new();
+    private readonly LocalSyncDeltaStore _localSyncDeltaStore = new();
     private readonly FileHashService _hashService;
     private readonly IpadSnapshotExportService _ipadSnapshotExportService;
     private readonly MobileInboxLoader _mobileInboxLoader = new();
@@ -139,10 +138,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _appInstanceLockStatus = "Datenordner-Zugriffsschutz noch nicht geprüft.";
     private string _deskStatus = string.Empty;
     private string _filePathCheckStatus = string.Empty;
-    private string _ipadSnapshotStatus = string.Empty;
-    private string _ipadLiveFileStatus = "Kein Zielordner eingerichtet";
-    private string _ipadLiveFileLastSuccessfulExport = string.Empty;
-    private string _ipadLiveFileLastError = string.Empty;
     private string _lastBackupPath = string.Empty;
     private string _lastBackupTime = string.Empty;
     private string _updateStatus = "Noch kein Update-Kanal eingerichtet.";
@@ -171,12 +166,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isUpdatingSelection;
     private bool _isRefreshingVisibleTasks;
     private bool _isSavingCategorySnapshot;
-    private int _isRunningIpadSnapshotExport;
-    private int _isPendingIpadSnapshotExport;
-    private int _isRunningIpadLiveFileExport;
-    private int _isPendingIpadLiveFileExport;
-    private bool _isIpadSnapshotExportRunning;
-    private CancellationTokenSource? _ipadSnapshotStatusHideCts;
     private bool _suppressTaskListSelectionChanged;
     private bool _suppressCategorySelectionChanged;
     private bool _suppressStatusSelectionChanged;
@@ -262,9 +251,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly HashSet<string> _deletedDeskItems = new(StringComparer.OrdinalIgnoreCase);
     private bool _hasDirtyData;
     private bool _isSavingDirtyData;
-    private bool _suppressRepositoryExportsDuringSave;
-    private bool _repositoryDataWrittenDuringSave;
     private bool _emptyTrashRequested;
+    private bool _offerInitialBackupImport;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -1720,18 +1708,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
     public bool HasNoMaterials => Materials.Count == 0;
-    public string OneDriveEditDirectory => ResolveOneDriveEditDirectory(_appSettings.OneDriveEditDirectory);
-    public bool HasOneDriveEditDirectory => !string.IsNullOrWhiteSpace(OneDriveEditDirectory);
-    public bool HasNoOneDriveEditDirectory => !HasOneDriveEditDirectory;
-    public string IpadSyncRootDirectory => HasOneDriveEditDirectory
-        ? ResolveDisplayDirectory(IpadSnapshotExportService.ResolveSyncRootDirectory(OneDriveEditDirectory))
-        : string.Empty;
-    public bool HasIpadSyncRootDirectory => !string.IsNullOrWhiteSpace(IpadSyncRootDirectory);
-    public bool HasNoIpadSyncRootDirectory => !HasIpadSyncRootDirectory;
-    public string IpadLiveFileTargetFolder => ResolveIpadLiveFileTargetFolder(_appSettings.IpadLiveFileTargetPath);
-    public string IpadLiveFileTargetPath => BuildIpadLiveFileTargetPath(IpadLiveFileTargetFolder);
-    public bool HasIpadLiveFileTargetPath => !string.IsNullOrWhiteSpace(IpadLiveFileTargetPath);
-    public bool HasNoIpadLiveFileTargetPath => !HasIpadLiveFileTargetPath;
+    public string LocalDataDirectory => AppPaths.AppDataDirectory;
     public string LocalNetworkSyncStatusText => "Lokaler Netzwerk-Sync bereit. Dienst und Datenübertragung starten nur durch Benutzeraktionen.";
     public string LocalNetworkSyncBonjourStatusText => LocalBonjourService.GetAvailabilityStatus().DisplayText;
     public string LocalNetworkSyncDeviceNameText => string.IsNullOrWhiteSpace(_appSettings.LocalNetworkSyncDeviceName)
@@ -1760,88 +1737,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string SettingsOrdersToggleText => IsSettingsOrdersOpen ? "-" : "+";
     public string SettingsUpdatesToggleText => IsSettingsUpdatesOpen ? "-" : "+";
     public string SettingsDiagnosticsToggleText => IsSettingsDiagnosticsOpen ? "-" : "+";
-    public string IpadLiveFileLastSuccessfulExport
-    {
-        get => _ipadLiveFileLastSuccessfulExport;
-        set
-        {
-            if (_ipadLiveFileLastSuccessfulExport != value)
-            {
-                _ipadLiveFileLastSuccessfulExport = value;
-                OnPropertyChanged(nameof(IpadLiveFileLastSuccessfulExport));
-                OnPropertyChanged(nameof(HasIpadLiveFileLastSuccessfulExport));
-            }
-        }
-    }
-
-    public bool HasIpadLiveFileLastSuccessfulExport => !string.IsNullOrWhiteSpace(IpadLiveFileLastSuccessfulExport);
-    public string IpadLiveFileLastError
-    {
-        get => _ipadLiveFileLastError;
-        set
-        {
-            if (_ipadLiveFileLastError != value)
-            {
-                _ipadLiveFileLastError = value;
-                OnPropertyChanged(nameof(IpadLiveFileLastError));
-                OnPropertyChanged(nameof(HasIpadLiveFileLastError));
-            }
-        }
-    }
-
-    public bool HasIpadLiveFileLastError => !string.IsNullOrWhiteSpace(IpadLiveFileLastError);
-    public string IpadLiveFileStatus
-    {
-        get => _ipadLiveFileStatus;
-        set
-        {
-            if (_ipadLiveFileStatus != value)
-            {
-                _ipadLiveFileStatus = value;
-                OnPropertyChanged(nameof(IpadLiveFileStatus));
-            }
-        }
-    }
-
-    public string IpadSnapshotStatus
-    {
-        get => _ipadSnapshotStatus;
-        set
-        {
-            if (_ipadSnapshotStatus != value)
-            {
-                _ipadSnapshotStatus = value;
-                OnPropertyChanged(nameof(IpadSnapshotStatus));
-                OnPropertyChanged(nameof(HasIpadSnapshotStatus));
-                OnPropertyChanged(nameof(HasSuccessfulIpadSnapshotStatus));
-                OnPropertyChanged(nameof(HasFailedIpadSnapshotStatus));
-            }
-        }
-    }
-
-    public bool HasIpadSnapshotStatus => !string.IsNullOrWhiteSpace(IpadSnapshotStatus);
-    public bool HasSuccessfulIpadSnapshotStatus =>
-        HasIpadSnapshotStatus &&
-        !IsIpadSnapshotExportRunning &&
-        IpadSnapshotStatus.Contains("erfolgreich", StringComparison.OrdinalIgnoreCase);
-    public bool HasFailedIpadSnapshotStatus =>
-        HasIpadSnapshotStatus &&
-        !IsIpadSnapshotExportRunning &&
-        !HasSuccessfulIpadSnapshotStatus;
-    public bool IsIpadSnapshotExportRunning
-    {
-        get => _isIpadSnapshotExportRunning;
-        private set
-        {
-            if (_isIpadSnapshotExportRunning != value)
-            {
-                _isIpadSnapshotExportRunning = value;
-                OnPropertyChanged(nameof(IsIpadSnapshotExportRunning));
-                OnPropertyChanged(nameof(HasSuccessfulIpadSnapshotStatus));
-                OnPropertyChanged(nameof(HasFailedIpadSnapshotStatus));
-            }
-        }
-    }
     public string AttachmentEditStatus
     {
         get => _attachmentEditStatus;
@@ -2012,6 +1907,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public string BackupExchangeDirectory => ResolveDisplayDirectory(_appSettings.BackupExchangeDirectory);
+    public bool HasBackupExchangeDirectory => !string.IsNullOrWhiteSpace(BackupExchangeDirectory);
+    public bool HasNoBackupExchangeDirectory => !HasBackupExchangeDirectory;
+
     public string LastBackupPath
     {
         get => _lastBackupPath;
@@ -2123,6 +2022,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _repository = new BueroRepository();
         _thumbnailService = new ThumbnailService();
         _backupService = new BackupService();
+        _backupExchangeService = new BackupExchangeService();
         _updateService = new UpdateService();
         _settingsService = new AppSettingsService();
         _liveSettingsService = new LiveSettingsService();
@@ -2134,7 +2034,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         EnsureLocalNetworkSyncDefaultPort();
         LoadLocalNetworkRememberedDevices();
         RefreshLocalNetworkSyncEditorFields();
-        NormalizeConfiguredOneDriveEditDirectory();
         LoadTechnicianOptions();
         SetAppearanceMode(_appSettings.AppearanceMode, persist: false);
         InitializeComponent();
@@ -2169,6 +2068,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RoutingStrategies.Bubble,
             handledEventsToo: true);
 
+        var localDatabaseExistedBeforeInitialization = File.Exists(AppPaths.DatabasePath);
         try
         {
             _repository.Initialize();
@@ -2179,9 +2079,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _repository.DataWritten += Repository_OnDataWritten;
         LoadData();
         LoadBackupEntries();
+        if (!localDatabaseExistedBeforeInitialization)
+        {
+            _offerInitialBackupImport = true;
+            BackupStatus =
+                "Es wurde keine lokale Produktivdatenbank gefunden. Ein vorhandener Datenstand kann unter Daten & Pfade bewusst aus einem Austausch-Backup eingespielt werden.";
+        }
         CleanupNavigationCategories();
         SelectOverviewAtStartup();
     }
@@ -2191,6 +2096,102 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ApplyResponsiveStartupBounds();
         RestoreTaskDetailPaneWidth();
         base.OnOpened(e);
+        if (_offerInitialBackupImport)
+        {
+            _offerInitialBackupImport = false;
+            Dispatcher.UIThread.Post(async () =>
+            {
+                if (await ShowInitialBackupImportOfferAsync())
+                {
+                    OpenBackupExchangeSettings();
+                }
+            });
+        }
+    }
+
+    private async Task<bool> ShowInitialBackupImportOfferAsync()
+    {
+        var openSettings = false;
+        var importButton = new Button
+        {
+            Content = "Zu Backup-Import",
+            Classes = { "Primary" },
+            MinWidth = 150
+        };
+        var continueButton = new Button
+        {
+            Content = "Leer lokal beginnen",
+            IsCancel = true,
+            MinWidth = 140
+        };
+        var dialog = new Window
+        {
+            Title = "Lokaler Datenstand",
+            Width = 650,
+            MinWidth = 520,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Padding = new Thickness(20),
+                Child = new StackPanel
+                {
+                    Spacing = 12,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Keine lokale Produktivdatenbank gefunden",
+                            FontSize = 19,
+                            FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "BüroCockpit hat keinen alten OneDrive-Datenordner übernommen. Wenn auf diesem Gerät ein bestehender Datenstand verwendet werden soll, spielen Sie ihn bewusst über „Backup von anderem Gerät einspielen“ ein.",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "Beim Import wird der vollständige lokale Stand ersetzt; vorher entsteht automatisch ein lokales Rückfall-Backup.",
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Children = { continueButton, importButton }
+                        }
+                    }
+                }
+            }
+        };
+        importButton.Click += (_, _) =>
+        {
+            openSettings = true;
+            dialog.Close();
+        };
+        continueButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
+        return openSettings;
+    }
+
+    private void OpenBackupExchangeSettings()
+    {
+        var settingsCategory = Categories.FirstOrDefault(category =>
+            string.Equals(category.Id, SettingsCategoryId, StringComparison.OrdinalIgnoreCase));
+        if (settingsCategory is null)
+        {
+            return;
+        }
+
+        SelectedCategory = settingsCategory;
+        SetSidebarListSelections(settingsCategory.Id);
+        ApplySelectedCategoryContent();
+        SelectSettingsTab("DataSync");
     }
 
     private async void MainWindow_OnPreviewKeyDown(object? sender, KeyEventArgs e)
@@ -2501,10 +2502,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         Console.WriteLine($"SaveNow: {DateTime.Now:O} reason={reason}");
-        LogSaveNowIpadSyncTarget(reason);
         _isSavingDirtyData = true;
-        _suppressRepositoryExportsDuringSave = true;
-        _repositoryDataWrittenDuringSave = false;
         try
         {
             if (_emptyTrashRequested)
@@ -2575,7 +2573,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _hasDirtyData = false;
             _autoSaveTimer.Stop();
             AutoSaveStatus = "Gespeichert";
-            TriggerRepositoryExportsAfterSave(reason);
             return true;
         }
         catch (Exception ex)
@@ -2587,71 +2584,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         finally
         {
-            _suppressRepositoryExportsDuringSave = false;
             _isSavingDirtyData = false;
         }
-    }
-
-    private void TriggerRepositoryExportsAfterSave(string reason)
-    {
-        if (!_repositoryDataWrittenDuringSave)
-        {
-            return;
-        }
-
-        var exportReason = $"save:{reason}";
-        try
-        {
-            if (ShouldWaitForRepositoryExports(reason))
-            {
-                ExportIpadTargetsNow(exportReason);
-            }
-            else
-            {
-                TriggerIpadSnapshotExport(exportReason);
-                TriggerIpadLiveFileExport(exportReason);
-            }
-        }
-        finally
-        {
-            _repositoryDataWrittenDuringSave = false;
-        }
-    }
-
-    private static bool ShouldWaitForRepositoryExports(string reason)
-    {
-        return string.Equals(reason, "app-closing", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(reason, "manual-save", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void ExportIpadTargetsNow(string reason)
-    {
-        _ipadSnapshotExportService.LogDiagnostic($"Legacy iPad file export disabled ({reason}): local network sync is the target path.");
-    }
-
-    private void LogSaveNowIpadSyncTarget(string reason)
-    {
-        var oneDriveEditDirectory = OneDriveEditDirectory;
-        if (string.IsNullOrWhiteSpace(oneDriveEditDirectory))
-        {
-            Console.WriteLine($"SaveNow target missing: {DateTime.Now:O} reason={reason} syncRoot=<not configured>");
-            _ipadSnapshotExportService.LogDiagnostic($"SaveNow target missing ({reason}): no OneDrive edit directory configured.");
-            return;
-        }
-
-        var syncRoot = IpadSnapshotExportService.ResolveSyncRootDirectory(oneDriveEditDirectory);
-        var liveFile = IpadSnapshotExportService.ResolveLivePackagePath(oneDriveEditDirectory);
-        if (string.IsNullOrWhiteSpace(syncRoot) || string.IsNullOrWhiteSpace(liveFile))
-        {
-            Console.WriteLine($"SaveNow target invalid: {DateTime.Now:O} reason={reason} oneDriveEditDirectory={oneDriveEditDirectory}");
-            _ipadSnapshotExportService.LogDiagnostic($"SaveNow target invalid ({reason}): oneDriveEditDirectory={oneDriveEditDirectory}");
-            return;
-        }
-
-        Console.WriteLine($"SaveNow target syncRoot={syncRoot}");
-        Console.WriteLine($"SaveNow target liveFile={liveFile}");
-        _ipadSnapshotExportService.LogDiagnostic($"SaveNow target ({reason}) syncRoot={syncRoot}");
-        _ipadSnapshotExportService.LogDiagnostic($"SaveNow target ({reason}) liveFile={liveFile}");
     }
 
     private void SubscribeCategoryItem(CategoryItem category)
@@ -2740,6 +2674,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             nameof(TaskItem.Priority) or
             nameof(TaskItem.DueDate) or
             nameof(TaskItem.FollowUpDate) or
+            nameof(TaskItem.FollowUpReason) or
             nameof(TaskItem.SentAt) or
             nameof(TaskItem.MaterialOrderedAt) or
             nameof(TaskItem.AssignedTo) or
@@ -3787,7 +3722,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         ? SortTrashTasks(AllTasks.Where(t => t.IsDeleted))
                         : IsAllTasksNavigationSelected
                         ? SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted))
-                        : SortTasksForCategory(AllTasks.Where(t => !t.IsDeleted && TaskBelongsToSelectedCategory(t, selected)));
+                        : SortTasksForCategory(AllTasks.Where(t =>
+                            !t.IsDeleted &&
+                            !IsArchivedForSearch(t) &&
+                            TaskBelongsToCategoryOrDescendant(t, selected)));
             }
             else
             {
@@ -3840,8 +3778,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return true;
         }
 
-        return SelectedCategory is null || IsSpecialCategory(SelectedCategory) ||
-               TaskBelongsToSelectedCategory(task, SelectedCategory);
+        return SelectedCategory is null ||
+               IsSpecialCategory(SelectedCategory) ||
+               (!IsArchivedForSearch(task) && TaskBelongsToCategoryOrDescendant(task, SelectedCategory));
     }
 
     private void RefreshGlobalSearchResults()
@@ -4616,6 +4555,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         target.Priority = source.Priority;
         target.DueDate = source.DueDate;
         target.FollowUpDate = source.FollowUpDate;
+        target.FollowUpReason = source.FollowUpReason;
         target.SentAt = source.SentAt;
         target.MaterialOrderedAt = source.MaterialOrderedAt;
         target.AssignedTo = source.AssignedTo;
@@ -4824,9 +4764,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 category.TaskCount = AllTasks.Count(task =>
                     !task.IsDeleted &&
-                    (category.HasChildren
-                        ? TaskBelongsToCategoryOrDescendant(task, category)
-                        : TaskBelongsToSelectedCategory(task, category)));
+                    !IsArchivedForSearch(task) &&
+                    TaskBelongsToCategoryOrDescendant(task, category));
             }
         }
 
@@ -8486,6 +8425,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Priority = source.Priority,
             DueDate = source.DueDate,
             FollowUpDate = source.FollowUpDate,
+            FollowUpReason = source.FollowUpReason,
             SentAt = source.SentAt,
             MaterialOrderedAt = source.MaterialOrderedAt,
             AssignedTo = source.AssignedTo,
@@ -8607,6 +8547,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         task.FollowUpDate = null;
+        task.FollowUpReason = string.Empty;
         SaveTaskAndQueueIpadSnapshot(task);
         RefreshDashboard();
 
@@ -8947,441 +8888,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static string ResolveOneDriveEditDirectory(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return TryGetDefaultOneDriveEditDirectory(createIfMissing: false, out var defaultDirectory)
-                ? defaultDirectory
-                : string.Empty;
-        }
-
-        var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
-        if (!OperatingSystem.IsMacOS())
-        {
-            return GetOneDriveEditWorkDirectory(trimmedPath);
-        }
-
-        // Windows bleibt das produktive Zielsystem; auf macOS nur Legacy-Windows-Pfade
-        // fuer lokale Entwicklung und Tests auf den passenden CloudStorage-Pfad umbiegen.
-        if (!IsWindowsStylePath(trimmedPath))
-        {
-            return GetOneDriveEditWorkDirectory(trimmedPath);
-        }
-
-        if (!IsLegacyOneDriveEditDirectory(trimmedPath))
-        {
-            return GetOneDriveEditWorkDirectory(trimmedPath);
-        }
-
-        return GetOneDriveEditWorkDirectory(GetReplacementOneDriveEditDirectory(trimmedPath));
-    }
-
-    private void NormalizeConfiguredOneDriveEditDirectory()
-    {
-        var originalPath = _appSettings.OneDriveEditDirectory;
-        if (TryGetMigratedOneDriveEditDirectory(originalPath, out var migratedPath, out var message))
-        {
-            _appSettings.OneDriveEditDirectory = migratedPath;
-            _settingsService.Save(_appSettings);
-            ReportOneDriveDataFolderMessage(message);
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(message))
-        {
-            ReportOneDriveDataFolderMessage(message);
-        }
-    }
-
-    private void ReportOneDriveDataFolderMessage(string message)
-    {
-        Console.WriteLine(message);
-        _ipadSnapshotExportService.LogDiagnostic(message);
-    }
-
-    private static bool TryGetMigratedOneDriveEditDirectory(string? configuredPath, out string migratedPath, out string message)
-    {
-        migratedPath = string.Empty;
-        message = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(configuredPath))
-        {
-            if (!TryGetDefaultOneDriveEditDirectory(createIfMissing: false, out var defaultDirectory))
-            {
-                return false;
-            }
-
-            migratedPath = EnsureTrailingDirectorySeparator(defaultDirectory);
-            message = $"zentraler Standard-Datenordner erkannt: {migratedPath}";
-            return true;
-        }
-
-        var trimmedPath = GetOneDriveEditWorkDirectory(Environment.ExpandEnvironmentVariables(configuredPath.Trim()));
-        if (!IsLegacyOneDriveEditDirectory(trimmedPath))
-        {
-            return false;
-        }
-
-        var replacementPath = GetReplacementOneDriveEditDirectory(trimmedPath);
-        var oldDirectory = ResolveDisplayDirectory(GetLegacyOneDriveEditDirectoryForCurrentPlatform(trimmedPath));
-        var newDirectory = ResolveDisplayDirectory(replacementPath);
-        var newExists = Directory.Exists(newDirectory);
-        var oldExists = Directory.Exists(oldDirectory);
-
-        if (newExists || CanSafelyCreateNewDataDirectory(oldDirectory, newDirectory, oldExists))
-        {
-            if (!newExists)
-            {
-                Directory.CreateDirectory(newDirectory);
-            }
-
-            migratedPath = EnsureTrailingDirectorySeparator(replacementPath);
-            message =
-                $"alter Datenordner erkannt: {oldDirectory}{Environment.NewLine}" +
-                $"neuer Datenordner: {newDirectory}{Environment.NewLine}" +
-                "lokale Einstellung wurde auf den neuen zentralen Datenordner umgestellt.";
-            return true;
-        }
-
-        message =
-            $"alter Datenordner erkannt: {oldDirectory}{Environment.NewLine}" +
-            $"neuer Datenordner: {newDirectory}{Environment.NewLine}" +
-            "automatische Umstellung nicht sicher: bitte scripts/migrate-data-folder.sh --dry-run ausfuehren.";
-        return false;
-    }
-
-    private static bool CanSafelyCreateNewDataDirectory(string oldDirectory, string newDirectory, bool oldExists)
-    {
-        if (Directory.Exists(newDirectory))
-        {
-            return true;
-        }
-
-        var parentDirectory = Path.GetDirectoryName(newDirectory);
-        if (string.IsNullOrWhiteSpace(parentDirectory) || !Directory.Exists(parentDirectory))
-        {
-            return false;
-        }
-
-        return !oldExists || !ContainsSyncData(oldDirectory);
-    }
-
-    private static bool ContainsSyncData(string directory)
-    {
-        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
-        {
-            return false;
-        }
-
-        var syncDirectory = Path.Combine(directory, "Sync");
-        return File.Exists(Path.Combine(syncDirectory, "live.bclive")) ||
-               File.Exists(Path.Combine(syncDirectory, "live", "tasks.json")) ||
-               File.Exists(Path.Combine(syncDirectory, "live", "categories.json")) ||
-               File.Exists(Path.Combine(syncDirectory, "live", "metadata.json")) ||
-               File.Exists(Path.Combine(syncDirectory, "snapshots", "latest.bcsnapshot"));
-    }
-
-    private static string GetPersistedOneDriveEditDirectory(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return string.Empty;
-        }
-
-        var trimmedPath = GetOneDriveEditWorkDirectory(Environment.ExpandEnvironmentVariables(path.Trim()));
-        if (!OperatingSystem.IsMacOS())
-        {
-            return trimmedPath;
-        }
-
-        // Windows bleibt das produktive Zielsystem; wenn auf macOS der bekannte
-        // lokale CloudStorage-Testpfad gewaehlt wird, bleibt in der gemeinsamen
-        // settings.json trotzdem der produktive Windows-Pfad erhalten.
-        return IsKnownMacDevelopmentOneDriveEditDirectory(trimmedPath)
-            ? GetProductiveWindowsOneDriveEditDirectory()
-            : trimmedPath;
-    }
-
-    private static string GetOneDriveEditWorkDirectory(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return string.Empty;
-        }
-
-        var candidate = path.Trim();
-        if (IsIpadLiveFilePath(candidate))
-        {
-            candidate = GetIpadLiveFileDirectory(candidate);
-        }
-
-        var syncRoot = IpadSnapshotExportService.ResolveSyncRootDirectory(candidate);
-        if (string.IsNullOrWhiteSpace(syncRoot) || !AreSameResolvedDirectory(candidate, syncRoot))
-        {
-            return candidate;
-        }
-
-        var parentDirectory = GetIpadLiveFileDirectory(candidate);
-        return string.IsNullOrWhiteSpace(parentDirectory) ? candidate : parentDirectory;
-    }
-
-    private static string ResolveIpadLiveFileTargetFolder(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return string.Empty;
-        }
-
-        var trimmedPath = Environment.ExpandEnvironmentVariables(path.Trim());
-        return IsIpadLiveFilePath(trimmedPath)
-            ? GetIpadLiveFileDirectory(trimmedPath)
-            : trimmedPath;
-    }
-
-    private static string BuildIpadLiveFileTargetPath(string folderPath)
-    {
-        if (string.IsNullOrWhiteSpace(folderPath))
-        {
-            return string.Empty;
-        }
-
-        return Path.Combine(folderPath, "live.bclive");
-    }
-
-    private static bool IsIpadLiveFilePath(string path)
-    {
-        var normalizedPath = path.Replace('\\', '/');
-        return string.Equals(Path.GetFileName(normalizedPath), "live.bclive", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetIpadLiveFileDirectory(string path)
-    {
-        if (path.Contains('\\', StringComparison.Ordinal) && !path.Contains('/', StringComparison.Ordinal))
-        {
-            var separatorIndex = path.LastIndexOf('\\');
-            return separatorIndex > 0 ? path[..separatorIndex] : string.Empty;
-        }
-
-        return Path.GetDirectoryName(path) ?? string.Empty;
-    }
-
-    private static IReadOnlyList<string> GetRecommendedIpadLiveFolders()
-    {
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrWhiteSpace(userProfile))
-        {
-            return Array.Empty<string>();
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            return new[]
-            {
-                Path.Combine(GetMacDevelopmentOneDriveEditDirectory(), "Sync")
-            };
-        }
-
-        var folders = new List<string>();
-        foreach (var candidate in GetDefaultOneDriveEditDirectoryCandidates())
-        {
-            folders.Add(Path.Combine(candidate, "Sync"));
-        }
-
-        return folders;
-    }
-
-    private static string GetMacDevelopmentOneDriveEditDirectory()
-    {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Library",
-            "CloudStorage",
-            CompanyOneDriveMacFolderName,
-            "Dokumente",
-            OneDriveDataFolderName);
-    }
-
-    private static string GetLegacyMacDevelopmentOneDriveEditDirectory()
-    {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Library",
-            "CloudStorage",
-            CompanyOneDriveMacFolderName,
-            "Dokumente",
-            LegacyOneDriveDataFolderName);
-    }
-
-    private static string GetProductiveWindowsOneDriveEditDirectory()
-    {
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrWhiteSpace(userProfile))
-        {
-            return Path.Combine(@"C:\Users\Installation", CompanyOneDriveWindowsFolderName, "Dokumente", OneDriveDataFolderName);
-        }
-
-        return Path.Combine(userProfile, CompanyOneDriveWindowsFolderName, "Dokumente", OneDriveDataFolderName);
-    }
-
-    private static bool TryGetDefaultOneDriveEditDirectory(bool createIfMissing, out string directory)
-    {
-        directory = string.Empty;
-        foreach (var candidate in GetDefaultOneDriveEditDirectoryCandidates())
-        {
-            if (Directory.Exists(candidate))
-            {
-                directory = candidate;
-                return true;
-            }
-
-            var parentDirectory = Path.GetDirectoryName(candidate);
-            if (!createIfMissing || string.IsNullOrWhiteSpace(parentDirectory) || !Directory.Exists(parentDirectory))
-            {
-                continue;
-            }
-
-            Directory.CreateDirectory(candidate);
-            directory = candidate;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static IReadOnlyList<string> GetDefaultOneDriveEditDirectoryCandidates()
-    {
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrWhiteSpace(userProfile))
-        {
-            return Array.Empty<string>();
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            return new[]
-            {
-                GetMacDevelopmentOneDriveEditDirectory()
-            };
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            var candidates = new List<string>();
-            var oneDriveCommercial = Environment.GetEnvironmentVariable("OneDriveCommercial");
-            if (!string.IsNullOrWhiteSpace(oneDriveCommercial))
-            {
-                candidates.Add(Path.Combine(oneDriveCommercial, "Dokumente", OneDriveDataFolderName));
-                candidates.Add(Path.Combine(oneDriveCommercial, "Documents", OneDriveDataFolderName));
-            }
-
-            candidates.Add(Path.Combine(userProfile, CompanyOneDriveWindowsFolderName, "Dokumente", OneDriveDataFolderName));
-            candidates.Add(Path.Combine(userProfile, CompanyOneDriveWindowsFolderName, "Documents", OneDriveDataFolderName));
-            return candidates;
-        }
-
-        return Array.Empty<string>();
-    }
-
-    private static bool IsWindowsStylePath(string path)
-    {
-        return (path.Length >= 2 && char.IsLetter(path[0]) && path[1] == ':') ||
-               path.Contains('\\', StringComparison.Ordinal) ||
-               path.StartsWith(@"\\", StringComparison.Ordinal);
-    }
-
-    private static bool IsLegacyOneDriveEditDirectory(string path)
-    {
-        var normalized = path.Replace('\\', '/');
-        return string.Equals(GetPortableFileName(normalized), LegacyOneDriveDataFolderName, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetPortableFileName(string path)
-    {
-        var normalized = path.Replace('\\', '/').TrimEnd('/');
-        var separatorIndex = normalized.LastIndexOf('/');
-        return separatorIndex >= 0 ? normalized[(separatorIndex + 1)..] : normalized;
-    }
-
-    private static bool IsKnownMacDevelopmentOneDriveEditDirectory(string path)
-    {
-        return AreSameResolvedDirectory(path, GetMacDevelopmentOneDriveEditDirectory());
-    }
-
-    private static string ReplaceLegacyDataFolderName(string path)
-    {
-        var workDirectory = GetOneDriveEditWorkDirectory(path);
-        var normalized = workDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var folderName = GetPortableFileName(normalized);
-        if (!string.Equals(folderName, LegacyOneDriveDataFolderName, StringComparison.OrdinalIgnoreCase))
-        {
-            return workDirectory;
-        }
-
-        var parentDirectory = GetIpadLiveFileDirectory(normalized);
-        if (string.IsNullOrWhiteSpace(parentDirectory))
-        {
-            return OneDriveDataFolderName;
-        }
-
-        var separator = workDirectory.Contains('\\', StringComparison.Ordinal) && !workDirectory.Contains('/', StringComparison.Ordinal)
-            ? "\\"
-            : Path.DirectorySeparatorChar.ToString();
-        return parentDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '/', '\\') + separator + OneDriveDataFolderName;
-    }
-
-    private static string GetReplacementOneDriveEditDirectory(string path)
-    {
-        if (OperatingSystem.IsMacOS() && IsWindowsStylePath(path))
-        {
-            return GetMacDevelopmentOneDriveEditDirectory();
-        }
-
-        return ReplaceLegacyDataFolderName(path);
-    }
-
-    private static string GetLegacyOneDriveEditDirectoryForCurrentPlatform(string path)
-    {
-        if (OperatingSystem.IsMacOS() && IsWindowsStylePath(path))
-        {
-            return GetLegacyMacDevelopmentOneDriveEditDirectory();
-        }
-
-        return GetOneDriveEditWorkDirectory(path);
-    }
-
-    private static string EnsureTrailingDirectorySeparator(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path) ||
-            path.EndsWith(Path.DirectorySeparatorChar) ||
-            path.EndsWith(Path.AltDirectorySeparatorChar))
-        {
-            return path;
-        }
-
-        return path + Path.DirectorySeparatorChar;
-    }
-
-    private static bool AreSameResolvedDirectory(string firstPath, string secondPath)
-    {
-        try
-        {
-            var firstResolvedPath = Path.GetFullPath(ResolveDisplayDirectory(firstPath))
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var secondResolvedPath = Path.GetFullPath(ResolveDisplayDirectory(secondPath))
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-
-            return string.Equals(firstResolvedPath, secondResolvedPath, comparison);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     private void OpenDataFolder_OnClick(object? sender, RoutedEventArgs e)
     {
         OpenFolder(ResolveDisplayDirectory(AppPaths.AppDataDirectory));
@@ -9395,68 +8901,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OpenBackupFolder_OnClick(object? sender, RoutedEventArgs e)
     {
         OpenFolder(AppPaths.BackupDirectory);
-    }
-
-    private async void PrepareStorageLocation_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
-        if (storageProvider is null)
-        {
-            StorageLocationStatus = "Ordnerauswahl ist nicht verfügbar.";
-            return;
-        }
-
-        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Neuen BüroCockpit-Datenordner auswählen",
-            AllowMultiple = false
-        });
-
-        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(folderPath))
-        {
-            return;
-        }
-
-        var result = _storageLocationService.PrepareCustomDataDirectory(folderPath);
-        StorageLocationStatus = result.Message;
-    }
-
-    private async void MigrateStorageLocation_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
-        if (storageProvider is null)
-        {
-            StorageLocationStatus = "Ordnerauswahl ist nicht verfügbar.";
-            return;
-        }
-
-        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Zielordner für BüroCockpit-Daten auswählen",
-            AllowMultiple = false
-        });
-
-        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(folderPath))
-        {
-            return;
-        }
-
-        if (AreSameResolvedDirectory(folderPath, AppPaths.AppDataDirectory))
-        {
-            StorageLocationStatus = "Dieser Datenordner wird bereits verwendet.";
-            return;
-        }
-
-        var result = _storageLocationService.MigrateToCustomDataDirectory(folderPath);
-        StorageLocationStatus = result.Message;
-        if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.BackupPath))
-        {
-            LastBackupPath = result.BackupPath;
-            LastBackupTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            BackupStatus = "Backup vor Datenordner-Migration wurde erstellt.";
-        }
     }
 
     private void CheckLegacyFilePaths_OnClick(object? sender, RoutedEventArgs e)
@@ -9589,7 +9033,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             DeviceId = _appSettings.LocalNetworkSyncDeviceId,
             AppVersion = _updateService.GetCurrentVersion(),
             DataFolderPath = AppPaths.AppDataDirectory
-        }, _localNetworkDeviceStore);
+        },
+        _localNetworkDeviceStore,
+        CreateLocalSyncSnapshotPackageAsync,
+        deltaStore: _localSyncDeltaStore,
+        uploadProcessor: ProcessLocalNetworkUploadAsync);
         _localNetworkSyncTestService.DeviceRemembered += LocalNetworkSyncTestService_DeviceRemembered;
         _localNetworkSyncTestService.UploadCompleted += LocalNetworkSyncTestService_UploadCompleted;
 
@@ -9597,6 +9045,62 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LocalNetworkSyncTestServiceStatus = status.Message?.StartsWith("Running:", StringComparison.Ordinal) == true
             ? FormatLocalNetworkSyncStatusMessage(status.Message)
             : $"Fehler: Port {port} ist belegt oder nicht verfügbar. {status.Message}";
+    }
+
+    private async Task<LocalSyncSnapshotPackage> CreateLocalSyncSnapshotPackageAsync(CancellationToken cancellationToken)
+    {
+        var exportDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "BueroCockpit",
+            "local-sync-snapshot",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(exportDirectory);
+        var packagePath = Path.Combine(exportDirectory, "current.bcsnapshot");
+
+        try
+        {
+            var technicians = await Dispatcher.UIThread.InvokeAsync(() =>
+                TechnicianProfiles.Select(profile => new TechnicianProfile
+                {
+                    Id = profile.Id,
+                    Name = profile.Name,
+                    Abbreviation = profile.Abbreviation,
+                    Email = profile.Email,
+                    Phone = profile.Phone
+                }).ToList());
+            var result = await _ipadSnapshotExportService.ExportNetworkSnapshotToFileAsync(
+                _repository,
+                packagePath,
+                _updateService.GetCurrentVersion(),
+                _appSettings.LocalNetworkSyncDeviceName,
+                cancellationToken,
+                technicians);
+            if (!result.Success || !File.Exists(packagePath))
+            {
+                throw new IOException(result.ErrorMessage ?? "Lokaler iPad-Snapshot konnte nicht erstellt werden.");
+            }
+
+            var changeStatus = _localNetworkSyncTestService?.GetChangeStatus();
+            return new LocalSyncSnapshotPackage(
+                packagePath,
+                "BueroCockpit.bcsnapshot",
+                changeStatus?.ChangeVersion ?? $"snapshot-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}",
+                DateTimeOffset.UtcNow,
+                exportDirectory);
+        }
+        catch
+        {
+            try
+            {
+                Directory.Delete(exportDirectory, recursive: true);
+            }
+            catch
+            {
+                // Temporäre Exportdaten werden beim nächsten Betriebssystem-Cleanup entfernt.
+            }
+
+            throw;
+        }
     }
 
     private static string FormatLocalNetworkSyncStatusMessage(string? statusMessage)
@@ -9729,6 +9233,318 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
     }
 
+    private async Task<MobileInboxTransferResult> ProcessLocalNetworkUploadAsync(LocalSyncUploadCompletedEventArgs upload)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() => ApplyConfirmedMobileInboxUpload(upload));
+    }
+
+    private MobileInboxTransferResult ApplyConfirmedMobileInboxUpload(LocalSyncUploadCompletedEventArgs upload)
+    {
+        var result = upload.Result;
+        var entry = _mobileInboxLoader
+            .Load(AppPaths.AppDataDirectory)
+            .FirstOrDefault(item =>
+                string.Equals(item.Id, result.InboxEntryId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Path.GetFileName(item.DirectoryPath), result.InboxEntryId, StringComparison.OrdinalIgnoreCase));
+        if (entry is null)
+        {
+            return result.Status == "skipped"
+                ? result with
+                {
+                    Messages = ["Die mobile Änderung war bereits vollständig am Desktop bestätigt."]
+                }
+                : result with
+                {
+                    Status = "failed",
+                    FailedObjects = Math.Max(1, result.FailedObjects),
+                    Messages = ["Der geprüfte mobile Eingang konnte am Desktop nicht geladen werden und bleibt unbestätigt."]
+                };
+        }
+
+        return entry.IsDesktopUpdate
+            ? ApplyConfirmedMobileTaskUpdate(entry, result)
+            : ApplyConfirmedMobileTaskCreate(entry, result);
+    }
+
+    private MobileInboxTransferResult ApplyConfirmedMobileTaskCreate(
+        MobileInboxEntry entry,
+        MobileInboxTransferResult result)
+    {
+        var existingByStableId = AllTasks.FirstOrDefault(task =>
+            !task.IsMobileInboxCard &&
+            string.Equals(task.Id, entry.Id, StringComparison.OrdinalIgnoreCase));
+        var existingByMarker = FindImportedMobileInboxTask(entry.Id);
+        if (existingByStableId is not null || existingByMarker is not null)
+        {
+            var existing = existingByStableId ?? existingByMarker!;
+            if (!existing.Description.Contains(
+                    BuildMobileInboxImportMarker(entry.Id),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return MobileSyncConflict(
+                    result,
+                    "Die stabile iPad-Auftrags-ID ist am Desktop bereits anderweitig vergeben. Beide Stände bleiben erhalten.");
+            }
+
+            MoveMobileInboxEntryToProcessed(entry);
+            return result with
+            {
+                Status = "skipped",
+                SkippedObjects = Math.Max(1, result.SkippedObjects),
+                Messages = ["Der neue iPad-Auftrag war bereits vollständig am Desktop übernommen."]
+            };
+        }
+
+        var workflowType =
+            entry.SchemaVersion >= 2 &&
+            string.Equals(entry.WorkflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase)
+                ? OfferWorkflowType
+                : DirectWorkflowType;
+        var workflowStep = entry.SchemaVersion >= 2
+            ? WorkflowCategoryService.NormalizeStep(workflowType, entry.WorkflowStep)
+            : "Auftrag";
+        if (!WorkflowCategoryService.IsValidStep(workflowType, workflowStep) ||
+            !TryResolveMappedCategory(workflowType, workflowStep, out var targetCategory))
+        {
+            return MobileSyncConflict(
+                result,
+                "Vorgangstyp oder Workflowstatus des iPad-Auftrags ist am Desktop nicht eindeutig zuordenbar.");
+        }
+
+        if (entry.SchemaVersion >= 2 && !string.IsNullOrWhiteSpace(entry.CategoryId))
+        {
+            var requestedCategory = Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, entry.CategoryId, StringComparison.OrdinalIgnoreCase) &&
+                IsTaskCategoryChoiceVisible(category));
+            if (requestedCategory is null)
+            {
+                return MobileSyncConflict(
+                    result,
+                    "Die auf dem iPad gewählte Kategorie existiert am Desktop nicht mehr.");
+            }
+
+            targetCategory = requestedCategory;
+        }
+
+        var importResult = PrepareMobileInboxImport(entry);
+        if (!importResult.CanImport)
+        {
+            return MobileSyncConflict(result, importResult.ToUserMessage());
+        }
+
+        var importedTask = CreateTaskFromMobileInboxEntry(
+            entry,
+            targetCategory,
+            IsMatchingMobileInboxCategory(entry.Category, targetCategory.Name),
+            workflowType,
+            workflowStep);
+        importedTask.SortPosition = _repository.GetTopTaskSortPosition(targetCategory.Id);
+        try
+        {
+            _tasksRequiringSingleCategoryPersistence.Add(importedTask.Id);
+            SaveTaskAndQueueIpadSnapshot(importedTask);
+            ImportMobileInboxAttachments(importResult, importedTask, entry);
+            if (!SaveNow("local-sync-mobile-task-create"))
+            {
+                return result with
+                {
+                    Status = "failed",
+                    FailedObjects = Math.Max(1, result.FailedObjects),
+                    Messages = ["Der neue iPad-Auftrag bleibt bis zu einem erfolgreichen Desktop-Speichern unbestätigt."]
+                };
+            }
+
+            MoveMobileInboxEntryToProcessed(entry);
+            LoadData(SelectedCategory?.Id, SelectedTask?.Id);
+            return result with
+            {
+                Status = "accepted",
+                Messages = ["Neuer iPad-Auftrag und seine Anhänge wurden am Desktop geprüft, gespeichert und bestätigt."]
+            };
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Automatic mobile task create failed for '{entry.DirectoryPath}': {ex}");
+            return result with
+            {
+                Status = "failed",
+                FailedObjects = Math.Max(1, result.FailedObjects),
+                Messages = ["Der neue iPad-Auftrag konnte nicht vollständig übernommen werden und bleibt unbestätigt."]
+            };
+        }
+    }
+
+    private MobileInboxTransferResult ApplyConfirmedMobileTaskUpdate(
+        MobileInboxEntry entry,
+        MobileInboxTransferResult result)
+    {
+        var desktopTask = AllTasks.FirstOrDefault(task =>
+            !task.IsDeleted &&
+            !task.IsMobileInboxCard &&
+            string.Equals(task.Id, entry.DesktopTaskId, StringComparison.OrdinalIgnoreCase));
+        if (desktopTask is null)
+        {
+            return MobileSyncConflict(
+                result,
+                "Der zugehörige Desktopauftrag wurde gelöscht oder ist nicht mehr vorhanden.");
+        }
+
+        var importResult = PrepareMobileInboxImport(entry);
+        if (!importResult.CanImport)
+        {
+            return MobileSyncConflict(result, importResult.ToUserMessage());
+        }
+
+        var changes = MobileTaskRevisionService.BuildChanges(entry, desktopTask).ToList();
+        var safeFields = changes
+            .Where(change => !change.HasConflict)
+            .Select(change => change.Field)
+            .ToHashSet(StringComparer.Ordinal);
+        var conflicts = changes.Where(change => change.HasConflict).ToList();
+
+        CategoryItem? selectedCategory = null;
+        if (safeFields.Contains(MobileTaskRevisionService.CategoryField))
+        {
+            selectedCategory = Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, entry.CategoryId, StringComparison.OrdinalIgnoreCase) &&
+                IsTaskCategoryChoiceVisible(category));
+            if (selectedCategory is null)
+            {
+                conflicts.Add(changes.First(change => change.Field == MobileTaskRevisionService.CategoryField));
+                safeFields.Remove(MobileTaskRevisionService.CategoryField);
+            }
+        }
+
+        CategoryItem? workflowCategory = null;
+        var workflowType = entry.WorkflowType.Trim();
+        var workflowStep = WorkflowCategoryService.NormalizeStep(workflowType, entry.WorkflowStep);
+        if (safeFields.Contains(MobileTaskRevisionService.WorkflowField))
+        {
+            var validWorkflowType =
+                string.Equals(workflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(workflowType, DirectWorkflowType, StringComparison.OrdinalIgnoreCase);
+            if (!validWorkflowType ||
+                !WorkflowCategoryService.IsValidStep(workflowType, workflowStep) ||
+                !TryResolveMappedCategory(workflowType, workflowStep, out workflowCategory))
+            {
+                conflicts.Add(changes.First(change => change.Field == MobileTaskRevisionService.WorkflowField));
+                safeFields.Remove(MobileTaskRevisionService.WorkflowField);
+            }
+        }
+
+        var originalState = CloneTaskItem(desktopTask);
+        try
+        {
+            CaptureTaskUndoState(desktopTask, preserveExistingSnapshot: true);
+            ApplyMobileTaskFields(
+                desktopTask,
+                entry,
+                safeFields,
+                selectedCategory,
+                workflowCategory,
+                workflowType,
+                workflowStep);
+            ImportMobileInboxAttachments(importResult, desktopTask, entry);
+            SaveTaskAndQueueIpadSnapshot(desktopTask);
+            if (!SaveNow("local-sync-mobile-task-update"))
+            {
+                ApplyTaskState(desktopTask, originalState);
+                return result with
+                {
+                    Status = "failed",
+                    FailedObjects = Math.Max(1, result.FailedObjects),
+                    Messages = ["Die iPad-Änderung bleibt bis zu einem erfolgreichen Desktop-Speichern unbestätigt."]
+                };
+            }
+
+            if (conflicts.Count > 0)
+            {
+                var labels = string.Join(", ", conflicts.Select(change => change.Label).Distinct());
+                return MobileSyncConflict(
+                    result,
+                    $"Konfliktfelder bleiben im mobilen Eingang zur manuellen Entscheidung erhalten: {labels}. Unabhängige Änderungen wurden sicher übernommen.");
+            }
+
+            MoveMobileInboxEntryToProcessed(entry);
+            return result with
+            {
+                Status = "accepted",
+                Messages = ["iPad-Änderung und neue Anhänge wurden am Desktop geprüft, zusammengeführt und bestätigt."]
+            };
+        }
+        catch (Exception ex)
+        {
+            ApplyTaskState(desktopTask, originalState);
+            SaveTaskAndQueueIpadSnapshot(desktopTask);
+            SaveNow("local-sync-mobile-task-update-rollback");
+            Debug.WriteLine($"Automatic mobile task update failed for '{entry.DirectoryPath}': {ex}");
+            return result with
+            {
+                Status = "failed",
+                FailedObjects = Math.Max(1, result.FailedObjects),
+                Messages = ["Die iPad-Änderung konnte nicht vollständig übernommen werden und bleibt unbestätigt."]
+            };
+        }
+    }
+
+    private void ApplyMobileTaskFields(
+        TaskItem desktopTask,
+        MobileInboxEntry entry,
+        IReadOnlySet<string> selectedFields,
+        CategoryItem? selectedCategory,
+        CategoryItem? workflowCategory,
+        string workflowType,
+        string workflowStep)
+    {
+        if (selectedFields.Contains(MobileTaskRevisionService.NotesField))
+        {
+            desktopTask.Description = entry.Notes;
+        }
+        if (selectedFields.Contains(MobileTaskRevisionService.WorkflowField) && workflowCategory is not null)
+        {
+            desktopTask.WorkflowType = string.Equals(workflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase)
+                ? OfferWorkflowType
+                : DirectWorkflowType;
+            desktopTask.WorkflowStep = workflowStep;
+            desktopTask.Status = workflowStep;
+            WorkflowCategoryService.ApplyCategory(desktopTask, workflowCategory.Id);
+            _tasksRequiringSingleCategoryPersistence.Add(desktopTask.Id);
+        }
+        if (selectedFields.Contains(MobileTaskRevisionService.CategoryField) && selectedCategory is not null)
+        {
+            WorkflowCategoryService.ApplyCategory(desktopTask, selectedCategory.Id);
+            _tasksRequiringSingleCategoryPersistence.Add(desktopTask.Id);
+        }
+        if (selectedFields.Contains(MobileTaskRevisionService.DueDateField))
+        {
+            desktopTask.DueDate = entry.DueDate;
+        }
+        if (selectedFields.Contains(MobileTaskRevisionService.FollowUpDateField))
+        {
+            desktopTask.FollowUpDate = entry.FollowUpDate;
+        }
+        if (selectedFields.Contains(MobileTaskRevisionService.FollowUpReasonField))
+        {
+            desktopTask.FollowUpReason = entry.FollowUpReason;
+        }
+        if (selectedFields.Contains(MobileTaskRevisionService.TechnicianField))
+        {
+            desktopTask.Technician = entry.Technician;
+        }
+    }
+
+    private static MobileInboxTransferResult MobileSyncConflict(
+        MobileInboxTransferResult result,
+        string message)
+    {
+        return result with
+        {
+            Status = "conflict",
+            FailedObjects = Math.Max(1, result.FailedObjects),
+            Messages = [message]
+        };
+    }
+
     private void ApproveLocalNetworkDevice_OnClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: LocalNetworkRememberedDeviceListItem device })
@@ -9767,6 +9583,97 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             LocalNetworkSyncSettingsStatus = $"Widerruf konnte nicht gespeichert werden: {ex.Message}";
         }
+    }
+
+    private async void DeleteLocalNetworkDevice_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: LocalNetworkRememberedDeviceListItem device } ||
+            !await ShowDeleteLocalNetworkDeviceConfirmationDialogAsync(device))
+        {
+            return;
+        }
+
+        try
+        {
+            _localSyncDeltaStore.DeleteDeviceCheckpoint(device.DeviceId);
+            LocalNetworkSyncSettingsStatus = _localNetworkDeviceStore.Delete(device.DeviceId)
+                ? $"„{device.DeviceName}“ wurde gelöscht. Für eine erneute Kopplung ist ein neuer Erstabgleich erforderlich."
+                : "Gerät wurde bereits entfernt.";
+            LoadLocalNetworkRememberedDevices();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LocalNetworkSyncSettingsStatus = $"Gerät konnte nicht vollständig gelöscht werden: {ex.Message}";
+        }
+    }
+
+    private async Task<bool> ShowDeleteLocalNetworkDeviceConfirmationDialogAsync(
+        LocalNetworkRememberedDeviceListItem device)
+    {
+        var dialog = new Window
+        {
+            Title = "Gekoppeltes Gerät löschen",
+            Width = 500,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = ResourceBrush("WindowBackgroundBrush")
+        };
+        var cancelButton = new Button { Content = "Abbrechen" };
+        var deleteButton = new Button
+        {
+            Content = "Gerät endgültig löschen",
+            Classes = { "Danger" }
+        };
+        dialog.Content = new Border
+        {
+            Background = ResourceBrush("SurfaceElevatedBrush"),
+            BorderBrush = ResourceBrush("BorderBrushDark"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(18),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = $"„{device.DeviceName}“ wirklich löschen?",
+                        FontSize = 18,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = ResourceBrush("TextPrimaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = "Die lokale Gerätefreigabe und der zugehörige Sync-Checkpoint werden entfernt. Aufträge, Anhänge und mobile Eingänge bleiben erhalten. Für eine erneute Kopplung ist ein neuer Erstabgleich nötig.",
+                        FontSize = 13,
+                        Foreground = ResourceBrush("TextSecondaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 10,
+                        Margin = new Thickness(0, 4, 0, 0),
+                        Children = { cancelButton, deleteButton }
+                    }
+                }
+            }
+        };
+
+        var confirmed = false;
+        cancelButton.Click += (_, _) => dialog.Close();
+        deleteButton.Click += (_, _) =>
+        {
+            confirmed = true;
+            dialog.Close();
+        };
+
+        await dialog.ShowDialog(this);
+        return confirmed;
     }
 
     private void LoadLocalNetworkRememberedDevices()
@@ -10105,233 +10012,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return status;
     }
 
-    private async void SelectOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
-        if (storageProvider is null)
-        {
-            BackupStatus = "Ordnerauswahl ist nicht verfügbar.";
-            return;
-        }
-
-        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Datenordner auswählen",
-            AllowMultiple = false
-        });
-
-        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(folderPath))
-        {
-            return;
-        }
-
-        _appSettings.OneDriveEditDirectory = GetPersistedOneDriveEditDirectory(folderPath);
-        _settingsService.Save(_appSettings);
-        OnPropertyChanged(nameof(OneDriveEditDirectory));
-        OnPropertyChanged(nameof(HasOneDriveEditDirectory));
-        OnPropertyChanged(nameof(HasNoOneDriveEditDirectory));
-        OnPropertyChanged(nameof(IpadSyncRootDirectory));
-        OnPropertyChanged(nameof(HasIpadSyncRootDirectory));
-        OnPropertyChanged(nameof(HasNoIpadSyncRootDirectory));
-        LoadTechnicianOptions();
-        BackupStatus = $"Datenordner gesetzt: {folderPath}";
-        TriggerIpadSnapshotExport("folder-selected");
-    }
-
-    private void OpenOneDriveFolder_OnClick(object? sender, RoutedEventArgs e)
-    {
-        if (!HasOneDriveEditDirectory)
-        {
-            BackupStatus = "Noch kein Datenordner gewählt.";
-            return;
-        }
-
-        OpenFolder(OneDriveEditDirectory);
-    }
-
-    private async void SelectIpadLiveFileTarget_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
-        if (storageProvider is null)
-        {
-            IpadLiveFileStatus = "Fehler beim Schreiben der Live-Datei: Ordnerauswahl ist nicht verfügbar.";
-            return;
-        }
-
-        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Zielordner für live.bclive auswählen",
-            AllowMultiple = false
-        });
-
-        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(folderPath))
-        {
-            return;
-        }
-
-        _appSettings.IpadLiveFileTargetPath = folderPath;
-        _settingsService.Save(_appSettings);
-        RefreshIpadLiveFileTargetProperties();
-        IpadLiveFileStatus = $"Zielordner gesetzt: {folderPath}";
-        TriggerIpadLiveFileExport("live-file-target-selected");
-    }
-
-    private void WriteIpadLiveFile_OnClick(object? sender, RoutedEventArgs e)
-    {
-        if (!HasIpadLiveFileTargetPath)
-        {
-            IpadLiveFileStatus = "Kein Zielordner eingerichtet. Bitte zuerst einen Ordner auswählen.";
-            return;
-        }
-
-        TriggerIpadLiveFileExport("manual-live-file-write");
-    }
-
-    private void CheckRecommendedIpadLiveFolder_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var recommendedFolder = GetRecommendedIpadLiveFolders()
-            .FirstOrDefault(Directory.Exists);
-        if (string.IsNullOrWhiteSpace(recommendedFolder))
-        {
-            IpadLiveFileStatus = "Der Legacy-Sync-Ordner wurde auf diesem Rechner noch nicht gefunden. Bitte zuerst den Datenordner migrieren oder auswählen.";
-            return;
-        }
-
-        _appSettings.IpadLiveFileTargetPath = recommendedFolder;
-        _settingsService.Save(_appSettings);
-        RefreshIpadLiveFileTargetProperties();
-        IpadLiveFileStatus = $"Legacy-Sync-Ordner gefunden und gesetzt: {recommendedFolder}";
-    }
-
-    private void TriggerIpadSnapshotExport(string reason)
-    {
-        _ipadSnapshotExportService.LogDiagnostic($"Legacy iPad snapshot export trigger ignored ({reason}): local network sync is the target path.");
-    }
-
-    private async Task RunIpadSnapshotExportAsync(string reason)
-    {
-        IsIpadSnapshotExportRunning = true;
-        SetIpadSnapshotStatus("iPad-Sync wird aktualisiert …");
-
-        try
-        {
-            IpadSnapshotExportService.SnapshotExportResult result;
-            do
-            {
-                Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 0);
-                Debug.WriteLine($"iPad live sync started ({reason}): {OneDriveEditDirectory}");
-                result = await _ipadSnapshotExportService.ExportLiveNowAsync(
-                    _repository,
-                    OneDriveEditDirectory,
-                    _updateService.GetCurrentVersion(),
-                    Environment.MachineName);
-            }
-            while (result.Success && Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 0) == 1);
-
-            SetIpadSnapshotStatus(
-                result.Success
-                    ? "iPad-Sync erfolgreich aktualisiert."
-                    : "iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.",
-                autoHide: result.Success);
-        }
-        catch (Exception ex)
-        {
-            SetIpadSnapshotStatus("iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.");
-            Debug.WriteLine($"iPad live sync failed ({reason}): {ex}");
-        }
-        finally
-        {
-            IsIpadSnapshotExportRunning = false;
-            Interlocked.Exchange(ref _isRunningIpadSnapshotExport, 0);
-            if (Interlocked.Exchange(ref _isPendingIpadSnapshotExport, 0) == 1)
-            {
-                TriggerIpadSnapshotExport("pending-write");
-            }
-        }
-    }
-
-    private void Repository_OnDataWritten(string reason)
-    {
-        if (_isLoadingData)
-        {
-            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export skipped ({reason}): app is loading data.");
-            return;
-        }
-
-        if (_suppressRepositoryExportsDuringSave)
-        {
-            _repositoryDataWrittenDuringSave = true;
-            _ipadSnapshotExportService.LogDiagnostic($"iPad snapshot export deferred ({reason}): save is running.");
-            return;
-        }
-
-        TriggerIpadSnapshotExport(reason);
-        TriggerIpadLiveFileExport(reason);
-    }
-
-    private void TriggerIpadLiveFileExport(string reason)
-    {
-        _ipadSnapshotExportService.LogDiagnostic($"Legacy iPad live file export trigger ignored ({reason}): local network sync is the target path.");
-    }
-
-    private async Task RunIpadLiveFileExportAsync(string reason)
-    {
-        IpadLiveFileStatus = "Live-Datei wird geschrieben …";
-
-        try
-        {
-            IpadSnapshotExportService.SnapshotExportResult result;
-            do
-            {
-                Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 0);
-                Debug.WriteLine($"iPad live file export started ({reason}): {IpadLiveFileTargetPath}");
-                result = await _ipadSnapshotExportService.ExportLivePackageToFileAsync(
-                    _repository,
-                    IpadLiveFileTargetPath,
-                    _updateService.GetCurrentVersion(),
-                    Environment.MachineName);
-            }
-            while (result.Success && Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 0) == 1);
-
-            if (result.Success)
-            {
-                IpadLiveFileLastSuccessfulExport = $"Letzter erfolgreicher Exportzeitpunkt: {DateTime.Now:dd.MM.yyyy HH:mm:ss}";
-                IpadLiveFileLastError = string.Empty;
-                IpadLiveFileStatus = $"Live-Datei geschrieben: {IpadLiveFileTargetPath}";
-            }
-            else
-            {
-                var errorMessage = result.ErrorMessage ?? "Details siehe Log.";
-                IpadLiveFileLastError = $"Letzte Fehlermeldung: {errorMessage}";
-                IpadLiveFileStatus = $"Fehler beim Schreiben der Live-Datei: {errorMessage}";
-            }
-        }
-        catch (Exception ex)
-        {
-            IpadLiveFileStatus = "Fehler beim Schreiben der Live-Datei: Details siehe Log.";
-            IpadLiveFileLastError = "Letzte Fehlermeldung: Details siehe Log.";
-            Debug.WriteLine($"iPad live file export failed ({reason}): {ex}");
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _isRunningIpadLiveFileExport, 0);
-            if (Interlocked.Exchange(ref _isPendingIpadLiveFileExport, 0) == 1)
-            {
-                TriggerIpadLiveFileExport("pending-live-file-write");
-            }
-        }
-    }
-
-    private void RefreshIpadLiveFileTargetProperties()
-    {
-        OnPropertyChanged(nameof(IpadLiveFileTargetFolder));
-        OnPropertyChanged(nameof(IpadLiveFileTargetPath));
-        OnPropertyChanged(nameof(HasIpadLiveFileTargetPath));
-        OnPropertyChanged(nameof(HasNoIpadLiveFileTargetPath));
-    }
-
     private void SaveTaskAndQueueIpadSnapshot(TaskItem task)
     {
         MarkTaskDirty(task);
@@ -10388,78 +10068,418 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         MarkDataDirty("empty-trash");
     }
 
-    private async void RefreshIpadSnapshot_OnClick(object? sender, RoutedEventArgs e)
+    private async void SelectBackupExchangeFolder_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (!HasOneDriveEditDirectory)
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
         {
-            SetIpadSnapshotStatus("Noch kein Datenordner gewählt.");
+            BackupStatus = "Ordnerauswahl ist nicht verfügbar.";
+            return;
+        }
+
+        var folders = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Backup-Austauschordner auswählen",
+            AllowMultiple = false
+        });
+        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return;
+        }
+
+        _appSettings.BackupExchangeDirectory = Path.GetFullPath(folderPath);
+        _settingsService.Save(_appSettings);
+        OnPropertyChanged(nameof(BackupExchangeDirectory));
+        OnPropertyChanged(nameof(HasBackupExchangeDirectory));
+        OnPropertyChanged(nameof(HasNoBackupExchangeDirectory));
+        BackupStatus = $"Backup-Austauschordner gesetzt: {BackupExchangeDirectory}";
+    }
+
+    private void OpenBackupExchangeFolder_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!HasBackupExchangeDirectory)
+        {
+            BackupStatus = "Noch kein Backup-Austauschordner gewählt.";
+            return;
+        }
+
+        OpenFolder(BackupExchangeDirectory);
+    }
+
+    private async void CreateBackupExchange_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!HasBackupExchangeDirectory)
+        {
+            BackupStatus = "Bitte zuerst einen Backup-Austauschordner auswählen.";
+            return;
+        }
+
+        if (!SaveNow("backup-exchange-export"))
+        {
+            BackupStatus = "Austausch-Backup abgebrochen: Offene Änderungen konnten nicht gespeichert werden.";
             return;
         }
 
         try
         {
-            IsIpadSnapshotExportRunning = true;
-            SetIpadSnapshotStatus("iPad-Sync wird aktualisiert …");
-            var result = await _ipadSnapshotExportService.ExportNowAsync(
-                _repository,
-                OneDriveEditDirectory,
-                _updateService.GetCurrentVersion(),
-                Environment.MachineName);
-
-            SetIpadSnapshotStatus(
-                result.Success
-                    ? "iPad-Sync erfolgreich aktualisiert. Vollsnapshot wurde ebenfalls erstellt."
-                    : "iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.",
-                autoHide: result.Success);
+            BackupStatus = "Backup für anderes Gerät wird lokal vorbereitet …";
+            var result = await Task.Run(() => _backupExchangeService.CreateExport(
+                BackupExchangeDirectory,
+                Environment.MachineName,
+                _updateService.GetCurrentVersion()));
+            BackupStatus =
+                $"Backup für anderes Gerät erstellt: {Path.GetFileName(result.ArchivePath)} · BackupId {result.Manifest.BackupId}";
         }
         catch (Exception ex)
         {
-            SetIpadSnapshotStatus("iPad-Sync konnte nicht aktualisiert werden. Details siehe Log.");
-            Debug.WriteLine($"Manual iPad snapshot export failed: {ex}");
-        }
-        finally
-        {
-            IsIpadSnapshotExportRunning = false;
+            Debug.WriteLine($"Backup exchange export failed: {ex}");
+            BackupStatus = $"Austausch-Backup konnte nicht erstellt werden: {ex.Message}";
         }
     }
 
-    private void SetIpadSnapshotStatus(string status, bool autoHide = false)
+    private async void ImportBackupExchange_OnClick(object? sender, RoutedEventArgs e)
     {
-        var previousCts = _ipadSnapshotStatusHideCts;
-        _ipadSnapshotStatusHideCts = null;
-        previousCts?.Cancel();
-        previousCts?.Dispose();
+        if (!HasBackupExchangeDirectory)
+        {
+            BackupStatus = "Bitte zuerst einen Backup-Austauschordner auswählen.";
+            return;
+        }
 
-        IpadSnapshotStatus = status;
-        if (!autoHide)
+        BackupExchangeArchiveInfo? selectedArchive;
+        try
+        {
+            var archives = await Task.Run(() => _backupExchangeService.ListArchives(BackupExchangeDirectory));
+            selectedArchive = await ShowBackupExchangeSelectionDialogAsync(archives);
+        }
+        catch (Exception ex)
+        {
+            BackupStatus = $"Austausch-Backups konnten nicht geladen werden: {ex.Message}";
+            return;
+        }
+
+        if (selectedArchive is null)
         {
             return;
         }
 
-        var currentCts = new CancellationTokenSource();
-        _ipadSnapshotStatusHideCts = currentCts;
-        _ = HideSuccessfulIpadSnapshotStatusAsync(currentCts);
-    }
-
-    private async Task HideSuccessfulIpadSnapshotStatusAsync(CancellationTokenSource currentCts)
-    {
+        BackupExchangeManifest manifest;
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(5), currentCts.Token);
-            if (ReferenceEquals(_ipadSnapshotStatusHideCts, currentCts))
+            BackupStatus = "Austausch-Backup wird vollständig geprüft …";
+            manifest = await Task.Run(() => _backupExchangeService.ValidateArchive(selectedArchive.ArchivePath));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Backup exchange validation failed: {ex}");
+            BackupStatus = $"Import abgebrochen, lokaler Stand unverändert: {ex.Message}";
+            return;
+        }
+
+        var assessment = _backupExchangeService.AssessImport(manifest);
+        if (assessment.IsSameBackup)
+        {
+            BackupStatus = "Dieses Backup ist bereits der aktuelle lokale Datenstand. Es wurde nichts verändert.";
+            return;
+        }
+
+        if (!await ShowBackupExchangeConfirmationDialogAsync(
+                "Lokalen Datenstand ersetzen?",
+                BuildBackupExchangePreview(manifest),
+                "Ja, lokalen Stand ersetzen",
+                isDangerous: false))
+        {
+            BackupStatus = "Import abgebrochen. Der lokale Datenstand wurde nicht verändert.";
+            return;
+        }
+
+        var allowConflictingImport = false;
+        if (assessment.RequiresExplicitConfirmation)
+        {
+            var warningText =
+                "Dieser Datenstand stammt nicht direkt von Ihrem aktuellen Datenstand ab. Beim Import werden lokale Änderungen vollständig ersetzt. Es findet keine Zusammenführung statt.\n\n" +
+                string.Join("\n", assessment.Warnings.Select(warning => $"• {warning}"));
+            allowConflictingImport = await ShowBackupExchangeConfirmationDialogAsync(
+                "Abweichenden Datenstand wirklich erzwingen?",
+                warningText,
+                "Import trotzdem erzwingen",
+                isDangerous: true);
+            if (!allowConflictingImport)
             {
-                _ipadSnapshotStatusHideCts = null;
-                IpadSnapshotStatus = string.Empty;
+                BackupStatus = "Import abgebrochen. Der lokale Datenstand wurde nicht verändert.";
+                return;
             }
         }
-        catch (OperationCanceledException)
+
+        if (!SaveNow("backup-exchange-import"))
         {
-            // Eine neuere Statusmeldung bleibt sichtbar.
+            BackupStatus = "Import abgebrochen: Offene Änderungen konnten nicht gespeichert werden.";
+            return;
+        }
+
+        var lockWasReleased = false;
+        try
+        {
+            BackupStatus = "Rückfall-Backup wird erstellt und der geprüfte Datenstand eingespielt …";
+            ClearSelectedTask();
+            SqliteConnection.ClearAllPools();
+            _appInstanceLockService.Release();
+            lockWasReleased = true;
+
+            var result = await Task.Run(() => _backupExchangeService.Import(
+                selectedArchive.ArchivePath,
+                Environment.MachineName,
+                _updateService.GetCurrentVersion(),
+                allowConflictingImport));
+            SqliteConnection.ClearAllPools();
+
+            _repository.Initialize();
+            LoadData();
+            RefreshGlobalSearchResults();
+            LoadTechnicianOptions();
+            LoadBackupEntries();
+            BackupStatus =
+                $"Backup erfolgreich eingespielt und Daten neu geladen. Rückfall-Backup: {result.RollbackArchivePath}";
+        }
+        catch (BackupExchangeConfirmationRequiredException ex)
+        {
+            BackupStatus = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Backup exchange import failed: {ex}");
+            BackupStatus = $"Import fehlgeschlagen; der vorherige lokale Datenstand wurde beibehalten oder wiederhergestellt: {ex.Message}";
         }
         finally
         {
-            currentCts.Dispose();
+            SqliteConnection.ClearAllPools();
+            if (lockWasReleased)
+            {
+                var lockResult = _appInstanceLockService.Acquire();
+                AppInstanceLockStatus = FormatAppInstanceLockStatus(lockResult);
+            }
         }
+    }
+
+    private async Task<BackupExchangeArchiveInfo?> ShowBackupExchangeSelectionDialogAsync(
+        IReadOnlyList<BackupExchangeArchiveInfo> archives)
+    {
+        BackupExchangeArchiveInfo? selection = null;
+        var closeButton = new Button
+        {
+            Content = "Abbrechen",
+            IsCancel = true,
+            MinWidth = 100,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        var archivePanel = new StackPanel { Spacing = 8 };
+        var dialog = new Window
+        {
+            Title = "Backup von anderem Gerät einspielen",
+            Width = 760,
+            Height = 650,
+            MinWidth = 620,
+            MinHeight = 460,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        if (archives.Count == 0)
+        {
+            archivePanel.Children.Add(new TextBlock
+            {
+                Text = "Im Austauschordner wurden noch keine BüroCockpit-Backups gefunden.",
+                Foreground = ResourceBrush("TextSecondaryBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        foreach (var archive in archives)
+        {
+            var cardContent = new StackPanel { Spacing = 4 };
+            if (archive.Manifest is not null)
+            {
+                var manifest = archive.Manifest;
+                cardContent.Children.Add(new TextBlock
+                {
+                    Text = $"{manifest.DeviceName} · {manifest.CreatedAtLocal:dd.MM.yyyy HH:mm:ss}",
+                    FontWeight = FontWeight.SemiBold
+                });
+                cardContent.Children.Add(new TextBlock
+                {
+                    Text = $"App {manifest.AppVersion} · BackupId {manifest.BackupId}",
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap
+                });
+                cardContent.Children.Add(new TextBlock
+                {
+                    Text = $"Ausgangs-Backup: {manifest.ParentBackupId?.ToString() ?? "keines"} · Datenbank: {FormatBackupFileSize(manifest.DatabaseSize)}",
+                    FontSize = 12,
+                    Foreground = ResourceBrush("TextSecondaryBrush"),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                var selectButton = new Button
+                {
+                    Content = "Dieses Backup einspielen",
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Margin = new Thickness(0, 4, 0, 0)
+                };
+                selectButton.Click += (_, _) =>
+                {
+                    selection = archive;
+                    dialog.Close();
+                };
+                cardContent.Children.Add(selectButton);
+            }
+            else
+            {
+                cardContent.Children.Add(new TextBlock
+                {
+                    Text = Path.GetFileName(archive.ArchivePath),
+                    FontWeight = FontWeight.SemiBold
+                });
+                cardContent.Children.Add(new TextBlock
+                {
+                    Text = $"Ungültiges Archiv: {archive.Error}",
+                    Foreground = ResourceBrush("DangerBrush"),
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+
+            archivePanel.Children.Add(new Border
+            {
+                BorderBrush = ResourceBrush("BorderBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+                Child = cardContent
+            });
+        }
+
+        closeButton.Click += (_, _) => dialog.Close();
+        dialog.Content = new Border
+        {
+            Padding = new Thickness(18),
+            Child = new Grid
+            {
+                RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
+                RowSpacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Verfügbare Austausch-Backups",
+                        FontSize = 19,
+                        FontWeight = FontWeight.SemiBold
+                    },
+                    new TextBlock
+                    {
+                        Text = "Der ausgewählte Datenstand ersetzt nach vollständiger Prüfung den lokalen Stand. Es findet keine Zusammenführung statt.",
+                        TextWrapping = TextWrapping.Wrap,
+                        [Grid.RowProperty] = 1
+                    },
+                    new ScrollViewer
+                    {
+                        VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                        Content = archivePanel,
+                        [Grid.RowProperty] = 2
+                    },
+                    new Border
+                    {
+                        Child = closeButton,
+                        [Grid.RowProperty] = 3
+                    }
+                }
+            }
+        };
+
+        await dialog.ShowDialog(this);
+        return selection;
+    }
+
+    private async Task<bool> ShowBackupExchangeConfirmationDialogAsync(
+        string title,
+        string message,
+        string confirmationText,
+        bool isDangerous)
+    {
+        var confirmed = false;
+        var confirmButton = new Button
+        {
+            Content = confirmationText,
+            MinWidth = 190,
+            Classes = { isDangerous ? "Danger" : "Primary" }
+        };
+        var cancelButton = new Button
+        {
+            Content = "Abbrechen",
+            IsCancel = true,
+            MinWidth = 100
+        };
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 680,
+            MinWidth = 540,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Padding = new Thickness(18),
+                Child = new StackPanel
+                {
+                    Spacing = 12,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = title,
+                            FontSize = 19,
+                            FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = isDangerous ? ResourceBrush("DangerBrush") : ResourceBrush("TextPrimaryBrush")
+                        },
+                        new TextBlock
+                        {
+                            Text = "Vor dem Ersetzen wird zwingend ein vollständiges lokales Rückfall-Backup erstellt.",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            HorizontalAlignment = HorizontalAlignment.Right,
+                            Spacing = 10,
+                            Children = { cancelButton, confirmButton }
+                        }
+                    }
+                }
+            }
+        };
+        confirmButton.Click += (_, _) =>
+        {
+            confirmed = true;
+            dialog.Close();
+        };
+        cancelButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
+        return confirmed;
+    }
+
+    private static string BuildBackupExchangePreview(BackupExchangeManifest manifest)
+    {
+        return
+            $"Gerät: {manifest.DeviceName}\n" +
+            $"Erstellt: {manifest.CreatedAtLocal:dd.MM.yyyy HH:mm:ss}\n" +
+            $"App-Version: {manifest.AppVersion}\n" +
+            $"BackupId: {manifest.BackupId}\n" +
+            $"Ausgangs-Backup: {manifest.ParentBackupId?.ToString() ?? "keines"}\n" +
+            $"Datenbankgröße: {FormatBackupFileSize(manifest.DatabaseSize)}\n\n" +
+            "Der vollständige lokale Datenstand wird ersetzt.";
     }
 
     private async void CreateBackup_OnClick(object? sender, RoutedEventArgs e)
@@ -10995,12 +11015,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!HasOneDriveEditDirectory)
-        {
-            AttachmentEditStatus = "Noch kein Datenordner gewählt.";
-            return;
-        }
-
         var storedPath = ResolveAttachmentPath(SelectedAttachment.StoredPath, SelectedAttachment.TaskId, SelectedAttachment.FileName);
         if (!File.Exists(storedPath))
         {
@@ -11024,7 +11038,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 folderName = SelectedAttachment.TaskId;
             }
 
-            var exportDirectory = Path.Combine(OneDriveEditDirectory, folderName);
+            var exportDirectory = Path.Combine(LocalDataDirectory, folderName);
             Directory.CreateDirectory(exportDirectory);
             var exportPath = CreateUniquePath(exportDirectory, SelectedAttachment.FileName);
             File.Copy(storedPath, exportPath, overwrite: false);
@@ -11677,7 +11691,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool IsArchivedForSearch(TaskItem task)
     {
-        return IsDoneOrArchived(task) || IsInArchiveCategory(task);
+        return CategoryHierarchyFilter.IsArchived(task, Categories);
     }
 
     private static bool Contains(string? value, string query)
@@ -12635,47 +12649,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return GetTaskCategoryIds(task).Any(id => string.Equals(id, categoryId, StringComparison.OrdinalIgnoreCase));
     }
 
-    private bool TaskBelongsToSelectedCategory(TaskItem task, CategoryItem category)
-    {
-        if (!TaskBelongsToCategory(task, category.Id))
-        {
-            return false;
-        }
-
-        var descendantIds = GetDescendantCategoryIds(category.Id);
-        return descendantIds.Count == 0 || !GetTaskCategoryIds(task).Any(descendantIds.Contains);
-    }
-
     private bool TaskBelongsToCategoryOrDescendant(TaskItem task, CategoryItem category)
     {
-        if (TaskBelongsToCategory(task, category.Id))
-        {
-            return true;
-        }
-
-        var descendantIds = GetDescendantCategoryIds(category.Id);
-        return descendantIds.Count > 0 && GetTaskCategoryIds(task).Any(descendantIds.Contains);
-    }
-
-    private HashSet<string> GetDescendantCategoryIds(string categoryId)
-    {
-        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var pending = new Queue<string>();
-        pending.Enqueue(categoryId);
-
-        while (pending.Count > 0)
-        {
-            var currentId = pending.Dequeue();
-            foreach (var child in Categories.Where(category => string.Equals(category.ParentId, currentId, StringComparison.OrdinalIgnoreCase)))
-            {
-                if (result.Add(child.Id))
-                {
-                    pending.Enqueue(child.Id);
-                }
-            }
-        }
-
-        return result;
+        return CategoryHierarchyFilter.Matches(task, Categories, category.Id);
     }
 
     private static List<string> GetTaskCategoryIds(TaskItem task)
@@ -13037,10 +13013,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         MobileInboxEntries.Clear();
         _mobileInboxTaskMap.Clear();
 
-        foreach (var entry in _mobileInboxLoader.Load(
-                     IpadLiveFileTargetPath,
-                     IpadLiveFileTargetFolder,
-                     AppPaths.AppDataDirectory))
+        foreach (var entry in _mobileInboxLoader.Load(AppPaths.AppDataDirectory))
         {
             MobileInboxEntries.Add(entry);
         }
@@ -13170,6 +13143,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (entry.IsDesktopUpdate)
+        {
+            await ReviewAndApplyMobileTaskUpdateAsync(entry);
+            return;
+        }
+
         var existingTask = FindImportedMobileInboxTask(entry.Id);
         if (existingTask is not null)
         {
@@ -13188,14 +13167,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TaskItem? importedTask = null;
         try
         {
-            if (!TryResolveMappedCategory(DirectWorkflowType, "Auftrag", out var targetCategory))
+            var importWorkflowType =
+                entry.SchemaVersion >= 2 &&
+                string.Equals(entry.WorkflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase)
+                    ? OfferWorkflowType
+                    : DirectWorkflowType;
+            var importWorkflowStep = entry.SchemaVersion >= 2
+                ? WorkflowCategoryService.NormalizeStep(importWorkflowType, entry.WorkflowStep)
+                : "Auftrag";
+            if (!WorkflowCategoryService.IsValidStep(importWorkflowType, importWorkflowStep))
             {
-                await ShowMissingWorkflowCategoryMappingDialogAsync(DirectWorkflowType, "Auftrag");
+                await ShowMobileInboxImportMessageDialogAsync(
+                    "Mobiler Status nicht gültig",
+                    "Der mobile Eingang enthält keinen gültigen Vorgangstyp oder Workflowstatus und wurde nicht übernommen.");
                 return;
             }
 
+            if (!TryResolveMappedCategory(importWorkflowType, importWorkflowStep, out var targetCategory))
+            {
+                await ShowMissingWorkflowCategoryMappingDialogAsync(importWorkflowType, importWorkflowStep);
+                return;
+            }
+
+            if (entry.SchemaVersion >= 2 && !string.IsNullOrWhiteSpace(entry.CategoryId))
+            {
+                var requestedCategory = Categories.FirstOrDefault(category =>
+                    string.Equals(category.Id, entry.CategoryId, StringComparison.OrdinalIgnoreCase) &&
+                    IsTaskCategoryChoiceVisible(category));
+                if (requestedCategory is null)
+                {
+                    await ShowMobileInboxImportMessageDialogAsync(
+                        "Kategorie nicht verfügbar",
+                        "Die auf dem iPad gewählte Kategorie existiert am Desktop nicht mehr. Der mobile Eingang bleibt unverändert erhalten.");
+                    return;
+                }
+                targetCategory = requestedCategory;
+            }
+
             var categoryWasMatched = IsMatchingMobileInboxCategory(entry.Category, targetCategory.Name);
-            importedTask = CreateTaskFromMobileInboxEntry(entry, targetCategory, categoryWasMatched);
+            importedTask = CreateTaskFromMobileInboxEntry(
+                entry,
+                targetCategory,
+                categoryWasMatched,
+                importWorkflowType,
+                importWorkflowStep);
             importedTask.SortPosition = _repository.GetTopTaskSortPosition(targetCategory.Id);
             var importResult = PrepareMobileInboxImport(entry);
             if (!importResult.CanImport)
@@ -13213,7 +13228,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 return;
             }
 
-            ImportMobileInboxAttachments(importResult, importedTask);
+            ImportMobileInboxAttachments(importResult, importedTask, entry);
             if (!SaveNow("mobile-inbox-import-finish"))
             {
                 return;
@@ -13238,6 +13253,284 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     ? importException.Result.ToUserMessage()
                     : "Der mobile Eingang konnte nicht übernommen werden. Es wurde kein normaler Auftrag sichtbar angelegt.");
         }
+    }
+
+    private async Task ReviewAndApplyMobileTaskUpdateAsync(MobileInboxEntry entry)
+    {
+        var desktopTask = AllTasks.FirstOrDefault(task =>
+            !task.IsDeleted &&
+            !task.IsMobileInboxCard &&
+            string.Equals(task.Id, entry.DesktopTaskId, StringComparison.OrdinalIgnoreCase));
+        if (desktopTask is null)
+        {
+            await ShowMobileInboxImportMessageDialogAsync(
+                "Desktopvorgang nicht gefunden",
+                "Der zugehörige Desktopvorgang ist nicht mehr vorhanden. Die mobile Änderung bleibt unverändert im Eingang erhalten.");
+            return;
+        }
+
+        var importResult = PrepareMobileInboxImport(entry);
+        if (!importResult.CanImport)
+        {
+            await ShowMobileInboxImportMessageDialogAsync(
+                "Prüfung nicht vollständig möglich",
+                importResult.ToUserMessage());
+            return;
+        }
+
+        var changes = MobileTaskRevisionService.BuildChanges(entry, desktopTask)
+            .Select(change => change.Field == MobileTaskRevisionService.CategoryField
+                ? change with
+                {
+                    BaseValue = GetMobileCategoryRevisionDisplay(entry.BaseValues?.CategoryId),
+                    DesktopValue = GetMobileCategoryRevisionDisplay(desktopTask.CategoryId),
+                    MobileValue = GetMobileCategoryRevisionDisplay(entry.CategoryId)
+                }
+                : change)
+            .ToList();
+        var selectedFields = await ShowMobileTaskReviewDialogAsync(
+            entry,
+            desktopTask,
+            changes,
+            importResult.AttachmentSources.Count);
+        if (selectedFields is null)
+        {
+            return;
+        }
+
+        CategoryItem? selectedCategory = null;
+        if (selectedFields.Contains(MobileTaskRevisionService.CategoryField))
+        {
+            selectedCategory = Categories.FirstOrDefault(category =>
+                string.Equals(category.Id, entry.CategoryId, StringComparison.OrdinalIgnoreCase) &&
+                IsTaskCategoryChoiceVisible(category));
+            if (selectedCategory is null)
+            {
+                await ShowMobileInboxImportMessageDialogAsync(
+                    "Kategorie nicht verfügbar",
+                    "Die auf dem iPad gewählte Kategorie existiert am Desktop nicht mehr. Die mobile Änderung wurde nicht übernommen.");
+                return;
+            }
+        }
+
+        CategoryItem? workflowCategory = null;
+        var workflowType = entry.WorkflowType?.Trim() ?? string.Empty;
+        var workflowStep = WorkflowCategoryService.NormalizeStep(workflowType, entry.WorkflowStep);
+        if (selectedFields.Contains(MobileTaskRevisionService.WorkflowField))
+        {
+            var validWorkflowType =
+                string.Equals(workflowType, OfferWorkflowType, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(workflowType, DirectWorkflowType, StringComparison.OrdinalIgnoreCase);
+            if (!validWorkflowType || !WorkflowCategoryService.IsValidStep(workflowType, workflowStep))
+            {
+                await ShowMobileInboxImportMessageDialogAsync(
+                    "Status nicht gültig",
+                    "Vorgangstyp oder Workflowstatus der mobilen Änderung ist am Desktop nicht gültig. Die Änderung wurde nicht übernommen.");
+                return;
+            }
+
+            if (!TryResolveMappedCategory(workflowType, workflowStep, out workflowCategory))
+            {
+                await ShowMissingWorkflowCategoryMappingDialogAsync(workflowType, workflowStep);
+                return;
+            }
+        }
+
+        var originalState = CloneTaskItem(desktopTask);
+        try
+        {
+            CaptureTaskUndoState(desktopTask, preserveExistingSnapshot: true);
+            ApplyMobileTaskFields(
+                desktopTask,
+                entry,
+                selectedFields,
+                selectedCategory,
+                workflowCategory,
+                workflowType,
+                workflowStep);
+
+            SaveTaskAndQueueIpadSnapshot(desktopTask);
+            if (!SaveNow("mobile-task-update"))
+            {
+                ApplyTaskState(desktopTask, originalState);
+                return;
+            }
+
+            if (selectedFields.Contains(MobileTaskReviewAttachmentsField))
+            {
+                ImportMobileInboxAttachments(importResult, desktopTask, entry);
+                if (!SaveNow("mobile-task-update-attachments"))
+                {
+                    throw new IOException("Mobile Anhänge konnten nicht vollständig gespeichert werden.");
+                }
+            }
+
+            MoveMobileInboxEntryToProcessed(entry);
+            ClearSearchTextWithoutRefresh();
+            LoadData(desktopTask.CategoryId, desktopTask.Id);
+        }
+        catch (Exception ex)
+        {
+            ApplyTaskState(desktopTask, originalState);
+            SaveTaskAndQueueIpadSnapshot(desktopTask);
+            SaveNow("mobile-task-update-rollback");
+            Debug.WriteLine($"Mobile task update failed for '{entry.DirectoryPath}': {ex}");
+            await ShowMobileInboxImportMessageDialogAsync(
+                "Änderung nicht übernommen",
+                "Die mobile Änderung konnte nicht vollständig übernommen werden und bleibt im Eingang erhalten.");
+        }
+    }
+
+    private string GetMobileCategoryRevisionDisplay(string? categoryId)
+    {
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return "— keine Kategorie —";
+        }
+
+        var category = Categories.FirstOrDefault(item =>
+            string.Equals(item.Id, categoryId, StringComparison.OrdinalIgnoreCase));
+        return category is null
+            ? $"Nicht mehr vorhanden ({categoryId})"
+            : $"{category.SelectionName} ({category.Id})";
+    }
+
+    private const string MobileTaskReviewAttachmentsField = "__attachments";
+
+    private async Task<HashSet<string>?> ShowMobileTaskReviewDialogAsync(
+        MobileInboxEntry entry,
+        TaskItem desktopTask,
+        IReadOnlyList<MobileTaskFieldChange> changes,
+        int attachmentCount)
+    {
+        var revisionMatches = MobileTaskRevisionService.RevisionMatches(entry.BaseRevision, desktopTask.UpdatedAt);
+        var fieldChecks = new Dictionary<string, CheckBox>(StringComparer.Ordinal);
+        var rows = new StackPanel { Spacing = 8 };
+        foreach (var change in changes)
+        {
+            var check = new CheckBox
+            {
+                Content = change.HasConflict
+                    ? $"{change.Label}: iPad-Wert übernehmen (Konflikt)"
+                    : $"{change.Label}: iPad-Wert übernehmen",
+                IsChecked = !change.HasConflict,
+                Foreground = ResourceBrush("TextPrimaryBrush")
+            };
+            fieldChecks[change.Field] = check;
+            rows.Children.Add(new Border
+            {
+                Classes = { "InlineCard" },
+                Padding = new Thickness(10),
+                Child = new StackPanel
+                {
+                    Spacing = 4,
+                    Children =
+                    {
+                        check,
+                        new TextBlock
+                        {
+                            Text = $"Basis: {change.BaseValue}\nDesktop: {change.DesktopValue}\niPad: {change.MobileValue}",
+                            FontSize = 12,
+                            Foreground = ResourceBrush("TextSecondaryBrush"),
+                            TextWrapping = TextWrapping.Wrap
+                        }
+                    }
+                }
+            });
+        }
+
+        if (attachmentCount > 0)
+        {
+            var attachmentCheck = new CheckBox
+            {
+                Content = $"{attachmentCount} neue mobile Anhänge übernehmen",
+                IsChecked = true,
+                Foreground = ResourceBrush("TextPrimaryBrush")
+            };
+            fieldChecks[MobileTaskReviewAttachmentsField] = attachmentCheck;
+            rows.Children.Add(attachmentCheck);
+        }
+
+        if (changes.Count == 0 && attachmentCount == 0)
+        {
+            rows.Children.Add(new TextBlock
+            {
+                Text = "Das iPad-Paket enthält gegenüber seinem Basisstand keine fachliche Änderung.",
+                Foreground = ResourceBrush("TextSecondaryBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        var dialog = new Window
+        {
+            Title = "Mobile Änderungen prüfen",
+            Width = 650,
+            Height = 720,
+            CanResize = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = ResourceBrush("WindowBackgroundBrush")
+        };
+        var cancelAction = CreateMobileInboxDialogAction("Abbrechen", false);
+        var applyAction = CreateMobileInboxDialogAction("Entscheidung übernehmen", true);
+        dialog.Content = new Border
+        {
+            Background = ResourceBrush("SurfaceElevatedBrush"),
+            BorderBrush = ResourceBrush("BorderBrushDark"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(18),
+            Child = new Grid
+            {
+                RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
+                RowSpacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = $"Änderungen für „{desktopTask.CustomerName}“ prüfen",
+                        FontSize = 18,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = ResourceBrush("TextPrimaryBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        [Grid.RowProperty] = 1,
+                        Text = revisionMatches
+                            ? "Die Desktoprevision entspricht dem iPad-Basisstand. Jede Auswahl bleibt dennoch eine bewusste Übernahme."
+                            : "Der Desktopvorgang wurde seit dem iPad-Basisstand geändert. Konfliktfelder sind nicht vorausgewählt; beide Werte bleiben bis zu dieser Entscheidung sichtbar.",
+                        Foreground = ResourceBrush(revisionMatches ? "TextSecondaryBrush" : "WarningBrush"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new ScrollViewer
+                    {
+                        [Grid.RowProperty] = 2,
+                        Content = rows
+                    },
+                    new StackPanel
+                    {
+                        [Grid.RowProperty] = 3,
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 10,
+                        Children = { cancelAction, applyAction }
+                    }
+                }
+            }
+        };
+
+        HashSet<string>? result = null;
+        cancelAction.PointerReleased += (_, _) => dialog.Close();
+        applyAction.PointerReleased += (_, _) =>
+        {
+            result = fieldChecks
+                .Where(pair => pair.Value.IsChecked == true)
+                .Select(pair => pair.Key)
+                .ToHashSet(StringComparer.Ordinal);
+            dialog.Close();
+        };
+        await dialog.ShowDialog(this);
+        return result;
     }
 
     private TaskItem? FindImportedMobileInboxTask(string mobileInboxId)
@@ -13281,7 +13574,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : Regex.Replace(value.Trim(), @"\s+", " ");
     }
 
-    private static TaskItem CreateTaskFromMobileInboxEntry(MobileInboxEntry entry, CategoryItem category, bool categoryWasMatched)
+    private static TaskItem CreateTaskFromMobileInboxEntry(
+        MobileInboxEntry entry,
+        CategoryItem category,
+        bool categoryWasMatched,
+        string workflowType,
+        string workflowStep)
     {
         var now = DateTime.Now;
         var importNote = $"Mobiler Eingang vom iPad übernommen am {now:dd.MM.yyyy HH:mm}";
@@ -13303,7 +13601,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         return new TaskItem
         {
-            Id = Guid.NewGuid().ToString("N"),
+            Id = entry.Id.Trim(),
             CategoryId = category.Id,
             CategoryIds = new List<string> { category.Id },
             CustomerName = entry.CustomerName,
@@ -13314,10 +13612,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Description = string.Join(
                 Environment.NewLine + Environment.NewLine,
                 descriptionParts.Where(part => !string.IsNullOrWhiteSpace(part))),
-            Status = "Auftrag",
-            WorkflowType = DirectWorkflowType,
-            WorkflowStep = "Auftrag",
+            Status = workflowStep,
+            WorkflowType = workflowType,
+            WorkflowStep = workflowStep,
             Priority = "Normal",
+            DueDate = entry.DueDate,
+            FollowUpDate = entry.FollowUpDate,
+            FollowUpReason = entry.FollowUpReason,
+            Technician = entry.Technician,
             CreatedAt = entry.CreatedAt == default ? now : entry.CreatedAt,
             UpdatedAt = now
         };
@@ -13394,7 +13696,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             warnings.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList());
     }
 
-    private void ImportMobileInboxAttachments(MobileInboxImportResult importResult, TaskItem task)
+    private void ImportMobileInboxAttachments(
+        MobileInboxImportResult importResult,
+        TaskItem task,
+        MobileInboxEntry entry)
     {
         if (!importResult.CanImport)
         {
@@ -13402,14 +13707,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var importedAttachments = new List<string>();
+        var existingAttachmentIds = _repository.GetAttachments(task.Id)
+            .Select(attachment => attachment.Id)
+            .Concat(_dirtyAttachments.Keys)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var source in importResult.AttachmentSources)
         {
             var normalizedSourcePath = Path.GetFullPath(source.Path);
             var originalName = Path.GetFileName(normalizedSourcePath);
-            var destinationPath = ResolveAttachmentStoragePath(normalizedSourcePath, task.Id);
+            var relativeSourcePath = Path.GetRelativePath(entry.DirectoryPath, normalizedSourcePath)
+                .Replace('\\', '/');
+            var attachmentId = BuildStableMobileAttachmentId(entry.Id, relativeSourcePath);
+            if (!existingAttachmentIds.Add(attachmentId))
+            {
+                continue;
+            }
+            var destinationPath = CopyMobileInboxAttachmentToManagedStorage(
+                normalizedSourcePath,
+                task.Id,
+                attachmentId);
             var attachment = new AttachmentItem
             {
-                Id = Guid.NewGuid().ToString("N"),
+                Id = attachmentId,
                 TaskId = task.Id,
                 FileName = BuildMobileInboxAttachmentFileName(source.Kind, originalName),
                 StoredPath = AppPaths.ToStoredPath(destinationPath),
@@ -13436,6 +13755,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             task.UpdatedAt = DateTime.Now;
             SaveTaskAndQueueIpadSnapshot(task);
         }
+    }
+
+    private static string BuildStableMobileAttachmentId(string mobileEntryId, string relativeSourcePath)
+    {
+        var stableSource = $"{mobileEntryId.Trim()}\n{relativeSourcePath.Trim().ToLowerInvariant()}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(stableSource)))
+            .ToLowerInvariant()[..32];
+    }
+
+    private static string CopyMobileInboxAttachmentToManagedStorage(
+        string sourcePath,
+        string taskId,
+        string attachmentId)
+    {
+        var extension = Path.GetExtension(sourcePath);
+        var safeStem = Path.GetFileNameWithoutExtension(sourcePath);
+        foreach (var invalidChar in Path.GetInvalidFileNameChars())
+        {
+            safeStem = safeStem.Replace(invalidChar, '_');
+        }
+
+        var attachmentDirectory = AppPaths.GetAttachmentDirectory(taskId);
+        Directory.CreateDirectory(attachmentDirectory);
+        var destinationPath = Path.Combine(attachmentDirectory, $"{safeStem}_{attachmentId}{extension}");
+        if (!AppPaths.PathsEqual(sourcePath, destinationPath))
+        {
+            File.Copy(sourcePath, destinationPath, overwrite: true);
+        }
+
+        return destinationPath;
     }
 
     private static void AddMobileInboxAttachmentProblem(List<string> errors, string path, string kind)
@@ -13638,70 +13987,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private IEnumerable<string> ResolveMobileProcessedDirectories()
     {
-        var candidates = new List<string>();
-        AddMobileProcessedCandidates(IpadLiveFileTargetPath, candidates);
-        AddMobileProcessedCandidates(IpadLiveFileTargetFolder, candidates);
-        return candidates.Where(Directory.Exists);
-    }
-
-    private static void AddMobileProcessedCandidates(string? path, List<string> candidates)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        var fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
-        var baseDirectory = IsIpadLiveFilePath(fullPath) || File.Exists(fullPath)
-            ? Path.GetDirectoryName(fullPath)
-            : fullPath;
-        if (string.IsNullOrWhiteSpace(baseDirectory))
-        {
-            return;
-        }
-
-        if (string.Equals(Path.GetFileName(baseDirectory), "mobile-processed", StringComparison.OrdinalIgnoreCase))
-        {
-            AddMobileProcessedCandidate(baseDirectory, candidates);
-            return;
-        }
-
-        if (string.Equals(Path.GetFileName(baseDirectory), "mobile-inbox", StringComparison.OrdinalIgnoreCase))
-        {
-            var inboxParent = Directory.GetParent(baseDirectory);
-            if (inboxParent is not null)
+        var localDataDirectory = AppPaths.AppDataDirectory;
+        return new[]
             {
-                AddMobileProcessedCandidate(Path.Combine(inboxParent.FullName, "mobile-processed"), candidates);
+                Path.Combine(localDataDirectory, "mobile-processed"),
+                Path.Combine(localDataDirectory, "Sync", "mobile-processed")
             }
-
-            return;
-        }
-
-        AddMobileProcessedCandidate(Path.Combine(baseDirectory, "mobile-processed"), candidates);
-
-        var parent = Directory.GetParent(baseDirectory);
-        if (parent is not null)
-        {
-            AddMobileProcessedCandidate(Path.Combine(parent.FullName, "mobile-processed"), candidates);
-        }
-
-        if (string.Equals(Path.GetFileName(baseDirectory), "live", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(Path.GetFileName(baseDirectory), "Sync", StringComparison.OrdinalIgnoreCase))
-        {
-            var syncParent = Directory.GetParent(baseDirectory);
-            if (syncParent is not null)
-            {
-                AddMobileProcessedCandidate(Path.Combine(syncParent.FullName, "mobile-processed"), candidates);
-            }
-        }
-    }
-
-    private static void AddMobileProcessedCandidate(string candidate, List<string> candidates)
-    {
-        if (!candidates.Any(existing => string.Equals(existing, candidate, StringComparison.OrdinalIgnoreCase)))
-        {
-            candidates.Add(candidate);
-        }
+            .Where(Directory.Exists);
     }
 
     private static bool IsSafeMobileProcessedDirectory(string path)
@@ -14133,7 +14425,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             Debug.WriteLine($"Could not move imported edit file '{exportPath}': {ex}");
-            return "Bearbeitete OneDrive-Datei konnte nicht nach Erledigt verschoben werden.";
+            return "Bearbeitete Datei konnte nicht nach Erledigt verschoben werden.";
         }
     }
 
@@ -14519,16 +14811,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private string ResolveLiveSettingsSyncRootDirectory()
     {
-        var sharedDirectory = HasOneDriveEditDirectory
-            ? OneDriveEditDirectory
-            : AppPaths.AppDataDirectory;
-
-        return IpadSnapshotExportService.ResolveSyncRootDirectory(sharedDirectory);
+        return Path.Combine(AppPaths.AppDataDirectory, "Sync");
     }
 
     private void AddTechnician_OnClick(object? sender, RoutedEventArgs e)
     {
-        var profile = new TechnicianProfile { Name = "Neuer Techniker" };
+        var profile = new TechnicianProfile
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = "Neuer Techniker"
+        };
         var number = 2;
         while (TechnicianProfiles.Any(existing => string.Equals(existing.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
         {

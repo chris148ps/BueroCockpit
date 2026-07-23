@@ -15,6 +15,9 @@ public sealed class LiveSettings
 
 public sealed class TechnicianProfile
 {
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
@@ -43,7 +46,7 @@ public sealed class LiveSettingsService
 
         var settingsPath = GetSettingsPath(syncRootDirectory);
         var settings = LoadExistingSettings(settingsPath, out var wasInvalid);
-        NormalizeTechnicians(settings);
+        var settingsChanged = NormalizeTechnicians(settings);
 
         if (settings.Technicians.Count == 0)
         {
@@ -60,7 +63,7 @@ public sealed class LiveSettingsService
             }
         }
 
-        if (!File.Exists(settingsPath) || wasInvalid)
+        if (!File.Exists(settingsPath) || wasInvalid || settingsChanged)
         {
             Save(syncRootDirectory, settings);
         }
@@ -139,12 +142,14 @@ public sealed class LiveSettingsService
             .ToList();
     }
 
-    private static void NormalizeTechnicians(LiveSettings settings)
+    private static bool NormalizeTechnicians(LiveSettings settings)
     {
+        var original = settings.Technicians ?? [];
         var profiles = (settings.Technicians ?? [])
             .Where(profile => !string.IsNullOrWhiteSpace(profile.Name))
             .Select(profile => new TechnicianProfile
             {
+                Id = string.IsNullOrWhiteSpace(profile.Id) ? Guid.NewGuid().ToString("N") : profile.Id.Trim(),
                 Name = profile.Name.Trim(),
                 Abbreviation = profile.Abbreviation?.Trim() ?? string.Empty,
                 Email = profile.Email?.Trim() ?? string.Empty,
@@ -158,11 +163,18 @@ public sealed class LiveSettingsService
         if (profiles.Count == 0)
         {
             profiles = NormalizeTechnicianNames(settings.TechnicianNames)
-                .Select(name => new TechnicianProfile { Name = name })
+                .Select(name => new TechnicianProfile { Id = Guid.NewGuid().ToString("N"), Name = name })
                 .ToList();
         }
 
         settings.Technicians = profiles;
         settings.TechnicianNames = profiles.Select(profile => profile.Name).ToList();
+        return original.Count != profiles.Count ||
+               original.Zip(profiles).Any(pair =>
+                   !string.Equals(pair.First.Id, pair.Second.Id, StringComparison.Ordinal) ||
+                   !string.Equals(pair.First.Name, pair.Second.Name, StringComparison.Ordinal) ||
+                   !string.Equals(pair.First.Abbreviation, pair.Second.Abbreviation, StringComparison.Ordinal) ||
+                   !string.Equals(pair.First.Email, pair.Second.Email, StringComparison.Ordinal) ||
+                   !string.Equals(pair.First.Phone, pair.Second.Phone, StringComparison.Ordinal));
     }
 }

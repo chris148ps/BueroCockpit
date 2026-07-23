@@ -39,6 +39,14 @@ public sealed class LocalNetworkRememberedDevice
     public DateTimeOffset? LastSyncUtc { get; set; }
 
     public string? LastSyncMessage { get; set; }
+
+    public string? ConfirmedServerRevision { get; set; }
+
+    public long ConfirmedServerSequence { get; set; }
+
+    public long ConfirmedClientSequence { get; set; }
+
+    public string SyncApiVersion { get; set; } = string.Empty;
 }
 
 public enum LocalNetworkPairingState
@@ -180,6 +188,29 @@ public sealed class LocalNetworkDeviceStore
         }
     }
 
+    public bool Delete(string deviceId)
+    {
+        lock (_gate)
+        {
+            var normalizedDeviceId = deviceId.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedDeviceId))
+            {
+                return false;
+            }
+
+            var devices = LoadUnsafe().ToList();
+            var removedCount = devices.RemoveAll(item =>
+                string.Equals(item.DeviceId, normalizedDeviceId, StringComparison.OrdinalIgnoreCase));
+            if (removedCount == 0)
+            {
+                return false;
+            }
+
+            SaveUnsafe(devices);
+            return true;
+        }
+    }
+
     public void RecordSync(string deviceId, MobileInboxTransferResult result)
     {
         lock (_gate)
@@ -195,6 +226,48 @@ public sealed class LocalNetworkDeviceStore
             device.LastSeenUtc = DateTimeOffset.UtcNow;
             device.LastSyncUtc = result.IsSuccess ? result.ReceivedAtUtc : device.LastSyncUtc;
             device.LastSyncMessage = result.Messages.FirstOrDefault();
+            SaveUnsafe(devices);
+        }
+    }
+
+    public void RecordSnapshotDownload(string deviceId, DateTimeOffset createdAtUtc)
+    {
+        lock (_gate)
+        {
+            var devices = LoadUnsafe().ToList();
+            var device = devices.FirstOrDefault(item =>
+                string.Equals(item.DeviceId, deviceId.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (device is null)
+            {
+                return;
+            }
+
+            device.LastSeenUtc = DateTimeOffset.UtcNow;
+            device.LastSyncMessage =
+                $"Desktopdaten wurden am {createdAtUtc.ToLocalTime():dd.MM.yyyy HH:mm:ss} abgerufen und warten auf die Abschlussbestätigung.";
+            SaveUnsafe(devices);
+        }
+    }
+
+    public void RecordCheckpoint(string deviceId, LocalSyncAckResponse response)
+    {
+        lock (_gate)
+        {
+            var devices = LoadUnsafe().ToList();
+            var device = devices.FirstOrDefault(item =>
+                string.Equals(item.DeviceId, deviceId.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (device is null)
+            {
+                return;
+            }
+
+            device.LastSeenUtc = DateTimeOffset.UtcNow;
+            device.LastSyncUtc = DateTimeOffset.UtcNow;
+            device.LastSyncMessage = response.Message;
+            device.ConfirmedServerRevision = response.ServerRevision;
+            device.ConfirmedServerSequence = response.ServerSequence;
+            device.ConfirmedClientSequence = response.LastConfirmedClientSequence;
+            device.SyncApiVersion = response.ApiVersion;
             SaveUnsafe(devices);
         }
     }
